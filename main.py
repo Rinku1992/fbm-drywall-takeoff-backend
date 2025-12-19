@@ -631,7 +631,7 @@ async def update_floorplan_to_3d(request: Request):
     logging.info("SYSTEM: Floorplan 3D Model Updated Successfully")
 
 
-@app.post("/generate_floorplan_download_signed_URL")
+@app.post("/generate_drywall_overlaid_floorplan_download_signed_URL")
 async def generate_floorplan_download_signed_URL(request: Request) -> str:
     enable_logging_on_stdout()
     parameters = dict(request.query_params)
@@ -645,11 +645,11 @@ async def generate_floorplan_download_signed_URL(request: Request) -> str:
     user_id = parameters.get("user_id") or body.get("user_id")
     logging.info("SYSTEM: Received Signed Floorplan download URL generation Request")
 
-    GBQ_query = f"SELECT source FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE project_id = '{project_id}' AND plan_id = '{plan_id}' AND user_id = '{user_id}' AND page_number = {index};"
+    GBQ_query = f"SELECT target_drywalls FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE project_id = '{project_id}' AND plan_id = '{plan_id}' AND user_id = '{user_id}' AND page_number = {index};"
     bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
     query_output = bigquery_client.query(GBQ_query).result()
-    floorplan_source_path = list(query_output)[0].source
-    _, _, _, blob_path = floorplan_source_path.split('/', 3)
+    drywall_overlaid_floorplan_source_path = list(query_output)[0].target_drywalls
+    _, _, _, blob_path = drywall_overlaid_floorplan_source_path.split('/', 3)
 
     client = CloudStorageClient()
     bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
