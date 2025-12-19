@@ -632,7 +632,7 @@ async def update_floorplan_to_3d(request: Request):
 
 
 @app.post("/generate_drywall_overlaid_floorplan_download_signed_URL")
-async def generate_floorplan_download_signed_URL(request: Request) -> str:
+async def generate_drywall_overlaid_floorplan_download_signed_URL(request: Request) -> str:
     enable_logging_on_stdout()
     parameters = dict(request.query_params)
     try:
