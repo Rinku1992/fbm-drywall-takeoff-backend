@@ -1,0 +1,201 @@
+name: '🧱 Manual GURUBOT Orchestrator Build and Deploy'
+
+on:
+  # Manual trigger for the Cloud Run deployment
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Select environment (dev or prod)'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+
+jobs:
+  build-and-deploy:
+    name: 'Build, Push and Deploy GURUBOT Orchestrator'
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v2
+
+      # Authenticate to Google Cloud
+      - name: 'Authenticate to Google Cloud'
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ github.event.inputs.environment == 'prod' && secrets.GOOGLE_CREDENTIALS_PROD || secrets.GOOGLE_CREDENTIALS_DEV }}
+
+      # Set up GCP Project ID 
+      - name: "Set GCP Project ID"
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+            echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_PROD }}" >> $GITHUB_ENV
+          else
+            echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_DEV }}" >> $GITHUB_ENV
+          fi
+
+      # Set up Google Cloud SDK
+      - name: 'Set up Google Cloud SDK'
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      # Docker Authentication with Artifact Registry
+      - name: Docker Authentication
+        run: |
+          gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://gcr.io
+
+      # Set up VPC Access Connector
+      - name: "Set VPC Access Connector"
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_PROD }}" >> $GITHUB_ENV
+          else
+            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_DEV }}" >> $GITHUB_ENV
+          fi
+
+      # Set up GCP Service Account
+      - name: "Set GCP Service Account"
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+            echo "GCP_SERVICE_ACCOUNT=${{ vars.GCP_SERVICE_ACCOUNT_PROD }}" >> $GITHUB_ENV
+          else
+            echo "GCP_SERVICE_ACCOUNT=${{ vars.GCP_SERVICE_ACCOUNT_DEV }}" >> $GITHUB_ENV
+          fi
+
+      # Build the GURUBOT Docker image for Cloud Run
+      - name: 'Build Docker Image for GURUBOT'
+        working-directory: gurubot
+        run: |
+          docker build \
+            -t gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT }} \
+            .
+
+      # Push the GURUBOT Docker image to Google Container Registry
+      - name: 'Push Docker Image for GURUBOT to GCR'
+        run: |
+          docker push gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT }}
+
+      # Deploy GURUBOT to Cloud Run
+      - name: 'Deploy GURUBOT to Cloud Run'
+        run: |
+          gcloud run deploy gurubot-fbm-prototype \
+            --image gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT }} \
+            --platform managed \
+            --region ${{ vars.REGION }} \
+            --project ${{ env.GCP_PROJECT_ID }} \
+            --cpu 8 \
+            --memory 32Gi \
+            --min-instances 20 \
+            --max-instances 100 \
+            --concurrency 5 \
+            --execution-environment gen2 \
+            --timeout 1800 \
+            --ingress internal-and-cloud-load-balancing  \
+            --vpc-connector ${{ env.VPC_ACCESS_CONNECTOR }} \
+            --vpc-egress private-ranges-only \
+            --service-account ${{ env.GCP_SERVICE_ACCOUNT }} \
+            --allow-unauthenticated
+
+      # Build the GURUBOT-STATE Docker image for Cloud Run
+      - name: 'Build Docker Image for GURUBOT-STATE'
+        working-directory: gurubot-state
+        run: |
+          docker build \
+            -t gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT_STATE }} \
+            .
+
+      # Push the GURUBOT-STATE Docker image to Google Container Registry
+      - name: 'Push Docker Image for GURUBOT-STATE to GCR'
+        run: |
+          docker push gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT_STATE }}
+
+      # Deploy GURUBOT-STATE to Cloud Run
+      - name: 'Deploy GURUBOT-STATE to Cloud Run'
+        run: |
+          gcloud run deploy gurubot-state-fbm-prototype \
+            --image gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT_STATE }} \
+            --platform managed \
+            --region ${{ vars.REGION }} \
+            --project ${{ env.GCP_PROJECT_ID }} \
+            --cpu 2 \
+            --memory 4Gi \
+            --min-instances 20 \
+            --max-instances 100 \
+            --concurrency 5 \
+            --execution-environment gen2 \
+            --timeout 300 \
+            --ingress internal-and-cloud-load-balancing \
+            --vpc-connector ${{ env.VPC_ACCESS_CONNECTOR }} \
+            --vpc-egress private-ranges-only \
+            --service-account ${{ env.GCP_SERVICE_ACCOUNT }} \
+            --allow-unauthenticated
+
+      # Build the GURUBOT-INDEX-AUTOMATA Docker image for Cloud Run
+      - name: 'Build Docker Image for GURUBOT-INDEX-AUTOMATA'
+        working-directory: gurubot-index-automata
+        run: |
+          docker build \
+            -t gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT_INDEX_AUTOMATA }} \
+            .
+
+      # Push the GURUBOT-INDEX-AUTOMATA Docker image to Google Container Registry
+      - name: 'Push Docker Image for GURUBOT-INDEX-AUTOMATA to GCR'
+        run: |
+          docker push gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT_INDEX_AUTOMATA }}
+
+      # Deploy GURUBOT-INDEX-AUTOMATA to Cloud Run
+      - name: 'Deploy GURUBOT-INDEX-AUTOMATA to Cloud Run'
+        run: |
+          gcloud run deploy gurubot-index-automata-fbm \
+            --image gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT_INDEX_AUTOMATA }} \
+            --platform managed \
+            --region ${{ vars.REGION }} \
+            --project ${{ env.GCP_PROJECT_ID }} \
+            --cpu 8 \
+            --memory 32Gi \
+            --min-instances 0 \
+            --max-instances 1 \
+            --concurrency 1 \
+            --execution-environment gen2 \
+            --ingress internal \
+            --vpc-connector ${{ env.VPC_ACCESS_CONNECTOR }} \
+            --vpc-egress private-ranges-only \
+            --service-account ${{ env.GCP_SERVICE_ACCOUNT }} \
+            --timeout 3600
+
+      # Build the GURUBOT-TUNER Docker image for Cloud Run
+      - name: 'Build Docker Image for GURUBOT-TUNER'
+        working-directory: gurubot-tuner
+        run: |
+          docker build \
+            -t gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT_TUNER }} \
+            .
+
+      # Push the GURUBOT-TUNER Docker image to Google Container Registry
+      - name: 'Push Docker Image for GURUBOT-TUNER to GCR'
+        run: |
+          docker push gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT_TUNER }}
+
+      # Deploy GURUBOT-TUNER to Cloud Run
+      - name: 'Deploy GURUBOT-TUNER to Cloud Run'
+        run: |
+          gcloud run deploy gurubot-tuner-fbm \
+            --image gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT_TUNER }} \
+            --platform managed \
+            --region ${{ vars.REGION }} \
+            --project ${{ env.GCP_PROJECT_ID }} \
+            --cpu 8 \
+            --memory 32Gi \
+            --min-instances 0 \
+            --max-instances 1 \
+            --concurrency 1 \
+            --execution-environment gen2 \
+            --ingress internal \
+            --vpc-connector ${{ env.VPC_ACCESS_CONNECTOR }} \
+            --vpc-egress private-ranges-only \
+            --service-account ${{ env.GCP_SERVICE_ACCOUNT }} \
+            --timeout 3600
