@@ -1,4 +1,4 @@
-name: '🧱 Manual GURUBOT Orchestrator Build and Deploy'
+name: '🧱 Manual DRYWALL-TAKEOFF Orchestrator Build and Deploy'
 
 on:
   # Manual trigger for the Cloud Run deployment
@@ -14,7 +14,7 @@ on:
 
 jobs:
   build-and-deploy:
-    name: 'Build, Push and Deploy GURUBOT Orchestrator'
+    name: 'Build, Push and Deploy DRYWALL-TAKEOFF Orchestrator'
     runs-on: ubuntu-latest
     environment: ${{ github.event.inputs.environment }}
 
@@ -66,24 +66,24 @@ jobs:
             echo "GCP_SERVICE_ACCOUNT=${{ vars.GCP_SERVICE_ACCOUNT_DEV }}" >> $GITHUB_ENV
           fi
 
-      # Build the GURUBOT Docker image for Cloud Run
-      - name: 'Build Docker Image for GURUBOT'
-        working-directory: gurubot
+      # Build the DRYWALL-TAKEOFF Docker image for Cloud Run
+      - name: 'Build Docker Image for DRYWALL-TAKEOFF'
+        working-directory: .
         run: |
           docker build \
-            -t gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT }} \
+            -t gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_DRYWALL_TAKEOFF_3D }} \
             .
 
-      # Push the GURUBOT Docker image to Google Container Registry
-      - name: 'Push Docker Image for GURUBOT to GCR'
+      # Push the DRYWALL-TAKEOFF Docker image to Google Container Registry
+      - name: 'Push Docker Image for DRYWALL-TAKEOFF to GCR'
         run: |
-          docker push gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT }}
+          docker push gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_DRYWALL_TAKEOFF_3D }}
 
-      # Deploy GURUBOT to Cloud Run
-      - name: 'Deploy GURUBOT to Cloud Run'
+      # Deploy DRYWALL-TAKEOFF to Cloud Run
+      - name: 'Deploy DRYWALL-TAKEOFF to Cloud Run'
         run: |
-          gcloud run deploy gurubot-fbm-prototype \
-            --image gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT }} \
+          gcloud run deploy drywall-takeoff-3d-fbm \
+            --image gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_DRYWALL_TAKEOFF_3D }} \
             --platform managed \
             --region ${{ vars.REGION }} \
             --project ${{ env.GCP_PROJECT_ID }} \
@@ -100,24 +100,24 @@ jobs:
             --service-account ${{ env.GCP_SERVICE_ACCOUNT }} \
             --allow-unauthenticated
 
-      # Build the GURUBOT-STATE Docker image for Cloud Run
-      - name: 'Build Docker Image for GURUBOT-STATE'
-        working-directory: gurubot-state
+      # Build the DRYWALL-WALL-DETECTOR Docker image for Cloud Run
+      - name: 'Build Docker Image for DRYWALL-WALL-DETECTOR'
+        working-directory: .
         run: |
           docker build \
-            -t gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT_STATE }} \
+            -t gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_DRYWALL_WALL_DETECTOR }} \
             .
 
-      # Push the GURUBOT-STATE Docker image to Google Container Registry
-      - name: 'Push Docker Image for GURUBOT-STATE to GCR'
+      # Push the DRYWALL-WALL-DETECTOR Docker image to Google Container Registry
+      - name: 'Push Docker Image for DRYWALL-WALL-DETECTOR to GCR'
         run: |
-          docker push gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT_STATE }}
+          docker push gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_DRYWALL_WALL_DETECTOR }}
 
-      # Deploy GURUBOT-STATE to Cloud Run
-      - name: 'Deploy GURUBOT-STATE to Cloud Run'
+      # Deploy DRYWALL-WALL-DETECTOR to Cloud Run
+      - name: 'Deploy DRYWALL-WALL-DETECTOR to Cloud Run'
         run: |
-          gcloud run deploy gurubot-state-fbm-prototype \
-            --image gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT_STATE }} \
+          gcloud run deploy drywall-wall-detector \
+            --image gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_DRYWALL_WALL_DETECTOR }} \
             --platform managed \
             --region ${{ vars.REGION }} \
             --project ${{ env.GCP_PROJECT_ID }} \
@@ -133,69 +133,3 @@ jobs:
             --vpc-egress private-ranges-only \
             --service-account ${{ env.GCP_SERVICE_ACCOUNT }} \
             --allow-unauthenticated
-
-      # Build the GURUBOT-INDEX-AUTOMATA Docker image for Cloud Run
-      - name: 'Build Docker Image for GURUBOT-INDEX-AUTOMATA'
-        working-directory: gurubot-index-automata
-        run: |
-          docker build \
-            -t gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT_INDEX_AUTOMATA }} \
-            .
-
-      # Push the GURUBOT-INDEX-AUTOMATA Docker image to Google Container Registry
-      - name: 'Push Docker Image for GURUBOT-INDEX-AUTOMATA to GCR'
-        run: |
-          docker push gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT_INDEX_AUTOMATA }}
-
-      # Deploy GURUBOT-INDEX-AUTOMATA to Cloud Run
-      - name: 'Deploy GURUBOT-INDEX-AUTOMATA to Cloud Run'
-        run: |
-          gcloud run deploy gurubot-index-automata-fbm \
-            --image gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT_INDEX_AUTOMATA }} \
-            --platform managed \
-            --region ${{ vars.REGION }} \
-            --project ${{ env.GCP_PROJECT_ID }} \
-            --cpu 8 \
-            --memory 32Gi \
-            --min-instances 0 \
-            --max-instances 1 \
-            --concurrency 1 \
-            --execution-environment gen2 \
-            --ingress internal \
-            --vpc-connector ${{ env.VPC_ACCESS_CONNECTOR }} \
-            --vpc-egress private-ranges-only \
-            --service-account ${{ env.GCP_SERVICE_ACCOUNT }} \
-            --timeout 3600
-
-      # Build the GURUBOT-TUNER Docker image for Cloud Run
-      - name: 'Build Docker Image for GURUBOT-TUNER'
-        working-directory: gurubot-tuner
-        run: |
-          docker build \
-            -t gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT_TUNER }} \
-            .
-
-      # Push the GURUBOT-TUNER Docker image to Google Container Registry
-      - name: 'Push Docker Image for GURUBOT-TUNER to GCR'
-        run: |
-          docker push gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT_TUNER }}
-
-      # Deploy GURUBOT-TUNER to Cloud Run
-      - name: 'Deploy GURUBOT-TUNER to Cloud Run'
-        run: |
-          gcloud run deploy gurubot-tuner-fbm \
-            --image gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_GURUBOT_TUNER }} \
-            --platform managed \
-            --region ${{ vars.REGION }} \
-            --project ${{ env.GCP_PROJECT_ID }} \
-            --cpu 8 \
-            --memory 32Gi \
-            --min-instances 0 \
-            --max-instances 1 \
-            --concurrency 1 \
-            --execution-environment gen2 \
-            --ingress internal \
-            --vpc-connector ${{ env.VPC_ACCESS_CONNECTOR }} \
-            --vpc-egress private-ranges-only \
-            --service-account ${{ env.GCP_SERVICE_ACCOUNT }} \
-            --timeout 3600
