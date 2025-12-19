@@ -64,6 +64,7 @@ def insert_model_2d(
     user_id,
     project_id,
     GCS_URL_floorplan_page,
+    GCS_URL_target_drywalls_page,
     credentials
     ):
     GBQ_query = """
@@ -75,7 +76,8 @@ def insert_model_2d(
             @user_id AS user_id,
             @page_number AS page_number,
             @model_2d AS model_2d,
-            @source AS source
+            @source AS source,
+            @target_drywalls AS target_drywalls,
     ) s
     ON t.project_id = s.project_id AND t.plan_id = s.plan_id AND t.user_id = s.user_id AND t.page_number = s.page_number
     WHEN MATCHED THEN
@@ -92,6 +94,7 @@ def insert_model_2d(
         model_3d,
         takeoff,
         source,
+        target_drywalls,
         created_at,
         updated_at
     )
@@ -104,6 +107,7 @@ def insert_model_2d(
         JSON '{}',
         JSON '{}',
         s.source,
+        s.target_drywalls,
         CURRENT_TIMESTAMP(),
         CURRENT_TIMESTAMP()
     );
@@ -115,7 +119,8 @@ def insert_model_2d(
             bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
             bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
             bigquery.ScalarQueryParameter("model_2d", "JSON", model_2d),
-            bigquery.ScalarQueryParameter("source", "STRING", GCS_URL_floorplan_page)
+            bigquery.ScalarQueryParameter("source", "STRING", GCS_URL_floorplan_page),
+            bigquery.ScalarQueryParameter("target_drywalls", "STRING", GCS_URL_target_drywalls_page)
         ]
     )
 
@@ -551,9 +556,9 @@ async def floorplan_to_2d(request: Request):
         model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_path)
         upload_floorplan(model_2d_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
         model_2d_path_overlay_enabled = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_path, overlay_enabled=True)
-        upload_floorplan(model_2d_path_overlay_enabled, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
+        target_drywalls_page_source = upload_floorplan(model_2d_path_overlay_enabled, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
         logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {index} Generated Successfully")
-        insert_model_2d(walls_2d, index, plan_id, user_id, project_id, floorplan_page_source, CREDENTIALS)
+        insert_model_2d(walls_2d, index, plan_id, user_id, project_id, floorplan_page_source, target_drywalls_page_source, CREDENTIALS)
         walls_2d_all.append(walls_2d)
 
     return respond_with_UI_payload(walls_2d_all)
