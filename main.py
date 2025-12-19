@@ -66,7 +66,7 @@ def insert_model_2d(
     GCS_URL_floorplan_page,
     GCS_URL_target_drywalls_page,
     credentials
-    ):
+):
     GBQ_query = """
     MERGE `drywall_takeoff.models` t
     USING (
