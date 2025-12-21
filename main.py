@@ -28,7 +28,7 @@ from extrapolate_3d import Extrapolate3D
 
 def respond_with_UI_payload(payload):
     return JSONResponse(
-        content=json.loads(json.dumps(payload)),
+        content=json.loads(json.dumps(payload, allow_nan=True)),
         status_code=200,
         media_type="application/json",
     )
