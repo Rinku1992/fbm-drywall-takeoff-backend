@@ -469,7 +469,7 @@ async def load_project(request: Request):
         body = dict()
     project_id = parameters.get("project_id") or body.get("project_id")
 
-    GBQ_query = f"SELECT projects.project_id, models.page_number, models.model_2d, models.model_3d, models.created_at, models.updated_at, models.takeoff, models.source, plans.user_id, plans.plan_id, plans.plan_name, plans.plan_type, plans.file_type FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` AS models JOIN `{CREDENTIALS["GBQServer"]["table_name_plans"]}` AS plans ON models.project_id = plans.project_id AND models.plan_id = plans.plan_id JOIN `{CREDENTIALS["GBQServer"]["table_name_projects"]}` AS projects ON plans.project_id = projects.project_id WHERE projects.project_id = '{project_id}';"
+    GBQ_query = f"SELECT projects.project_id, models.page_number, models.model_2d, models.model_3d, models.created_at, models.updated_at, models.takeoff, models.source, models.target_drywalls, plans.user_id, plans.plan_id, plans.plan_name, plans.plan_type, plans.file_type FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` AS models JOIN `{CREDENTIALS["GBQServer"]["table_name_plans"]}` AS plans ON models.project_id = plans.project_id AND models.plan_id = plans.plan_id JOIN `{CREDENTIALS["GBQServer"]["table_name_projects"]}` AS projects ON plans.project_id = projects.project_id WHERE projects.project_id = '{project_id}';"
     bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
     query_output = bigquery_client.query(GBQ_query).to_dataframe()
     dataframe = load_UI_dataframe(query_output)
