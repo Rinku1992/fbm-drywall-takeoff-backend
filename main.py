@@ -52,7 +52,7 @@ def upload_floorplan(plan_path, user_id, plan_id, project_id, credentials, index
 def download_floorplan(user_id, plan_id, project_id, credentials, destination_path="/tmp/floor_plan.PDF"):
     client = CloudStorageClient()
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
-    blob_path = f"{project_id}.{plan_id}.{user_id}/floor_plan.PDF"
+    blob_path = f"{project_id}/{plan_id}/{user_id}/floor_plan.PDF"
     blob = bucket.blob(blob_path)
 
     blob.download_to_filename(destination_path)
