@@ -509,7 +509,7 @@ async def generate_floorplan_upload_signed_URL(request: Request) -> str:
 
     client = CloudStorageClient()
     bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
-    blob_path = f"{project_id}.{payload_plan.plan_id}.{user_id}/floor_plan.PDF"
+    blob_path = f"{project_id}/{payload_plan.plan_id}/{user_id}/floor_plan.PDF"
     blob = bucket.blob(blob_path)
     url = blob.generate_signed_url(
         version="v4",
