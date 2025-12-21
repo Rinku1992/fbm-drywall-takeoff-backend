@@ -550,7 +550,7 @@ async def floorplan_to_2d(request: Request):
     floor_plan_modeller_2d = FloorPlan2D(hyperparameters)
     walls_2d_all = list()
     for index, floor_plan_path in enumerate(floor_plan_paths_preprocessed):
-        floorplan_page_source = upload_floorplan(floor_plan_path, user_id, plan_id, project_id, CREDENTIALS)
+        floorplan_page_source = upload_floorplan(floor_plan_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
         logging.info(f"SYSTEM: Preprocessed Floorplan Image uploaded to GCS from PAGE: {index}")
         wall_segmented_path = floorplan_to_walls(CREDENTIALS, index)
         upload_floorplan(wall_segmented_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
