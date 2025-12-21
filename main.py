@@ -38,6 +38,9 @@ def respond_with_UI_payload(payload):
 
 def upload_floorplan(plan_path, user_id, plan_id, project_id, credentials, index=None):
     client = CloudStorageClient()
+    page_number = Path(plan_path.stem).suffix
+    if page_number:
+        plan_path = Path(str(plan_path).replace(page_number, ''))
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
     if index:
         blob_path = f"{project_id}/{plan_id}/{user_id}/{index}/{plan_path.name}"
