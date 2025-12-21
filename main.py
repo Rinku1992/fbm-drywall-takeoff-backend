@@ -21,6 +21,8 @@ from google.cloud.storage import Client as CloudStorageClient
 from google.cloud import bigquery
 
 import pandas as pd
+import numpy as np
+import math
 from preprocessing import preprocess
 from modeller_2d import FloorPlan2D
 from extrapolate_3d import Extrapolate3D
@@ -362,8 +364,10 @@ def floorplan_to_walls(credentials, index):
 
 def load_UI_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     df = df.map(lambda x: float(x) if isinstance(x, Decimal) else x)
-    df = df.map(lambda x: x.isoformat() if isinstance(x, date) else x)
+    df = df.map(lambda x: "null" if isinstance(x, int) and (pd.isna(x) or math.isnan(x) or math.isinf(x) or np.isnan(x) or np.isinf(x)) else x)
+    df = df.map(lambda x: "null" if isinstance(x, float) and (pd.isna(x) or math.isnan(x) or math.isinf(x) or np.isnan(x) or np.isinf(x)) else x)
     df = df.map(lambda x: x.date().isoformat() if isinstance(x, datetime) else x)
+    df = df.map(lambda x: x.isoformat() if isinstance(x, date) else x)
     df = df.map(lambda x: x.isoformat() if isinstance(x, time) else x)
     df = df.map(lambda x: json.dumps(x) if isinstance(x, (list, dict)) else x)
     df = df.map(lambda x: b64encode(x).decode("utf-8") if isinstance(x, bytes) else x)
