@@ -40,7 +40,7 @@ def upload_floorplan(plan_path, user_id, plan_id, project_id, credentials, index
     client = CloudStorageClient()
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
     if index:
-        blob_path = f"{project_id}/{plan_id}/{user_id}/{plan_path.name}.{index}"
+        blob_path = f"{project_id}/{plan_id}/{user_id}/{index}/{plan_path.name}"
     else:
         blob_path = f"{project_id}/{plan_id}/{user_id}/{plan_path.name}"
     blob = bucket.blob(blob_path)
