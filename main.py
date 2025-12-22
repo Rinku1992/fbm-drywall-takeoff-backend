@@ -45,9 +45,9 @@ def upload_floorplan(plan_path, user_id, plan_id, project_id, credentials, index
         blob_object_name = plan_path.name
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
     if index:
-        blob_path = f"{project_id}/{plan_id}/{user_id}/{index}/{blob_object_name}"
+        blob_path = f"{project_id.lower()}/{plan_id.lower()}/{user_id.lower()}/{index}/{blob_object_name}"
     else:
-        blob_path = f"{project_id}/{plan_id}/{user_id}/{blob_object_name}"
+        blob_path = f"{project_id.lower()}/{plan_id.lower()}/{user_id.lower()}/{blob_object_name}"
     blob = bucket.blob(blob_path)
 
     blob.upload_from_filename(plan_path)
@@ -57,7 +57,7 @@ def upload_floorplan(plan_path, user_id, plan_id, project_id, credentials, index
 def download_floorplan(user_id, plan_id, project_id, credentials, destination_path="/tmp/floor_plan.PDF"):
     client = CloudStorageClient()
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
-    blob_path = f"{project_id}/{plan_id}/{user_id}/floor_plan.PDF"
+    blob_path = f"{project_id.lower()}/{plan_id.lower()}/{user_id.lower()}/floor_plan.PDF"
     blob = bucket.blob(blob_path)
 
     blob.download_to_filename(destination_path)
@@ -86,7 +86,7 @@ def insert_model_2d(
             @source AS source,
             @target_drywalls AS target_drywalls,
     ) s
-    ON t.project_id = s.project_id AND t.plan_id = s.plan_id AND t.user_id = s.user_id AND t.page_number = s.page_number
+    ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id) AND LOWER(t.user_id) = LOWER(s.user_id) AND t.page_number = s.page_number
     WHEN MATCHED THEN
     UPDATE SET
         model_2d = s.model_2d,
@@ -150,9 +150,9 @@ def insert_model_3d(
         model_3d = @model_3d,
         updated_at = CURRENT_TIMESTAMP()
     WHERE
-        project_id = @project_id
-        AND plan_id = @plan_id
-        AND user_id = @user_id
+        LOWER(project_id) = LOWER(@project_id)
+        AND LOWER(plan_id) = LOWER(@plan_id)
+        AND LOWER(user_id) = LOWER(@user_id)
         AND page_number = @page_number
     """
     job_config = bigquery.QueryJobConfig(
@@ -184,9 +184,9 @@ def insert_takeoff(
         takeoff = @takeoff,
         updated_at = CURRENT_TIMESTAMP()
     WHERE
-        project_id = @project_id
-        AND plan_id = @plan_id
-        AND user_id = @user_id
+        LOWER(project_id) = LOWER(@project_id)
+        AND LOWER(plan_id) = LOWER(@plan_id)
+        AND LOWER(user_id) = LOWER(@user_id)
         AND page_number = @page_number
     """
     job_config = bigquery.QueryJobConfig(
@@ -226,7 +226,7 @@ def insert_plan(
             @pages AS pages,
             @source AS source
     ) s
-    ON t.project_id = s.project_id AND t.plan_id = s.plan_id AND t.user_id = s.user_id
+    ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id) AND LOWER(t.user_id) = LOWER(s.user_id)
     WHEN MATCHED THEN
     UPDATE SET
         pages = s.pages,
@@ -298,7 +298,7 @@ def insert_project(payload_project, credentials):
             @project_area AS project_area,
             @contractor_name AS contractor_name
     ) s
-    ON t.project_id = s.project_id
+    ON LOWER(t.project_id) = LOWER(s.project_id)
     WHEN NOT MATCHED THEN
     INSERT (
         project_id,
