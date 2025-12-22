@@ -583,7 +583,7 @@ async def update_floorplan_to_2d(request: Request):
     project_id = parameters.get("project_id") or body.get("project_id")
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
-    index = parameters.get("index") or body.get("index")
+    index = parameters.get("page_number") or body.get("page_number")
     logging.info("SYSTEM: Received a Floorplan 2D Model Update Request")
 
     insert_model_2d(walls_2d_JSON, index, plan_id, user_id, project_id, None, CREDENTIALS)
@@ -602,7 +602,7 @@ async def floorplan_to_3d(request: Request):
     project_id = parameters.get("project_id") or body.get("project_id")
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
-    index = parameters.get("index") or body.get("index")
+    index = parameters.get("page_number") or body.get("page_number")
     logging.info("SYSTEM: Received a Floorplan 3D Model Generation Request")
 
     model_2d_path = "/tmp/walls_2d.json"
@@ -631,7 +631,7 @@ async def update_floorplan_to_3d(request: Request):
     project_id = parameters.get("project_id") or body.get("project_id")
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
-    index = parameters.get("index") or body.get("index")
+    index = parameters.get("page_number") or body.get("page_number")
     logging.info("SYSTEM: Received a Floorplan 3D Model Update Request")
 
     insert_model_3d(walls_3d_JSON, index, plan_id, user_id, project_id, CREDENTIALS)
@@ -646,7 +646,7 @@ async def generate_drywall_overlaid_floorplan_download_signed_URL(request: Reque
         body = await request.json()
     except Exception:
         body = dict()
-    index = parameters.get("index") or body.get("index")
+    index = parameters.get("page_number") or body.get("page_number")
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     user_id = parameters.get("user_id") or body.get("user_id")
@@ -680,7 +680,7 @@ async def compute_takeoff(request: Request):
     except Exception:
         body = dict()
     walls_3d_JSON = parameters.get("walls_3d") or body.get("walls_3d")
-    index = parameters.get("index") or body.get("index")
+    index = parameters.get("page_number") or body.get("page_number")
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     user_id = parameters.get("user_id") or body.get("user_id")
