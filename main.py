@@ -551,7 +551,7 @@ async def floorplan_to_2d(request: Request):
     logging.info("SYSTEM: Floorplan Preprocessing Completed")
 
     floor_plan_modeller_2d = FloorPlan2D(hyperparameters)
-    walls_2d_all = list()
+    walls_2d_all = dict(pages=list())
     for index, floor_plan_path in enumerate(floor_plan_paths_preprocessed):
         floorplan_page_source = upload_floorplan(floor_plan_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
         logging.info(f"SYSTEM: Preprocessed Floorplan Image uploaded to GCS from PAGE: {index}")
@@ -566,7 +566,8 @@ async def floorplan_to_2d(request: Request):
         target_drywalls_page_source = upload_floorplan(model_2d_path_overlay_enabled, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
         logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {index} Generated Successfully")
         insert_model_2d(walls_2d, index, plan_id, user_id, project_id, floorplan_page_source, target_drywalls_page_source, CREDENTIALS)
-        walls_2d_all.append(walls_2d)
+        page = dict(page_number=index, walls_2d=walls_2d, page_name='')
+        walls_2d_all["pages"].append(page)
 
     return respond_with_UI_payload(walls_2d_all)
 
