@@ -479,7 +479,7 @@ async def load_project_plans(request: Request):
     project_id = parameters.get("project_id") or body.get("project_id")
     user_id = parameters.get("user_id") or body.get("user_id")
 
-    GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE project_id = '{project_id}' AND user_id = '{user_id}';"
+    GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(user_id) = LOWER('{user_id}');"
     bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
     query_output = bigquery_client.query(GBQ_query).to_dataframe()
     dataframe = load_UI_dataframe(query_output)
@@ -512,7 +512,7 @@ async def generate_floorplan_upload_signed_URL(request: Request) -> str:
 
     client = CloudStorageClient()
     bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
-    blob_path = f"{project_id}/{payload_plan.plan_id}/{user_id}/floor_plan.PDF"
+    blob_path = f"{project_id.lower()}/{payload_plan.plan_id.lower()}/{user_id.lower()}/floor_plan.PDF"
     blob = bucket.blob(blob_path)
     url = blob.generate_signed_url(
         version="v4",
@@ -536,7 +536,7 @@ async def load_plan_pages(request: Request):
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     user_id = parameters.get("user_id") or body.get("user_id")
 
-    GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE project_id = '{project_id}' AND plan_id = '{plan_id}' AND user_id = '{user_id}';"
+    GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) = LOWER('{user_id}');"
     bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
     query_output = bigquery_client.query(GBQ_query).to_dataframe()
     dataframe = load_UI_dataframe(query_output)
