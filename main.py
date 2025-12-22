@@ -40,12 +40,14 @@ def upload_floorplan(plan_path, user_id, plan_id, project_id, credentials, index
     client = CloudStorageClient()
     page_number = Path(plan_path.stem).suffix
     if page_number:
-        plan_path = Path(str(plan_path).replace(page_number, ''))
+        blob_object_name = Path(str(plan_path).replace(page_number, '')).name
+    else:
+        blob_object_name = plan_path.name
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
     if index:
-        blob_path = f"{project_id}/{plan_id}/{user_id}/{index}/{plan_path.name}"
+        blob_path = f"{project_id}/{plan_id}/{user_id}/{index}/{blob_object_name}"
     else:
-        blob_path = f"{project_id}/{plan_id}/{user_id}/{plan_path.name}"
+        blob_path = f"{project_id}/{plan_id}/{user_id}/{blob_object_name}"
     blob = bucket.blob(blob_path)
 
     blob.upload_from_filename(plan_path)
