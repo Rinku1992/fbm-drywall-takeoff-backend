@@ -468,8 +468,8 @@ async def load_projects():
     return respond_with_UI_payload(dict(projects=projects))
 
 
-@app.post("/load_project")
-async def load_project(request: Request):
+@app.post("/load_project_plans")
+async def load_project_plans(request: Request):
     enable_logging_on_stdout()
     parameters = dict(request.query_params)
     try:
@@ -477,15 +477,16 @@ async def load_project(request: Request):
     except Exception:
         body = dict()
     project_id = parameters.get("project_id") or body.get("project_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
 
-    GBQ_query = f"SELECT projects.project_id, models.page_number, models.model_2d, models.model_3d, models.created_at, models.updated_at, models.takeoff, models.source, models.target_drywalls, plans.user_id, plans.plan_id, plans.plan_name, plans.plan_type, plans.file_type FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` AS models JOIN `{CREDENTIALS["GBQServer"]["table_name_plans"]}` AS plans ON models.project_id = plans.project_id AND models.plan_id = plans.plan_id JOIN `{CREDENTIALS["GBQServer"]["table_name_projects"]}` AS projects ON plans.project_id = projects.project_id WHERE projects.project_id = '{project_id}';"
+    GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE project_id = '{project_id}' AND user_id = '{user_id}';"
     bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
     query_output = bigquery_client.query(GBQ_query).to_dataframe()
     dataframe = load_UI_dataframe(query_output)
-    project_data = dataframe.to_dict(orient="records")
+    project_plans_data = dataframe.to_dict(orient="records")
 
-    logging.info(f"SYSTEM: Project Data retrieved successfully")
-    return respond_with_UI_payload(dict(project_data=project_data))
+    logging.info(f"SYSTEM: Project Plans Data retrieved successfully")
+    return respond_with_UI_payload(dict(project_plans=project_plans_data))
 
 
 @app.post("/generate_floorplan_upload_signed_URL")
@@ -521,6 +522,26 @@ async def generate_floorplan_upload_signed_URL(request: Request) -> str:
     )
 
     return url
+
+
+@app.post("/load_plan")
+async def load_project(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    project_id = parameters.get("project_id") or body.get("project_id")
+
+    GBQ_query = f"SELECT projects.project_id, models.page_number, models.model_2d, models.model_3d, models.created_at, models.updated_at, models.takeoff, models.source, models.target_drywalls, plans.user_id, plans.plan_id, plans.plan_name, plans.plan_type, plans.file_type FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` AS models JOIN `{CREDENTIALS["GBQServer"]["table_name_plans"]}` AS plans ON models.project_id = plans.project_id AND models.plan_id = plans.plan_id JOIN `{CREDENTIALS["GBQServer"]["table_name_projects"]}` AS projects ON plans.project_id = projects.project_id WHERE projects.project_id = '{project_id}';"
+    bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
+    query_output = bigquery_client.query(GBQ_query).to_dataframe()
+    dataframe = load_UI_dataframe(query_output)
+    project_data = dataframe.to_dict(orient="records")
+
+    logging.info(f"SYSTEM: Project Data retrieved successfully")
+    return respond_with_UI_payload(dict(project_data=project_data))
 
 
 @app.post("/floorplan_to_2d")
