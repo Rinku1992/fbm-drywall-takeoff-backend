@@ -495,7 +495,9 @@ async def load_project_plans(request: Request):
     bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
     query_output = bigquery_client.query(GBQ_query).to_dataframe()
     dataframe = load_UI_dataframe(query_output)
-    project_metadata = dataframe.to_dict(orient="records")[0]
+    perject_metadata = dict()
+    if dataframe.to_dict(orient="records"):
+        project_metadata = dataframe.to_dict(orient="records")[0]
 
     GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(user_id) = LOWER('{user_id}');"
     bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
@@ -558,7 +560,9 @@ async def load_plan_pages(request: Request):
     bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
     query_output = bigquery_client.query(GBQ_query).to_dataframe()
     dataframe = load_UI_dataframe(query_output)
-    plan_metadata = dataframe.to_dict(orient="records")[0]
+    plan_metadata = dict()
+    if dataframe.to_dict(orient="records"):
+        plan_metadata = dataframe.to_dict(orient="records")[0]
 
     GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) = LOWER('{user_id}');"
     bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
