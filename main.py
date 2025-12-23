@@ -495,7 +495,7 @@ async def load_project_plans(request: Request):
     bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
     query_output = bigquery_client.query(GBQ_query).to_dataframe()
     dataframe = load_UI_dataframe(query_output)
-    perject_metadata = dict()
+    project_metadata = dict()
     if dataframe.to_dict(orient="records"):
         project_metadata = dataframe.to_dict(orient="records")[0]
 
