@@ -554,6 +554,12 @@ async def load_plan_pages(request: Request):
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     user_id = parameters.get("user_id") or body.get("user_id")
 
+    GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) = LOWER('{user_id}');"
+    bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
+    query_output = bigquery_client.query(GBQ_query).to_dataframe()
+    dataframe = load_UI_dataframe(query_output)
+    plan_metadata = dataframe.to_dict(orient="records")[0]
+
     GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) = LOWER('{user_id}');"
     bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
     query_output = bigquery_client.query(GBQ_query).to_dataframe()
@@ -561,7 +567,7 @@ async def load_plan_pages(request: Request):
     plan_pages_data = dataframe.to_dict(orient="records")
 
     logging.info(f"SYSTEM: Plan Pages Data retrieved successfully")
-    return respond_with_UI_payload(dict(plan_pages=plan_pages_data))
+    return respond_with_UI_payload(dict(plan_metadata=plan_metadata, plan_pages=plan_pages_data))
 
 
 @app.post("/floorplan_to_2d")
