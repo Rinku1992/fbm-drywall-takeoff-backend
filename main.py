@@ -348,7 +348,7 @@ def insert_project(payload_project, credentials):
 def floorplan_to_walls(credentials, index):
     auth_req = google.auth.transport.requests.Request()
     service_account_credentials = IDTokenCredentials.from_service_account_file(
-        credentials["service_account_key"],
+        credentials["service_compute_account_key"],
         target_audience=credentials["CloudRun"]["APIs"]["wall_detector"]
     )
     service_account_credentials.refresh(auth_req)
@@ -396,7 +396,7 @@ def load_gcp_credentials() -> dict:
     yaml = YAML(typ="safe", pure=True)
     with open("gcp.yaml", 'r') as f:
         credentials = yaml.load(f)
-    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials["service_account_key"]
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials["service_drywall_account_key"]
 
     return credentials
 
