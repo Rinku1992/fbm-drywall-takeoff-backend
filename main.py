@@ -345,7 +345,7 @@ def insert_project(payload_project, credentials):
     return created_at
 
 
-def floorplan_to_walls(credentials, index):
+def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number):
     auth_req = google.auth.transport.requests.Request()
     service_account_credentials = IDTokenCredentials.from_service_account_file(
         credentials["service_compute_account_key"],
@@ -362,7 +362,12 @@ def floorplan_to_walls(credentials, index):
     response = requests.post(
         f"{credentials["CloudRun"]["APIs"]["wall_detector"]}/detect_wall",
         headers=headers,
-        json=dict(index=index)
+        json=dict(
+            project_id=project_id,
+            plan_id=plan_id,
+            user_id=user_id,
+            page_number=page_number
+        )
     )
 
     image_path  = Path("/tmp/floor_plan_wall_segmented.png")
@@ -608,7 +613,7 @@ async def floorplan_to_2d(request: Request):
     for index, floor_plan_path in enumerate(floor_plan_paths_preprocessed):
         floorplan_page_source = upload_floorplan(floor_plan_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
         logging.info(f"SYSTEM: Preprocessed Floorplan Image uploaded to GCS from PAGE: {index}")
-        wall_segmented_path = floorplan_to_walls(CREDENTIALS, index)
+        wall_segmented_path = floorplan_to_walls(CREDENTIALS, project_id, plan_id, user_id, index)
         upload_floorplan(wall_segmented_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
         logging.info(f"SYSTEM: Wall Detection Completed from PAGE: {index}")
 
