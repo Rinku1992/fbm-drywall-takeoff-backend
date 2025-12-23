@@ -296,7 +296,8 @@ def insert_project(payload_project, credentials):
             @FBM_branch AS FBM_branch,
             @project_type AS project_type,
             @project_area AS project_area,
-            @contractor_name AS contractor_name
+            @contractor_name AS contractor_name,
+            @created_by AS created_by
     ) s
     ON LOWER(t.project_id) = LOWER(s.project_id)
     WHEN NOT MATCHED THEN
@@ -308,7 +309,8 @@ def insert_project(payload_project, credentials):
         project_type,
         project_area,
         contractor_name,
-        created_at
+        created_at,
+        created_by
     )
     VALUES (
         s.project_id,
@@ -318,7 +320,8 @@ def insert_project(payload_project, credentials):
         s.project_type,
         s.project_area,
         s.contractor_name,
-        CURRENT_TIMESTAMP()
+        CURRENT_TIMESTAMP(),
+        s.created_by
     );
     """
     job_config = bigquery.QueryJobConfig(
@@ -329,7 +332,8 @@ def insert_project(payload_project, credentials):
             bigquery.ScalarQueryParameter("FBM_branch", "STRING", payload_project.FBM_branch),
             bigquery.ScalarQueryParameter("project_type", "STRING", payload_project.project_type),
             bigquery.ScalarQueryParameter("project_area", "STRING", payload_project.project_area),
-            bigquery.ScalarQueryParameter("contractor_name", "STRING", payload_project.contractor_name)
+            bigquery.ScalarQueryParameter("contractor_name", "STRING", payload_project.contractor_name),
+            bigquery.ScalarQueryParameter("created_by", "STRING", payload_project.created_by)
         ]
     )
 
@@ -424,6 +428,7 @@ class PayloadProject(BaseModel):
     project_type: str
     contractor_name: str
     FBM_branch: str
+    created_by: str
 
 class PayloadPlan(BaseModel):
     plan_id: str
