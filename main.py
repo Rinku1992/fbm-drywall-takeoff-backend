@@ -479,6 +479,12 @@ async def load_project_plans(request: Request):
     project_id = parameters.get("project_id") or body.get("project_id")
     user_id = parameters.get("user_id") or body.get("user_id")
 
+    GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_projects"]}` WHERE LOWER(project_id) = LOWER('{project_id}');"
+    bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
+    query_output = bigquery_client.query(GBQ_query).to_dataframe()
+    dataframe = load_UI_dataframe(query_output)
+    project_metadata = dataframe.to_dict(orient="records")[0]
+
     GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(user_id) = LOWER('{user_id}');"
     bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
     query_output = bigquery_client.query(GBQ_query).to_dataframe()
@@ -486,7 +492,7 @@ async def load_project_plans(request: Request):
     project_plans_data = dataframe.to_dict(orient="records")
 
     logging.info(f"SYSTEM: Project Plans Data retrieved successfully")
-    return respond_with_UI_payload(dict(project_plans=project_plans_data))
+    return respond_with_UI_payload(dict(project_metadata=project_metadata, project_plans=project_plans_data))
 
 
 @app.post("/generate_floorplan_upload_signed_URL")
