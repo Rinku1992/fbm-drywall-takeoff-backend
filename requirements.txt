@@ -5,6 +5,7 @@
 google-cloud-storage
 google-cloud-bigquery
 google-cloud-bigquery-storage
+google-cloud-secret-manager
 db-dtypes
 google-auth
 google-oauth
