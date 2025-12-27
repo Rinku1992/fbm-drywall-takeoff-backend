@@ -550,7 +550,7 @@ async def generate_floorplan_upload_signed_URL(request: Request) -> str:
     payload_plan = parameters.get("plan") or body.get("plan")
     user_id = parameters.get("user_id") or body.get("user_id")
     payload_plan = PayloadPlan(**payload_plan)
-    logging.info("SYSTEM: Received Signed Floorplan download URL generation Request")
+    logging.info("SYSTEM: Received Signed Floorplan upload URL generation Request")
 
     insert_plan(
         project_id,
