@@ -748,7 +748,6 @@ async def generate_drywall_overlaid_floorplan_download_signed_URL(request: Reque
         version="v4",
         expiration=timedelta(minutes=CREDENTIALS["CloudStorage"]["expiration_in_minutes"]),
         method="GET",
-        content_type="application/octet-stream",
     )
 
     return url
