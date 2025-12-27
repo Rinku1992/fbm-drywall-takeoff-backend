@@ -68,7 +68,7 @@ jobs:
 
       # Build the DRYWALL-TAKEOFF Docker image for Cloud Run
       - name: 'Build Docker Image for DRYWALL-TAKEOFF'
-        working-directory: .
+        working-directory: drywall-takeoff-3d
         run: |
           docker build \
             -t gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_DRYWALL_TAKEOFF_3D }} \
@@ -102,7 +102,7 @@ jobs:
 
       # Build the DRYWALL-WALL-DETECTOR Docker image for Cloud Run
       - name: 'Build Docker Image for DRYWALL-WALL-DETECTOR'
-        working-directory: .
+        working-directory: wall-detector
         run: |
           docker build \
             -t gcr.io/${{ env.GCP_PROJECT_ID }}/${{ vars.IMAGE_NAME_DRYWALL_WALL_DETECTOR }} \
