@@ -494,9 +494,12 @@ async def load_projects(request: Request):
         body = await request.json()
     except Exception:
         body = dict()
-    user_id = parameters.get("user_id") or body.get("user_id")
+    user_id = parameters.get("user_id", '') or body.get("user_id", '')
 
-    GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_projects"]}` WHERE LOWER(created_by) = LOWER('{user_id}')"
+    if user_id:
+        GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_projects"]}` WHERE LOWER(created_by) = LOWER('{user_id}')"
+    else:
+        GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_projects"]}`"
     bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
     query_output = bigquery_client.query(GBQ_query).to_dataframe()
     dataframe = load_UI_dataframe(query_output)
