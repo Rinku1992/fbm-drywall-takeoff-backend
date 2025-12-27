@@ -400,7 +400,7 @@ def enable_logging_on_stdout():
 
 def load_gcp_credentials() -> dict:
     yaml = YAML(typ="safe", pure=True)
-    with open("gcp.yaml", 'r') as f:
+    with open("config/gcp.yaml", 'r') as f:
         credentials = yaml.load(f)
 
     return credentials
@@ -427,7 +427,7 @@ def download_secrets(credentials):
 
 def load_hyperparameters() -> dict:
     yaml = YAML(typ="safe", pure=True)
-    with open("hyperparameters.yaml", 'r') as f:
+    with open("config/hyperparameters.yaml", 'r') as f:
         hyperparameters = yaml.load(f)
 
     return hyperparameters
