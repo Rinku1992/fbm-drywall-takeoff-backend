@@ -628,7 +628,8 @@ async def floorplan_to_2d(request: Request):
     bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
     blob_path = "tmp/model_2d.json"
     blob = bucket.blob(blob_path)
-    blob.delete()
+    if blob.exists():
+        blob.delete()
 
     hyperparameters = load_hyperparameters()
     pdf_path = Path("/tmp/floor_plan.PDF")
