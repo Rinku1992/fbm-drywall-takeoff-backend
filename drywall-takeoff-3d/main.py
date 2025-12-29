@@ -7,7 +7,7 @@ from base64 import b64encode
 from ruamel.yaml import YAML
 from pathlib import Path
 import json
-from time import time
+from time import time as unix_epoch
 from collections import defaultdict
 import requests
 import google.auth.transport.requests
@@ -669,9 +669,9 @@ async def floorplan_to_2d(request: Request):
 async def load_latest_floorplan_to_2d():
     enable_logging_on_stdout()
     logging.info("SYSTEM: Received a Floorplan 2D Model load Request")
-    timeout = time() + 600
+    timeout = unix_epoch() + 600
     walls_2d_all = dict(pages=list())
-    while time() < timeout:
+    while unix_epoch() < timeout:
         try:
             with open("/tmp/model_2d.json", 'r') as f:
                 walls_2d_all = json.load(f)
