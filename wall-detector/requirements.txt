@@ -6,6 +6,7 @@ geonamescache
 git+https://github.com/facebookresearch/segment-anything.git
 googletrans==3.1.0a0
 google-cloud-storage
+google-cloud-secret-manager
 google-auth
 google-cloud-vision
 img2dataset
