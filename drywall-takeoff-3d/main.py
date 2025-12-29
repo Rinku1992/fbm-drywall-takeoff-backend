@@ -21,6 +21,7 @@ from pydantic_core import ValidationError
 from google.cloud.storage import Client as CloudStorageClient
 from google.cloud import bigquery
 from google.cloud import secretmanager
+from google.api_core.exceptions import NotFound
 
 import pandas as pd
 import numpy as np
@@ -623,8 +624,12 @@ async def floorplan_to_2d(request: Request):
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
 
-    if os.path.exists("/tmp/model_2d.json"):
-        os.remove("/tmp/model_2d.json")
+    client = CloudStorageClient()
+    bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
+    blob_path = "tmp/model_2d.json"
+    blob = bucket.blob(blob_path)
+    blob.delete()
+
     hyperparameters = load_hyperparameters()
     pdf_path = Path("/tmp/floor_plan.PDF")
     GCS_URL_floorplan = download_floorplan(user_id, plan_id, project_id, CREDENTIALS, destination_path=pdf_path)
@@ -662,6 +667,7 @@ async def floorplan_to_2d(request: Request):
 
     with open("/tmp/model_2d.json", 'w') as f:
         json.dump(walls_2d_all, f)
+    blob.upload_from_filename("/tmp/model_2d.json")
     return respond_with_UI_payload(walls_2d_all)
 
 
@@ -669,15 +675,21 @@ async def floorplan_to_2d(request: Request):
 async def load_latest_floorplan_to_2d():
     enable_logging_on_stdout()
     logging.info("SYSTEM: Received a Floorplan 2D Model load Request")
+    walls_2d_all = dict(pages=list())
+    client = CloudStorageClient()
+    bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
+    blob_path = "tmp/model_2d.json"
+    blob = bucket.blob(blob_path)
     timeout = from_unix_epoch() + 600
     walls_2d_all = dict(pages=list())
     while from_unix_epoch() < timeout:
         try:
+            blob.download_to_filename("/tmp/model_2d.json")
             with open("/tmp/model_2d.json", 'r') as f:
                 walls_2d_all = json.load(f)
                 logging.info("SYSTEM: Floorplan 2D Model generated")
                 return respond_with_UI_payload(walls_2d_all)
-        except FileNotFoundError:
+        except NotFound:
             continue
     logging.info("SYSTEM: Floorplan 2D Model not found")
     return respond_with_UI_payload(walls_2d_all)
