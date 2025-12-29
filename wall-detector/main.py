@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from google.cloud.storage import Client as CloudStorageClient
+from google.cloud import secretmanager
 
 from wall_detector import WallDetector
 
@@ -35,9 +36,27 @@ def load_gcp_credentials() -> dict:
     yaml = YAML(typ="safe", pure=True)
     with open("config/gcp.yaml", 'r') as f:
         credentials = yaml.load(f)
-    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials["service_account_key"]
 
     return credentials
+
+
+def download_secrets(credentials):
+    def _download_secret(secret_manager_client, secret_key, secret_url):
+        response = secret_manager_client.access_secret_version(request={"name": secret_url})
+        secret_data = json.loads(response.payload.data)
+        with open(credentials[secret_key], 'w') as f:
+            json.dump(secret_data, f)
+    if "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
+        del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
+
+    secret_manager_client = secretmanager.SecretManagerServiceClient()
+    executor = ThreadPoolExecutor(max_workers=5)
+    download_secret_futures = list()
+    for secret_key, secret_url in credentials["SecretManager"].items():
+        download_secret_futures.append(executor.submit(_download_secret, secret_manager_client, secret_key, secret_url))
+    [future.result() for future in download_secret_futures]
+
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials["service_compute_account_key"]
 
 
 def load_hyperparameters() -> dict:
