@@ -1,6 +1,6 @@
 [
   {
-    "origin": ["http://localhost:5173", "http://localhost:5172"],
+    "origin": ["http://localhost:5173", "http://localhost:5172", "https://prj-fbm-drywall-dev.web.app"],
     "method": ["GET", "HEAD", "PUT", "POST"],
     "responseHeader": ["Content-Type", "Authorization", "x-goog-resumable"],
     "maxAgeSeconds": 3600
