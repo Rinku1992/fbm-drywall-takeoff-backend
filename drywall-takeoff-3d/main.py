@@ -7,6 +7,7 @@ from base64 import b64encode
 from ruamel.yaml import YAML
 from pathlib import Path
 import json
+from time import time
 from collections import defaultdict
 import requests
 import google.auth.transport.requests
@@ -377,44 +378,6 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number):
     return image_path
 
 
-def floorplan_to_2d(project_id, plan_id, user_id, hyperparameters)
-    pdf_path = Path("/tmp/floor_plan.PDF")
-    GCS_URL_floorplan = download_floorplan(user_id, plan_id, project_id, CREDENTIALS, destination_path=pdf_path)
-    logging.info("SYSTEM: Floorplan Downloaded")
-
-    floor_plan_paths_preprocessed = preprocess(pdf_path)
-    insert_plan(
-        project_id,
-        user_id,
-        CREDENTIALS,
-        plan_id=plan_id,
-        GCS_URL_floorplan=GCS_URL_floorplan,
-        n_pages=len(floor_plan_paths_preprocessed),
-    )
-    logging.info("SYSTEM: Floorplan Preprocessing Completed")
-
-    floor_plan_modeller_2d = FloorPlan2D(hyperparameters)
-    walls_2d_all = dict(pages=list())
-    for index, floor_plan_path in enumerate(floor_plan_paths_preprocessed):
-        floorplan_page_source = upload_floorplan(floor_plan_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
-        logging.info(f"SYSTEM: Preprocessed Floorplan Image uploaded to GCS from PAGE: {index}")
-        wall_segmented_path = floorplan_to_walls(CREDENTIALS, project_id, plan_id, user_id, index)
-        upload_floorplan(wall_segmented_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
-        logging.info(f"SYSTEM: Wall Detection Completed from PAGE: {index}")
-
-        walls_2d, walls_2d_path = floor_plan_modeller_2d.model(image_path=wall_segmented_path)
-        model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_path)
-        upload_floorplan(model_2d_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
-        model_2d_path_overlay_enabled = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_path, overlay_enabled=True)
-        target_drywalls_page_source = upload_floorplan(model_2d_path_overlay_enabled, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
-        logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {index} Generated Successfully")
-        insert_model_2d(walls_2d, index, plan_id, user_id, project_id, floorplan_page_source, target_drywalls_page_source, CREDENTIALS)
-        page = dict(page_number=index, walls_2d=walls_2d, page_name='')
-        walls_2d_all["pages"].append(page)
-
-    return walls_2d_all
-
-
 def load_UI_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     df = df.map(lambda x: float(x) if isinstance(x, Decimal) else x)
     df = df.map(lambda x: "null" if isinstance(x, int) and (pd.isna(x) or math.isnan(x) or math.isinf(x) or np.isnan(x) or np.isinf(x)) else x)
@@ -654,6 +617,8 @@ async def floorplan_to_2d(request: Request):
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
 
+    if os.path.exists("/tmp/model_2d.json"):
+        os.remove("/tmp/model_2d.json")
     hyperparameters = load_hyperparameters()
     pdf_path = Path("/tmp/floor_plan.PDF")
     GCS_URL_floorplan = download_floorplan(user_id, plan_id, project_id, CREDENTIALS, destination_path=pdf_path)
@@ -689,6 +654,26 @@ async def floorplan_to_2d(request: Request):
         page = dict(page_number=index, walls_2d=walls_2d, page_name='')
         walls_2d_all["pages"].append(page)
 
+    with open("/tmp/model_2d.json", 'w') as f:
+        json.dump(walls_2d_all, f)
+    return respond_with_UI_payload(walls_2d_all)
+
+
+@app.get("/load_latest_floorplan_to_2d")
+async def load_latest_floorplan_to_2d():
+    enable_logging_on_stdout()
+    logging.info("SYSTEM: Received a Floorplan 2D Model load Request")
+    timeout = time() + 600
+    walls_2d_all = dict(pages=list())
+    while time() < timeout:
+        try:
+            with open("/tmp/model_2d.json", 'r') as f:
+                walls_2d_all = json.load(f)
+                logging.info("SYSTEM: Floorplan 2D Model generated")
+                return respond_with_UI_payload(walls_2d_all)
+        except FileNotFoundError:
+            continue
+    logging.info("SYSTEM: Floorplan 2D Model not found")
     return respond_with_UI_payload(walls_2d_all)
 
 
