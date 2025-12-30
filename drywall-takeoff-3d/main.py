@@ -672,14 +672,21 @@ async def floorplan_to_2d(request: Request):
     return respond_with_UI_payload(walls_2d_all)
 
 
-@app.get("/load_latest_floorplan_to_2d")
-async def load_latest_floorplan_to_2d():
+@app.post("/load_latest_floorplan_to_2d")
+async def load_latest_floorplan_to_2d(request: Request):
     enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    user_id = parameters.get("user_id") or body.get("user_id")
+
     logging.info("SYSTEM: Received a Floorplan 2D Model load Request")
     walls_2d_all = dict(pages=list())
     client = CloudStorageClient()
     bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
-    blob_path = "tmp/model_2d.json"
+    blob_path = f"tmp/{user_id.lower()}/model_2d.json"
     blob = bucket.blob(blob_path)
     timeout = from_unix_epoch() + 600
     walls_2d_all = dict(pages=list())
