@@ -626,7 +626,7 @@ async def floorplan_to_2d(request: Request):
 
     client = CloudStorageClient()
     bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
-    blob_path = "tmp/model_2d.json"
+    blob_path = f"tmp/{user_id.lower()}/model_2d.json"
     blob = bucket.blob(blob_path)
     if blob.exists():
         blob.delete()
