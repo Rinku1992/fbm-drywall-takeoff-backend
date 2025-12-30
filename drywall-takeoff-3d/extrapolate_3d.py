@@ -253,13 +253,13 @@ class Extrapolate3D(FloorPlan):
             length=math.hypot((wall_line["wall_line"][0]['x'] - wall_line["wall_line"][1]['x']) * self._hyperparameters["pixel_aspect_ratio"]["horizontal"], (wall_line["wall_line"][0]['y'] - wall_line["wall_line"][1]['y']) * self._hyperparameters["pixel_aspect_ratio"]["vertical"]),
             surfaces_drywall=list()
         )
-        for polygon in polygons:
+        for polygon, polygon_type in zip(polygons, wall_line["polygons_drywall"]):
             wall["surfaces_drywall"].append(
                 dict(
                     polygon=polygon,
-                    type="",
-                    enabled=True,
-                    room_name=''
+                    type=polygon_type["type"],
+                    enabled=polygon_type["enabled"],
+                    room_name=polygon_type["room_name"]
                 )
             )
         self._walls_3d.append(wall)
