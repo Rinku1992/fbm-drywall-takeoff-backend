@@ -70,6 +70,8 @@ def load_hyperparameters() -> dict:
 app = FastAPI(title="Wall Detector (Cloud Run)")
 
 CREDENTIALS = load_gcp_credentials()
+download_secrets(CREDENTIALS)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CREDENTIALS["CloudRun"]["origins_cors"],
