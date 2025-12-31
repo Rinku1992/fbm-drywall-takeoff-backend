@@ -69,6 +69,7 @@ def download_floorplan(user_id, plan_id, project_id, credentials, destination_pa
 
 def insert_model_2d(
     model_2d,
+    scale,
     page_number,
     plan_id,
     user_id,
@@ -88,11 +89,13 @@ def insert_model_2d(
             @model_2d AS model_2d,
             @source AS source,
             @target_drywalls AS target_drywalls,
+            @scale AS scale,
     ) s
     ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id) AND LOWER(t.user_id) = LOWER(s.user_id) AND t.page_number = s.page_number
     WHEN MATCHED THEN
     UPDATE SET
         model_2d = s.model_2d,
+        scale = COALESCE(NULLIF(s.scale, ''), t.scale),
         updated_at = CURRENT_TIMESTAMP()
     WHEN NOT MATCHED THEN
     INSERT (
@@ -100,6 +103,7 @@ def insert_model_2d(
         project_id,
         user_id,
         page_number,
+        scale,
         model_2d,
         model_3d,
         takeoff,
@@ -113,6 +117,7 @@ def insert_model_2d(
         s.project_id,
         s.user_id,
         s.page_number,
+        s.scale,
         s.model_2d,
         JSON '{}',
         JSON '{}',
@@ -128,6 +133,7 @@ def insert_model_2d(
             bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
             bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
             bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
+            bigquery.ScalarQueryParameter("scale", "STRING", scale),
             bigquery.ScalarQueryParameter("model_2d", "JSON", model_2d),
             bigquery.ScalarQueryParameter("source", "STRING", GCS_URL_floorplan_page),
             bigquery.ScalarQueryParameter("target_drywalls", "STRING", GCS_URL_target_drywalls_page)
