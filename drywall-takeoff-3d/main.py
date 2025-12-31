@@ -215,6 +215,76 @@ def insert_model_2d(
     return query_output
 
 
+def insert_model_3d_revision(
+    model_3d,
+    scale,
+    page_number,
+    plan_id,
+    user_id,
+    project_id,
+    credentials
+    ):
+    GBQ_query = """
+    SELECT MAX(revision_number) AS revision_number FROM `drywall_takeoff.model_revisions_3d` WHERE 
+    LOWER(project_id) = LOWER(@project_id) AND LOWER(plan_id) = LOWER(@plan_id) AND LOWER(user_id) = LOWER(@user_id) AND page_number = @page_number;
+    """
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
+            bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
+            bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
+            bigquery.ScalarQueryParameter("page_number", "INT64", page_number)
+        ]
+    )
+
+    bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
+    query_output = list(bigquery_client.query(GBQ_query, job_config=job_config).result())
+    
+    if query_output and query_output[0].revision_number is not None:
+        revision_number = query_output[0].revision_number + 1
+    else:
+        revision_number = 1
+
+    GBQ_query = """
+    INSERT INTO `drywall_takeoff.model_revisions_3d` (
+        plan_id,
+        project_id,
+        user_id,
+        page_number,
+        scale,
+        model,
+        takeoff,
+        created_at,
+        revision_number
+    )
+    VALUES (
+        @plan_id,
+        @project_id,
+        @user_id,
+        @page_number,
+        @scale,
+        @model_2d,
+        JSON '{}',
+        CURRENT_TIMESTAMP(),
+        @revision_number
+    );
+    """
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
+            bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
+            bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
+            bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
+            bigquery.ScalarQueryParameter("scale", "STRING", scale),
+            bigquery.ScalarQueryParameter("model_2d", "JSON", model_3d),
+            bigquery.ScalarQueryParameter("revision_number", "INT64", revision_number)
+        ]
+    )
+
+    query_output = bigquery_client.query(GBQ_query, job_config=job_config).result()
+    return query_output
+
+
 def insert_model_3d(
     model_3d,
     scale,
@@ -953,6 +1023,7 @@ async def update_floorplan_to_3d(request: Request):
     logging.info("SYSTEM: Received a Floorplan 3D Model Update Request")
 
     insert_model_3d(walls_3d_JSON, scale, index, plan_id, user_id, project_id, CREDENTIALS)
+    insert_model_3d_revision(model_3d_JSON, scale, index, plan_id, user_id, project_id, CREDENTIALS)
     logging.info("SYSTEM: Floorplan 3D Model Updated Successfully")
 
 
