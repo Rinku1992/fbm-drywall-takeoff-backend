@@ -21,7 +21,7 @@ class FloorPlan2D(FloorPlan):
 
         self._hyperparameters = hyperparameters
         self._width_in_feet = self._hyperparameters["modelling"]["width_in_feet"]
-        elf._height_in_feet = self._hyperparameters["modelling"]["height_in_feet"]
+        self._height_in_feet = self._hyperparameters["modelling"]["height_in_feet"]
         self._walls_2d = list()
 
     def _close_jagged_openings(
