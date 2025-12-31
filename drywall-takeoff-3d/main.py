@@ -655,6 +655,7 @@ async def floorplan_to_2d(request: Request):
     floor_plan_modeller_2d = FloorPlan2D(hyperparameters)
     walls_2d_all = dict(pages=list())
     for index, floor_plan_path in enumerate(floor_plan_paths_preprocessed):
+        scale = "0.25``:1`0``"
         floorplan_page_source = upload_floorplan(floor_plan_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
         logging.info(f"SYSTEM: Preprocessed Floorplan Image uploaded to GCS from PAGE: {index}")
         wall_segmented_path = floorplan_to_walls(CREDENTIALS, project_id, plan_id, user_id, index)
@@ -667,8 +668,8 @@ async def floorplan_to_2d(request: Request):
         model_2d_path_overlay_enabled = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_path, overlay_enabled=True)
         target_drywalls_page_source = upload_floorplan(model_2d_path_overlay_enabled, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
         logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {index} Generated Successfully")
-        insert_model_2d(walls_2d, index, plan_id, user_id, project_id, floorplan_page_source, target_drywalls_page_source, CREDENTIALS)
-        page = dict(page_number=index, walls_2d=walls_2d, page_name='')
+        insert_model_2d(walls_2d, scale, index, plan_id, user_id, project_id, floorplan_page_source, target_drywalls_page_source, CREDENTIALS)
+        page = dict(page_number=index, walls_2d=walls_2d, page_name='', scale=scale)
         walls_2d_all["pages"].append(page)
 
     with open("/tmp/model_2d.json", 'w') as f:
@@ -722,13 +723,13 @@ async def load_2d_all(request: Request):
     logging.info("SYSTEM: Received All Floorplan 2D Models Load Request")
 
     walls_2d_all = dict(pages=list())
-    GBQ_query = f"SELECT page_number, model_2d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE project_id = '{project_id}' AND plan_id = '{plan_id}' AND user_id = '{user_id}';"
+    GBQ_query = f"SELECT page_number, scale, model_2d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE project_id = '{project_id}' AND plan_id = '{plan_id}' AND user_id = '{user_id}';"
     bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
     query_output = bigquery_client.query(GBQ_query).to_dataframe()
     dataframe = load_UI_dataframe(query_output)
-    for page_number, model_2d in zip(dataframe["page_number"], dataframe["model_2d"]):
+    for page_number, scale, model_2d in zip(dataframe["page_number"], dataframe["scale"], dataframe["model_2d"]):
         walls_2d = json.loads(model_2d)
-        page = dict(page_number=page_number, walls_2d=walls_2d, page_name='')
+        page = dict(page_number=page_number, walls_2d=walls_2d, page_name='', scale=scale)
         walls_2d_all["pages"].append(page)
 
     return respond_with_UI_payload(walls_2d_all)
@@ -743,13 +744,14 @@ async def update_floorplan_to_2d(request: Request):
     except Exception:
         body = dict()
     walls_2d_JSON = parameters.get("walls_2d") or body.get("walls_2d")
+    scale = parameters.get("scale") or body.get("scale")
     project_id = parameters.get("project_id") or body.get("project_id")
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     index = parameters.get("page_number") or body.get("page_number")
     logging.info("SYSTEM: Received a Floorplan 2D Model Update Request")
 
-    insert_model_2d(walls_2d_JSON, index, plan_id, user_id, project_id, None, CREDENTIALS)
+    insert_model_2d(walls_2d_JSON, scale, index, plan_id, user_id, project_id, None, CREDENTIALS)
     logging.info("SYSTEM: Floorplan 2D Model Updated Successfully")
 
 
