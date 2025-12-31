@@ -807,6 +807,32 @@ async def load_2d_revision(request: Request):
     return respond_with_UI_payload(walls_2d_JSON)
 
 
+@app.post("/load_available_revision_numbers_2d")
+async def load_2d_revision(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    project_id = parameters.get("project_id") or body.get("project_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
+    plan_id = parameters.get("plan_id") or body.get("plan_id")
+    index = parameters.get("page_number") or body.get("page_number")
+    logging.info(f"SYSTEM: Received Available Revisions Load Request for 2D Model")
+
+    GBQ_query = f"SELECT revision_number FROM `{CREDENTIALS["GBQServer"]["table_name_model_revisions_2d"]}` WHERE project_id = '{project_id}' AND plan_id = '{plan_id}' AND user_id = '{user_id}' AND page_number = '{page_number}';"
+    bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
+    query_output = list(bigquery_client.query(GBQ_query).result())
+    revision_numbers = list()
+    if query_output:
+        for revision in query_output:
+            if revision.revision_number is not None:
+                revision_numbers.append(revision.revision_number)
+
+    return respond_with_UI_payload(revision_numbers)
+
+
 @app.post("/load_2d_all")
 async def load_2d_all(request: Request):
     enable_logging_on_stdout()
