@@ -147,6 +147,7 @@ def insert_model_2d(
 
 def insert_model_3d(
     model_3d,
+    scale,
     page_number,
     plan_id,
     user_id,
@@ -154,9 +155,10 @@ def insert_model_3d(
     credentials
     ):
     GBQ_query = """
-    UPDATE `drywall_takeoff.models`
+    UPDATE `drywall_takeoff.models` as t
     SET
         model_3d = @model_3d,
+        scale = COALESCE(NULLIF(@scale, ''), t.scale),
         updated_at = CURRENT_TIMESTAMP()
     WHERE
         LOWER(project_id) = LOWER(@project_id)
@@ -170,6 +172,7 @@ def insert_model_3d(
             bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
             bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
             bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
+            bigquery.ScalarQueryParameter("scale", "STRING", scale),
             bigquery.ScalarQueryParameter("model_3d", "JSON", model_3d)
         ]
     )
@@ -767,6 +770,7 @@ async def floorplan_to_3d(request: Request):
     project_id = parameters.get("project_id") or body.get("project_id")
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
+    scale = parameters.get("scale") or body.get("scale")
     index = parameters.get("page_number") or body.get("page_number")
     logging.info("SYSTEM: Received a Floorplan 3D Model Generation Request")
 
@@ -778,7 +782,7 @@ async def floorplan_to_3d(request: Request):
     walls_3d, walls_3d_path = floor_plan_modeller_3d.extrapolate(model_2d_path=model_2d_path)
     model_3d_path = floor_plan_modeller_3d.save_plot_3d(walls_3d_path)
     upload_floorplan(model_3d_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
-    insert_model_3d(walls_3d, index, plan_id, user_id, project_id, CREDENTIALS)
+    insert_model_3d(walls_3d, scale, index, plan_id, user_id, project_id, CREDENTIALS)
     logging.info("SYSTEM: A 3D Model of the Floorplan Generated Successfully")
 
     return respond_with_UI_payload(walls_3d)
@@ -798,13 +802,13 @@ async def load_3d_all(request: Request):
     logging.info("SYSTEM: Received All Floorplan 3D Models Load Request")
 
     walls_3d_all = dict(pages=list())
-    GBQ_query = f"SELECT page_number, model_3d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE project_id = '{project_id}' AND plan_id = '{plan_id}' AND user_id = '{user_id}';"
+    GBQ_query = f"SELECT page_number, scale, model_3d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE project_id = '{project_id}' AND plan_id = '{plan_id}' AND user_id = '{user_id}';"
     bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
     query_output = bigquery_client.query(GBQ_query).to_dataframe()
     dataframe = load_UI_dataframe(query_output)
-    for page_number, model_3d in zip(dataframe["page_number"], dataframe["model_3d"]):
+    for page_number, scale, model_3d in zip(dataframe["page_number"], dataframe["scale"], dataframe["model_3d"]):
         walls_3d = json.loads(model_3d)
-        page = dict(page_number=page_number, walls_3d=walls_3d, page_name='')
+        page = dict(page_number=page_number, walls_3d=walls_3d, page_name='', scale=scale)
         walls_3d_all["pages"].append(page)
 
     return respond_with_UI_payload(walls_3d_all)
@@ -822,10 +826,11 @@ async def update_floorplan_to_3d(request: Request):
     project_id = parameters.get("project_id") or body.get("project_id")
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
+    scale = parameters.get("scale") or body.get("scale")
     index = parameters.get("page_number") or body.get("page_number")
     logging.info("SYSTEM: Received a Floorplan 3D Model Update Request")
 
-    insert_model_3d(walls_3d_JSON, index, plan_id, user_id, project_id, CREDENTIALS)
+    insert_model_3d(walls_3d_JSON, scale, index, plan_id, user_id, project_id, CREDENTIALS)
     logging.info("SYSTEM: Floorplan 3D Model Updated Successfully")
 
 
