@@ -716,7 +716,7 @@ async def load_2d_all(request: Request):
     logging.info("SYSTEM: Received All Floorplan 2D Models Load Request")
 
     walls_2d_all = dict(pages=list())
-    GBQ_query = f"SELECT page_number, model_2d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE project_id = '{project_id}' AND plan_id = '{plan_id}' AMD user_id = '{user_id}';"
+    GBQ_query = f"SELECT page_number, model_2d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE project_id = '{project_id}' AND plan_id = '{plan_id}' AND user_id = '{user_id}';"
     bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
     query_output = bigquery_client.query(GBQ_query).to_dataframe()
     dataframe = load_UI_dataframe(query_output)
