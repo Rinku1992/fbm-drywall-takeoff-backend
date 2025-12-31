@@ -671,30 +671,6 @@ async def floorplan_to_2d(request: Request):
     return respond_with_UI_payload(walls_2d_all)
 
 
-@app.post("/load_2d_all")
-async def load_2d_all(request: Request):
-    enable_logging_on_stdout()
-    parameters = dict(request.query_params)
-    try:
-        body = await request.json()
-    except Exception:
-        body = dict()
-    project_id = parameters.get("project_id") or body.get("project_id")
-    user_id = parameters.get("user_id") or body.get("user_id")
-    plan_id = parameters.get("plan_id") or body.get("plan_id")
-    logging.info("SYSTEM: Received All Floorplan 2D Models Load Request")
-
-    walls_2d_all = dict(pages=list())
-    GBQ_query = f"SELECT page_number, model_2d FROM `{credentials["GBQServer"]["table_name_models"]}` WHERE project_id = '{project_id}' AND plan_id = '{plan_id}' AMD user_id = '{user_id}';"
-    query_output = bigquery_client.query(GBQ_query).to_dataframe()
-    dataframe = load_UI_dataframe(query_output)
-    for page_number, model_2d in zip(dataframe["page_number"], dataframe["model_2d"]):
-        page = dict(page_number=page_number, walls_2d=model_2d, page_name='')
-        walls_2d_all["pages"].append(page)
-
-    return respond_with_UI_payload(walls_2d_all)
-
-
 @app.post("/load_latest_floorplan_to_2d")
 async def load_latest_floorplan_to_2d(request: Request):
     enable_logging_on_stdout()
@@ -723,6 +699,31 @@ async def load_latest_floorplan_to_2d(request: Request):
         except NotFound:
             continue
     logging.info("SYSTEM: Floorplan 2D Model not found")
+    return respond_with_UI_payload(walls_2d_all)
+
+
+@app.post("/load_2d_all")
+async def load_2d_all(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    project_id = parameters.get("project_id") or body.get("project_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
+    plan_id = parameters.get("plan_id") or body.get("plan_id")
+    logging.info("SYSTEM: Received All Floorplan 2D Models Load Request")
+
+    walls_2d_all = dict(pages=list())
+    GBQ_query = f"SELECT page_number, model_2d FROM `{credentials["GBQServer"]["table_name_models"]}` WHERE project_id = '{project_id}' AND plan_id = '{plan_id}' AMD user_id = '{user_id}';"
+    bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
+    query_output = bigquery_client.query(GBQ_query).to_dataframe()
+    dataframe = load_UI_dataframe(query_output)
+    for page_number, model_2d in zip(dataframe["page_number"], dataframe["model_2d"]):
+        page = dict(page_number=page_number, walls_2d=model_2d, page_name='')
+        walls_2d_all["pages"].append(page)
+
     return respond_with_UI_payload(walls_2d_all)
 
 
