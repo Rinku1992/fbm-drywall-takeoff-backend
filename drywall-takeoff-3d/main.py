@@ -825,6 +825,7 @@ async def update_floorplan_to_2d(request: Request):
     logging.info("SYSTEM: Received a Floorplan 2D Model Update Request")
 
     insert_model_2d(walls_2d_JSON, scale, index, plan_id, user_id, project_id, None, CREDENTIALS)
+    insert_model_2d_revision(model_2d_JSON, scale, index, plan_id, user_id, project_id, CREDENTIALS)
     logging.info("SYSTEM: Floorplan 2D Model Updated Successfully")
 
 
