@@ -776,6 +776,32 @@ async def floorplan_to_3d(request: Request):
     return respond_with_UI_payload(walls_3d)
 
 
+@app.post("/load_3d_all")
+async def load_3d_all(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    project_id = parameters.get("project_id") or body.get("project_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
+    plan_id = parameters.get("plan_id") or body.get("plan_id")
+    logging.info("SYSTEM: Received All Floorplan 3D Models Load Request")
+
+    walls_3d_all = dict(pages=list())
+    GBQ_query = f"SELECT page_number, model_3d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE project_id = '{project_id}' AND plan_id = '{plan_id}' AND user_id = '{user_id}';"
+    bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
+    query_output = bigquery_client.query(GBQ_query).to_dataframe()
+    dataframe = load_UI_dataframe(query_output)
+    for page_number, model_3d in zip(dataframe["page_number"], dataframe["model_3d"]):
+        walls_3d = json.loads(model_3d)
+        page = dict(page_number=page_number, walls_3d=walls_3d, page_name='')
+        walls_3d_all["pages"].append(page)
+
+    return respond_with_UI_payload(walls_3d_all)
+
+
 @app.post("/update_floorplan_to_3d")
 async def update_floorplan_to_3d(request: Request):
     enable_logging_on_stdout()
