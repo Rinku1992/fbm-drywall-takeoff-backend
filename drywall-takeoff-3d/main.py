@@ -980,6 +980,31 @@ async def floorplan_to_3d(request: Request):
     return respond_with_UI_payload(walls_3d)
 
 
+@app.post("/load_3d_revision")
+async def load_3d_revision(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    project_id = parameters.get("project_id") or body.get("project_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
+    plan_id = parameters.get("plan_id") or body.get("plan_id")
+    index = parameters.get("page_number") or body.get("page_number")
+    revision_number = parameters.get("revision_number") or body.get("revision_number")
+    logging.info(f"SYSTEM: Received Floorplan 3D Model (Revision: {revision_number}) Load Request")
+
+    GBQ_query = f"SELECT model FROM `{CREDENTIALS["GBQServer"]["table_name_model_revisions_3d"]}` WHERE project_id = '{project_id}' AND plan_id = '{plan_id}' AND user_id = '{user_id}' AND page_number = '{page_number}' AND revision_number = '{revision_number}';"
+    bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
+    query_output = list(bigquery_client.query(GBQ_query).result())
+    walls_3d_JSON = dict()
+    if query_output and query_output[0].model is not None:
+        walls_3d_JSON = json.loads(query_output[0].model)
+
+    return respond_with_UI_payload(walls_3d_JSON)
+
+
 @app.post("/load_available_revision_numbers_3d")
 async def load_available_revision_numbers_3d(request: Request):
     enable_logging_on_stdout()
