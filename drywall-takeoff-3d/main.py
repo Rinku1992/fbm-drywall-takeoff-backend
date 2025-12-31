@@ -352,8 +352,47 @@ def insert_takeoff(
     )
 
     bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
-    query_output = bigquery_client.query(GBQ_query, job_config=job_config).result()
-    return query_output
+    query_output_takeoff_insert = bigquery_client.query(GBQ_query, job_config=job_config).result()
+
+    GBQ_query = """
+    SELECT MAX(revision_number) AS revision_number FROM `drywall_takeoff.model_revisions_3d` WHERE 
+    LOWER(project_id) = LOWER(@project_id) AND LOWER(plan_id) = LOWER(@plan_id) AND LOWER(user_id) = LOWER(@user_id) AND page_number = @page_number;
+    """
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
+            bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
+            bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
+            bigquery.ScalarQueryParameter("page_number", "INT64", page_number)
+        ]
+    )
+    query_output = list(bigquery_client.query(GBQ_query, job_config=job_config).result())
+
+    if query_output and query_output[0].revision_number is not None:
+        revision_number = query_output[0].revision_number
+        GBQ_query = """
+        UPDATE `drywall_takeoff.model_revisions_3d` t
+        SET
+            takeoff = @takeoff
+        WHERE
+            LOWER(project_id) = LOWER(@project_id)
+            AND LOWER(plan_id) = LOWER(@plan_id)
+            AND LOWER(user_id) = LOWER(@user_id)
+            AND page_number = @page_number
+            AND revision_number = @revision_number
+        """
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
+                bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
+                bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
+                bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
+                bigquery.ScalarQueryParameter("takeoff", "JSON", takeoff),
+                bigquery.ScalarQueryParameter("revision_number", "INT64", revision_number)
+            ]
+        query_output = bigquery_client.query(GBQ_query, job_config=job_config).result()
+
+    return query_output_takeoff_insert
 
 
 def insert_plan(
