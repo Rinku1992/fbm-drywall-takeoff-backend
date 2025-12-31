@@ -721,7 +721,8 @@ async def load_2d_all(request: Request):
     query_output = bigquery_client.query(GBQ_query).to_dataframe()
     dataframe = load_UI_dataframe(query_output)
     for page_number, model_2d in zip(dataframe["page_number"], dataframe["model_2d"]):
-        page = dict(page_number=page_number, walls_2d=model_2d, page_name='')
+        walls_2d = json.loads(model_2d)
+        page = dict(page_number=page_number, walls_2d=walls_2d, page_name='')
         walls_2d_all["pages"].append(page)
 
     return respond_with_UI_payload(walls_2d_all)
