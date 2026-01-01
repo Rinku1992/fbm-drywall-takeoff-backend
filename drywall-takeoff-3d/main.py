@@ -105,7 +105,6 @@ def insert_model_2d_revision(
         page_number,
         scale,
         model,
-        takeoff,
         created_at,
         revision_number
     )
@@ -116,7 +115,6 @@ def insert_model_2d_revision(
         @page_number,
         @scale,
         @model_2d,
-        JSON '{}',
         CURRENT_TIMESTAMP(),
         @revision_number
     );
