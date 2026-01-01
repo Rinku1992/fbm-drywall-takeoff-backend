@@ -390,6 +390,7 @@ def insert_takeoff(
                 bigquery.ScalarQueryParameter("takeoff", "JSON", takeoff),
                 bigquery.ScalarQueryParameter("revision_number", "INT64", revision_number)
             ]
+        )
         query_output = bigquery_client.query(GBQ_query, job_config=job_config).result()
 
     return query_output_takeoff_insert
