@@ -326,6 +326,7 @@ def insert_takeoff(
     plan_id,
     user_id,
     project_id,
+    revision_number,
     credentials
     ):
     GBQ_query = """
@@ -352,22 +353,7 @@ def insert_takeoff(
     bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
     query_output_takeoff_insert = bigquery_client.query(GBQ_query, job_config=job_config).result()
 
-    GBQ_query = """
-    SELECT MAX(revision_number) AS revision_number FROM `drywall_takeoff.model_revisions_3d` WHERE 
-    LOWER(project_id) = LOWER(@project_id) AND LOWER(plan_id) = LOWER(@plan_id) AND LOWER(user_id) = LOWER(@user_id) AND page_number = @page_number;
-    """
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[
-            bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
-            bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
-            bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
-            bigquery.ScalarQueryParameter("page_number", "INT64", page_number)
-        ]
-    )
-    query_output = list(bigquery_client.query(GBQ_query, job_config=job_config).result())
-
-    if query_output and query_output[0].revision_number is not None:
-        revision_number = query_output[0].revision_number
+    if revision_number:
         GBQ_query = """
         UPDATE `drywall_takeoff.model_revisions_3d` t
         SET
@@ -1161,6 +1147,7 @@ async def compute_takeoff(request: Request):
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     user_id = parameters.get("user_id") or body.get("user_id")
+    revision_number = parameters.get("revision_number") or body.get("revision_number")
     logging.info("SYSTEM: Received a Drywall Takeoff computation Request")
 
     drywall_takeoff = dict(total=0, per_drywall=defaultdict(lambda: 0))
@@ -1177,6 +1164,6 @@ async def compute_takeoff(request: Request):
     for key in drywall_takeoff["per_drywall"]:
         drywall_takeoff["per_drywall"][key] = round(drywall_takeoff["per_drywall"][key], 2)
 
-    insert_takeoff(drywall_takeoff, index, plan_id, user_id, project_id, CREDENTIALS)
+    insert_takeoff(drywall_takeoff, index, plan_id, user_id, project_id, revision_number, CREDENTIALS)
     logging.info("SYSTEM: Drywall Takeoff Computed Successfully for the provided Floorplan")
     return respond_with_UI_payload(drywall_takeoff)
