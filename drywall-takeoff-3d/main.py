@@ -986,7 +986,7 @@ async def update_floorplan_to_2d(request: Request):
     logging.info("SYSTEM: Received a Floorplan 2D Model Update Request")
 
     insert_model_2d(walls_2d_JSON, scale, index, plan_id, user_id, project_id, None, CREDENTIALS)
-    insert_model_2d_revision(model_2d_JSON, scale, index, plan_id, user_id, project_id, CREDENTIALS)
+    insert_model_2d_revision(walls_2d_JSON, scale, index, plan_id, user_id, project_id, CREDENTIALS)
     logging.info("SYSTEM: Floorplan 2D Model Updated Successfully")
 
 
@@ -1114,7 +1114,7 @@ async def update_floorplan_to_3d(request: Request):
     logging.info("SYSTEM: Received a Floorplan 3D Model Update Request")
 
     insert_model_3d(walls_3d_JSON, scale, index, plan_id, user_id, project_id, CREDENTIALS)
-    insert_model_3d_revision(model_3d_JSON, scale, index, plan_id, user_id, project_id, CREDENTIALS)
+    insert_model_3d_revision(walls_3d_JSON, scale, index, plan_id, user_id, project_id, CREDENTIALS)
     logging.info("SYSTEM: Floorplan 3D Model Updated Successfully")
 
 
