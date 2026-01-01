@@ -261,7 +261,7 @@ def insert_model_3d_revision(
         @user_id,
         @page_number,
         @scale,
-        @model_2d,
+        @model_3d,
         JSON '{}',
         CURRENT_TIMESTAMP(),
         @revision_number
@@ -274,7 +274,7 @@ def insert_model_3d_revision(
             bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
             bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
             bigquery.ScalarQueryParameter("scale", "STRING", scale),
-            bigquery.ScalarQueryParameter("model_2d", "JSON", model_3d),
+            bigquery.ScalarQueryParameter("model_3d", "JSON", model_3d),
             bigquery.ScalarQueryParameter("revision_number", "INT64", revision_number)
         ]
     )
