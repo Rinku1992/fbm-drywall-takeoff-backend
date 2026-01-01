@@ -903,7 +903,7 @@ async def load_2d_revision(request: Request):
     project_id = parameters.get("project_id") or body.get("project_id")
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
-    index = parameters.get("page_number") or body.get("page_number")
+    page_number = parameters.get("page_number") or body.get("page_number")
     revision_number = parameters.get("revision_number") or body.get("revision_number")
     logging.info(f"SYSTEM: Received Floorplan 2D Model (Revision: {revision_number}) Load Request")
 
@@ -1031,7 +1031,7 @@ async def load_3d_revision(request: Request):
     project_id = parameters.get("project_id") or body.get("project_id")
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
-    index = parameters.get("page_number") or body.get("page_number")
+    page_number = parameters.get("page_number") or body.get("page_number")
     revision_number = parameters.get("revision_number") or body.get("revision_number")
     logging.info(f"SYSTEM: Received Floorplan 3D Model (Revision: {revision_number}) Load Request")
 
