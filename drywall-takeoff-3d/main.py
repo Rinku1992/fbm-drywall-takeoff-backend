@@ -762,7 +762,10 @@ async def load_plan_pages(request: Request):
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     user_id = parameters.get("user_id", '') or body.get("user_id", '')
 
-    GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) = LOWER('{user_id}');"
+    if user_id:
+        GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) = LOWER('{user_id}');"
+    else:
+        GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
     bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
     query_output = bigquery_client.query(GBQ_query).to_dataframe()
     dataframe = load_UI_dataframe(query_output)
