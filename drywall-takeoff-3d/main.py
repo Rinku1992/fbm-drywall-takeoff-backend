@@ -1150,7 +1150,7 @@ async def compute_takeoff(request: Request):
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     user_id = parameters.get("user_id") or body.get("user_id")
-    revision_number = parameters.get("revision_number") or body.get("revision_number")
+    revision_number = parameters.get("revision_number", '') or body.get("revision_number", '')
     logging.info("SYSTEM: Received a Drywall Takeoff computation Request")
 
     drywall_takeoff = dict(total=0, per_drywall=defaultdict(lambda: 0))
