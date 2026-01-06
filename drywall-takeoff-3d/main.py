@@ -12,7 +12,7 @@ from collections import defaultdict
 import requests
 import google.auth.transport.requests
 from google.oauth2.service_account import IDTokenCredentials
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, BackgroundTasks
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -383,6 +383,7 @@ def insert_takeoff(
 def insert_plan(
     project_id,
     user_id,
+    status,
     credentials,
     payload_plan=None,
     plan_id=None,
@@ -396,6 +397,7 @@ def insert_plan(
             @plan_id AS plan_id,
             @project_id AS project_id,
             @user_id AS user_id,
+            @status AS status,
             @plan_name AS plan_name,
             @plan_type AS plan_type,
             @file_type AS file_type,
@@ -407,12 +409,14 @@ def insert_plan(
     UPDATE SET
         pages = s.pages,
         source = s.source,
+        status = s.status,
         updated_at = CURRENT_TIMESTAMP()
     WHEN NOT MATCHED THEN
     INSERT (
         plan_id,
         project_id,
         user_id,
+        status,
         plan_name,
         plan_type,
         file_type,
@@ -425,6 +429,7 @@ def insert_plan(
         s.plan_id,
         s.project_id,
         s.user_id,
+        s.status,
         s.plan_name,
         s.plan_type,
         s.file_type,
@@ -448,6 +453,7 @@ def insert_plan(
             bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
             bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
             bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
+            bigquery.ScalarQueryParameter("status", "STRING", status),
             bigquery.ScalarQueryParameter("plan_name", "STRING", plan_name),
             bigquery.ScalarQueryParameter("plan_type", "STRING", plan_type),
             bigquery.ScalarQueryParameter("file_type", "STRING", file_type),
@@ -732,6 +738,7 @@ async def generate_floorplan_upload_signed_URL(request: Request) -> str:
     insert_plan(
         project_id,
         user_id,
+        "NOT STARTED",
         CREDENTIALS,
         payload_plan=payload_plan
     )
@@ -815,6 +822,7 @@ async def floorplan_to_2d(request: Request):
     insert_plan(
         project_id,
         user_id,
+        "IN PROGRESS",
         CREDENTIALS,
         plan_id=plan_id,
         GCS_URL_floorplan=GCS_URL_floorplan,
