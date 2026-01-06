@@ -12,7 +12,7 @@ from collections import defaultdict
 import requests
 import google.auth.transport.requests
 from google.oauth2.service_account import IDTokenCredentials
-from fastapi import FastAPI, Request, BackgroundTasks
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -849,6 +849,15 @@ async def floorplan_to_2d(request: Request):
         insert_model_2d(walls_2d, scale, index, plan_id, user_id, project_id, floorplan_page_source, target_drywalls_page_source, CREDENTIALS)
         page = dict(page_number=index, walls_2d=walls_2d, page_name='', scale=scale)
         walls_2d_all["pages"].append(page)
+    insert_plan(
+        project_id,
+        user_id,
+        "COMPLETED",
+        CREDENTIALS,
+        plan_id=plan_id,
+        GCS_URL_floorplan=GCS_URL_floorplan,
+        n_pages=len(floor_plan_paths_preprocessed),
+    )
 
     with open("/tmp/model_2d.json", 'w') as f:
         json.dump(walls_2d_all, f)
