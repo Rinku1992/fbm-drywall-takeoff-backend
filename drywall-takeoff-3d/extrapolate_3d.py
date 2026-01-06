@@ -70,7 +70,7 @@ class Extrapolate3D(FloorPlan):
         nx = -dy / length
         ny =  dx / length
 
-        half = self._load_wall_width_in_pixels(dict(x1=x1, y1=y1, x2=x2, y2=y2))
+        half = self._load_wall_width_in_pixels(dict(wall_line=[dict(x=x1, y=y1), dict(x=x2, y=y2)]))
         ox = nx * half
         oy = ny * half
 
@@ -237,10 +237,10 @@ class Extrapolate3D(FloorPlan):
         return None, None
 
     def _extrude_3d(self, wall_line, horizontal_wall_lines=None, vertical_wall_lines=None):
-        if horizontal_wall_lines is None or vertical_wall_lines is None:
-            front_face, back_face = self._extrude_width(wall_line)
-        else:
+        if horizontal_wall_lines and vertical_wall_lines:
             front_face, back_face = self._extrude_width_mitered_butt(wall_line, horizontal_wall_lines, vertical_wall_lines)
+        else:
+            front_face, back_face = self._extrude_width(wall_line)
         if front_face and back_face:
             polygons = self._extrude_height_polygon([front_face, back_face])
             return polygons
