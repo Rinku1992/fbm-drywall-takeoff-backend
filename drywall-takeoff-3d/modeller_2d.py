@@ -5,6 +5,7 @@ import math
 import json
 from pathlib import Path
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 from skimage.morphology import skeletonize
@@ -934,15 +935,31 @@ class FloorPlan2D(FloorPlan):
         image_GRAY = self.read_floor_plan(image_path)
         output_path = Path(output_path)
         wall_lines, perimeter_lines, outer_drywall_surfaces = self._patch_to_line(image_GRAY, output_path=output_path)
-        for index, (perimeter_line, outer_drywall_surface) in enumerate(zip(perimeter_lines, outer_drywall_surfaces)):
-            polygons = self._extrude_drywall(perimeter_line, outer_drywall_surface=outer_drywall_surface)
-            self._add_wall(perimeter_line, polygons, index, transcription_block_with_centroids)
-        for wall_line in wall_lines:
-            index += 1
-            if wall_line in perimeter_lines:
-                continue
-            polygons = self._extrude_drywall(wall_line)
-            self._add_wall(wall_line, polygons, index, transcription_block_with_centroids)
+
+        futures = list()
+        with ThreadPoolExecutor(max_workers=50) as executor:
+            for index, (perimeter_line, outer_drywall_surface) in enumerate(zip(perimeter_lines, outer_drywall_surfaces)):
+                polygons = self._extrude_drywall(perimeter_line, outer_drywall_surface=outer_drywall_surface)
+                futures.append(executor.submit(
+                    self._add_wall,
+                    perimeter_line,
+                    polygons,
+                    index,
+                    transcription_block_with_centroids,
+                ))
+            for wall_line in wall_lines:
+                index += 1
+                if wall_line in perimeter_lines:
+                    continue
+                polygons = self._extrude_drywall(wall_line)
+                futures.append(executor.submit(
+                    self._add_wall,
+                    wall_line,
+                    polygons,
+                    index,
+                    transcription_block_with_centroids,
+                ))
+        [future.result() for future in futures]
 
         if model_2d_path:
             with open(model_2d_path, 'w') as f:
