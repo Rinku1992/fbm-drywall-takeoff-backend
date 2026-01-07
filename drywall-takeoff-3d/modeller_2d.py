@@ -879,7 +879,8 @@ class FloorPlan2D(FloorPlan):
         self,
         image_path="/tmp/floor_plan_wall_segmented.png",
         model_2d_path="/tmp/walls_2d.json",
-        output_path="/tmp/blueprint_model_2d.png"
+        output_path="/tmp/blueprint_model_2d.png",
+        transcription_block_with_centroids=dict()
     ):
         image_GRAY = self.read_floor_plan(image_path)
         output_path = Path(output_path)
