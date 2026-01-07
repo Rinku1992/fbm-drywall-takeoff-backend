@@ -842,10 +842,10 @@ async def floorplan_to_2d(request: Request):
         logging.info(f"SYSTEM: Wall Detection Completed from PAGE: {index}")
 
         transcriber = Transcriber(CREDENTIALS, hyperparameters)
-        transcription_block_centroids = transcriber.transcribe(floor_plan_path)
+        transcription_block_with_centroids = transcriber.transcribe(floor_plan_path)
         logging.info(f"SYSTEM: Transcription Completed from PAGE: {index}")
 
-        walls_2d, walls_2d_path = floor_plan_modeller_2d.model(image_path=wall_segmented_path)
+        walls_2d, walls_2d_path = floor_plan_modeller_2d.model(image_path=wall_segmented_path, transcription_block_with_centroids)
         model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_path)
         upload_floorplan(model_2d_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
         model_2d_path_overlay_enabled = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_path, overlay_enabled=True)
