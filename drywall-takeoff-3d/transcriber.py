@@ -6,10 +6,13 @@ from google.cloud import vision
 from google.oauth2 import service_account
 import cv2
 
+__all__ = ["Transcriber"]
+
 
 class Transcriber:
 
-    def __init__(self, hyperparameters):
+    def __init__(self, credentials, hyperparameters):
+        self._credentials = credentials
         self._hyperparameters = hyperparameters
         self._transcription_block_centroids = dict()
 
