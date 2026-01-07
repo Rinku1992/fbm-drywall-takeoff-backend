@@ -286,7 +286,7 @@ class Extrapolate3D(FloorPlan):
         fig = plt.figure(figsize=(1920 / dpi, 1080 / dpi), dpi=dpi)
         ax = fig.add_subplot(111, projection="3d")
         for wall in data:
-            surfaces = [s for s in wall["surfaces_drywall"] if s.get("enabled", True)]
+            surfaces = [s for s in wall["surfaces_drywall"]]
 
             if len(surfaces) != 2:
                 continue
