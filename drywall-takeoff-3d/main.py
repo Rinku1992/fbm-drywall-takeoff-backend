@@ -27,6 +27,7 @@ import pandas as pd
 import numpy as np
 import math
 from preprocessing import preprocess
+from transcriber import Transcriber
 from modeller_2d import FloorPlan2D
 from extrapolate_3d import Extrapolate3D
 
@@ -839,6 +840,9 @@ async def floorplan_to_2d(request: Request):
         wall_segmented_path = floorplan_to_walls(CREDENTIALS, project_id, plan_id, user_id, index)
         upload_floorplan(wall_segmented_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
         logging.info(f"SYSTEM: Wall Detection Completed from PAGE: {index}")
+
+        transciber = Transcriber(CREDENTIALS, hyperparameters)
+        transcriber.transcribe(floor_plan_path)
 
         walls_2d, walls_2d_path = floor_plan_modeller_2d.model(image_path=wall_segmented_path)
         model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_path)
