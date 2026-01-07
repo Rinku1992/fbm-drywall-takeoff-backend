@@ -1,6 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 import json
-import numpy as np
+from pathlib import Path
 
 from google.cloud import vision
 from google.oauth2 import service_account
@@ -50,11 +50,12 @@ class Transcriber:
         with open(f"/tmp/{output_path}_{str((v_stride_index*n_horizontal_strides)+h_stride_index).zfill(3)}.json", "w", encoding="utf-8") as f:
             json.dump(response_json, f, ensure_ascii=False, indent=2)
 
-    def transcribe(self, image: np.array):
+    def transcribe(self, image_path: Path):
         credentials = service_account.Credentials.from_service_account_file(self._credentials["service_drywall_account_key"])
         vision_client = vision.ImageAnnotatorClient(credentials=credentials)
 
         kernel_parameters = self._hyperparameters["modelling"]["kernel"]
+        image = cv2.imread(image_path)
         n_horizontal_strides = (image.shape[1] // kernel_parameters["stride"]) + 1
         n_vertical_strides = (image.shape[0] // kernel_parameters["stride"]) + 1
 
