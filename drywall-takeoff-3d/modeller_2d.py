@@ -769,7 +769,7 @@ class FloorPlan2D(FloorPlan):
 
         return lines, perimeter_lines, outer_drywall_surfaces
 
-    def _add_wall(self, wall_line, polygons, index):
+    def _add_wall(self, wall_line, polygons, index, transcription_block_with_centroids):
         X1, Y1, X2, Y2 = wall_line[0]
         wall = dict(
             id=index,
@@ -886,8 +886,18 @@ class FloorPlan2D(FloorPlan):
         X, Y = line_centroid
         for transcription, centroid in transcription_block_with_centroids.items():
             X_target, Y_target = centroid
-            if math.hypot(X - X_target, Y - Y_target) <= threshold:
-                nearest_neighbors[transcription] = centroid
+            if direction == "UP":
+                if math.hypot(X - X_target, Y - Y_target) <= threshold and Y_target <= Y:
+                    nearest_neighbors[transcription] = centroid
+            if direction == "DOWN":
+                if math.hypot(X - X_target, Y - Y_target) <= threshold and Y_target >= Y:
+                    nearest_neighbors[transcription] = centroid
+            if direction == "LEFT":
+                if math.hypot(X - X_target, Y - Y_target) <= threshold and X_target <= X:
+                    nearest_neighbors[transcription] = centroid
+            if direction == "RIGHT":
+                if math.hypot(X - X_target, Y - Y_target) <= threshold and X_target >= X:
+                    nearest_neighbors[transcription] = centroid
         return nearest_neighbors
 
     def model(
@@ -902,13 +912,13 @@ class FloorPlan2D(FloorPlan):
         wall_lines, perimeter_lines, outer_drywall_surfaces = self._patch_to_line(image_GRAY, output_path=output_path)
         for index, (perimeter_line, outer_drywall_surface) in enumerate(zip(perimeter_lines, outer_drywall_surfaces)):
             polygons = self._extrude_drywall(perimeter_line, outer_drywall_surface=outer_drywall_surface)
-            self._add_wall(perimeter_line, polygons, index)
+            self._add_wall(perimeter_line, polygons, index, transcription_block_with_centroids)
         for wall_line in wall_lines:
             index += 1
             if wall_line in perimeter_lines:
                 continue
             polygons = self._extrude_drywall(wall_line)
-            self._add_wall(wall_line, polygons, index)
+            self._add_wall(wall_line, polygons, index, transcription_block_with_centroids)
 
         if model_2d_path:
             with open(model_2d_path, 'w') as f:
