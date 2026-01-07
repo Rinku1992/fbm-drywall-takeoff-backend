@@ -783,6 +783,12 @@ class FloorPlan2D(FloorPlan):
             polygons_drywall=list()
         )
         for polygon in polygons:
+            line_centroid = [round((X1 + X2) / 2), round((Y1 + Y2) / 2)]
+            nearest_transcription_blocks = self._load_nearest_transcription_blocks(
+                line_centroid,
+                direction,
+                transcription_block_with_centroids
+            )
             wall["polygons_drywall"].append(
                 dict(
                     polygon=polygon["coordinates"],
