@@ -841,8 +841,9 @@ async def floorplan_to_2d(request: Request):
         upload_floorplan(wall_segmented_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
         logging.info(f"SYSTEM: Wall Detection Completed from PAGE: {index}")
 
-        transciber = Transcriber(CREDENTIALS, hyperparameters)
+        transcriber = Transcriber(CREDENTIALS, hyperparameters)
         transcriber.transcribe(floor_plan_path)
+        logging.info(f"SYSTEM: Transcription Completed from PAGE: {index}")
 
         walls_2d, walls_2d_path = floor_plan_modeller_2d.model(image_path=wall_segmented_path)
         model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_path)
