@@ -45,7 +45,7 @@ class Transcriber:
             bounding_box_A, bounding_box_B, bounding_box_C, bounding_box_D  = response_json["textAnnotations"][0]["boundingPoly"]["vertices"]
             centroid_x = (bounding_box_A['x'] + bounding_box_B['x'] + bounding_box_C['x'] + bounding_box_D['x']) / 4
             centroid_y = (bounding_box_A['y'] + bounding_box_B['y'] + bounding_box_C['y'] + bounding_box_D['y']) / 4
-            self._transcription_block_centroids[text] = [centroid_x, centroid_y]
+            self._transcription_block_centroids[text] = [centroid_x + X1, centroid_y + Y1]
 
         with open(f"/tmp/{output_path}_{str((v_stride_index*n_horizontal_strides)+h_stride_index).zfill(3)}.json", "w", encoding="utf-8") as f:
             json.dump(response_json, f, ensure_ascii=False, indent=2)
