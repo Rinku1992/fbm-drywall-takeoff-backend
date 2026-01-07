@@ -842,7 +842,7 @@ async def floorplan_to_2d(request: Request):
         logging.info(f"SYSTEM: Wall Detection Completed from PAGE: {index}")
 
         transcriber = Transcriber(CREDENTIALS, hyperparameters)
-        transcriber.transcribe(floor_plan_path)
+        transcription_block_centroids = transcriber.transcribe(floor_plan_path)
         logging.info(f"SYSTEM: Transcription Completed from PAGE: {index}")
 
         walls_2d, walls_2d_path = floor_plan_modeller_2d.model(image_path=wall_segmented_path)
