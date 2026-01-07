@@ -887,6 +887,8 @@ class FloorPlan2D(FloorPlan):
         for transcription, centroid in transcription_block_with_centroids.items():
             X_target, Y_target = centroid
             if math.hypot(X - X_target, Y - Y_target) <= threshold:
+                nearest_neighbors[transcription] = centroid
+        return nearest_neighbors
 
     def model(
         self,
