@@ -784,17 +784,31 @@ class FloorPlan2D(FloorPlan):
         )
         for polygon in polygons:
             line_centroid = [round((X1 + X2) / 2), round((Y1 + Y2) / 2)]
-            nearest_transcription_blocks = self._load_nearest_transcription_blocks(
-                line_centroid,
-                direction,
-                transcription_block_with_centroids
-            )
+            direction = ''
+            room_name = ''
+            if self.classify_line(X1, Y1, X2, Y2) == "horizontal":
+                if np.median([Y1, Y2]) >= np.median([[coord['y'] for coord in polygon["coordinates"]]]):
+                    direction = "UP"
+                else:
+                    direction = "DOWN"
+            if self.classify_line(X1, Y1, X2, Y2) == "vertical":
+                if np.median([X1, X2]) >= np.median([[coord['x'] for coord in polygon["coordinates"]]]):
+                    direction = "LEFT"
+                else:
+                    direction = "RIGHT"
+            if direction:
+                nearest_transcription_blocks = self._load_nearest_transcription_blocks(
+                    line_centroid,
+                    direction,
+                    transcription_block_with_centroids
+                )
+                room_name = ''
             wall["polygons_drywall"].append(
                 dict(
                     polygon=polygon["coordinates"],
                     type="",
                     enabled=polygon["enabled"],
-                    room_name=''
+                    room_name=room_name
                 )
             )
         self._walls_2d.append(wall)
