@@ -51,7 +51,7 @@ class Transcriber:
             json.dump(response_json, f, ensure_ascii=False, indent=2)
 
     def transcribe(self, image: np.array):
-        credentials = service_account.Credentials.from_service_account_file("looker-studio-pro-427717-3b4c1aa4a357.json")
+        credentials = service_account.Credentials.from_service_account_file(self._credentials["service_drywall_account_key"])
         vision_client = vision.ImageAnnotatorClient(credentials=credentials)
 
         kernel_parameters = self._hyperparameters["modelling"]["kernel"]
