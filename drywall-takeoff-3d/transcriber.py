@@ -47,7 +47,7 @@ class Transcriber:
             centroid_y = (bounding_box_A['y'] + bounding_box_B['y'] + bounding_box_C['y'] + bounding_box_D['y']) / 4
             self._transcription_block_centroids[text] = [centroid_x, centroid_y]
 
-        with open(f"{output_path}_{str((v_stride_index*n_horizontal_strides)+h_stride_index).zfill(3)}.json", "w", encoding="utf-8") as f:
+        with open(f"/tmp/{output_path}_{str((v_stride_index*n_horizontal_strides)+h_stride_index).zfill(3)}.json", "w", encoding="utf-8") as f:
             json.dump(response_json, f, ensure_ascii=False, indent=2)
 
     def transcribe(self, image: np.array):
