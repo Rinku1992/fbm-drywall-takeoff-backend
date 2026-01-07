@@ -769,6 +769,10 @@ class FloorPlan2D(FloorPlan):
 
         return lines, perimeter_lines, outer_drywall_surfaces
 
+    def _load_room_name_given_drywall_line(self, wall_line, nearest_transcription_blocks):
+        ...
+        return ''
+
     def _add_wall(self, wall_line, polygons, index, transcription_block_with_centroids):
         X1, Y1, X2, Y2 = wall_line[0]
         wall = dict(
@@ -802,7 +806,7 @@ class FloorPlan2D(FloorPlan):
                     direction,
                     transcription_block_with_centroids
                 )
-                room_name = ''
+                room_name = self._load_room_name_given_drywall_line(wall_line, nearest_transcription_blocks)
             wall["polygons_drywall"].append(
                 dict(
                     polygon=polygon["coordinates"],
