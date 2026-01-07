@@ -75,3 +75,4 @@ class Transcriber:
                     ))
 
         [future.result() for future in futures]
+        return self._transcription_block_centroids
