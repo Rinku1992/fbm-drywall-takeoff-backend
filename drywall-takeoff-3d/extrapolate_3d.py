@@ -236,7 +236,7 @@ class Extrapolate3D(FloorPlan):
             return self._extrude_width_with_arbritrary_orientation(X1, Y1, X2, Y2)
         return None, None
 
-    def _extrude_3d(self, wall_line, horizontal_wall_lines=None, vertical_wall_lines=None):
+    def _extrude_3d(self, wall_line, horizontal_wall_lines=list(), vertical_wall_lines=list()):
         if horizontal_wall_lines and vertical_wall_lines:
             front_face, back_face = self._extrude_width_mitered_butt(wall_line, horizontal_wall_lines, vertical_wall_lines)
         else:
