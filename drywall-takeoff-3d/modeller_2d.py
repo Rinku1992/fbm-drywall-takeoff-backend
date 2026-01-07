@@ -875,6 +875,19 @@ class FloorPlan2D(FloorPlan):
         cv2.imwrite(image_path, canvas)
         return Path(image_path)
 
+    def _load_nearest_transcription_blocks(
+        self,
+        line_centroid,
+        direction,
+        transcription_block_with_centroids,
+        threshold=3000
+    ):
+        nearest_neighbors = dict()
+        X, Y = line_centroid
+        for transcription, centroid in transcription_block_with_centroids.items():
+            X_target, Y_target = centroid
+            if math.hypot(X - X_target, Y - Y_target) <= threshold:
+
     def model(
         self,
         image_path="/tmp/floor_plan_wall_segmented.png",
