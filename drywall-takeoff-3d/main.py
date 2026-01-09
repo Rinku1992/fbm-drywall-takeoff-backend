@@ -40,7 +40,7 @@ def respond_with_UI_payload(payload):
     )
 
 
-def upload_floorplan(plan_path, user_id, plan_id, project_id, credentials, index=None):
+def upload_floorplan(plan_path, user_id, plan_id, project_id, credentials, index=None, directory=None):
     client = CloudStorageClient()
     page_number = Path(plan_path.stem).suffix
     if page_number:
@@ -48,10 +48,16 @@ def upload_floorplan(plan_path, user_id, plan_id, project_id, credentials, index
     else:
         blob_object_name = plan_path.name
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
-    if index:
-        blob_path = f"{project_id.lower()}/{plan_id.lower()}/{user_id.lower()}/{index}/{blob_object_name}"
+    if directory:
+        if index:
+            blob_path = f"{project_id.lower()}/{plan_id.lower()}/{user_id.lower()}/{index}/{directory}/{blob_object_name}"
+        else:
+            blob_path = f"{project_id.lower()}/{plan_id.lower()}/{user_id.lower()}/{directory}/{blob_object_name}"
     else:
-        blob_path = f"{project_id.lower()}/{plan_id.lower()}/{user_id.lower()}/{blob_object_name}"
+        if index:
+            blob_path = f"{project_id.lower()}/{plan_id.lower()}/{user_id.lower()}/{index}/{blob_object_name}"
+        else:
+            blob_path = f"{project_id.lower()}/{plan_id.lower()}/{user_id.lower()}/{blob_object_name}"
     blob = bucket.blob(blob_path)
 
     blob.upload_from_filename(plan_path)
@@ -1028,9 +1034,11 @@ async def update_floorplan_to_2d(request: Request):
     hyperparameters = load_hyperparameters()
     floor_plan_modeller_3d = Extrapolate3D(hyperparameters)
     walls_3d, walls_3d_path = floor_plan_modeller_3d.extrapolate(model_2d_path=model_2d_path)
-    walls_3d, walls_3d_path = floor_plan_modeller_3d.gltf(model_2d_path=model_2d_path)
+    gltf_paths = floor_plan_modeller_3d.gltf(model_2d_path=model_2d_path)
     model_3d_path = floor_plan_modeller_3d.save_plot_3d(walls_3d_path)
     upload_floorplan(model_3d_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
+    for gltf_path in gltf_paths:
+        upload_floorplan(gltf_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2), directory="gltf")
     insert_model_3d(walls_3d, scale, index, plan_id, user_id, project_id, CREDENTIALS)
     logging.info("SYSTEM: A 3D Model of the Floorplan Generated Successfully")
 
