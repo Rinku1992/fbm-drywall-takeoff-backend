@@ -332,7 +332,6 @@ class Extrapolate3D(FloorPlan):
         plt.savefig(image_path, dpi=dpi)
         return Path(image_path)
 
-    @property
     def gltf(self, model_2d_path="/tmp/walls_2d.json"):
         wall_lines = self._load_model_2d(model_2d_path)
         walls = list()
