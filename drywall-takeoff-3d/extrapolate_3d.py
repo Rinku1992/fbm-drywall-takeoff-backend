@@ -340,10 +340,10 @@ class Extrapolate3D(FloorPlan):
             wall_width = self._load_wall_width_in_pixels(wall_line)
             walls.append(
                 dict(
-                    x1=wall_line["wall_line"][0]['x'], 
-                    y1=wall_line["wall_line"][0]['y'], 
-                    x2=wall_line["wall_line"][1]['x'], 
-                    y2=wall_line["wall_line"][1]['y'], 
+                    x1=(1920 - wall_line["wall_line"][0]['x']), 
+                    y1=(1080 - wall_line["wall_line"][0]['y']), 
+                    x2=(1920 - wall_line["wall_line"][1]['x']), 
+                    y2=(1080 - wall_line["wall_line"][1]['y']), 
                     height=self._height_in_pixels, 
                     thickness=wall_width
                 )
