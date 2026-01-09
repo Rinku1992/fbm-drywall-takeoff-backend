@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from floor_plan import FloorPlan
+from gltf_generator import load_gltf
 
 __all__ = ["Extrapolate3D"]
 
@@ -331,6 +332,26 @@ class Extrapolate3D(FloorPlan):
         plt.savefig(image_path, dpi=dpi)
         return Path(image_path)
 
+    @property
+    def gltf(self, model_2d_path="/tmp/walls_2d.json"):
+        wall_lines = self._load_model_2d(model_2d_path)
+        walls = list()
+        for wall_line in wall_lines:
+            wall_identity = dict()
+            wall_width = self._load_wall_width_in_pixels(wall_line)
+            walls.append(
+                dict(
+                    x1=wall_line["wall_line"][0]['x'], 
+                    y1=wall_line["wall_line"][0]['y'], 
+                    x2=wall_line["wall_line"][1]['x'], 
+                    y2=wall_line["wall_line"][1]['y'], 
+                    height=self._height_in_pixels, 
+                    thickness=wall_width
+                )
+            )
+        load_gltf(walls, "/tmp/walls.gltf")
+        return ["/tmp/walls.gltf", "/tmp/walls.bin"]    
+
     def extrapolate(self, model_2d_path="/tmp/walls_2d.json", model_3d_path="/tmp/walls_3d.json", mitered_butt_enabled=False):
         lines = self._load_model_2d(model_2d_path)
         horizontal_wall_lines, vertical_wall_lines = list(), list()
@@ -342,14 +363,14 @@ class Extrapolate3D(FloorPlan):
                     horizontal_wall_lines.append(wall_line)
                 if orientation == "vertical":
                     vertical_wall_lines.append(wall_line)
-        for index, line in enumerate(lines):
+        for index, wall_line in enumerate(lines):
             polygons = self._extrude_3d(
-                line,
+                wall_line,
                 horizontal_wall_lines=horizontal_wall_lines,
                 vertical_wall_lines=vertical_wall_lines
             )
             if polygons:
-                self._add_wall(line, polygons, index)
+                self._add_wall(wall_line, polygons, index)
 
         if model_3d_path:
             with open(model_3d_path, 'w') as f:
