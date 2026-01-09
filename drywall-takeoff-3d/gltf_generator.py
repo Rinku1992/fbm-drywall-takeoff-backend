@@ -6,45 +6,39 @@ from pygltflib import (
 )
 
 def create_wall_vertices(x1, y1, x2, y2, height, thickness):
-    # Wall direction
     dx, dy = x2 - x1, y2 - y1
     length = np.sqrt(dx**2 + dy**2)
-    nx, ny = -dy / length, dx / length  # perpendicular
+    nx, ny = -dy / length, dx / length
 
     t = thickness / 2
 
-    # Bottom rectangle
     p1 = [x1 + nx*t, y1 + ny*t, 0]
     p2 = [x1 - nx*t, y1 - ny*t, 0]
     p3 = [x2 - nx*t, y2 - ny*t, 0]
     p4 = [x2 + nx*t, y2 + ny*t, 0]
 
-    # Top rectangle
     p5 = [*p1[:2], height]
     p6 = [*p2[:2], height]
     p7 = [*p3[:2], height]
     p8 = [*p4[:2], height]
 
     vertices = np.array([
-        p1, p2, p3, p4,  # bottom
-        p5, p6, p7, p8   # top
+        p1, p2, p3, p4,
+        p5, p6, p7, p8
     ], dtype=np.float32)
 
     indices = np.array([
-        # sides
         0,1,5, 0,5,4,
         1,2,6, 1,6,5,
         2,3,7, 2,7,6,
         3,0,4, 3,4,7,
-        # top
         4,5,6, 4,6,7,
-        # bottom
         0,3,2, 0,2,1
     ], dtype=np.uint16)
 
     return vertices, indices
 
-def build_gltf(walls, output="/tmp/walls.gltf"):
+def load_gltf(walls, output="/tmp/walls.gltf"):
     gltf = GLTF2()
     buffer_data = bytearray()
     buffer_views = []
