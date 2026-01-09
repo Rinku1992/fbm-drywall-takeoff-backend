@@ -1188,7 +1188,7 @@ async def generate_drywall_overlaid_floorplan_download_signed_URL(request: Reque
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     user_id = parameters.get("user_id") or body.get("user_id")
-    poll = bool(parameters.get("poll")) or boool(body.get("poll"))
+    poll = bool(parameters.get("poll")) or bool(body.get("poll"))
     logging.info("SYSTEM: Received Signed Floorplan download URL generation Request")
 
     GBQ_query = f"SELECT target_drywalls FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) = LOWER('{user_id}') AND page_number = {index};"
