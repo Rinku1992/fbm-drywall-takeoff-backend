@@ -349,7 +349,7 @@ class Extrapolate3D(FloorPlan):
                 )
             )
         load_gltf(walls, "/tmp/walls.gltf")
-        return ["/tmp/walls.gltf", "/tmp/walls.bin"]    
+        return [Path("/tmp/walls.gltf"), Path("/tmp/walls.bin")]    
 
     def extrapolate(self, model_2d_path="/tmp/walls_2d.json", model_3d_path="/tmp/walls_3d.json", mitered_butt_enabled=False):
         lines = self._load_model_2d(model_2d_path)
