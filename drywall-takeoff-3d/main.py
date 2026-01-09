@@ -1028,6 +1028,7 @@ async def update_floorplan_to_2d(request: Request):
     hyperparameters = load_hyperparameters()
     floor_plan_modeller_3d = Extrapolate3D(hyperparameters)
     walls_3d, walls_3d_path = floor_plan_modeller_3d.extrapolate(model_2d_path=model_2d_path)
+    walls_3d, walls_3d_path = floor_plan_modeller_3d.gltf(model_2d_path=model_2d_path)
     model_3d_path = floor_plan_modeller_3d.save_plot_3d(walls_3d_path)
     upload_floorplan(model_3d_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
     insert_model_3d(walls_3d, scale, index, plan_id, user_id, project_id, CREDENTIALS)
