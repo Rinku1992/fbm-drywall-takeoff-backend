@@ -20,6 +20,7 @@ opencv-python
 numpy
 ruamel-yaml
 matplotlib
+pygltflib
 pillow
 fastapi
 uvicorn
