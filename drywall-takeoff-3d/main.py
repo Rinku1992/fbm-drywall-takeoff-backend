@@ -1188,11 +1188,19 @@ async def generate_drywall_overlaid_floorplan_download_signed_URL(request: Reque
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     user_id = parameters.get("user_id") or body.get("user_id")
+    poll = bool(parameters.get("poll")) or boool(body.get("poll"))
     logging.info("SYSTEM: Received Signed Floorplan download URL generation Request")
 
     GBQ_query = f"SELECT target_drywalls FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) = LOWER('{user_id}') AND page_number = {index};"
     bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
-    query_output = bigquery_client.query(GBQ_query).result()
+    query_output = list(bigquery_client.query(GBQ_query).result())
+    if poll:
+        timeout = from_unix_epoch() + 600
+        while from_unix_epoch() < timeout:
+            if query_output:
+                break
+            else:
+                query_output = list(bigquery_client.query(GBQ_query).result())
     drywall_overlaid_floorplan_source_path = list(query_output)[0].target_drywalls
     _, _, _, blob_path = drywall_overlaid_floorplan_source_path.split('/', 3)
 
