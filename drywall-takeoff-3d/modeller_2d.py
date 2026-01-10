@@ -824,6 +824,12 @@ class FloorPlan2D(FloorPlan):
         self._walls_2d.append(wall)
 
     def _extrude_drywall(self, line, outer_drywall_surface=None):
+        def offset_point(x, y, nx, ny, d):
+            return dict(
+                x=int(x + nx * d),
+                y=int(y + ny * d)
+            )
+
         polygons = list()
         X1, Y1, X2, Y2 = line[0]
         if self.classify_line(X1, Y1, X2, Y2) == "horizontal":
@@ -881,18 +887,18 @@ class FloorPlan2D(FloorPlan):
             ny =  dx / length
 
             polygon_a = [
-                offset_point(X1, Y1,  nx, ny, OFFSET_INNER),
-                offset_point(X2, Y2,  nx, ny, OFFSET_INNER),
-                offset_point(X2, Y2,  nx, ny, OFFSET_OUTER),
-                offset_point(X1, Y1,  nx, ny, OFFSET_OUTER),
+                offset_point(X1, Y1,  nx, ny, 5),
+                offset_point(X2, Y2,  nx, ny, 5),
+                offset_point(X2, Y2,  nx, ny, 10),
+                offset_point(X1, Y1,  nx, ny, 10),
             ]
             polygons.append(dict(coordinates=polygon_a, enabled=True))
 
             polygon_b = [
-                offset_point(X1, Y1, -nx, -ny, OFFSET_INNER),
-                offset_point(X2, Y2, -nx, -ny, OFFSET_INNER),
-                offset_point(X2, Y2, -nx, -ny, OFFSET_OUTER),
-                offset_point(X1, Y1, -nx, -ny, OFFSET_OUTER),
+                offset_point(X1, Y1, -nx, -ny, 5),
+                offset_point(X2, Y2, -nx, -ny, 5),
+                offset_point(X2, Y2, -nx, -ny, 10),
+                offset_point(X1, Y1, -nx, -ny, 10),
             ]
             polygons.append(dict(coordinates=polygon_b, enabled=True))
 
