@@ -154,36 +154,32 @@ class FloorPlan:
 
     def disconnected_shapes(self, wall_lines, tolerance=10):
         disconnected_shapes = list()
-        unvisited = set(map(id, wall_lines))
-        id_to_line = {id(line): line for line in wall_lines}
+        unvisited = deepcopy(wall_lines)
 
         while unvisited:
-            start_id = unvisited.pop()
-            start_line = id_to_line[start_id]
-
+            start_line = unvisited.pop()
             disconnected_shape = list()
             stack = [start_line]
 
             while stack:
-                current = stack.pop()
-                current_id = id(current)
+                current_line = stack.pop()
 
-                if current_id not in unvisited and current != start_line:
+                if current_line not in unvisited and current_line != start_line:
                     continue
 
-                unvisited.discard(current_id)
-                disconnected_shape.append(current)
+                if current_line in unvisited and current_line != start_line:
+                    unvisited.remove(current_line)
+                disconnected_shape.append(current_line)
 
-                neighbors = self.neighbors(
-                    reference_line=current,
-                    target_lines=wall_lines,
+                wall_lines_target = deepcopy(wall_lines)
+                neighbor_lines = self.neighbors(
+                    reference_line=current_line,
+                    target_lines=wall_lines_target,
                     tolerance=tolerance
                 )
-
-                for neighbor in neighbors:
-                    neighbor_id = id(neighbor)
-                    if neighbor_id in unvisited:
-                        stack.append(neighbor)
+                for neighbor_line in neighbor_lines:
+                    if neighbor_line in unvisited:
+                        stack.append(neighbor_line)
 
             disconnected_shapes.append(disconnected_shape)
 
