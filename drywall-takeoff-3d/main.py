@@ -327,6 +327,53 @@ def insert_model_3d(
     return query_output
 
 
+def delete_floorplan(project_id, plan_id, user_id, credentials):
+    GBQ_query = """
+    DELETE FROM `drywall_takeoff.plans`
+    WHERE
+        LOWER(project_id) = LOWER(@project_id)
+        AND LOWER(plan_id) = LOWER(@plan_id)
+        AND LOWER(user_id) = LOWER(@user_id);
+    """
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
+            bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
+            bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
+        ]
+    )
+
+    bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
+    bigquery_client.query(GBQ_query, job_config=job_config).result()
+
+    GBQ_query = """
+    DELETE FROM `drywall_takeoff.models`
+    WHERE
+        LOWER(project_id) = LOWER(@project_id)
+        AND LOWER(plan_id) = LOWER(@plan_id)
+        AND LOWER(user_id) = LOWER(@user_id);
+    """
+    bigquery_client.query(GBQ_query, job_config=job_config).result()
+
+    GBQ_query = """
+    DELETE FROM `drywall_takeoff.model_revisions_2d`
+    WHERE
+        LOWER(project_id) = LOWER(@project_id)
+        AND LOWER(plan_id) = LOWER(@plan_id)
+        AND LOWER(user_id) = LOWER(@user_id);
+    """
+    bigquery_client.query(GBQ_query, job_config=job_config).result()
+
+    GBQ_query = """
+    DELETE FROM `drywall_takeoff.model_revisions_3d`
+    WHERE
+        LOWER(project_id) = LOWER(@project_id)
+        AND LOWER(plan_id) = LOWER(@plan_id)
+        AND LOWER(user_id) = LOWER(@user_id);
+    """
+    bigquery_client.query(GBQ_query, job_config=job_config).result()
+
+
 def insert_takeoff(
     takeoff,
     page_number,
@@ -1214,6 +1261,23 @@ async def generate_drywall_overlaid_floorplan_download_signed_URL(request: Reque
     )
 
     return url
+
+
+@app.post("/remove_floorplan")
+async def remove_floorplan(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    project_id = parameters.get("project_id") or body.get("project_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
+    plan_id = parameters.get("plan_id") or body.get("plan_id")
+    logging.info("SYSTEM: Received a Floorplan Deletion Request")
+
+    delete_floorplan(project_id, plan_id, user_id, CREDENTIALS)
+    logging.info("SYSTEM: Floorplan Deleted Successfully")
 
 
 @app.post("/compute_takeoff")
