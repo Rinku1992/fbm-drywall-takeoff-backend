@@ -128,7 +128,8 @@ class FloorPlan:
         open_ends = ['A', 'B']
         X1, Y1, X2, Y2 = reference_line[0]
         target_wall_lines = deepcopy(target_lines)
-        target_wall_lines.remove(reference_line)
+        if reference_line in target_wall_lines:
+            target_wall_lines.remove(reference_line)
         for target_wall_line in target_wall_lines:
             target_X1, target_Y1, target_X2, target_Y2 = target_wall_line[0]
             if (math.hypot(X1 - target_X1, Y1 - target_Y1) <= tolerance or math.hypot(X1 - target_X2, Y1 - target_Y2) <= tolerance) and 'A' in open_ends:
@@ -142,7 +143,8 @@ class FloorPlan:
         neighbor_lines = list()
         X1, Y1, X2, Y2 = reference_line[0]
         target_wall_lines = deepcopy(target_lines)
-        target_wall_lines.remove(reference_line)
+        if reference_line in target_wall_lines:
+            target_wall_lines.remove(reference_line)
         for target_wall_line in target_wall_lines:
             target_X1, target_Y1, target_X2, target_Y2 = target_wall_line[0]
             if math.hypot(X1 - target_X1, Y1 - target_Y1) <= tolerance or math.hypot(X1 - target_X2, Y1 - target_Y2) <= tolerance:
