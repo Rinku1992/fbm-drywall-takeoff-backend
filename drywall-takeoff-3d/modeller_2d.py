@@ -919,10 +919,10 @@ class FloorPlan2D(FloorPlan):
 
         for wall in data:
             if overlay_enabled:
-                wall["wall_line"][0]['x'] = scale_x * wall["wall_line"][0]['x']
-                wall["wall_line"][0]['y'] = scale_y * wall["wall_line"][0]['y']
-                wall["wall_line"][1]['x'] = scale_x * wall["wall_line"][1]['x']
-                wall["wall_line"][1]['y'] = scale_y * wall["wall_line"][1]['y']
+                wall["wall_line"][0]['x'] = int(round(scale_x * wall["wall_line"][0]['x']))
+                wall["wall_line"][0]['y'] = int(round(scale_y * wall["wall_line"][0]['y']))
+                wall["wall_line"][1]['x'] = int(round(scale_x * wall["wall_line"][1]['x']))
+                wall["wall_line"][1]['y'] = int(round(scale_y * wall["wall_line"][1]['y']))
             self._draw_line(wall["wall_line"], canvas)
 
             for drywall in wall["polygons_drywall"]:
