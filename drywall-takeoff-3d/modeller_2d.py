@@ -918,7 +918,13 @@ class FloorPlan2D(FloorPlan):
             canvas = cv2.cvtColor(canvas, cv2.COLOR_GRAY2BGR)
 
         for wall in data:
+            if overlay_enabled:
+                wall["wall_line"][0]['x'] = scale_x * wall["wall_line"][0]['x']
+                wall["wall_line"][0]['y'] = scale_y * wall["wall_line"][0]['y']
+                wall["wall_line"][1]['x'] = scale_x * wall["wall_line"][1]['x']
+                wall["wall_line"][1]['y'] = scale_y * wall["wall_line"][1]['y']
             self._draw_line(wall["wall_line"], canvas)
+
             for drywall in wall["polygons_drywall"]:
                 if overlay_enabled:
                     pts = np.array([
