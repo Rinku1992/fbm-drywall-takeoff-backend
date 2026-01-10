@@ -375,10 +375,11 @@ def delete_floorplan(project_id, plan_id, user_id, credentials):
 
     client = CloudStorageClient()
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
-    blob_path = f"{project_id.lower()}/{plan_id.lower()}/{user_id.lower()}"
-    blob = bucket.blob(blob_path)
-    if blob.exists():
-        blob.delete()
+    prefix = f"{project_id.lower()}/{plan_id.lower()}/{user_id.lower()}/"
+    blobs = list(bucket.list_blobs(prefix=prefix))
+
+    if blobs:
+        bucket.delete_blobs(blobs)
 
 
 def insert_takeoff(
