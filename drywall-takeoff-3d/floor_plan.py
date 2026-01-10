@@ -145,9 +145,9 @@ class FloorPlan:
         target_wall_lines.remove(reference_line)
         for target_wall_line in target_wall_lines:
             target_X1, target_Y1, target_X2, target_Y2 = target_wall_line[0]
-            if (math.hypot(X1 - target_X1, Y1 - target_Y1) <= tolerance or math.hypot(X1 - target_X2, Y1 - target_Y2) <= tolerance) and 'A' in open_ends:
+            if math.hypot(X1 - target_X1, Y1 - target_Y1) <= tolerance or math.hypot(X1 - target_X2, Y1 - target_Y2) <= tolerance:
                 neighbor_lines.append(target_wall_line)
-            if (math.hypot(X2 - target_X1, Y2 - target_Y1) <= tolerance or math.hypot(X2 - target_X2, Y2 - target_Y2) <= tolerance) and 'B' in open_ends:
+            if math.hypot(X2 - target_X1, Y2 - target_Y1) <= tolerance or math.hypot(X2 - target_X2, Y2 - target_Y2) <= tolerance:
                 neighbor_lines.append(target_wall_line)
 
         return neighbor_lines
