@@ -870,6 +870,32 @@ class FloorPlan2D(FloorPlan):
             else:
                 polygons.append(dict(coordinates=polygon_b, enabled=True))
 
+        if self.classify_line(X1, Y1, X2, Y2) == "inclined":
+            dx = X2 - X1
+            dy = Y2 - Y1
+            length = math.hypot(dx, dy)
+            if length == 0:
+                return polygons
+
+            nx = -dy / length
+            ny =  dx / length
+
+            polygon_a = [
+                offset_point(X1, Y1,  nx, ny, OFFSET_INNER),
+                offset_point(X2, Y2,  nx, ny, OFFSET_INNER),
+                offset_point(X2, Y2,  nx, ny, OFFSET_OUTER),
+                offset_point(X1, Y1,  nx, ny, OFFSET_OUTER),
+            ]
+            polygons.append(dict(coordinates=polygon_a, enabled=True))
+
+            polygon_b = [
+                offset_point(X1, Y1, -nx, -ny, OFFSET_INNER),
+                offset_point(X2, Y2, -nx, -ny, OFFSET_INNER),
+                offset_point(X2, Y2, -nx, -ny, OFFSET_OUTER),
+                offset_point(X1, Y1, -nx, -ny, OFFSET_OUTER),
+            ]
+            polygons.append(dict(coordinates=polygon_b, enabled=True))
+
         return polygons
 
     def save_plot_2d(self, model_2d_path, floor_plan_path="/tmp/floor_plan.png", overlay_enabled=False):
