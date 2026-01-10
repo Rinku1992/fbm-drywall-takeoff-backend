@@ -751,9 +751,12 @@ class FloorPlan2D(FloorPlan):
 
         return deduplicated
 
-    def _draw_line(self, wall_line, canvas):
+    def _draw_line(self, wall_line, canvas, overlay_enabled=False):
         x1, y1, x2, y2 = wall_line[0]['x'], wall_line[0]['y'], wall_line[1]['x'], wall_line[1]['y']
-        cv2.line(canvas, (x1, y1), (x2, y2), (np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255)), 3)
+        line_width = 1
+        if overlay_enabled:
+            line_width = 3
+        cv2.line(canvas, (x1, y1), (x2, y2), (np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255)), line_width)
 
         return canvas
 
@@ -923,7 +926,7 @@ class FloorPlan2D(FloorPlan):
                 wall["wall_line"][0]['y'] = int(round(scale_y * wall["wall_line"][0]['y']))
                 wall["wall_line"][1]['x'] = int(round(scale_x * wall["wall_line"][1]['x']))
                 wall["wall_line"][1]['y'] = int(round(scale_y * wall["wall_line"][1]['y']))
-            self._draw_line(wall["wall_line"], canvas)
+            self._draw_line(wall["wall_line"], canvas, overlay_enabled=overlay_enabled)
 
             for drywall in wall["polygons_drywall"]:
                 if overlay_enabled:
