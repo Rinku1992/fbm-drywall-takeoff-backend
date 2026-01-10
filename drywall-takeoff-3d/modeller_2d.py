@@ -753,7 +753,7 @@ class FloorPlan2D(FloorPlan):
 
     def _draw_line(self, wall_line, canvas):
         x1, y1, x2, y2 = wall_line[0]['x'], wall_line[0]['y'], wall_line[1]['x'], wall_line[1]['y']
-        cv2.line(canvas, (x1, y1), (x2, y2), (np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255)), 1)
+        cv2.line(canvas, (x1, y1), (x2, y2), (np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255)), 3)
 
         return canvas
 
