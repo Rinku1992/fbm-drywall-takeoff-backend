@@ -756,7 +756,13 @@ class FloorPlan2D(FloorPlan):
         line_width = 1
         if overlay_enabled:
             line_width = 3
-        cv2.line(canvas, (x1, y1), (x2, y2), (np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255)), line_width)
+        cv2.line(
+            canvas,
+            (x1, y1),
+            (x2, y2),
+            (np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255)),
+            line_width
+        )
 
         return canvas
 
