@@ -878,7 +878,9 @@ class FloorPlan2D(FloorPlan):
 
         if overlay_enabled:
             canvas = cv2.imread(floor_plan_path)
-            canvas = cv2.resize(canvas, (1920, 1080))
+            height, width, _ = canvas.shape
+            scale_x = width / 1920
+            scale_y = height / 1080
         else:
             canvas = np.ones((1080, 1920), dtype=np.uint8) * 255
             canvas = cv2.cvtColor(canvas, cv2.COLOR_GRAY2BGR)
@@ -886,12 +888,20 @@ class FloorPlan2D(FloorPlan):
         for wall in data:
             self._draw_line(wall["wall_line"], canvas)
             for drywall in wall["polygons_drywall"]:
-                pts = np.array([
-                    [drywall["polygon"][0]['x'], drywall["polygon"][0]['y']],
-                    [drywall["polygon"][1]['x'], drywall["polygon"][1]['y']],
-                    [drywall["polygon"][2]['x'], drywall["polygon"][2]['y']],
-                    [drywall["polygon"][3]['x'], drywall["polygon"][3]['y']]
-                ], np.int32)
+                if overlay_enabled:
+                    pts = np.array([
+                        [int(round(scale_x * drywall["polygon"][0]['x'])), int(round(scale_y * drywall["polygon"][0]['y']))],
+                        [int(round(scale_x * drywall["polygon"][1]['x'])), int(round(scale_y * drywall["polygon"][1]['y']))],
+                        [int(round(scale_x * drywall["polygon"][2]['x'])), int(round(scale_y * drywall["polygon"][2]['y']))],
+                        [int(round(scale_x * drywall["polygon"][3]['x'])), int(round(scale_y * drywall["polygon"][3]['y']))]
+                    ], np.int32)
+                else:
+                    pts = np.array([
+                        [drywall["polygon"][0]['x'], drywall["polygon"][0]['y']],
+                        [drywall["polygon"][1]['x'], drywall["polygon"][1]['y']],
+                        [drywall["polygon"][2]['x'], drywall["polygon"][2]['y']],
+                        [drywall["polygon"][3]['x'], drywall["polygon"][3]['y']]
+                    ], np.int32)
                 pts = pts.reshape((-1, 1, 2))
                 if drywall["enabled"]:
                     cv2.fillPoly(canvas, pts=[pts], color=(0, 255, 0))
