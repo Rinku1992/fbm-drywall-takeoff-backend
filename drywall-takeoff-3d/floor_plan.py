@@ -154,6 +154,28 @@ class FloorPlan:
 
         return neighbor_lines
 
+    def nearest_neighbor(self, reference_line, target_lines):
+        X1, Y1, X2, Y2 = reference_line[0]
+        distance_nearest_neighbor = np.inf
+        target_wall_lines = deepcopy(target_lines)
+        if reference_line in target_wall_lines:
+            target_wall_lines.remove(reference_line)
+        id_to_line = {id(target_wall_line): target_wall_line for target_wall_line in target_wall_lines}
+        id_to_distance = dict()
+        for wall_line_index, target_wall_line in id_to_line.items():
+            target_X1, target_Y1, target_X2, target_Y2 = target_wall_line[0]
+            euclidean_distance_A_A = math.hypot(X1 - target_X1, Y1 - target_Y1)
+            euclidean_distance_A_B = math.hypot(X1 - target_X2, Y1 - target_Y2)
+            euclidean_distance_B_A = math.hypot(X2 - target_X1, Y2 - target_Y1)
+            euclidean_distance_B_B = math.hypot(X2 - target_X2, Y2 - target_Y2)
+            if min(euclidean_distance_A_A, euclidean_distance_A_B, euclidean_distance_B_A, euclidean_distance_B_B) < distance_nearest_neighbor:
+                distance_nearest_neighbor = min(euclidean_distance_A_A, euclidean_distance_A_B, euclidean_distance_B_A, euclidean_distance_B_B)
+                id_to_distance[wall_line_index] = distance_nearest_neighbor
+
+        index_minimum_id_to_distance = list(id_to_distance.values()).index(min(id_to_distance.values()))
+        nearest_neighbor = id_to_line[list(id_to_distance.keys())[index_minimum_id_to_distance]]
+        return nearest_neighbor
+
     def disconnected_shapes(self, wall_lines, tolerance=10):
         disconnected_shapes = list()
         unvisited = deepcopy(wall_lines)
