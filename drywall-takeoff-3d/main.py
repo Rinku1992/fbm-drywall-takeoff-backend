@@ -377,8 +377,12 @@ def delete_floorplan(project_id, plan_id, user_id, credentials):
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
     prefix = f"{project_id.lower()}/{plan_id.lower()}/{user_id.lower()}/"
     blobs = list(bucket.list_blobs(prefix=prefix))
-
     if blobs:
+        bucket.delete_blobs(blobs)
+
+    prefix = f"{project_id.lower()}/{plan_id.lower()}/"
+    blobs = list(bucket.list_blobs(prefix=prefix))
+    if not blobs:
         bucket.delete_blobs(blobs)
 
 
