@@ -380,11 +380,6 @@ def delete_floorplan(project_id, plan_id, user_id, credentials):
     if blobs:
         bucket.delete_blobs(blobs)
 
-    prefix = f"{project_id.lower()}/{plan_id.lower()}/"
-    blobs = list(bucket.list_blobs(prefix=prefix))
-    if not blobs:
-        bucket.delete_blobs(blobs)
-
 
 def insert_takeoff(
     takeoff,
