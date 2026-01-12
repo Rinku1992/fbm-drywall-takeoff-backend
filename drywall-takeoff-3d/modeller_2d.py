@@ -420,7 +420,7 @@ class FloorPlan2D(FloorPlan):
 
         floor_plan_topology_binary = self._load_topology(edges)
         lines = self.detect_lines(edges)
-        lines = self._normalize(lines)
+        lines = self.normalize(lines)
         if lines is not None:
             lines = self._jagged_to_smooth_lines_deterministic(lines)
             lines = self._close_jagged_openings(lines)
@@ -678,20 +678,6 @@ class FloorPlan2D(FloorPlan):
             valid_wall_lines.append(wall_line)
 
         return valid_wall_lines
-
-    def _normalize(self, lines):
-        if lines is None:
-            return lines
-        normalized_lines = list()
-        for line in lines:
-            x0, y0, x1, y1 = line[0]
-            distance_coord_0 = np.hypot(x0 - 0, y0 - 0)
-            distance_coord_1 = np.hypot(x1 - 0, y1 - 0)
-            if distance_coord_0 <= distance_coord_1 and [[x0, y0, x1, y1]] not in normalized_lines:
-                normalized_lines.append([[x0, y0, x1, y1]]) 
-            elif distance_coord_0 > distance_coord_1 and [[x1, y1, x0, y0]] not in normalized_lines:
-                normalized_lines.append([[x1, y1, x0, y0]])
-        return normalized_lines
 
     def _deduplicate_lines(self, wall_lines, tolerance=10):
         if wall_lines is None:
