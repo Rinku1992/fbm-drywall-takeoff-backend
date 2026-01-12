@@ -154,7 +154,7 @@ class FloorPlan:
 
         return neighbor_lines
 
-    def nearest_neighbor(self, reference_line, target_lines):
+    def nearest_neighbor(self, reference_line, target_lines, tolerance=200):
         X1, Y1, X2, Y2 = reference_line[0]
         distance_nearest_neighbor = np.inf
         target_wall_lines = deepcopy(target_lines)
@@ -172,9 +172,10 @@ class FloorPlan:
                 distance_nearest_neighbor = min(euclidean_distance_A_A, euclidean_distance_A_B, euclidean_distance_B_A, euclidean_distance_B_B)
                 id_to_distance[wall_line_index] = distance_nearest_neighbor
 
-        index_minimum_id_to_distance = list(id_to_distance.values()).index(min(id_to_distance.values()))
-        nearest_neighbor = id_to_line[list(id_to_distance.keys())[index_minimum_id_to_distance]]
-        return nearest_neighbor
+        if min(id_to_distance.values()) <= tolerance:
+            index_minimum_id_to_distance = list(id_to_distance.values()).index(min(id_to_distance.values()))
+            nearest_neighbor = id_to_line[list(id_to_distance.keys())[index_minimum_id_to_distance]]
+            return nearest_neighbor
 
     def disconnected_shapes(self, wall_lines, tolerance=10):
         disconnected_shapes = list()
