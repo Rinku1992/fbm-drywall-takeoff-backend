@@ -168,7 +168,7 @@ class FloorPlan:
 
         return neighbor_lines
 
-    def nearest_neighbor(self, reference_line, target_lines, tolerance=200):
+    def nearest_neighbor(self, reference_line, end_type, target_lines, tolerance=200):
         X1, Y1, X2, Y2 = reference_line[0]
         distance_nearest_neighbor = np.inf
         target_wall_lines = deepcopy(target_lines)
@@ -182,9 +182,14 @@ class FloorPlan:
             euclidean_distance_A_B = math.hypot(X1 - target_X2, Y1 - target_Y2)
             euclidean_distance_B_A = math.hypot(X2 - target_X1, Y2 - target_Y1)
             euclidean_distance_B_B = math.hypot(X2 - target_X2, Y2 - target_Y2)
-            if min(euclidean_distance_A_A, euclidean_distance_A_B, euclidean_distance_B_A, euclidean_distance_B_B) < distance_nearest_neighbor:
-                distance_nearest_neighbor = min(euclidean_distance_A_A, euclidean_distance_A_B, euclidean_distance_B_A, euclidean_distance_B_B)
-                id_to_distance[wall_line_index] = distance_nearest_neighbor
+            if end_type == 'A':
+                if min(euclidean_distance_A_A, euclidean_distance_A_B) < distance_nearest_neighbor:
+                    distance_nearest_neighbor = min(euclidean_distance_A_A, euclidean_distance_A_B)
+                    id_to_distance[wall_line_index] = distance_nearest_neighbor
+            if end_type == 'B':
+                if min(euclidean_distance_B_A, euclidean_distance_B_B) < distance_nearest_neighbor:
+                    distance_nearest_neighbor = min(euclidean_distance_B_A, euclidean_distance_B_B)
+                    id_to_distance[wall_line_index] = distance_nearest_neighbor
 
         if min(id_to_distance.values()) <= tolerance:
             index_minimum_id_to_distance = list(id_to_distance.values()).index(min(id_to_distance.values()))
