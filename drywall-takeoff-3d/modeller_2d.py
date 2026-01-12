@@ -437,6 +437,7 @@ class FloorPlan2D(FloorPlan):
             lines = self._sniff_and_split_orthogonal(lines)
             lines = self._deduplicate_lines(lines)
             lines = self._remove_invalid(lines)
+            lines = self._merge_nearest_neighbor(lines)
 
         if output_path:
             canvas = np.ones(image_BGR.shape, dtype=np.uint8) * 255
@@ -447,6 +448,32 @@ class FloorPlan2D(FloorPlan):
             cv2.imwrite(output_path, canvas)
 
         return lines
+
+    def _merge_nearest_neighbor(self, wall_lines, tolerance=200):
+        wall_lines_closed_dead_end = deepcopy(wall_lines)
+        for wall_line in wall_lines:
+            X1, Y1, X2, Y2 = wall_line[0]
+            open_ends = self.is_open(wall_line, wall_lines)
+            if 'A' in open_ends:
+                nearest_neighbor = self.nearest_neighbor(wall_line, 'A', wall_lines, tolerance=tolerance)
+                if nearest_neighbor:
+                    X1_nearest, Y1_nearest, X2_nearest, Y2_nearest = nearest_neighbor[0]
+                    X1_new, Y1_new = X1, Y1
+                    if math.hypot(X1_new - X1_nearest, Y1_new - Y1_nearest) < math.hypot(X1_new - X2_nearest, Y1_new - Y2_nearest):
+                        wall_lines_closed_dead_end.append([[X1_new, Y1_new, X1_nearest, Y1_nearest]])
+                    else:
+                        wall_lines_closed_dead_end.append([[X1_new, Y1_new, X2_nearest, Y2_nearest]])
+            if 'B' in open_ends:
+                nearest_neighbor = self.nearest_neighbor(wall_line, 'B', wall_lines, tolerance=tolerance)
+                if nearest_neighbor:
+                    X1_nearest, Y1_nearest, X2_nearest, Y2_nearest = nearest_neighbor[0]
+                    X1_new, Y1_new = X2, Y2
+                    if math.hypot(X1_new - X1_nearest, Y1_new - Y1_nearest) < math.hypot(X1_new - X2_nearest, Y1_new - Y2_nearest):
+                        wall_lines_closed_dead_end.append([[X1_new, Y1_new, X1_nearest, Y1_nearest]])
+                    else:
+                        wall_lines_closed_dead_end.append([[X1_new, Y1_new, X2_nearest, Y2_nearest]])
+
+        return wall_lines_closed_dead_end
 
     def _topology_guided_closure_open_lines_dead_end(self, wall_lines, maximum_length=1000, tolerance=5):
         wall_lines_closed_dead_end = list()
