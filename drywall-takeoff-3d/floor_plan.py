@@ -124,6 +124,20 @@ class FloorPlan:
 
         return perimeter_lines, outer_drywall_surfaces
 
+    def normalize(self, lines):
+        if lines is None:
+            return lines
+        normalized_lines = list()
+        for line in lines:
+            X1, Y1, X2, Y2 = line[0]
+            distance_coord_0 = np.hypot(X1 - 0, Y1 - 0)
+            distance_coord_1 = np.hypot(X2 - 0, Y2 - 0)
+            if distance_coord_0 <= distance_coord_1 and [[X1, Y1, X2, Y2]] not in normalized_lines:
+                normalized_lines.append([[X1, Y1, X2, Y2]]) 
+            elif distance_coord_0 > distance_coord_1 and [[X2, Y2, X1, Y1]] not in normalized_lines:
+                normalized_lines.append([[X2, Y2, X1, Y1]])
+        return normalized_lines
+
     def is_open(self, reference_line, target_lines, tolerance=10):
         open_ends = ['A', 'B']
         X1, Y1, X2, Y2 = reference_line[0]
