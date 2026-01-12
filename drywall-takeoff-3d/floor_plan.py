@@ -168,7 +168,7 @@ class FloorPlan:
 
         return neighbor_lines
 
-    def nearest_neighbor(self, reference_line, end_type, target_lines, tolerance=200):
+    def nearest_neighbor(self, reference_line, end_type, target_lines, tolerance=500):
         X1, Y1, X2, Y2 = reference_line[0]
         distance_nearest_neighbor = np.inf
         target_wall_lines = deepcopy(target_lines)
