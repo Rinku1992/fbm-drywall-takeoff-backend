@@ -437,6 +437,10 @@ class FloorPlan2D(FloorPlan):
             lines = self._sniff_and_split_orthogonal(lines)
             lines = self._deduplicate_lines(lines)
             lines = self._remove_invalid(lines)
+            shapes = self.disconnected_shapes(lines)
+            shape_lengths = list(map(lambda shape: len(shape), shapes))
+            shape_primary_index = list(shape_lengths).index(max(shape_lengths))
+            lines = shapes[shape_primary_index]
             lines = self._merge_nearest_neighbor(lines)
 
         if output_path:
@@ -786,11 +790,6 @@ class FloorPlan2D(FloorPlan):
         )
         if lines is None:
             return
-
-        shapes = self.disconnected_shapes(lines)
-        shape_lengths = list(map(lambda shape: len(shape), shapes))
-        shape_primary_index = list(shape_lengths).index(max(shape_lengths))
-        lines = shapes[shape_primary_index]
 
         lines = self._deduplicate_lines(lines)
         perimeter_lines, outer_drywall_surfaces = self.perimeter_lines(lines)
