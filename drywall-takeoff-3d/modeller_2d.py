@@ -816,7 +816,7 @@ class FloorPlan2D(FloorPlan):
 
         return room_name
 
-    def _add_wall(self, wall_line, polygons, index, transcription_block_with_centroids):
+    def _add_wall(self, wall_line, polygons, scale, index, transcription_block_with_centroids):
         X1, Y1, X2, Y2 = wall_line[0]
         wall = dict(
             id=index,
@@ -829,6 +829,7 @@ class FloorPlan2D(FloorPlan):
             length=math.hypot((X1 - X2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["horizontal"], (Y1 - Y2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["vertical"]),
             polygons_drywall=list()
         )
+        scale_x, scale_y = scale
         for polygon in polygons:
             line_centroid = [round((X1 + X2) / 2), round((Y1 + Y2) / 2)]
             direction = ''
@@ -1022,6 +1023,7 @@ class FloorPlan2D(FloorPlan):
         self,
         image_path="/tmp/floor_plan_wall_segmented.png",
         model_2d_path="/tmp/walls_2d.json",
+        floor_plan_path="/tmp/floor_plan.png",
         output_path="/tmp/blueprint_model_2d.png",
         transcription_block_with_centroids=dict()
     ):
@@ -1030,6 +1032,10 @@ class FloorPlan2D(FloorPlan):
         wall_lines, perimeter_lines, outer_drywall_surfaces = self._patch_to_line(image_GRAY, output_path=output_path)
 
         futures = list()
+        canvas = cv2.imread(floor_plan_path)
+        height, width, _ = canvas.shape
+        scale_x = width / 1920
+        scale_y = height / 1080
         with ThreadPoolExecutor(max_workers=50) as executor:
             for index, (perimeter_line, outer_drywall_surface) in enumerate(zip(perimeter_lines, outer_drywall_surfaces)):
                 polygons = self._extrude_drywall(perimeter_line, outer_drywall_surface=outer_drywall_surface)
@@ -1037,6 +1043,7 @@ class FloorPlan2D(FloorPlan):
                     self._add_wall,
                     perimeter_line,
                     polygons,
+                    (scale_x, scale_y),
                     index,
                     transcription_block_with_centroids,
                 ))
@@ -1049,6 +1056,7 @@ class FloorPlan2D(FloorPlan):
                     self._add_wall,
                     wall_line,
                     polygons,
+                    (scale_x, scale_y),
                     index,
                     transcription_block_with_centroids,
                 ))
