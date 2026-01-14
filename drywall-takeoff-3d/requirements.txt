@@ -8,6 +8,7 @@ google-cloud-bigquery-storage
 google-cloud-secret-manager
 google-cloud-vision
 db-dtypes
+vertexai==1.43.0
 google-auth
 google-oauth
 pathlib
