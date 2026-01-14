@@ -1,3 +1,5 @@
+import json
+
 import vertexai
 from vertexai.generative_models import GenerativeModel
 
