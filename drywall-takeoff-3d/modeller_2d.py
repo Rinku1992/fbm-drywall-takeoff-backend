@@ -11,6 +11,7 @@ import numpy as np
 from skimage.morphology import skeletonize
 
 from floor_plan import FloorPlan
+from prompt import WALL_IDENTITY_DETECTOR
 
 __all__ = ["FloorPlan2D"]
 
@@ -799,7 +800,7 @@ class FloorPlan2D(FloorPlan):
 
     def _load_room_name_given_drywall_line(self, wall_line, nearest_transcription_blocks):
         X1, Y1, X2, Y2 = wall_line[0]
-        system_instruction = is_ambiguous_prompt.format(
+        system_instruction = WALL_IDENTITY_DETECTOR.format(
             follow_up_after_rules=follow_up_after_rules,
             follow_up_before_rules='',
             partial_query='',
@@ -845,12 +846,15 @@ class FloorPlan2D(FloorPlan):
                 else:
                     direction = "RIGHT"
             if direction:
-                nearest_transcription_blocks = self._load_nearest_transcription_blocks(
-                    line_centroid,
-                    direction,
-                    transcription_block_with_centroids
-                )
-                room_name = self._load_room_name_given_drywall_line(wall_line, nearest_transcription_blocks)
+                if self._vertex_ai_client:
+                    nearest_transcription_blocks = self._load_nearest_transcription_blocks(
+                        line_centroid,
+                        direction,
+                        transcription_block_with_centroids
+                    )
+                    room_name = self._load_room_name_given_drywall_line(wall_line, nearest_transcription_blocks)
+                else:
+                    room_name = f"LOOK {direction}"
             wall["polygons_drywall"].append(
                 dict(
                     polygon=polygon["coordinates"],
