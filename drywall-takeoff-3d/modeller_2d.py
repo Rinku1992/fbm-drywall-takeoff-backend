@@ -959,27 +959,27 @@ class FloorPlan2D(FloorPlan):
         if overlay_enabled:
             canvas = cv2.imread(floor_plan_path)
             height, width, _ = canvas.shape
-            scale_x = width / 1920
-            scale_y = height / 1080
+            scale_X = width / 1920
+            scale_Y = height / 1080
         else:
             canvas = np.ones((1080, 1920), dtype=np.uint8) * 255
             canvas = cv2.cvtColor(canvas, cv2.COLOR_GRAY2BGR)
 
         for wall in data:
             if overlay_enabled:
-                wall["wall_line"][0]['x'] = int(round(scale_x * wall["wall_line"][0]['x']))
-                wall["wall_line"][0]['y'] = int(round(scale_y * wall["wall_line"][0]['y']))
-                wall["wall_line"][1]['x'] = int(round(scale_x * wall["wall_line"][1]['x']))
-                wall["wall_line"][1]['y'] = int(round(scale_y * wall["wall_line"][1]['y']))
+                wall["wall_line"][0]['x'] = int(round(scale_X * wall["wall_line"][0]['x']))
+                wall["wall_line"][0]['y'] = int(round(scale_Y * wall["wall_line"][0]['y']))
+                wall["wall_line"][1]['x'] = int(round(scale_X * wall["wall_line"][1]['x']))
+                wall["wall_line"][1]['y'] = int(round(scale_Y * wall["wall_line"][1]['y']))
             self._draw_line(wall["wall_line"], canvas, overlay_enabled=overlay_enabled)
 
             for drywall in wall["polygons_drywall"]:
                 if overlay_enabled:
                     pts = np.array([
-                        [int(round(scale_x * drywall["polygon"][0]['x'])), int(round(scale_y * drywall["polygon"][0]['y']))],
-                        [int(round(scale_x * drywall["polygon"][1]['x'])), int(round(scale_y * drywall["polygon"][1]['y']))],
-                        [int(round(scale_x * drywall["polygon"][2]['x'])), int(round(scale_y * drywall["polygon"][2]['y']))],
-                        [int(round(scale_x * drywall["polygon"][3]['x'])), int(round(scale_y * drywall["polygon"][3]['y']))]
+                        [int(round(scale_X * drywall["polygon"][0]['x'])), int(round(scale_Y * drywall["polygon"][0]['y']))],
+                        [int(round(scale_X * drywall["polygon"][1]['x'])), int(round(scale_Y * drywall["polygon"][1]['y']))],
+                        [int(round(scale_X * drywall["polygon"][2]['x'])), int(round(scale_Y * drywall["polygon"][2]['y']))],
+                        [int(round(scale_X * drywall["polygon"][3]['x'])), int(round(scale_Y * drywall["polygon"][3]['y']))]
                     ], np.int32)
                 else:
                     pts = np.array([
@@ -1007,7 +1007,7 @@ class FloorPlan2D(FloorPlan):
                         1,
                         (255, 255, 255), 
                         2, 
-                        cv2.LINE_AA, bottomLeftOrigin
+                        cv2.LINE_AA
                     )
 
         if overlay_enabled:
