@@ -913,6 +913,7 @@ async def floorplan_to_2d(request: Request):
 
         walls_2d, walls_2d_path = floor_plan_modeller_2d.model(
             image_path=wall_segmented_path,
+            floor_plan_path=floor_plan_path,
             transcription_block_with_centroids=transcription_block_with_centroids
         )
         model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_path)
