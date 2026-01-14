@@ -1,0 +1,2 @@
+WALL_IDENTITY_DETECTOR = """
+"""
