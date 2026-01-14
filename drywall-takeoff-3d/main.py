@@ -892,7 +892,8 @@ async def floorplan_to_2d(request: Request):
     )
     logging.info("SYSTEM: Floorplan Preprocessing Completed")
 
-    floor_plan_modeller_2d = FloorPlan2D(hyperparameters)
+    vertex_ai_client, generation_config = load_vertex_ai_client(CREDENTIALS)
+    floor_plan_modeller_2d = FloorPlan2D(hyperparameters, vertex_ai_client, generation_config)
     walls_2d_all = dict(pages=list())
     for index, floor_plan_path in enumerate(floor_plan_paths_preprocessed):
         scale = "0.25``:1`0``"
