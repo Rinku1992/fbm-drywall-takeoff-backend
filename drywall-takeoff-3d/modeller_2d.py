@@ -831,7 +831,7 @@ class FloorPlan2D(FloorPlan):
         )
         scale_x, scale_y = scale
         for polygon in polygons:
-            line_centroid = [round((X1 + X2) / 2), round((Y1 + Y2) / 2)]
+            line_centroid = [round(scale_x * (X1 + X2) / 2), round(scale_y * (Y1 + Y2) / 2)]
             direction = ''
             room_name = ''
             if self.classify_line(X1, Y1, X2, Y2) == "horizontal":
@@ -851,7 +851,8 @@ class FloorPlan2D(FloorPlan):
                         direction,
                         transcription_block_with_centroids
                     )
-                    room_name = self._load_room_name_given_drywall_line(wall_line, nearest_transcription_blocks)
+                    wall_line_normalized = [[round(scale_x * X1), round(scale_y * Y1), round(scale_x * X2), round(scale_y * Y2)]]
+                    room_name = self._load_room_name_given_drywall_line(wall_line_normalized, nearest_transcription_blocks)
                 else:
                     room_name = f"LOOK {direction}"
             wall["polygons_drywall"].append(
