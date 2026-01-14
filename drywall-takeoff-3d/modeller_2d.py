@@ -946,7 +946,13 @@ class FloorPlan2D(FloorPlan):
 
         return polygons
 
-    def save_plot_2d(self, model_2d_path, floor_plan_path="/tmp/floor_plan.png", overlay_enabled=False, drywall_label_enabled=False):
+    def save_plot_2d(
+        self, 
+        model_2d_path,
+        floor_plan_path="/tmp/floor_plan.png",
+        overlay_enabled=False,
+        drywall_label_enabled=False
+    ):
         with open(model_2d_path, 'r') as f:
             data = json.load(f)
 
