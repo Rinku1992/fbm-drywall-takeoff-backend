@@ -27,7 +27,7 @@ WALL_IDENTITY_DETECTOR = """
 
   OUTPUT:
     Your output should be in the JSON format containing the detected `Room Name`.
-    **STRICTLY** Do not create additional content apart from the designated JSON.
+    **STRICTLY** Do not generate additional content apart from the designated JSON.
     Please refer the following as a reference and ensure to replace every consecutive pair of open/closed curly braces with a single one during the generation of the output.
     {{
         "room_name": "<Detected Room Name/NULL>"
