@@ -23,6 +23,10 @@ WALL_IDENTITY_DETECTOR = """
       - A `Room Name` is most likely to be present near the middle of the `X` coordinates of the wall if the wall is horizontal and near the middle of the `Y` coordinates of the wall if the wall is vertical.
       - If a transcription entry contains partial `Room Name` look for the missing characters in its adjacent transcription entries.
 
+  INPUT:
+    wall: {wall_line}
+    transcription_entries: {transcription_entries}
+
   OUTPUT:
     Your output should be in the JSON format containing the detected `Room Name`. Do not create additional content apart from the designated JSON. Please refer the following as a reference and ensure to replace every consecutive pair of open/closed curly braces with a single one during the generation of the output.
     {{
