@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import math
 import json
+from json.decoder import JSONDecodeError
 from pathlib import Path
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
@@ -812,7 +813,10 @@ class FloorPlan2D(FloorPlan):
             {"role": "user", "parts": [dict(text=f"SYSTEM: {system_instruction}\n\nUSER: {input_query}")]}
         ]
         response = self._vertex_ai_client(contents)
-        room_name = json.loads(response.text.strip("`json"))["room_name"]
+        try:
+            room_name = json.loads(response.text.strip("`json"))["room_name"]
+        except JSONDecodeError:
+            room_name = "NULL"
 
         return room_name
 
