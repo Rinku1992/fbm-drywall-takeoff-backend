@@ -800,13 +800,16 @@ class FloorPlan2D(FloorPlan):
 
     def _load_room_name_given_drywall_line(self, wall_line, nearest_transcription_blocks):
         X1, Y1, X2, Y2 = wall_line[0]
+        transcription_entries = list()
+        for transcription, centroid in nearest_transcription_blocks.items():
+            transcription_entries.append(dict(text=transcription, centroid=dict(X=centroid[0], Y=centroid[1])))
         system_instruction = WALL_IDENTITY_DETECTOR
         input_query = dict(
             wall=dict(X1=X1, Y1=Y1, X2=X2, Y2=Y2),
-            transcription_entries=
+            transcription_entries=transcription_entries
         )
         contents = [
-            {"role": "user", "parts": [dict(text=f"SYSTEM: {system_instruction}\n\nUSER: {nl_query_consolidated}")]}
+            {"role": "user", "parts": [dict(text=f"SYSTEM: {system_instruction}\n\nUSER: {input_query}")]}
         ]
         response = self._vertex_ai_client(contents)
         room_name = json.loads(response.text)["room_name"]
