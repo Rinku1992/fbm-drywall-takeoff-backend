@@ -812,7 +812,7 @@ class FloorPlan2D(FloorPlan):
             {"role": "user", "parts": [dict(text=f"SYSTEM: {system_instruction}\n\nUSER: {input_query}")]}
         ]
         response = self._vertex_ai_client(contents)
-        room_name = json.loads(response.text)["room_name"]
+        room_name = json.loads(response.text.strip("`json"))["room_name"]
 
         return room_name
 
