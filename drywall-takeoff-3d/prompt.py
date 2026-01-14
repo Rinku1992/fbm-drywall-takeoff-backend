@@ -15,7 +15,7 @@ WALL_IDENTITY_DETECTOR = """
     INSTRUCTIONS:
       - The wall is likely to be a horizontal one if, their `Y` coordinates are same or have very little difference in values but the difference between their 'X' coordinates have a greater value.
       - The wall is likely to be a vertical one if, their `X` coordinates are same or have very little difference in values but the difference between their 'Y' coordinates have a greater value.
-      - A single wall if common between 2 adjacent rooms, is likely to belong to 2 Room Names but, the provided transcription entries have been carefully selected only from one of the sides of the wall in orde to associate with a single `Room Name`.
+      - A single wall if common between 2 adjacent rooms, is likely to belong to 2 Room Names but, the provided transcription entries have been carefully selected only from one of the sides of the wall in order to associate with a single `Room Name`.
         e.g.,
           If vertical wall line, all the provided transcription entries either belong to the LEFT or RIGHT side of the wall.
           If horizontal line, all the provided transcription entries either belong to the TOP or BOTTOM side of the wall.
