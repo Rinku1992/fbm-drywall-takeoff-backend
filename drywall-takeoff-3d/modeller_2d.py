@@ -954,8 +954,7 @@ class FloorPlan2D(FloorPlan):
         self, 
         model_2d_path,
         floor_plan_path="/tmp/floor_plan.png",
-        overlay_enabled=False,
-        drywall_label_enabled=False
+        overlay_enabled=False
     ):
         with open(model_2d_path, 'r') as f:
             data = json.load(f)
@@ -997,22 +996,6 @@ class FloorPlan2D(FloorPlan):
                     cv2.fillPoly(canvas, pts=[pts], color=(0, 255, 0))
                 else:
                     cv2.fillPoly(canvas, pts=[pts], color=(0, 0, 255))
-                if drywall_label_enabled:
-                    centroid_X = round((drywall["polygon"][0]['x'] + drywall["polygon"][1]['x'] + drywall["polygon"][2]['x'] + drywall["polygon"][3]['x']) / 4)
-                    centroid_Y = round((drywall["polygon"][0]['y'] + drywall["polygon"][1]['y'] + drywall["polygon"][2]['y'] + drywall["polygon"][3]['y']) / 4)
-                    if overlay_enabled:
-                        centroid_X = round(scale_X * centroid_X)
-                        centroid_Y = round(scale_Y * centroid_Y)
-                    cv2.putText(
-                        canvas, 
-                        drywall["room_name"],
-                        (centroid_X, centroid_Y),
-                        cv2.FONT_HERSHEY_SIMPLEX, 
-                        1,
-                        (255, 255, 255), 
-                        2, 
-                        cv2.LINE_AA
-                    )
 
         if overlay_enabled:
             image_path = "/tmp/blueprint_model_2d_overlay_enabled.png"
