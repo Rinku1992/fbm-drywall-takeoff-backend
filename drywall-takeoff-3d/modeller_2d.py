@@ -805,7 +805,7 @@ class FloorPlan2D(FloorPlan):
             transcription_entries.append(dict(text=transcription, centroid=dict(X=centroid[0], Y=centroid[1])))
         system_instruction = WALL_IDENTITY_DETECTOR
         input_query = dict(
-            wall=dict(X1=X1, Y1=Y1, X2=X2, Y2=Y2),
+            wall=dict(X1=int(X1), Y1=int(Y1), X2=int(X2), Y2=int(Y2)),
             transcription_entries=transcription_entries
         )
         contents = [
