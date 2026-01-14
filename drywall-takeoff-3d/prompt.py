@@ -19,7 +19,7 @@ WALL_IDENTITY_DETECTOR = """
         e.g.,
           If provided wall is vertical, all the provided transcription entries either belong to the LEFT or RIGHT side of the wall.
           If provided wall is horizontal, all the provided transcription entries either belong to the TOP or BOTTOM side of the wall.
-      - Figure out the appropriate text entity that could represent the name of the Room that the provided wall belongs to.
+      - Figure out the appropriate text entity that could represent the name of the room that the provided wall belongs to.
       - A `Room Name` is most likely to be present near the middle of the `X` coordinates of the wall if the wall is horizontal and near the middle of the `Y` coordinates of the wall if the wall is vertical.
       - If a transcription entry contains partial `Room Name` look for the missing characters in its adjacent transcription entries.
       - If no text entity representing a `Room Name` is observed, return room_name as `NULL`.
