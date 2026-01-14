@@ -17,8 +17,8 @@ WALL_IDENTITY_DETECTOR = """
       - The wall is likely to be a vertical one if, their `X` coordinates are same or have very little difference in values but the difference between their 'Y' coordinates have a greater value.
       - A single wall if common between 2 adjacent rooms, is likely to belong to 2 Room Names but, the provided transcription entries have been carefully selected only from one of the sides of the wall in order to associate with a single `Room Name`.
         e.g.,
-          If vertical wall line, all the provided transcription entries either belong to the LEFT or RIGHT side of the wall.
-          If horizontal line, all the provided transcription entries either belong to the TOP or BOTTOM side of the wall.
+          If provided wall line is vertical, all the provided transcription entries either belong to the LEFT or RIGHT side of the wall.
+          If provided wall line is horizontal, all the provided transcription entries either belong to the TOP or BOTTOM side of the wall.
       - Figure out the appropriate text entity that could represent the name of the Room.
       - A `Room Name` is most likely to be present near the middle of the `X` coordinates of the wall if the wall is horizontal and near the middle of the `Y` coordinates of the wall if the wall is vertical.
       - If a transcription entry contains partial `Room Name` look for the missing characters in its adjacent transcription entries.
