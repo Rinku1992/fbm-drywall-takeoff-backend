@@ -30,6 +30,7 @@ from preprocessing import preprocess
 from transcriber import Transcriber
 from modeller_2d import FloorPlan2D
 from extrapolate_3d import Extrapolate3D
+from helper import load_vertex_ai_client
 
 
 def respond_with_UI_payload(payload):
