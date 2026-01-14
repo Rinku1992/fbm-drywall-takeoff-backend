@@ -800,23 +800,18 @@ class FloorPlan2D(FloorPlan):
 
     def _load_room_name_given_drywall_line(self, wall_line, nearest_transcription_blocks):
         X1, Y1, X2, Y2 = wall_line[0]
-        system_instruction = WALL_IDENTITY_DETECTOR.format(
-            follow_up_after_rules=follow_up_after_rules,
-            follow_up_before_rules='',
-            partial_query='',
-            user_id=state["user_id"].split('@')[0].split('.')[0].capitalize(),
-            gurubot_user_manual=gurubot_user_manual,
-            context_metadata=context_metadata,
-            business_rules=business_rules.format(user_id=state["user_id"], current_month=today.strftime("%B").lower(), current_year=today.year, current_month_number=today.strftime("%m")),
-            date_rules=date_rules.format(year=today.year),
-            metric_rules=metric_rules,
-            purchase_table_specific_rules=purchase_table_specific_rules,
-            drywall_vendor_rank_table_specific_rules=drywall_vendor_rank_table_specific_rules.format(user_id=state["user_id"]),
-        ),
+        system_instruction = WALL_IDENTITY_DETECTOR
+        input_query = dict(
+            wall=dict(X1=X1, Y1=Y1, X2=X2, Y2=Y2),
+            transcription_entries=
+        )
         contents = [
             {"role": "user", "parts": [dict(text=f"SYSTEM: {system_instruction}\n\nUSER: {nl_query_consolidated}")]}
         ]
-        return ''
+        response = self._vertex_ai_client(contents)
+        room_name = json.loads(response.text)["room_name"]
+
+        return room_name
 
     def _add_wall(self, wall_line, polygons, index, transcription_block_with_centroids):
         X1, Y1, X2, Y2 = wall_line[0]
