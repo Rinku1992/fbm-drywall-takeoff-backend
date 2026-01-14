@@ -17,13 +17,14 @@ __all__ = ["FloorPlan2D"]
 
 class FloorPlan2D(FloorPlan):
 
-    def __init__(self, hyperparameters):
+    def __init__(self, hyperparameters, vertex_ai_client=None):
         super().__init__(hyperparameters)
 
         self._hyperparameters = hyperparameters
         self._width_in_feet = self._hyperparameters["modelling"]["width_in_feet"]
         self._height_in_feet = self._hyperparameters["modelling"]["height_in_feet"]
         self._walls_2d = list()
+        self._vertex_ai_client = vertex_ai_client
 
     def _close_jagged_openings(
         self,
@@ -797,7 +798,23 @@ class FloorPlan2D(FloorPlan):
         return lines, perimeter_lines, outer_drywall_surfaces
 
     def _load_room_name_given_drywall_line(self, wall_line, nearest_transcription_blocks):
-        ...
+        X1, Y1, X2, Y2 = wall_line[0]
+        system_instruction = is_ambiguous_prompt.format(
+            follow_up_after_rules=follow_up_after_rules,
+            follow_up_before_rules='',
+            partial_query='',
+            user_id=state["user_id"].split('@')[0].split('.')[0].capitalize(),
+            gurubot_user_manual=gurubot_user_manual,
+            context_metadata=context_metadata,
+            business_rules=business_rules.format(user_id=state["user_id"], current_month=today.strftime("%B").lower(), current_year=today.year, current_month_number=today.strftime("%m")),
+            date_rules=date_rules.format(year=today.year),
+            metric_rules=metric_rules,
+            purchase_table_specific_rules=purchase_table_specific_rules,
+            drywall_vendor_rank_table_specific_rules=drywall_vendor_rank_table_specific_rules.format(user_id=state["user_id"]),
+        ),
+        contents = [
+            {"role": "user", "parts": [dict(text=f"SYSTEM: {system_instruction}\n\nUSER: {nl_query_consolidated}")]}
+        ]
         return ''
 
     def _add_wall(self, wall_line, polygons, index, transcription_block_with_centroids):
