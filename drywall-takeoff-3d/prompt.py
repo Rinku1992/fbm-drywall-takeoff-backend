@@ -290,3 +290,7 @@ SCALE_AND_CEILING_HEIGHT_DETECTOR = """
         "scale": "<Scale of the drawing mentioned in the transcriptions i.e. number_in_inches``: number_in_feet`number_in_inches``>"
     }}
 """
+
+DRYWALL_CHOICES = {
+    
+}
