@@ -271,6 +271,7 @@ class Extrapolate3D(FloorPlan):
             thickness=wall_line["thickness"],
             height=wall_line["height"],
             length=wall_line["length"],
+            type=wall_line["type"],
             surfaces_drywall=list(),
             wall_line=wall_line["wall_line"]
         )

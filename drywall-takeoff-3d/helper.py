@@ -23,3 +23,6 @@ def bigquery_run(credentials, GBQ_query, job_config=dict()):
     )
     query_output = bigquery_client.query(GBQ_query, job_config=job_config)
     return query_output
+
+def load_drywall_choices(walls_2d_JSON, polygons_JSON):
+    return walls_2d_JSON, polygons_JSON
