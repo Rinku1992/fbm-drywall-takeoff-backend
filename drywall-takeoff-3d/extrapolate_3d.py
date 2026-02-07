@@ -485,7 +485,8 @@ class Extrapolate3D(FloorPlan):
         return walls_3d, polygons
 
     def extrapolate(
-        self, model_2d_path="/tmp/walls_2d.json",
+        self,
+        model_2d_path="/tmp/walls_2d.json",
         polygons_path="/tmp/polygons.json",
         model_3d_path="/tmp/walls_3d.json",
         polygons_3d_path="/tmp/polygons_3d.json",
