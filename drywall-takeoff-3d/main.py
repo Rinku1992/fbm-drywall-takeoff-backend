@@ -1135,7 +1135,7 @@ async def update_floorplan_to_2d(request: Request):
     insert_model_3d(dict(walls_3d=walls_3d, polygons=polygons_3d), scale, index, plan_id, user_id, project_id, CREDENTIALS)
     logging.info("SYSTEM: A 3D Model of the Floorplan Generated Successfully")
 
-    return respond_with_UI_payload(walls_3d)
+    return respond_with_UI_payload(dict(walls_3d=walls_3d, polygons=polygons_3d))
 
 
 @app.post("/floorplan_to_3d")
@@ -1173,7 +1173,7 @@ async def floorplan_to_3d(request: Request):
     insert_model_3d(dict(walls_3d=walls_3d, polygons=polygons_3d), scale, index, plan_id, user_id, project_id, CREDENTIALS)
     logging.info("SYSTEM: A 3D Model of the Floorplan Generated Successfully")
 
-    return respond_with_UI_payload(walls_3d)
+    return respond_with_UI_payload(dict(walls_3d=walls_3d, polygons=polygons_3d))
 
 
 @app.post("/load_3d_revision")
