@@ -1,3 +1,4 @@
+# Use a small official Python base
 FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 \
