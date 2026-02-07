@@ -33,7 +33,7 @@ from preprocessing import preprocess
 from transcriber import Transcriber
 from modeller_2d import FloorPlan2D
 from extrapolate_3d import Extrapolate3D
-from helper import load_vertex_ai_client, bigquery_run, load_drywall_choices
+from helper import load_vertex_ai_client, bigquery_run
 
 
 def respond_with_UI_payload(payload, status_code=200):
@@ -891,9 +891,9 @@ async def floorplan_to_2d(request: Request):
             transcription_block_with_centroids=transcription_block_with_centroids,
             transcription_headers_and_footers=transcription_headers_and_footers
         )
+        floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons)
         if not polygons:
             continue
-        walls_2d, polygons = load_drywall_choices(walls_2d, polygons)
         #if verbose.upper() == "TRUE":
         model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_path)
         upload_floorplan(model_2d_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
@@ -1126,6 +1126,7 @@ async def update_floorplan_to_2d(request: Request):
     hyperparameters = load_hyperparameters()
     floor_plan_modeller_3d = Extrapolate3D(hyperparameters)
     walls_3d, polygons_3d, walls_3d_path, _ = floor_plan_modeller_3d.extrapolate(model_2d_path=model_2d_path, polygons_path=polygons_path)
+    floor_plan_modeller_3d.load_drywall_choices(walls_3d, polygons_3d)
     gltf_paths = floor_plan_modeller_3d.gltf(model_2d_path=model_2d_path)
     model_3d_path = floor_plan_modeller_3d.save_plot_3d(walls_3d_path)
     upload_floorplan(model_3d_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
@@ -1163,6 +1164,7 @@ async def floorplan_to_3d(request: Request):
     hyperparameters = load_hyperparameters()
     floor_plan_modeller_3d = Extrapolate3D(hyperparameters)
     walls_3d, polygons_3d, walls_3d_path, _ = floor_plan_modeller_3d.extrapolate(model_2d_path=model_2d_path, polygons_path=polygons_path)
+    floor_plan_modeller_3d.load_drywall_choices(walls_3d, polygons_3d)
     gltf_paths = floor_plan_modeller_3d.gltf(model_2d_path=model_2d_path)
     model_3d_path = floor_plan_modeller_3d.save_plot_3d(walls_3d_path)
     upload_floorplan(model_3d_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))

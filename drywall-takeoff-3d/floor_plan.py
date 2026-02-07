@@ -4,6 +4,8 @@ import math
 import numpy as np
 import cv2
 
+from prompt import DRYWALL_CHOICES
+
 __all__ = ["FloorPlan"]
 
 
@@ -22,6 +24,12 @@ class FloorPlan:
 
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         return gray
+
+    def load_drywall_choices(self, model_JSON, polygons_JSON):
+        for wall in model_JSON:
+            wall["drywall_choices"] = DRYWALL_CHOICES.get(wall["type"], [])
+        for polygon in polygons_JSON:
+            polygon["drywall_choices"] = DRYWALL_CHOICES.get(polygon["type"], [])
 
     def detect_lines(self, image_GRAY):
         lines = cv2.HoughLinesP(
