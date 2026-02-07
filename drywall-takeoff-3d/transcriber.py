@@ -15,6 +15,7 @@ class Transcriber:
         self._credentials = credentials
         self._hyperparameters = hyperparameters
         self._transcription_block_centroids = dict()
+        self._transcription_block_tiles = dict()
 
     def _image_to_string(
         self,
@@ -46,11 +47,29 @@ class Transcriber:
             centroid_x = (bounding_box_A['x'] + bounding_box_B['x'] + bounding_box_C['x'] + bounding_box_D['x']) / 4
             centroid_y = (bounding_box_A['y'] + bounding_box_B['y'] + bounding_box_C['y'] + bounding_box_D['y']) / 4
             self._transcription_block_centroids[text] = [centroid_x + X1, centroid_y + Y1]
+            self._transcription_block_tiles[text] = [v_stride_index, h_stride_index]
 
         with open(f"/tmp/{output_path}_{str((v_stride_index*n_horizontal_strides)+h_stride_index).zfill(3)}.json", "w", encoding="utf-8") as f:
             json.dump(response_json, f, ensure_ascii=False, indent=2)
 
-    def transcribe(self, image_path: Path):
+    @property
+    def transciption_block_tiles(self):
+        return self._transcription_block_tiles
+
+    def transciption_block_tiles_row_major(self, row_indexes):
+        n_rows = max([index_row_major[0] for index_row_major in self._transcription_block_tiles.values()]) + 1
+        transcription_block_tiles_row_major = dict()
+        for row_index in row_indexes:
+            if row_index < 0:
+                row_index = n_rows - row_index
+            transcription_block_tiles_row_major[row_index + 1] = list()
+            for text, index_row_major in self._transcription_block_tiles.items():
+                if row_index == index_row_major[0]:
+                    transcription_block_tiles_row_major[row_index + 1].append(text)
+
+        return transcription_block_tiles_row_major
+
+    def transcribe(self, image_path: Path, filter_transciption_block_tiles_row_major_indexes=None):
         credentials = service_account.Credentials.from_service_account_file(self._credentials["service_drywall_account_key"])
         vision_client = vision.ImageAnnotatorClient(credentials=credentials)
 
@@ -75,4 +94,6 @@ class Transcriber:
                     ))
 
         [future.result() for future in futures]
+        if filter_transciption_block_tiles_row_major_indexes:
+            return self._transcription_block_centroids, self.transciption_block_tiles_row_major(filter_transciption_block_tiles_row_major_indexes)
         return self._transcription_block_centroids

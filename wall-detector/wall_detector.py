@@ -30,7 +30,7 @@ class WallDetector:
             width, height = hyperparameters["RESOLUTION"]["WIDTH"], hyperparameters["RESOLUTION"]["HEIGHT"]
             image = image.resize((width, height))
         out = self.pipe(
-            hyperparameters["PROMPT"],
+            "A floor plan",
             num_inference_steps=hyperparameters["N_INFERENCE_STEPS"],
             image=image,
             height=height,

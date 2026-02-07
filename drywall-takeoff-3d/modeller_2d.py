@@ -3,16 +3,23 @@ import cv2
 import numpy as np
 import math
 import json
+from PIL import Image
 from json.decoder import JSONDecodeError
 from pathlib import Path
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, wait
+from multiprocessing import Manager
 
 import numpy as np
 from skimage.morphology import skeletonize
+from vertexai.generative_models import Part, Content
 
 from floor_plan import FloorPlan
-from prompt import WALL_IDENTITY_DETECTOR
+from prompt import (
+    DRYWALL_PREDICTOR_CALIFORNIA,
+    SCALE_AND_CEILING_HEIGHT_DETECTOR,
+    WALL_RECTIFIER
+)
 
 __all__ = ["FloorPlan2D"]
 
@@ -25,8 +32,8 @@ class FloorPlan2D(FloorPlan):
         self._hyperparameters = hyperparameters
         self._width_in_feet = self._hyperparameters["modelling"]["width_in_feet"]
         self._height_in_feet = self._hyperparameters["modelling"]["height_in_feet"]
-        self._walls_2d = list()
         self._vertex_ai_client = vertex_ai_client
+        self._scale = self._hyperparameters["modelling"]["scale"]
 
     def _close_jagged_openings(
         self,
@@ -249,11 +256,11 @@ class FloorPlan2D(FloorPlan):
                     adjacency[j].append(i)
 
         visited = set()
-        clusters = []
+        clusters = list()
         for i in range(n):
             if i not in visited:
                 stack = [i]
-                cluster = []
+                cluster = list()
                 while stack:
                     node = stack.pop()
                     if node not in visited:
@@ -373,11 +380,6 @@ class FloorPlan2D(FloorPlan):
         return wall_lines
 
     def _thin_edges(self, binary_image):
-        """
-        Convert thick walls/edges into 1-pixel wide lines.
-        Input: binary image (edges in white, background black)
-        Output: thinned skeleton image
-        """
         _, binary = cv2.threshold(binary_image, 127, 255, cv2.THRESH_BINARY)
 
         skeleton = np.zeros(binary.shape, np.uint8)
@@ -702,12 +704,103 @@ class FloorPlan2D(FloorPlan):
 
     def _remove_invalid(self, wall_lines, open_tolerance_threshold=2, length_tolerance_threshold=10):
         valid_wall_lines = list()
+        canvas = np.ones((1080, 1920), dtype=np.uint8) * 255
+        for wall_line in wall_lines:
+            X1, Y1, X2, Y2 = wall_line[0]
+            cv2.line(canvas, (X1, Y1), (X2, Y2), 0, 1)
         for wall_line in wall_lines:
             X1, Y1, X2, Y2 = wall_line[0]
             if math.hypot(X1 - X2, Y1 - Y2) <= length_tolerance_threshold:
                 continue
             open_ends = self.is_open(wall_line, wall_lines, tolerance=open_tolerance_threshold)
             if open_ends and 'A' in open_ends and 'B' in open_ends:
+                orientation = self.classify_line(X1, Y1, X2, Y2)
+                wall_line_length = math.hypot(X1 - X2, Y1 - Y2)
+                if orientation == "horizontal":
+                    is_extended = False
+                    pixel_distance_UP_A = np.argmin(canvas[: Y1, X1 - open_tolerance_threshold: X1 + open_tolerance_threshold].mean(axis=1)[::-1])
+                    pixel_value_UP_A = canvas[: Y1, X1 - open_tolerance_threshold: X1 + open_tolerance_threshold].mean(axis=1)[::-1][np.argmin(canvas[: Y1, X1 - open_tolerance_threshold: X1 + open_tolerance_threshold].mean(axis=1)[::-1])]
+                    pixel_distance_UP_A = pixel_distance_UP_A if pixel_value_UP_A != 255 else np.inf
+                    pixel_distance_DOWN_A = np.argmin(canvas[Y1 + 1:, X1 - open_tolerance_threshold: X1 + open_tolerance_threshold].mean(axis=1))
+                    pixel_value_DOWN_A = canvas[Y1 + 1:, X1 - open_tolerance_threshold: X1 + open_tolerance_threshold].mean(axis=1)[np.argmin(canvas[Y1 + 1:, X1 - open_tolerance_threshold: X1 + open_tolerance_threshold].mean(axis=1))]
+                    pixel_distance_DOWN_A = pixel_distance_DOWN_A if pixel_value_DOWN_A != 255 else np.inf
+                    pixel_distance_LEFT_A = np.argmin(canvas[round(np.median([Y1, Y2])) - open_tolerance_threshold: round(np.median([Y1, Y2])) + open_tolerance_threshold, : X1].mean(axis=0)[::-1])
+                    pixel_value_LEFT_A = canvas[round(np.median([Y1, Y2])) - open_tolerance_threshold: round(np.median([Y1, Y2])) + open_tolerance_threshold, : X1].mean(axis=0)[::-1][np.argmin(canvas[round(np.median([Y1, Y2])) - open_tolerance_threshold: round(np.median([Y1, Y2])) + open_tolerance_threshold, : X1].mean(axis=0)[::-1])]
+                    pixel_distance_LEFT_A = pixel_distance_LEFT_A if pixel_value_LEFT_A != 255 else np.inf
+                    if min(pixel_distance_UP_A, pixel_distance_DOWN_A, pixel_distance_LEFT_A) <= 500:
+                        if np.argmin([pixel_distance_UP_A, pixel_distance_DOWN_A, pixel_distance_LEFT_A]) == 0 and pixel_value_UP_A != 255:
+                            valid_wall_lines.append([[X1, Y1 - pixel_distance_UP_A, X1, Y1]])
+                            is_extended = True
+                        if np.argmin([pixel_distance_UP_A, pixel_distance_DOWN_A, pixel_distance_LEFT_A]) == 1 and pixel_value_DOWN_A != 255:
+                            valid_wall_lines.append([[X1, Y1, X1, Y1 + pixel_distance_DOWN_A]])
+                            is_extended = True
+                        if np.argmin([pixel_distance_UP_A, pixel_distance_DOWN_A, pixel_distance_LEFT_A]) == 2 and pixel_value_LEFT_A != 255:
+                            valid_wall_lines.append([[X1 - pixel_distance_LEFT_A, Y1, X1, Y1]])
+                            is_extended = True
+                    pixel_distance_UP_B = np.argmin(canvas[: Y2, X2 - open_tolerance_threshold: X2 + open_tolerance_threshold].mean(axis=1)[::-1])
+                    pixel_value_UP_B = canvas[: Y2, X2 - open_tolerance_threshold: X2 + open_tolerance_threshold].mean(axis=1)[::-1][np.argmin(canvas[: Y2, X2 - open_tolerance_threshold: X2 + open_tolerance_threshold].mean(axis=1)[::-1])]
+                    pixel_distance_UP_B = pixel_distance_UP_B if pixel_value_UP_B != 255 else np.inf
+                    pixel_distance_DOWN_B = np.argmin(canvas[Y2 + 1:, X2 - open_tolerance_threshold: X2 + open_tolerance_threshold].mean(axis=1))
+                    pixel_value_DOWN_B = canvas[Y2 + 1:, X2 - open_tolerance_threshold: X2 + open_tolerance_threshold].mean(axis=1)[np.argmin(canvas[Y2 + 1:, X2 - open_tolerance_threshold: X2 + open_tolerance_threshold].mean(axis=1))]
+                    pixel_distance_DOWN_B = pixel_distance_DOWN_B if pixel_value_DOWN_B != 255 else np.inf
+                    pixel_distance_RIGHT_B = np.argmin(canvas[round(np.median([Y1, Y2])) - open_tolerance_threshold: round(np.median([Y1, Y2])) + open_tolerance_threshold, X2 + 1:].mean(axis=0)[::-1])
+                    pixel_value_RIGHT_B = canvas[round(np.median([Y1, Y2])) - open_tolerance_threshold: round(np.median([Y1, Y2])) + open_tolerance_threshold, X2 + 1:].mean(axis=0)[::-1][np.argmin(canvas[round(np.median([Y1, Y2])) - open_tolerance_threshold: round(np.median([Y1, Y2])) + open_tolerance_threshold, X2 + 1:].mean(axis=0)[::-1])]
+                    pixel_distance_RIGHT_B = pixel_distance_RIGHT_B if pixel_value_RIGHT_B != 255 else np.inf
+                    if min(pixel_distance_UP_B, pixel_distance_DOWN_B, pixel_distance_RIGHT_B) <= 500:
+                        if np.argmin([pixel_distance_UP_B, pixel_distance_DOWN_B, pixel_distance_RIGHT_B]) == 0 and pixel_value_UP_B != 255:
+                            valid_wall_lines.append([[X2, Y2 - pixel_distance_UP_B, X2, Y2]])
+                            is_extended = True
+                        if np.argmin([pixel_distance_UP_B, pixel_distance_DOWN_B, pixel_distance_RIGHT_B]) == 1 and pixel_value_DOWN_B != 255:
+                            valid_wall_lines.append([[X2, Y2, X2, Y2 + pixel_distance_DOWN_B]])
+                            is_extended = True
+                        if np.argmin([pixel_distance_UP_B, pixel_distance_DOWN_B, pixel_distance_RIGHT_B]) == 2 and pixel_value_RIGHT_B != 255:
+                            valid_wall_lines.append([[X2, Y2, X2 + pixel_distance_RIGHT_B, Y2]])
+                            is_extended = True
+                    if is_extended:
+                        valid_wall_lines.append(wall_line)
+                if orientation == "vertical":
+                    is_extended = False
+                    pixel_distance_LEFT_A = np.argmin(canvas[Y1 - open_tolerance_threshold: Y1 + open_tolerance_threshold, :X1].mean(axis=0)[::-1])
+                    pixel_value_LEFT_A = canvas[Y1 - open_tolerance_threshold: Y1 + open_tolerance_threshold, :X1].mean(axis=0)[::-1][np.argmin(canvas[Y1 - open_tolerance_threshold: Y1 + open_tolerance_threshold, :X1].mean(axis=0)[::-1])]
+                    pixel_distance_LEFT_A = pixel_distance_LEFT_A if pixel_value_LEFT_A != 255 else np.inf
+                    pixel_distance_RIGHT_A = np.argmin(canvas[Y1 - open_tolerance_threshold:Y1 + open_tolerance_threshold, X1 + 1:].mean(axis=0))
+                    pixel_value_RIGHT_A = canvas[Y1 - open_tolerance_threshold:Y1 + open_tolerance_threshold, X1 + 1:].mean(axis=0)[np.argmin(canvas[Y1 - open_tolerance_threshold:Y1 + open_tolerance_threshold, X1 + 1:].mean(axis=0))]
+                    pixel_distance_RIGHT_A = pixel_distance_RIGHT_A if pixel_value_RIGHT_A != 255 else np.inf
+                    pixel_distance_UP_A = np.argmin(canvas[:Y1, X1 - open_tolerance_threshold:X1 + open_tolerance_threshold].mean(axis=1)[::-1])
+                    pixel_value_UP_A = canvas[:Y1, X1 - open_tolerance_threshold:X1 + open_tolerance_threshold].mean(axis=1)[::-1][np.argmin(canvas[:Y1, X1 - open_tolerance_threshold:X1 + open_tolerance_threshold].mean(axis=1)[::-1])]
+                    pixel_distance_UP_A = pixel_distance_UP_A if pixel_value_UP_A != 255 else np.inf
+                    if min(pixel_distance_LEFT_A, pixel_distance_RIGHT_A, pixel_distance_UP_A) <= 500:
+                        if np.argmin([pixel_distance_LEFT_A, pixel_distance_RIGHT_A, pixel_distance_UP_A]) == 0 and pixel_value_LEFT_A != 255:
+                            valid_wall_lines.append([[X1 - pixel_distance_LEFT_A, Y1, X1, Y1]])
+                            is_extended = True
+                        if np.argmin([pixel_distance_LEFT_A, pixel_distance_RIGHT_A, pixel_distance_UP_A]) == 1 and pixel_value_RIGHT_A != 255:
+                            valid_wall_lines.append([[X1, Y1, X1 + pixel_distance_RIGHT_A, Y1]])
+                            is_extended = True
+                        if np.argmin([pixel_distance_LEFT_A, pixel_distance_RIGHT_A, pixel_distance_UP_A]) == 2 and pixel_value_UP_A != 255:
+                            valid_wall_lines.append([[X1, Y1 - pixel_distance_UP_A, X1, Y1]])
+                            is_extended = True
+                    pixel_distance_LEFT_B = np.argmin(canvas[Y2 - open_tolerance_threshold:Y2 + open_tolerance_threshold, :X2].mean(axis=0)[::-1])
+                    pixel_value_LEFT_B = canvas[Y2 - open_tolerance_threshold:Y2 + open_tolerance_threshold, :X2].mean(axis=0)[::-1][np.argmin(canvas[Y2 - open_tolerance_threshold:Y2 + open_tolerance_threshold, :X2].mean(axis=0)[::-1])]
+                    pixel_distance_LEFT_B = pixel_distance_LEFT_B if pixel_value_LEFT_B != 255 else np.inf
+                    pixel_distance_RIGHT_B = np.argmin(canvas[Y2 - open_tolerance_threshold:Y2 + open_tolerance_threshold, X2 + 1:].mean(axis=0))
+                    pixel_value_RIGHT_B = canvas[Y2 - open_tolerance_threshold:Y2 + open_tolerance_threshold, X2 + 1:].mean(axis=0)[np.argmin(canvas[Y2 - open_tolerance_threshold:Y2 + open_tolerance_threshold, X2 + 1:].mean(axis=0))]
+                    pixel_distance_RIGHT_B = pixel_distance_RIGHT_B if pixel_value_RIGHT_B != 255 else np.inf
+                    pixel_distance_DOWN_B = np.argmin(canvas[Y2 + 1:, X2 - open_tolerance_threshold:X2 + open_tolerance_threshold].mean(axis=1))
+                    pixel_value_DOWN_B = canvas[Y2 + 1:, X2 - open_tolerance_threshold:X2 + open_tolerance_threshold].mean(axis=1)[np.argmin(canvas[Y2 + 1:, X2 - open_tolerance_threshold:X2 + open_tolerance_threshold].mean(axis=1))]
+                    pixel_distance_DOWN_B = pixel_distance_DOWN_B if pixel_value_DOWN_B != 255 else np.inf
+                    if min(pixel_distance_LEFT_B, pixel_distance_RIGHT_B, pixel_distance_DOWN_B) <= 500:
+                        if np.argmin([pixel_distance_LEFT_B, pixel_distance_RIGHT_B, pixel_distance_DOWN_B]) == 0 and pixel_value_LEFT_B != 255:
+                            valid_wall_lines.append([[X2 - pixel_distance_LEFT_B, Y2, X2, Y2]])
+                            is_extended = True
+                        if np.argmin([pixel_distance_LEFT_B, pixel_distance_RIGHT_B, pixel_distance_DOWN_B]) == 1 and pixel_value_RIGHT_B != 255:
+                            valid_wall_lines.append([[X2, Y2, X2 + pixel_distance_RIGHT_B, Y2]])
+                            is_extended = True
+                        if np.argmin([pixel_distance_LEFT_B, pixel_distance_RIGHT_B, pixel_distance_DOWN_B]) == 2 and pixel_value_DOWN_B != 255:
+                            valid_wall_lines.append([[X2, Y2, X2, Y2 + pixel_distance_DOWN_B]])
+                            is_extended = True
+                    if is_extended:
+                        valid_wall_lines.append(wall_line)
+
                 continue
             valid_wall_lines.append(wall_line)
 
@@ -795,132 +888,491 @@ class FloorPlan2D(FloorPlan):
             return
 
         lines = self._deduplicate_lines(lines)
-        perimeter_lines, outer_drywall_surfaces = self.perimeter_lines(lines)
 
-        return lines, perimeter_lines, outer_drywall_surfaces
+        return lines
 
-    def _load_room_name_given_drywall_line(self, wall_line, nearest_transcription_blocks):
-        X1, Y1, X2, Y2 = wall_line[0]
+    @property
+    def scale(self):
+        return self._scale
+
+    def _load_ceiling_height_and_scale(self, transcription_headers_and_footers):
+        system = Content(role="model", parts=[Part.from_text(SCALE_AND_CEILING_HEIGHT_DETECTOR)])
+        query = Content(role="user", parts=[
+            Part.from_text(json.dumps(transcription_headers_and_footers))
+        ])
+        response = self._vertex_ai_client(contents=[system, query])
+        try:
+            ceiling_height_and_scale = json.loads(response.text.strip("`json").replace("{{", '{').replace("}}", '}'))
+            scale, ceiling_height = ceiling_height_and_scale["scale"], ceiling_height_and_scale["ceiling_height"]
+            if scale:
+                self._scale = scale
+            else:
+                ceiling_height_and_scale["scale"] = self._scale
+            if not ceiling_height:
+                ceiling_height_and_scale["ceiling_height"] = self._height_in_feet
+        except (JSONDecodeError, ValueError):
+            ceiling_height_and_scale = dict(ceiling_height=self._height_in_feet, scale=self._scale)
+
+        return ceiling_height_and_scale
+
+    def _wall_rectifier(
+        self,
+        vertices,
+        perimeter_walls,
+        scale,
+        floor_plan_path,
+        threshold=1000,
+    ):
+        scale_x, scale_y = scale
+        vertices_normalized = [(round(scale_x * vertex[0]), round(scale_y * vertex[1])) for vertex in vertices]
+        perimeter_walls_normalized = list()
+        for perimeter_wall in perimeter_walls:
+            X1, Y1, X2, Y2 = perimeter_wall[0]
+            perimeter_wall_normalized = [[round(scale_x * X1), round(scale_y * Y1), round(scale_x * X2), round(scale_y * Y2)]]
+            perimeter_walls_normalized.append(perimeter_wall_normalized)
+        canvas = cv2.imread(floor_plan_path)
+        vertices_normalized = np.array(vertices_normalized)
+        canvas_to_overlay = canvas.copy()
+        cv2.fillPoly(canvas_to_overlay, pts=[vertices_normalized], color=(0, 0, 255))
+        canvas = cv2.addWeighted(canvas_to_overlay, 0.3, canvas, 0.7, 0)
+        for perimeter_wall in perimeter_walls_normalized:
+            X1, Y1, X2, Y2 = perimeter_wall[0]
+            bounding_box_top_left = (X1 - 10, Y1 - 10)
+            bounding_box_bottom_right = (X2 + 10, Y2 + 10)
+            canvas = cv2.rectangle(canvas, bounding_box_top_left, bounding_box_bottom_right, (255, 0, 0), 3)
+        polygon_bounding_box_X1 = min(vertex[0] for vertex in vertices_normalized.tolist())
+        polygon_bounding_box_Y1 = min(vertex[1] for vertex in vertices_normalized.tolist())
+        polygon_bounding_box_X2 = max(vertex[0] for vertex in vertices_normalized.tolist())
+        polygon_bounding_box_Y2 = max(vertex[1] for vertex in vertices_normalized.tolist())
+        canvas_cropped = canvas[max(0, polygon_bounding_box_Y1 - threshold): polygon_bounding_box_Y2 + threshold, max(0, polygon_bounding_box_X1 - threshold): polygon_bounding_box_X2 + threshold]
+        system = Content(role="model", parts=[Part.from_text(WALL_RECTIFIER)])
+        _, canvas_buffer_array = cv2.imencode(".png", canvas_cropped)
+        bytes_canvas = canvas_buffer_array.tobytes()
+        perimeter_wall_lines = list()
+        for perimeter_wall in perimeter_walls_normalized:
+            X1, Y1, X2, Y2 = perimeter_wall[0]
+            perimeter_wall_lines.append(
+                dict(wall=dict(X1=int(X1), Y1=int(Y1), X2=int(X2), Y2=int(Y2)))
+            )
+        polygon = dict(
+            vertices=vertices_normalized.tolist(),
+            perimeter_wall_lines=perimeter_wall_lines,
+            offset=(max(0, polygon_bounding_box_X1 - threshold), max(0, polygon_bounding_box_Y1 - threshold))
+        )
+        query = Content(role="user", parts=[
+            Part.from_text(json.dumps(polygon)),
+            Part.from_data(data=bytes_canvas, mime_type="image/png")
+        ])
+        response = self._vertex_ai_client(contents=[system, query])
+        try:
+            polygon_rectified = json.loads(response.text.strip("`json").replace("{{", '{').replace("}}", '}'))
+            perimeter_walls_rectified = list()
+            for perimeter_wall_rectified in polygon_rectified:
+                perimeter_wall_rectified = [[perimeter_wall_rectified["X1"], perimeter_wall_rectified["Y1"], perimeter_wall_rectified["X2"], perimeter_wall_rectified["Y2"]]]
+                perimeter_walls_rectified.append(perimeter_wall_rectified)
+            return vertices_normalized.tolist(), perimeter_walls_rectified
+        except (JSONDecodeError, ValueError):
+            return vertices_normalized.tolist(), perimeter_walls
+
+    def _model_polygon(
+        self,
+        vertices,
+        walls,
+        polygons_pts,
+        floor_plan_path,
+        transcription_block_with_centroids,
+        walls_unnormalized,
+        threshold=1000,
+        tolerance=10,
+        height_default=9.125,
+    ):
+        def verify_tolerance(dimension_wall, wall_unnormalized):
+            X1, Y1, X2, Y2 = wall_unnormalized[0]
+            length_target = round(math.hypot(
+                (X1 - X2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["horizontal"],
+                (Y1 - Y2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["vertical"]
+            ), 2)
+            length_predicted = dimension_wall["length"]
+            if not length_predicted:
+                dimension_wall["length"] = length_target
+            else:
+                dimension_wall["length"] = round(length_predicted, 2)
+            if not dimension_wall["width"]:
+                dimension_wall["width"] = self._width_in_feet
+            else:
+                dimension_wall["width"] = round(dimension_wall["width"], 2)
+            if length_predicted and abs(length_target - length_predicted) > tolerance:
+                dimension_wall["length"] = length_target
+
+            return dimension_wall
+
+        canvas = cv2.imread(floor_plan_path)
+        vertices = np.array(vertices)
+        canvas_to_overlay = canvas.copy()
+        cv2.fillPoly(canvas_to_overlay, pts=[vertices], color=(0, 0, 255))
+        canvas = cv2.addWeighted(canvas_to_overlay, 0.3, canvas, 0.7, 0)
+        for wall in walls:
+            X1, Y1, X2, Y2 = wall[0]
+            bounding_box_top_left = (X1 - 10, Y1 - 10)
+            bounding_box_bottom_right = (X2 + 10, Y2 + 10)
+            canvas = cv2.rectangle(canvas, bounding_box_top_left, bounding_box_bottom_right, (255, 0, 0), 3)
+        for polygon_pts in polygons_pts:
+            canvas_to_overlay = canvas.copy()
+            cv2.fillPoly(canvas_to_overlay, pts=[polygon_pts], color=(0, 255, 0))
+            canvas = cv2.addWeighted(canvas_to_overlay, 0.5, canvas, 0.5, 0)
+        polygon_bounding_box_X1 = min(vertex[0] for vertex in vertices)
+        polygon_bounding_box_Y1 = min(vertex[1] for vertex in vertices)
+        polygon_bounding_box_X2 = max(vertex[0] for vertex in vertices)
+        polygon_bounding_box_Y2 = max(vertex[1] for vertex in vertices)
+        canvas_cropped = canvas[max(0, polygon_bounding_box_Y1 - threshold): polygon_bounding_box_Y2 + threshold, max(0, polygon_bounding_box_X1 - threshold): polygon_bounding_box_X2 + threshold]
+        centroid_polygon_X = round(sum([vertex[0] for vertex in vertices]) / len(vertices))
+        centroid_polygon_Y = round(sum([vertex[1] for vertex in vertices]) / len(vertices))
+        nearest_transcription_blocks = self._load_nearest_transcription_blocks((centroid_polygon_X, centroid_polygon_Y), transcription_block_with_centroids)
         transcription_entries = list()
         for transcription, centroid in nearest_transcription_blocks.items():
             transcription_entries.append(dict(text=transcription, centroid=dict(X=centroid[0], Y=centroid[1])))
-        system_instruction = WALL_IDENTITY_DETECTOR
-        input_query = dict(
-            wall=dict(X1=int(X1), Y1=int(Y1), X2=int(X2), Y2=int(Y2)),
-            transcription_entries=transcription_entries
-        )
-        contents = [
-            {"role": "user", "parts": [dict(text=f"SYSTEM: {system_instruction}\n\nUSER: {input_query}")]}
-        ]
-        response = self._vertex_ai_client(contents)
+        system = Content(role="model", parts=[Part.from_text(DRYWALL_PREDICTOR_CALIFORNIA)])
+        _, canvas_buffer_array = cv2.imencode(".png", canvas_cropped)
+        bytes_canvas = canvas_buffer_array.tobytes()
+        perimeter_lines = list()
+        for wall in walls:
+            X1, Y1, X2, Y2 = wall[0]
+            perimeter_lines.append(
+                dict(wall=dict(X1=int(X1), Y1=int(Y1), X2=int(X2), Y2=int(Y2)))
+            )
+        polygon = dict(vertices=vertices.tolist(), perimeter_wall_lines=perimeter_lines, transcription_entries=transcription_entries)
+        query = Content(role="user", parts=[
+            Part.from_text(json.dumps(polygon)),
+            Part.from_data(data=bytes_canvas, mime_type="image/png")
+        ])
+        response = self._vertex_ai_client(contents=[system, query])
         try:
-            room_name = json.loads(response.text.strip("`json"))["room_name"]
-        except JSONDecodeError:
-            room_name = "NULL"
+            model_polygon = json.loads(response.text.strip("`json").replace("{{", '{').replace("}}", '}'))
+            for index, (dimension_wall_predicted, wall_unnormalized )in enumerate(zip(model_polygon["wall_parameters"], walls_unnormalized)):
+                dimension_wall_rectified = verify_tolerance(dimension_wall_predicted, wall_unnormalized)
+                model_polygon["wall_parameters"][index] = dimension_wall_rectified
+        except (JSONDecodeError, ValueError):
+            model_polygon = {
+                "ceiling": {
+                    "room_name": '',
+                    "area": -1,
+                    "ceiling_type": "Flat",
+                    "height": 9.125,
+                    "slope": 0,
+                    "slope_enabled": False,
+                    "tilt_axis": '',
+                    "drywall_assembly": {
+                        "material": "white board",
+                        "color_code": (137, 138, 136),
+                        "thickness": 0.04,
+                        "layers": 1,
+                        "fire_rating": 0,
+                        "waste_factor": "8-12%",
+                    },
+                    "code_references": list(),
+                    "recommendation": ''
+                }
+            }
+            wall_parameters = list()
+            for wall in walls:
+                X1, Y1, X2, Y2 = wall[0]
+                length = round(math.hypot(
+                    (X1 - X2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["horizontal"],
+                    (Y1 - Y2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["vertical"]
+                ), 2)
+                wall_parameters.append(
+                    {
+                        "room_name": '',
+                        "length": length,
+                        "width": -1,
+                        "height": height_default,
+                        "wall_type": '',
+                        "drywall_assembly": {
+                            "material": "Standard gypsum board",
+                            "color_code": (245, 66, 149),
+                            "thickness": 0.04,
+                            "layers": 1,
+                            "fire_rating": 0,
+                            "waste_factor": "8-12%"
+                        },
+                        "code_references": list(),
+                        "recommendation": ''
+                    }
+                )
+            model_polygon["wall_parameters"] = wall_parameters
 
-        return room_name
+        return model_polygon
 
-    def _add_wall(self, wall_line, polygons, scale, index, transcription_block_with_centroids):
-        X1, Y1, X2, Y2 = wall_line[0]
-        wall = dict(
-            id=index,
-            wall_line=[
+    def _add_walls_polygon(
+        self,
+        vertices,
+        area,
+        perimeter_walls,
+        polygons,
+        scale,
+        height_default,
+        floor_plan_path,
+        transcription_block_with_centroids,
+        index,
+        shared_memory,
+    ):
+        def load_wall_payload(wall_line):
+            X1, Y1, X2, Y2 = wall_line[0]
+            wall_line_structured = [
                 dict(x=int(X1), y=int(Y1)),
                 dict(x=int(X2), y=int(Y2))
-            ],
-            thickness=self._width_in_feet,
-            height=self._height_in_feet,
-            length=math.hypot((X1 - X2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["horizontal"], (Y1 - Y2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["vertical"]),
-            polygons_drywall=list()
-        )
+            ]
+            with shared_memory["lock"]:
+                for wall_2d in shared_memory["walls_2d"]:
+                    if wall_2d["wall_line"] == wall_line_structured:
+                        return wall_2d
+
         scale_x, scale_y = scale
+        perimeter_walls_unnormalized = list()
+        for perimeter_wall in perimeter_walls:
+            X1, Y1, X2, Y2 = perimeter_wall[0]
+            perimeter_wall_unnormalized = [[round(X1 / scale_x), round(Y1 / scale_y), round(X2 / scale_x), round(Y2 / scale_y)]]
+            perimeter_walls_unnormalized.append(perimeter_wall_unnormalized)
+        polygons_pts_normalized = list()
         for polygon in polygons:
-            line_centroid = [round(scale_x * (X1 + X2) / 2), round(scale_y * (Y1 + Y2) / 2)]
-            direction = ''
-            room_name = ''
-            if self.classify_line(X1, Y1, X2, Y2) == "horizontal":
-                if np.median([Y1, Y2]) >= np.median([[coord['y'] for coord in polygon["coordinates"]]]):
-                    direction = "UP"
-                else:
-                    direction = "DOWN"
-            if self.classify_line(X1, Y1, X2, Y2) == "vertical":
-                if np.median([X1, X2]) >= np.median([[coord['x'] for coord in polygon["coordinates"]]]):
-                    direction = "LEFT"
-                else:
-                    direction = "RIGHT"
-            if direction:
-                if self._vertex_ai_client:
-                    nearest_transcription_blocks = self._load_nearest_transcription_blocks(
-                        line_centroid,
-                        direction,
-                        transcription_block_with_centroids
+            pts_normalized = np.array([
+                [polygon["coordinates"][0]['x'], polygon["coordinates"][0]['y']],
+                [polygon["coordinates"][1]['x'], polygon["coordinates"][1]['y']],
+                [polygon["coordinates"][2]['x'], polygon["coordinates"][2]['y']],
+                [polygon["coordinates"][3]['x'], polygon["coordinates"][3]['y']]
+            ], np.int32)
+            polygons_pts_normalized.append(pts_normalized)
+        model_polygon = self._model_polygon(
+            vertices,
+            perimeter_walls,
+            polygons_pts_normalized,
+            floor_plan_path,
+            transcription_block_with_centroids,
+            perimeter_walls_unnormalized,
+            height_default=height_default,
+        )
+
+        polygon = dict(
+            id=index,
+            area=area,
+            vertices=vertices,
+            type=model_polygon["ceiling"]["ceiling_type"],
+            height=model_polygon["ceiling"]["height"] if model_polygon["ceiling"]["height"] else height_default,
+            slope=model_polygon["ceiling"]["slope"],
+            slope_enabled=model_polygon["ceiling"]["slope_enabled"],
+            tilt_axis=model_polygon["ceiling"]["tilt_axis"],
+            room_name=model_polygon["ceiling"]["room_name"],
+            polygon_drywall=dict(
+                type=model_polygon["ceiling"]["drywall_assembly"]["material"],
+                color=tuple(model_polygon["ceiling"]["drywall_assembly"]["color_code"]),
+                thickness=model_polygon["ceiling"]["drywall_assembly"]["thickness"],
+                layers=model_polygon["ceiling"]["drywall_assembly"]["layers"],
+                fire_rating=model_polygon["ceiling"]["drywall_assembly"]["fire_rating"],
+                recommendation=model_polygon["ceiling"]["recommendation"],
+                waste_factor=model_polygon["ceiling"]["drywall_assembly"]["waste_factor"],
+                enabled=True,
+            )
+        )
+        with shared_memory["lock"]:
+            shared_memory["polygons"].append(polygon)
+
+        for wall_line, wall_parameter, polygon in zip(perimeter_walls, model_polygon["wall_parameters"], polygons):
+            wall_payload = load_wall_payload(wall_line)
+            if wall_payload:
+                try:
+                    thickness = round(float(wall_parameter["drywall_assembly"]["thickness"]), 2)
+                except ValueError:
+                    thickness = wall_parameter["drywall_assembly"]["thickness"]
+                except KeyError:
+                    wall_parameter["drywall_assembly"] = dict(
+                        material="DISABLED",
+                        color_code=(0, 0, 255),
+                        thickness=-1,
+                        layers=0,
+                        fire_rating=0,
+                        waste_factor="NA"
                     )
-                    wall_line_normalized = [[round(scale_x * X1), round(scale_y * Y1), round(scale_x * X2), round(scale_y * Y2)]]
-                    room_name = self._load_room_name_given_drywall_line(wall_line_normalized, nearest_transcription_blocks)
-                else:
-                    room_name = f"LOOK {direction}"
-            wall["polygons_drywall"].append(
+                    wall_parameter["recommendation"] = "NA"
+                    wall_parameter["room_name"] = ''
+                    thickness=-1
+                wall_payload_outdated = deepcopy(wall_payload)
+                if len(wall_payload["polygons_drywall"]) == 2:
+                    continue
+                wall_payload["polygons_drywall"].append(
+                    dict(
+                        id=f"{wall_payload["id"]}.b",
+                        room_name=wall_parameter["room_name"],
+                        polygon=polygon["coordinates"],
+                        type=wall_parameter["drywall_assembly"]["material"],
+                        color=tuple(wall_parameter["drywall_assembly"]["color_code"]),
+                        thickness=thickness,
+                        layers=wall_parameter["drywall_assembly"]["layers"],
+                        fire_rating=wall_parameter["drywall_assembly"]["fire_rating"],
+                        recommendation=wall_parameter["recommendation"],
+                        waste_factor=wall_parameter["drywall_assembly"]["waste_factor"],
+                        enabled=True
+                    )
+                )
+                with shared_memory["lock"]:
+                    shared_memory["walls_2d"].remove(wall_payload_outdated)
+                    shared_memory["walls_2d"].append(wall_payload)
+            else:
+                X1, Y1, X2, Y2 = wall_line[0]
+                wall = dict(
+                    id=len(shared_memory["walls_2d"]),
+                    wall_line=[
+                        dict(x=int(X1), y=int(Y1)),
+                        dict(x=int(X2), y=int(Y2))
+                    ],
+                    thickness=wall_parameter["width"],
+                    height=wall_parameter["height"] if wall_parameter["height"] else height_default,
+                    length=wall_parameter["length"],
+                    polygons_drywall=list()
+                )
+                try:
+                    thickness = round(float(wall_parameter["drywall_assembly"]["thickness"]), 2)
+                except ValueError:
+                    thickness = wall_parameter["drywall_assembly"]["thickness"]
+                except KeyError:
+                    wall_parameter["drywall_assembly"] = dict(
+                        material="DISABLED",
+                        color_code=(0, 0, 255),
+                        thickness=-1,
+                        layers=0,
+                        fire_rating=0,
+                        waste_factor="NA"
+                    )
+                    wall_parameter["recommendation"] = "NA"
+                    wall_parameter["room_name"] = ''
+                    thickness=-1
+                wall["polygons_drywall"].append(
+                    dict(
+                        id=f"{len(shared_memory["walls_2d"])}.a",
+                        room_name=wall_parameter["room_name"],
+                        polygon=polygon["coordinates"],
+                        type=wall_parameter["drywall_assembly"]["material"],
+                        color=tuple(wall_parameter["drywall_assembly"]["color_code"]),
+                        thickness=thickness,
+                        layers=wall_parameter["drywall_assembly"]["layers"],
+                        fire_rating=wall_parameter["drywall_assembly"]["fire_rating"],
+                        recommendation=wall_parameter["recommendation"],
+                        waste_factor=wall_parameter["drywall_assembly"]["waste_factor"],
+                        enabled=True,
+                    )
+                )
+                with shared_memory["lock"]:
+                    shared_memory["walls_2d"].append(wall)
+
+    def _add_wall_perimeter(
+        self,
+        wall_line,
+        polygons,
+        height_default,
+        scale,
+        shared_memory,
+        thickness_default=0.29,
+    ):
+        X1, Y1, X2, Y2 = wall_line[0]
+        wall_length_expected = round(math.hypot(
+            (X1 - X2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["horizontal"],
+            (Y1 - Y2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["vertical"]
+        ), 2)
+        scale_x, scale_y = scale
+        wall_line_structured = [
+            dict(x=round(scale_x * X1), y=round(scale_y * Y1)),
+            dict(x=round(scale_x * X2), y=round(scale_y * Y2))
+        ]
+        wall_payload = None
+        for wall_2d in shared_memory["walls_2d"]:
+            if wall_2d["wall_line"] == wall_line_structured:
+                wall_payload = wall_2d
+
+        if wall_payload:
+            wall_payload["polygons_drywall"].append(
                 dict(
-                    polygon=polygon["coordinates"],
-                    type="",
-                    enabled=polygon["enabled"],
-                    room_name=room_name
+                    id=f"{wall_payload["id"]}.b",
+                    polygon=polygons[0]["coordinates"],
+                    type="DISABLED",
+                    color=(0, 0, 255),
+                    thickness=-1,
+                    layers=0,
+                    fire_rating=0,
+                    recommendation="NA",
+                    waste_factor="NA",
+                    enabled=False,
+                    room_name='',
                 )
             )
-        self._walls_2d.append(wall)
-
-    def _extrude_drywall(self, line, outer_drywall_surface=None):
-        def offset_point(x, y, nx, ny, d):
-            return dict(
-                x=int(x + nx * d),
-                y=int(y + ny * d)
+        else:
+            wall = dict(
+                id=len(shared_memory["walls_2d"]),
+                wall_line=[
+                    dict(x=round(scale_x * X1), y=round(scale_y * Y1)),
+                    dict(x=round(scale_x * X2), y=round(scale_y * Y2))
+                ],
+                thickness=thickness_default,
+                height=height_default,
+                length=wall_length_expected,
+                polygons_drywall=list()
             )
+            for polygon, polygon_index in zip(polygons, ['a', 'b']):
+                wall["polygons_drywall"].append(
+                    dict(
+                        id=f"{len(shared_memory["walls_2d"])}.{polygon_index}",
+                        polygon=polygon["coordinates"],
+                        type="DISABLED",
+                        color=(0, 0, 255),
+                        thickness=-1,
+                        layers=0,
+                        fire_rating=0,
+                        recommendation="NA",
+                        waste_factor="NA",
+                        enabled=False,
+                        room_name='',
+                    )
+                )
+            with shared_memory["lock"]:
+                shared_memory["walls_2d"].append(wall)
 
+    def _extrude_polygon_perimeter(self, line, scale, outer_drywall_surface=None):
         polygons = list()
-        X1, Y1, X2, Y2 = line[0]
+        scale_x, scale_y = scale
+        X1, Y1, X2, Y2 = round(scale_x * line[0][0]), round(scale_y * line[0][1]), round(scale_x * line[0][2]), round(scale_y * line[0][3])
         if self.classify_line(X1, Y1, X2, Y2) == "horizontal":
             polygon_a = [
-                dict(x=int(X1+5), y=int(Y1-5)),
-                dict(x=int(X2-5), y=int(Y2-5)),
-                dict(x=int(X2-10), y=int(Y2-10)),
-                dict(x=int(X1+10), y=int(Y1-10))
+                dict(x=X1+20, y=Y1-20),
+                dict(x=X2-20, y=Y2-20),
+                dict(x=X2-40, y=Y2-40),
+                dict(x=X1+40, y=Y1-40)
             ]
-            if outer_drywall_surface == "UP":
-                polygons.append(dict(coordinates=polygon_a, enabled=False))
-            else:
-                polygons.append(dict(coordinates=polygon_a, enabled=True))
             polygon_b = [
-                dict(x=int(X1+5), y=int(Y1+5)),
-                dict(x=int(X2-5), y=int(Y2+5)),
-                dict(x=int(X2-10), y=int(Y2+10)),
-                dict(x=int(X1+10), y=int(Y1+10))
+                dict(x=X1+20, y=Y1+20),
+                dict(x=X2-20, y=Y2+20),
+                dict(x=X2-40, y=Y2+40),
+                dict(x=X1+40, y=Y1+40)
             ]
-            if outer_drywall_surface == "DOWN":
+            if outer_drywall_surface == "UP" or outer_drywall_surface == "INVALID":
+                polygons.append(dict(coordinates=polygon_a, enabled=False))
+            if outer_drywall_surface == "DOWN" or outer_drywall_surface == "INVALID":
                 polygons.append(dict(coordinates=polygon_b, enabled=False))
-            else:
-                polygons.append(dict(coordinates=polygon_b, enabled=True))
 
         if self.classify_line(X1, Y1, X2, Y2) == "vertical":
             polygon_a = [
-                dict(x=int(X1-5), y=int(Y1+5)),
-                dict(x=int(X2-5), y=int(Y2-5)),
-                dict(x=int(X2-10), y=int(Y2-10)),
-                dict(x=int(X1-10), y=int(Y1+10))
+                dict(x=X1-20, y=Y1+20),
+                dict(x=X2-20, y=Y2-20),
+                dict(x=X2-40, y=Y2-40),
+                dict(x=X1-40, y=Y1+40)
             ]
-            if outer_drywall_surface == "LEFT":
-                polygons.append(dict(coordinates=polygon_a, enabled=False))
-            else:
-                polygons.append(dict(coordinates=polygon_a, enabled=True))
             polygon_b = [
-                dict(x=int(X1+5), y=int(Y1+5)),
-                dict(x=int(X2+5), y=int(Y2-5)),
-                dict(x=int(X2+10), y=int(Y2-10)),
-                dict(x=int(X1+10), y=int(Y1+10))
+                dict(x=X1+20, y=Y1+20),
+                dict(x=X2+20, y=Y2-20),
+                dict(x=X2+40, y=Y2-40),
+                dict(x=X1+40, y=Y1+40)
             ]
-            if outer_drywall_surface == "RIGHT":
+            if outer_drywall_surface == "LEFT" or outer_drywall_surface == "INVALID":
+                polygons.append(dict(coordinates=polygon_a, enabled=False))
+            if outer_drywall_surface == "RIGHT" or outer_drywall_surface == "INVALID":
                 polygons.append(dict(coordinates=polygon_b, enabled=False))
-            else:
-                polygons.append(dict(coordinates=polygon_b, enabled=True))
 
         if self.classify_line(X1, Y1, X2, Y2) == "inclined":
             dx = X2 - X1
@@ -929,73 +1381,439 @@ class FloorPlan2D(FloorPlan):
             if length == 0:
                 return polygons
 
+            tx = dx / length
+            ty = dy / length
+
             nx = -dy / length
             ny =  dx / length
 
             polygon_a = [
-                offset_point(X1, Y1,  nx, ny, 5),
-                offset_point(X2, Y2,  nx, ny, 5),
-                offset_point(X2, Y2,  nx, ny, 10),
-                offset_point(X1, Y1,  nx, ny, 10),
+                dict(
+                    x=int(X1 + nx * 20 + tx * 20),
+                    y=int(Y1 + ny * 20 + ty * 20),
+                ),
+                dict(
+                    x=int(X2 + nx * 20 - tx * 20),
+                    y=int(Y2 + ny * 20 - ty * 20),
+                ),
+                dict(
+                    x=int(X2 + nx * 40 - tx * 40),
+                    y=int(Y2 + ny * 40 - ty * 40),
+                ),
+                dict(
+                    x=int(X1 + nx * 40 + tx * 40),
+                    y=int(Y1 + ny * 40 + ty * 40),
+                ),
             ]
-            polygons.append(dict(coordinates=polygon_a, enabled=True))
+            polygons.append(dict(coordinates=polygon_a, enabled=False))
 
             polygon_b = [
-                offset_point(X1, Y1, -nx, -ny, 5),
-                offset_point(X2, Y2, -nx, -ny, 5),
-                offset_point(X2, Y2, -nx, -ny, 10),
-                offset_point(X1, Y1, -nx, -ny, 10),
+                dict(
+                    x=int(X1 - nx * 20 + tx * 20),
+                    y=int(Y1 - ny * 20 + ty * 20),
+                ),
+                dict(
+                    x=int(X2 - nx * 20 - tx * 20),
+                    y=int(Y2 - ny * 20 - ty * 20),
+                ),
+                dict(
+                    x=int(X2 - nx * 40 - tx * 40),
+                    y=int(Y2 - ny * 40 - ty * 40),
+                ),
+                dict(
+                    x=int(X1 - nx * 40 + tx * 40),
+                    y=int(Y1 - ny * 40 + ty * 40),
+                ),
             ]
-            polygons.append(dict(coordinates=polygon_b, enabled=True))
+            polygons.append(dict(coordinates=polygon_b, enabled=False))
 
         return polygons
 
+    def _extrude_polygon_drywalls(self, polygon_perimeter_lines, polygon_vertices):
+        polygons = list()
+        for polygon_perimeter_line in polygon_perimeter_lines:
+            X1, Y1, X2, Y2 = polygon_perimeter_line[0][0], polygon_perimeter_line[0][1], polygon_perimeter_line[0][2], polygon_perimeter_line[0][3]
+            if self.classify_line(X1, Y1, X2, Y2) == "horizontal":
+                centroid_perimeter_line = (round((X1 + X2) / 2), round(np.median([Y1, Y2])))
+                if self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] - 100), polygon_vertices):
+                    polygon = [
+                        dict(x=X1+20, y=Y1-20),
+                        dict(x=X2-20, y=Y2-20),
+                        dict(x=X2-40, y=Y2-40),
+                        dict(x=X1+40, y=Y1-40)
+                    ]
+                else:
+                    polygon = [
+                        dict(x=X1+20, y=Y1+20),
+                        dict(x=X2-20, y=Y2+20),
+                        dict(x=X2-40, y=Y2+40),
+                        dict(x=X1+40, y=Y1+40)
+                    ]
+                polygons.append(dict(coordinates=polygon, enabled=True))
+
+            if self.classify_line(X1, Y1, X2, Y2) == "vertical":
+                centroid_perimeter_line = (round(np.median([X1, X2])), round((Y1 + Y2) / 2))
+                if self.is_inside_polygon((centroid_perimeter_line[0] - 100, centroid_perimeter_line[1]), polygon_vertices):
+                    polygon = [
+                        dict(x=X1-20, y=Y1+20),
+                        dict(x=X2-20, y=Y2-20),
+                        dict(x=X2-40, y=Y2-40),
+                        dict(x=X1-40, y=Y1+40)
+                    ]
+                else:
+                    polygon = [
+                        dict(x=X1+20, y=Y1+20),
+                        dict(x=X2+20, y=Y2-20),
+                        dict(x=X2+40, y=Y2-40),
+                        dict(x=X1+40, y=Y1+40)
+                    ]
+                polygons.append(dict(coordinates=polygon, enabled=True))
+
+            if self.classify_line(X1, Y1, X2, Y2) == "inclined":
+                dx = X2 - X1
+                dy = Y2 - Y1
+                length = math.hypot(dx, dy)
+                if length == 0:
+                    return polygons
+
+                tx = dx / length
+                ty = dy / length
+
+                nx = -dy / length
+                ny =  dx / length
+
+                mx = (X1 + X2) / 2
+                my = (Y1 + Y2) / 2
+
+                test_coordinate = (
+                    round(mx + nx * 100),
+                    round(my + ny * 100)
+                )
+
+                if self.is_inside_polygon(test_coordinate, polygon_vertices):
+                    nx, ny = -nx, -ny
+
+                polygon = [
+                    dict(
+                        x=int(X1 + nx * 20 + tx * 20),
+                        y=int(Y1 + ny * 20 + ty * 20),
+                    ),
+                    dict(
+                        x=int(X2 + nx * 20 - tx * 20),
+                        y=int(Y2 + ny * 20 - ty * 20),
+                    ),
+                    dict(
+                        x=int(X2 + nx * 40 - tx * 40),
+                        y=int(Y2 + ny * 40 - ty * 40),
+                    ),
+                    dict(
+                        x=int(X1 + nx * 40 + tx * 40),
+                        y=int(Y1 + ny * 40 + ty * 40),
+                    ),
+                ]
+                polygons.append(dict(coordinates=polygon, enabled=True))
+
+        return polygons
+
+    def _normalize_walls_2d(self, walls_2d):
+        for wall in walls_2d:
+            if len(wall["polygons_drywall"]) == 2 and wall["polygons_drywall"][0]["polygon"] != wall["polygons_drywall"][1]["polygon"]:
+                continue
+            wall_line_vertices = wall["wall_line"]
+            X1, Y1, X2, Y2 = wall_line_vertices[0]['x'], wall_line_vertices[0]['y'], wall_line_vertices[1]['x'], wall_line_vertices[1]['y']
+            orientation = self.classify_line(X1, Y1, X2, Y2)
+            if not wall["polygons_drywall"]:
+                for index in ['a', 'b']:
+                    if orientation == "horizontal":
+                        if index == 'a':
+                            polygon_vertices = [
+                                dict(x=X1+20, y=Y1-20),
+                                dict(x=X2-20, y=Y2-20),
+                                dict(x=X2-40, y=Y2-40),
+                                dict(x=X1+40, y=Y1-40)
+                            ]
+                        else:
+                            polygon_vertices = [
+                                dict(x=X1+20, y=Y1+20),
+                                dict(x=X2-20, y=Y2+20),
+                                dict(x=X2-40, y=Y2+40),
+                                dict(x=X1+40, y=Y1+40)
+                            ]
+                    if orientation == "vertical":
+                        if index == 'a':   
+                            polygon_vertices = [
+                                dict(x=X1-20, y=Y1+20),
+                                dict(x=X2-20, y=Y2-20),
+                                dict(x=X2-40, y=Y2-40),
+                                dict(x=X1-40, y=Y1+40)
+                            ]
+                        else:
+                            polygon_vertices = [
+                                dict(x=X1+20, y=Y1+20),
+                                dict(x=X2+20, y=Y2-20),
+                                dict(x=X2+40, y=Y2-40),
+                                dict(x=X1+40, y=Y1+40)
+                            ]
+                    if orientation == "inclined":
+                        dx = X2 - X1
+                        dy = Y2 - Y1
+                        length = math.hypot(dx, dy)
+                        if length == 0:
+                            continue
+
+                        tx = dx / length
+                        ty = dy / length
+
+                        nx = -dy / length
+                        ny =  dx / length
+
+                        if index == 'a':
+                            polygon_vertices = [
+                                dict(
+                                    x=int(X1 + nx * 20 + tx * 20),
+                                    y=int(Y1 + ny * 20 + ty * 20),
+                                ),
+                                dict(
+                                    x=int(X2 + nx * 20 - tx * 20),
+                                    y=int(Y2 + ny * 20 - ty * 20),
+                                ),
+                                dict(
+                                    x=int(X2 + nx * 40 - tx * 40),
+                                    y=int(Y2 + ny * 40 - ty * 40),
+                                ),
+                                dict(
+                                    x=int(X1 + nx * 40 + tx * 40),
+                                    y=int(Y1 + ny * 40 + ty * 40),
+                                 ),
+                                ]
+                        else:
+                            polygon_vertices = [
+                                dict(
+                                    x=int(X1 - nx * 20 + tx * 20),
+                                    y=int(Y1 - ny * 20 + ty * 20),
+                                ),
+                                dict(
+                                    x=int(X2 - nx * 20 - tx * 20),
+                                    y=int(Y2 - ny * 20 - ty * 20),
+                                ),
+                                dict(
+                                    x=int(X2 - nx * 40 - tx * 40),
+                                    y=int(Y2 - ny * 40 - ty * 40),
+                                ),
+                                dict(
+                                    x=int(X1 - nx * 40 + tx * 40),
+                                    y=int(Y1 - ny * 40 + ty * 40),
+                                 ),
+                                ]
+                    wall["polygons_drywall"].append(
+                        dict(
+                            id=f"{wall["id"]}.{index}",
+                            room_name='',
+                            polygon=polygon_vertices,
+                            type="DISABLED",
+                            color=(0, 0, 255),
+                            thickness=-1,
+                            layers=0,
+                            fire_rating=0,
+                            recommendation='',
+                            waste_factor="NA",
+                            enabled=False
+                        )
+                    )
+            else:
+                polygon_vertices = wall["polygons_drywall"][0]["polygon"]
+                centroid_polygon_X = round(sum([vertex['x'] for vertex in polygon_vertices]) / 4)
+                centroid_polygon_Y = round(sum([vertex['y'] for vertex in polygon_vertices]) / 4)
+                if orientation == "horizontal":
+                    if centroid_polygon_Y <= np.median([Y1, Y2]):
+                        polygon_vertices = [
+                            dict(x=X1+20, y=Y1+20),
+                            dict(x=X2-20, y=Y2+20),
+                            dict(x=X2-40, y=Y2+40),
+                            dict(x=X1+40, y=Y1+40)
+                        ]
+                    else:
+                        polygon_vertices = [
+                            dict(x=X1+20, y=Y1-20),
+                            dict(x=X2-20, y=Y2-20),
+                            dict(x=X2-40, y=Y2-40),
+                            dict(x=X1+40, y=Y1-40)
+                        ]
+                if orientation == "vertical":
+                    if centroid_polygon_X <= np.median([X1, X2]):
+                        polygon_vertices = [
+                            dict(x=X1+20, y=Y1+20),
+                            dict(x=X2+20, y=Y2-20),
+                            dict(x=X2+40, y=Y2-40),
+                            dict(x=X1+40, y=Y1+40)
+                        ]
+                    else:
+                        polygon_vertices = [
+                            dict(x=X1-20, y=Y1+20),
+                            dict(x=X2-20, y=Y2-20),
+                            dict(x=X2-40, y=Y2-40),
+                            dict(x=X1-40, y=Y1+40)
+                        ]
+                if orientation == "inclined":
+                    dx = X2 - X1
+                    dy = Y2 - Y1
+                    length = math.hypot(dx, dy)
+                    if length == 0:
+                        continue
+
+                    tx = dx / length
+                    ty = dy / length
+
+                    nx = -dy / length
+                    ny =  dx / length
+
+                    mx = (X1 + X2) / 2
+                    my = (Y1 + Y2) / 2
+
+                    vx = centroid_polygon_X - mx
+                    vy = centroid_polygon_Y - my
+
+                    dot = nx * vx + ny * vy
+
+                    if dot > 0:
+                        nx, ny = -nx, -ny
+
+                    polygon_vertices = [
+                        dict(
+                            x=int(X1 + nx * 20 + tx * 20),
+                            y=int(Y1 + ny * 20 + ty * 20),
+                        ),
+                        dict(
+                            x=int(X2 + nx * 20 - tx * 20),
+                            y=int(Y2 + ny * 20 - ty * 20),
+                        ),
+                        dict(
+                            x=int(X2 + nx * 40 - tx * 40),
+                            y=int(Y2 + ny * 40 - ty * 40),
+                        ),
+                        dict(
+                            x=int(X1 + nx * 40 + tx * 40),
+                            y=int(Y1 + ny * 40 + ty * 40),
+                        ),
+                    ]
+                if len(wall["polygons_drywall"]) == 2:
+                    wall["polygons_drywall"].pop()
+                wall["polygons_drywall"].append(
+                    dict(
+                        id=f"{wall["id"]}.b",
+                        room_name='',
+                        polygon=polygon_vertices,
+                        type="DISABLED",
+                        color=(0, 0, 255),
+                        thickness=-1,
+                        layers=0,
+                        fire_rating=0,
+                        recommendation='',
+                        waste_factor="NA",
+                        enabled=False
+                    )
+                )
+
+        return walls_2d
+
+    def scale_to(
+        self,
+        floor_plan_path="/tmp/floor_plan.png",
+        resolution=None,
+    ):
+        canvas = Image.open(floor_plan_path)
+        width, height = canvas.size
+        if canvas.mode != "RGB":
+            canvas = canvas.convert("RGB")
+
+        if resolution:
+            canvas = canvas.resize(resolution, Image.Resampling.LANCZOS)
+            width, height = resolution
+
+        pdf_path = "/tmp/scaled_floor_plan.pdf"
+        canvas.save(pdf_path, save_all=True)
+        return Path(pdf_path), dict(height=height, width=width, size=Path(pdf_path).stat().st_size)
+
     def save_plot_2d(
-        self, 
+        self,
         model_2d_path,
         floor_plan_path="/tmp/floor_plan.png",
         overlay_enabled=False
     ):
+        def put_text(canvas, text, origin, fontFace, fontScale, color, thickness, angle):
+            text_image = np.zeros_like(canvas)
+            cv2.putText(text_image, text, origin, fontFace, fontScale, color, thickness, cv2.LINE_AA)
+            M = cv2.getRotationMatrix2D(origin, angle, 1)
+            rotated_text_image = cv2.warpAffine(text_image, M, (canvas.shape[1], canvas.shape[0]))
+            canvas_text_added = cv2.add(canvas, rotated_text_image)
+            return canvas_text_added
+
         with open(model_2d_path, 'r') as f:
-            data = json.load(f)
+            walls_2d_with_polygons = json.load(f)
+        walls_2d, polygons = walls_2d_with_polygons
 
         if overlay_enabled:
             canvas = cv2.imread(floor_plan_path)
-            height, width, _ = canvas.shape
-            scale_X = width / 1920
-            scale_Y = height / 1080
         else:
-            canvas = np.ones((1080, 1920), dtype=np.uint8) * 255
+            floor_plan_image = cv2.imread(floor_plan_path)
+            height, width, _ = floor_plan_image.shape
+            canvas = np.ones((height, width), dtype=np.uint8) * 255
             canvas = cv2.cvtColor(canvas, cv2.COLOR_GRAY2BGR)
 
-        for wall in data:
-            if overlay_enabled:
-                wall["wall_line"][0]['x'] = int(round(scale_X * wall["wall_line"][0]['x']))
-                wall["wall_line"][0]['y'] = int(round(scale_Y * wall["wall_line"][0]['y']))
-                wall["wall_line"][1]['x'] = int(round(scale_X * wall["wall_line"][1]['x']))
-                wall["wall_line"][1]['y'] = int(round(scale_Y * wall["wall_line"][1]['y']))
+        for polygon in polygons:
+            canvas_to_overlay = canvas.copy()
+            vertices = np.array(polygon["vertices"])
+            color = tuple(polygon["polygon_drywall"]["color"])
+            cv2.fillPoly(canvas_to_overlay, pts=[vertices], color=color)
+            canvas = cv2.addWeighted(canvas_to_overlay, 0.3, canvas, 0.7, 0)
+
+        for wall in walls_2d:
             self._draw_line(wall["wall_line"], canvas, overlay_enabled=overlay_enabled)
 
             for drywall in wall["polygons_drywall"]:
-                if overlay_enabled:
-                    pts = np.array([
-                        [int(round(scale_X * drywall["polygon"][0]['x'])), int(round(scale_Y * drywall["polygon"][0]['y']))],
-                        [int(round(scale_X * drywall["polygon"][1]['x'])), int(round(scale_Y * drywall["polygon"][1]['y']))],
-                        [int(round(scale_X * drywall["polygon"][2]['x'])), int(round(scale_Y * drywall["polygon"][2]['y']))],
-                        [int(round(scale_X * drywall["polygon"][3]['x'])), int(round(scale_Y * drywall["polygon"][3]['y']))]
-                    ], np.int32)
-                else:
-                    pts = np.array([
-                        [drywall["polygon"][0]['x'], drywall["polygon"][0]['y']],
-                        [drywall["polygon"][1]['x'], drywall["polygon"][1]['y']],
-                        [drywall["polygon"][2]['x'], drywall["polygon"][2]['y']],
-                        [drywall["polygon"][3]['x'], drywall["polygon"][3]['y']]
-                    ], np.int32)
+                pts = np.array([
+                    [drywall["polygon"][0]['x'], drywall["polygon"][0]['y']],
+                    [drywall["polygon"][1]['x'], drywall["polygon"][1]['y']],
+                    [drywall["polygon"][2]['x'], drywall["polygon"][2]['y']],
+                    [drywall["polygon"][3]['x'], drywall["polygon"][3]['y']]
+                ], np.int32)
                 pts = pts.reshape((-1, 1, 2))
                 if drywall["enabled"]:
-                    cv2.fillPoly(canvas, pts=[pts], color=(0, 255, 0))
+                    canvas = cv2.fillPoly(canvas, pts=[pts], color=drywall["color"])
                 else:
-                    cv2.fillPoly(canvas, pts=[pts], color=(0, 0, 255))
+                    canvas = cv2.fillPoly(canvas, pts=[pts], color=(0, 0, 255))
+                if overlay_enabled:
+                    canvas_annotation_origin_X = int(round((drywall["polygon"][0]['x'] + drywall["polygon"][1]['x'] + drywall["polygon"][2]['x'] + drywall["polygon"][3]['x']) / 4))
+                    canvas_annotation_origin_Y = int(round((drywall["polygon"][0]['y'] + drywall["polygon"][1]['y'] + drywall["polygon"][2]['y'] + drywall["polygon"][3]['y']) / 4))
+                    if drywall["enabled"]:
+                        drywall_type = drywall["type"]
+                    else:
+                        drywall_type = "NULL"
+                    orientation = self.classify_line(
+                        wall["wall_line"][0]['x'],
+                        wall["wall_line"][0]['y'],
+                        wall["wall_line"][1]['x'],
+                        wall["wall_line"][1]['y']
+                    )
+                    if orientation == "horizontal":
+                        angle = 0
+                    if orientation == "vertical":
+                        angle = 90
+                    if orientation == "inclined":
+                        delta_x = wall["wall_line"][1]['x'] - wall["wall_line"][0]['x']
+                        delta_y = wall["wall_line"][1]['y'] - wall["wall_line"][0]['y']
+                        angle_radians = math.atan2(delta_y, delta_x)
+                        angle = math.degrees(angle_radians)
+                    canvas = put_text(
+                        canvas,
+                        drywall_type,
+                        (canvas_annotation_origin_X, canvas_annotation_origin_Y),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (255, 255, 255),
+                        2,
+                        angle
+                    )
 
         if overlay_enabled:
             image_path = "/tmp/blueprint_model_2d_overlay_enabled.png"
@@ -1006,27 +1824,17 @@ class FloorPlan2D(FloorPlan):
 
     def _load_nearest_transcription_blocks(
         self,
-        line_centroid,
-        direction,
+        polygon_centroid,
         transcription_block_with_centroids,
-        threshold=3000
+        threshold=1000
     ):
         nearest_neighbors = dict()
-        X, Y = line_centroid
+        X, Y = polygon_centroid
         for transcription, centroid in transcription_block_with_centroids.items():
             X_target, Y_target = centroid
-            if direction == "UP":
-                if math.hypot(X - X_target, Y - Y_target) <= threshold and Y_target <= Y:
-                    nearest_neighbors[transcription] = centroid
-            if direction == "DOWN":
-                if math.hypot(X - X_target, Y - Y_target) <= threshold and Y_target >= Y:
-                    nearest_neighbors[transcription] = centroid
-            if direction == "LEFT":
-                if math.hypot(X - X_target, Y - Y_target) <= threshold and X_target <= X:
-                    nearest_neighbors[transcription] = centroid
-            if direction == "RIGHT":
-                if math.hypot(X - X_target, Y - Y_target) <= threshold and X_target >= X:
-                    nearest_neighbors[transcription] = centroid
+            if math.hypot(X - X_target, Y - Y_target) <= threshold:
+                nearest_neighbors[transcription] = centroid
+
         return nearest_neighbors
 
     def model(
@@ -1035,44 +1843,68 @@ class FloorPlan2D(FloorPlan):
         model_2d_path="/tmp/walls_2d.json",
         floor_plan_path="/tmp/floor_plan.png",
         output_path="/tmp/blueprint_model_2d.png",
-        transcription_block_with_centroids=dict()
+        transcription_block_with_centroids=dict(),
+        transcription_headers_and_footers=dict(),
     ):
         image_GRAY = self.read_floor_plan(image_path)
         output_path = Path(output_path)
-        wall_lines, perimeter_lines, outer_drywall_surfaces = self._patch_to_line(image_GRAY, output_path=output_path)
+        wall_lines = self._patch_to_line(image_GRAY, output_path=output_path)
 
-        futures = list()
         canvas = cv2.imread(floor_plan_path)
         height, width, _ = canvas.shape
         scale_x = width / 1920
         scale_y = height / 1080
-        with ThreadPoolExecutor(max_workers=50) as executor:
-            for index, (perimeter_line, outer_drywall_surface) in enumerate(zip(perimeter_lines, outer_drywall_surfaces)):
-                polygons = self._extrude_drywall(perimeter_line, outer_drywall_surface=outer_drywall_surface)
-                futures.append(executor.submit(
-                    self._add_wall,
-                    perimeter_line,
-                    polygons,
-                    (scale_x, scale_y),
-                    index,
-                    transcription_block_with_centroids,
-                ))
-            for wall_line in wall_lines:
-                index += 1
-                if wall_line in perimeter_lines:
-                    continue
-                polygons = self._extrude_drywall(wall_line)
-                futures.append(executor.submit(
-                    self._add_wall,
-                    wall_line,
-                    polygons,
-                    (scale_x, scale_y),
-                    index,
-                    transcription_block_with_centroids,
-                ))
-        [future.result() for future in futures]
+        #height_default = self._load_ceiling_height_and_scale(transcription_headers_and_footers)["ceiling_height"]
+        height_default = 10.125
+        polygons, polygons_perimeter_walls, external_contour = self.polygonize(wall_lines)
+        if len(polygons) < 5:
+            return None, None, None, None
+        external_contour_normalized = [(round(scale_x * coordinate[0]), round(scale_y * coordinate[1])) for coordinate in external_contour]
+        perimeter_lines, outer_drywall_surfaces = self.perimeter_lines(wall_lines)
+        futures = list()
+        with Manager() as manager:
+            shared_memory = dict(walls_2d=manager.list(), polygons=manager.list(), lock=manager.Lock())
+            with ProcessPoolExecutor(max_workers=20) as executor:
+                for index, ((polygon_area, polygon_vertices), polygon_perimeter_walls) in enumerate(zip(polygons, polygons_perimeter_walls)):
+                    index += 1
+                    polygon_vertices_normalized = [(round(scale_x * vertex[0]), round(scale_y * vertex[1])) for vertex in polygon_vertices]
+                    polygon_perimeter_walls_normalized = list()
+                    for polygon_perimeter_wall in polygon_perimeter_walls:
+                        X1, Y1, X2, Y2 = polygon_perimeter_wall[0]
+                        polygon_perimeter_wall_normalized = [[round(scale_x * X1), round(scale_y * Y1), round(scale_x * X2), round(scale_y * Y2)]]
+                        polygon_perimeter_walls_normalized.append(polygon_perimeter_wall_normalized)
+                    polygon_area_normalized = polygon_area * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["horizontal"] * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["vertical"]
+                    drywall_polygons = self._extrude_polygon_drywalls(polygon_perimeter_walls_normalized, polygon_vertices_normalized)
+                    futures.append(executor.submit(
+                        self._add_walls_polygon,
+                        polygon_vertices_normalized,
+                        polygon_area_normalized,
+                        polygon_perimeter_walls_normalized,
+                        drywall_polygons,
+                        (scale_x, scale_y),
+                        height_default,
+                        floor_plan_path,
+                        transcription_block_with_centroids,
+                        index,
+                        shared_memory,
+                    ))
+                wait(futures)
+                futures = list()
+                for perimeter_line, outer_drywall_surface in zip(perimeter_lines, outer_drywall_surfaces):
+                    perimeter_polygons = self._extrude_polygon_perimeter(perimeter_line, (scale_x, scale_y), outer_drywall_surface=outer_drywall_surface)
+                    futures.append(executor.submit(
+                        self._add_wall_perimeter,
+                        perimeter_line,
+                        perimeter_polygons,
+                        height_default,
+                        (scale_x, scale_y),
+                        shared_memory,
+                    ))
+                wait(futures)
+            walls_2d, polygons = list(shared_memory["walls_2d"]), list(shared_memory["polygons"])
 
+        walls_2d = self._normalize_walls_2d(walls_2d)
         if model_2d_path:
             with open(model_2d_path, 'w') as f:
-                json.dump(self._walls_2d, f, indent=2)
-        return self._walls_2d, model_2d_path
+                json.dump([walls_2d, polygons], f, indent=2)
+        return walls_2d, polygons, model_2d_path, external_contour_normalized

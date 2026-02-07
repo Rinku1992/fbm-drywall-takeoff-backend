@@ -4,6 +4,7 @@ from pathlib import Path
 
 import math
 import matplotlib.pyplot as plt
+import numpy as np
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from floor_plan import FloorPlan
@@ -18,34 +19,51 @@ class Extrapolate3D(FloorPlan):
         super().__init__(hyperparameters)
 
         self._hyperparameters = hyperparameters["modelling"]
-        self._width_in_feet = self._hyperparameters["width_in_feet"]
         self._height_in_feet = self._hyperparameters["height_in_feet"]
-        self._width_in_pixels_horizontal = int(round(self._width_in_feet / self._hyperparameters["pixel_aspect_ratio"]["horizontal"]))
-        self._width_in_pixels_vertical = int(round(self._width_in_feet / self._hyperparameters["pixel_aspect_ratio"]["vertical"]))
         self._height_in_pixels = int(round(self._height_in_feet / min(self._hyperparameters["pixel_aspect_ratio"]["vertical"], self._hyperparameters["pixel_aspect_ratio"]["horizontal"])))
         self._walls_3d = list()
+        self._polygons_3d = list()
 
     def _load_wall_width_in_pixels(self, wall_line, half=True):
         X1, Y1, X2, Y2 = wall_line["wall_line"][0]['x'], wall_line["wall_line"][0]['y'], wall_line["wall_line"][1]['x'], wall_line["wall_line"][1]['y']
         orientation = self.classify_line(X1, Y1, X2, Y2)
+        wall_width = wall_line["thickness"]
         if orientation == "horizontal":
             if half:
-                return self._width_in_pixels_horizontal / 2
-            return self._width_in_pixels_horizontal
+                return int(round(wall_width / self._hyperparameters["pixel_aspect_ratio"]["horizontal"])) / 2
+            return int(round(wall_width / self._hyperparameters["pixel_aspect_ratio"]["horizontal"]))
         if orientation == "vertical":
             if half:
-                return self._width_in_pixels_vertical / 2
-            return self._width_in_pixels_vertical
+                return int(round(wall_width / self._hyperparameters["pixel_aspect_ratio"]["vertical"])) / 2
+            return int(round(wall_width / self._hyperparameters["pixel_aspect_ratio"]["vertical"]))
         if half:
-            return math.hypot(self._width_in_pixels_horizontal, self._width_in_pixels_vertical) / 2
-        return math.hypot(self._width_in_pixels_horizontal, self._width_in_pixels_vertical)
+            return math.hypot(
+                int(round(wall_width / self._hyperparameters["pixel_aspect_ratio"]["horizontal"])),
+                int(round(wall_width / self._hyperparameters["pixel_aspect_ratio"]["vertical"]))
+            ) / 2
+        return math.hypot(
+            int(round(wall_width / self._hyperparameters["pixel_aspect_ratio"]["horizontal"])),
+            int(round(wall_width / self._hyperparameters["pixel_aspect_ratio"]["vertical"]))
+        )
+
+    def _load_wall_height_in_pixels(self, wall_line):
+        wall_height = wall_line["height"]
+        if not wall_height:
+            self._height_in_pixels
+        pixel_aspect_ratio_average = (self._hyperparameters["pixel_aspect_ratio"]["horizontal"] + self._hyperparameters["pixel_aspect_ratio"]["vertical"]) / 2
+        return round(wall_height / pixel_aspect_ratio_average)
 
     def _load_model_2d(self, model_2d_path):
         with open(model_2d_path, 'r') as f:
             lines = json.load(f)
         return lines
 
-    def _extrude_height_polygon(self, polygon):
+    def _load_polygons(self, polygons_path):
+        with open(polygons_path, 'r') as f:
+            polygons = json.load(f)
+        return polygons
+
+    def _extrude_height_polygon(self, height_in_pixels, polygon):
         height_extruded = list()
         for line in polygon:
             line_bottom = list()
@@ -58,12 +76,12 @@ class Extrapolate3D(FloorPlan):
             for coordinate in deepcopy(line[::-1]):
                 coordinate['x'] = int(coordinate['x'])
                 coordinate['y'] = int(coordinate['y'])
-                coordinate['z'] = self._height_in_pixels
+                coordinate['z'] = height_in_pixels
                 line_top.append(coordinate)
             height_extruded.append(line_bottom+line_top)
         return height_extruded
 
-    def _extrude_width_with_arbritrary_orientation(self, x1, y1, x2, y2):
+    def _extrude_width_with_arbritrary_orientation(self, x1, y1, x2, y2, width):
         dx = x2 - x1
         dy = y2 - y1
         length = (dx**2 + dy**2) ** 0.5
@@ -71,7 +89,7 @@ class Extrapolate3D(FloorPlan):
         nx = -dy / length
         ny =  dx / length
 
-        half = self._load_wall_width_in_pixels(dict(wall_line=[dict(x=x1, y=y1), dict(x=x2, y=y2)]))
+        half = self._load_wall_width_in_pixels(dict(wall_line=[dict(x=x1, y=y1), dict(x=x2, y=y2)], thickness=width))
         ox = nx * half
         oy = ny * half
 
@@ -110,7 +128,7 @@ class Extrapolate3D(FloorPlan):
             ]
             return front_face, back_face
         if orientation == "inclined":
-            return self._extrude_width_with_arbritrary_orientation(X1, Y1, X2, Y2)
+            return self._extrude_width_with_arbritrary_orientation(X1, Y1, X2, Y2, wall_line["thickness"])
         return None, None
 
     def _is_mitered_butt(self, wall_line, wall_line_orientation, horizontal_wall_lines, vertical_wall_lines):
@@ -234,7 +252,7 @@ class Extrapolate3D(FloorPlan):
             back_face = [back_face_A, back_face_B]
             return front_face, back_face
         if orientation == "inclined":
-            return self._extrude_width_with_arbritrary_orientation(X1, Y1, X2, Y2)
+            return self._extrude_width_with_arbritrary_orientation(X1, Y1, X2, Y2, wall_line["thickness"])
         return None, None
 
     def _extrude_3d(self, wall_line, horizontal_wall_lines=list(), vertical_wall_lines=list()):
@@ -243,27 +261,98 @@ class Extrapolate3D(FloorPlan):
         else:
             front_face, back_face = self._extrude_width(wall_line)
         if front_face and back_face:
-            polygons = self._extrude_height_polygon([front_face, back_face])
+            height_in_pixels = self._load_wall_height_in_pixels(wall_line)
+            polygons = self._extrude_height_polygon(height_in_pixels, [front_face, back_face])
             return polygons
 
     def _add_wall(self, wall_line, polygons, index):
         wall = dict(
             id=index,
-            thickness=self._width_in_feet,
-            height=self._height_in_feet,
-            length=math.hypot((wall_line["wall_line"][0]['x'] - wall_line["wall_line"][1]['x']) * self._hyperparameters["pixel_aspect_ratio"]["horizontal"], (wall_line["wall_line"][0]['y'] - wall_line["wall_line"][1]['y']) * self._hyperparameters["pixel_aspect_ratio"]["vertical"]),
-            surfaces_drywall=list()
+            thickness=wall_line["thickness"],
+            height=wall_line["height"],
+            length=wall_line["length"],
+            surfaces_drywall=list(),
+            wall_line=wall_line["wall_line"]
         )
         for polygon, polygon_type in zip(polygons, wall_line["polygons_drywall"]):
             wall["surfaces_drywall"].append(
                 dict(
+                    room_name=polygon_type["room_name"],
                     polygon=polygon,
                     type=polygon_type["type"],
                     enabled=polygon_type["enabled"],
-                    room_name=polygon_type["room_name"]
+                    thickness=polygon_type["thickness"],
+                    layers=polygon_type["layers"],
+                    fire_rating=polygon_type["fire_rating"],
+                    recommendation=polygon_type["recommendation"],
+                    color=polygon_type["color"],
                 )
             )
         self._walls_3d.append(wall)
+
+    def _extrude_roof_3d(self, vertices, slope, tilt_axis, height_in_pixels, width_in_pixels):
+        if slope == 0:
+            height_front_face = height_in_pixels - (width_in_pixels // 2)
+            height_back_face = height_in_pixels + (width_in_pixels // 2)
+            front_face = [dict(x=vertex[0], y=vertex[1], z=height_front_face) for vertex in vertices]
+            back_face = [dict(x=vertex[0], y=vertex[1], z=height_back_face) for vertex in vertices]
+            return [front_face, back_face]
+
+        xs = [vertex[0] for vertex in vertices]
+        ys = [vertex[1] for vertex in vertices]
+        cx = (min(xs) + max(xs)) / 2
+        cy = (min(ys) + max(ys)) / 2
+
+        half_span = width_in_pixels / 2
+
+        front_face, back_face = list(), list()
+
+        for x, y in vertices:
+            if tilt_axis == "horizontal":
+                d = cy - y
+            elif tilt_axis == "vertical":
+                d = cx - x
+            else:
+                raise ValueError("tilt_axis must be 'horizontal' or 'vertical'")
+
+            height_offset = (d / half_span) * slope
+            height_front_face = height_in_pixels - height_offset
+            height_back_face = height_in_pixels + height_offset
+
+            front_face.append(dict(x=x, y=y, z=height_front_face))
+            back_face.append(dict(x=x, y=y, z=height_back_face))
+        return [front_face, back_face]
+
+    def _add_polygon(self, polygon, index):
+        height_in_pixels = self._load_wall_height_in_pixels(polygon)
+        pixel_aspect_ratio_average = (self._hyperparameters["pixel_aspect_ratio"]["horizontal"] + self._hyperparameters["pixel_aspect_ratio"]["vertical"]) / 2
+        width_in_pixels = round(polygon["polygon_drywall"]["thickness"] / pixel_aspect_ratio_average)
+        polygon = dict(
+            id=index,
+            area=polygon["area"],
+            vertices=polygon["vertices"],
+            type=polygon["type"],
+            height=polygon["height"],
+            slope=polygon["slope"],
+            slope_enabled=polygon["slope_enabled"],
+            tilt_axis=polygon["tilt_axis"],
+            room_name=polygon["room_name"],
+            surface_drywall=self._extrude_roof_3d(polygon["vertices"], polygon["slope"], polygon["tilt_axis"], height_in_pixels, width_in_pixels)
+        )
+        self._polygons_3d.append(polygon)
+
+    def compute_updated_area_polygon(self, polygon_vertices, area, slope, tilt_axis):
+        if slope == 0:
+            return area
+
+        if tilt_axis == "horizontal":
+            polygon_Ys = [vertex[1] for vertex in polygon_vertices]
+            polygon_width = max(polygon_Ys) - min(polygon_Ys)
+        if tilt_axis == "vertical":
+            polygon_Xs = [vertex[0] for vertex in polygon_vertices]
+            polygon_width = max(polygon_Xs) - min(polygon_Xs)
+        a = slope / polygon_width
+        return round(area * math.sqrt(1 + a * a), 2)
 
     def save_plot_3d(self, model_3d_path):
         def add_side_face(ax, p1_i, p2_i, p1_o, p2_o):
@@ -336,7 +425,6 @@ class Extrapolate3D(FloorPlan):
         wall_lines = self._load_model_2d(model_2d_path)
         walls = list()
         for wall_line in wall_lines:
-            wall_identity = dict()
             wall_width = self._load_wall_width_in_pixels(wall_line)
             walls.append(
                 dict(
@@ -344,15 +432,67 @@ class Extrapolate3D(FloorPlan):
                     y1=(1080 - wall_line["wall_line"][0]['y']), 
                     x2=wall_line["wall_line"][1]['x'], 
                     y2=(1080 - wall_line["wall_line"][1]['y']), 
-                    height=self._height_in_pixels, 
-                    thickness=wall_width
+                    height=wall_line["height"], 
+                    thickness=wall_line["thickness"]
                 )
             )
         load_gltf(walls, "/tmp/walls.gltf")
-        return [Path("/tmp/walls.gltf"), Path("/tmp/walls.bin")]    
+        return [Path("/tmp/walls.gltf"), Path("/tmp/walls.bin")] 
 
-    def extrapolate(self, model_2d_path="/tmp/walls_2d.json", model_3d_path="/tmp/walls_3d.json", mitered_butt_enabled=False):
+    def extrapolate_wall_heights_given_polygons(self, walls_3d, polygons):
+        def load_payload_wall_3d(wall_line):
+            X1, Y1, X2, Y2 = wall_line[0]
+            wall_line = [dict(x=X1, y=Y1), dict(x=X2, y=Y2)]
+            for wall in walls_3d:
+                if wall["wall_line"] == wall_line:
+                    return wall
+
+        wall_lines = list()
+        for wall_3d in walls_3d:
+            wall_lines.append([[wall_3d["wall_line"][0]['x'], wall_3d["wall_line"][0]['y'], wall_3d["wall_line"][1]['x'], wall_3d["wall_line"][1]['y']]])
+        for polygon in polygons:
+            slope = polygon["slope"]
+            if slope == 0:
+                continue
+            tilt_axis = polygon["tilt_axis"]
+            perimeter_lines_contour = self.load_perimeter(polygon["vertices"], wall_lines)
+            for perimeter_line in perimeter_lines_contour:
+                X1, Y1, X2, Y2 = perimeter_line[0]
+                orientation = self.classify_line(X1, Y1, X2, Y2)
+                payload = load_payload_wall_3d(perimeter_line)
+                if tilt_axis == "horizontal":
+                    a = polygon["slope"] / (max([vertex[1] for vertex in polygon["vertices"]]) - min([vertex[1] for vertex in polygon["vertices"]]))
+                    if polygon["slope"] > 0:
+                        roof_high_Y = min([vertex[1] for vertex in polygon["vertices"]])
+                    else:
+                        roof_high_Y = max([vertex[1] for vertex in polygon["vertices"]])
+                    if orientation == "horizontal":
+                        payload["height"] = polygon["height"] - a * (round(np.median([Y1, Y2])) - roof_high_Y)
+                    if orientation == "vertical":
+                        payload["height"] = polygon["height"]
+                elif tilt_axis == "vertical":
+                    a = polygon["slope"] / (max([vertex[0] for vertex in polygon["vertices"]]) - min([vertex[0] for vertex in polygon["vertices"]]))
+                    if polygon["slope"] > 0:
+                        roof_high_X = min([vertex[0] for vertex in polygon["vertices"]])
+                    else:
+                        roof_high_X = max([vertex[0] for vertex in polygon["vertices"]])
+                    if orientation == "vertical":
+                        payload["height"] = polygon["height"] - a * (round(np.median([X1, X2])) - roof_high_X)
+                    if orientation == "horizontal":
+                        payload["height"] = polygon["height"]
+                else:
+                    continue
+        return walls_3d, polygons
+
+    def extrapolate(
+        self, model_2d_path="/tmp/walls_2d.json",
+        polygons_path="/tmp/polygons.json",
+        model_3d_path="/tmp/walls_3d.json",
+        polygons_3d_path="/tmp/polygons_3d.json",
+        mitered_butt_enabled=False
+    ):
         lines = self._load_model_2d(model_2d_path)
+        polygons = self._load_polygons(polygons_path)
         horizontal_wall_lines, vertical_wall_lines = list(), list()
         if mitered_butt_enabled:
             for wall_line in lines:
@@ -362,16 +502,21 @@ class Extrapolate3D(FloorPlan):
                     horizontal_wall_lines.append(wall_line)
                 if orientation == "vertical":
                     vertical_wall_lines.append(wall_line)
-        for index, wall_line in enumerate(lines):
+        for index, polygon in enumerate(polygons):
+            self._add_polygon(polygon, index)
+        for index, line in enumerate(lines):
             polygons = self._extrude_3d(
-                wall_line,
+                line,
                 horizontal_wall_lines=horizontal_wall_lines,
-                vertical_wall_lines=vertical_wall_lines
+                vertical_wall_lines=vertical_wall_lines,
             )
             if polygons:
-                self._add_wall(wall_line, polygons, index)
+                self._add_wall(line, polygons, index)
 
         if model_3d_path:
             with open(model_3d_path, 'w') as f:
                 json.dump(self._walls_3d, f, indent=2)
-        return self._walls_3d, model_3d_path
+        if polygons_3d_path:
+            with open(polygons_3d_path, 'w') as f:
+                json.dump(self._polygons_3d, f, indent=2)
+        return self._walls_3d, self._polygons_3d, model_3d_path, polygons_3d_path

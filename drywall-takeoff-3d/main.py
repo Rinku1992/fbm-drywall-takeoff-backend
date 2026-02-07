@@ -8,16 +8,19 @@ from ruamel.yaml import YAML
 from pathlib import Path
 import json
 from time import time as from_unix_epoch
+from time import sleep
 from collections import defaultdict
 import requests
-import google.auth.transport.requests
-from google.oauth2.service_account import IDTokenCredentials
+from functools import partial
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pydantic_core import ValidationError
+from concurrent.futures import ProcessPoolExecutor
 
+import google.auth.transport.requests
+from google.oauth2.service_account import IDTokenCredentials
 from google.cloud.storage import Client as CloudStorageClient
 from google.cloud import bigquery
 from google.cloud import secretmanager
@@ -30,13 +33,13 @@ from preprocessing import preprocess
 from transcriber import Transcriber
 from modeller_2d import FloorPlan2D
 from extrapolate_3d import Extrapolate3D
-from helper import load_vertex_ai_client
+from helper import load_vertex_ai_client, bigquery_run
 
 
-def respond_with_UI_payload(payload):
+def respond_with_UI_payload(payload, status_code=200):
     return JSONResponse(
         content=json.loads(json.dumps(payload)),
-        status_code=200,
+        status_code=status_code,
         media_type="application/json",
     )
 
@@ -84,21 +87,24 @@ def insert_model_2d_revision(
     project_id,
     credentials
     ):
+    if not model_2d.get("metadata", None):
+        GBQ_query = f"SELECT model_2d FROM `drywall_takeoff.models` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+        query_output = bigquery_run(credentials, GBQ_query).result()
+        walls_2d_raw = list(query_output)[0].model_2d
+        walls_2d = json.loads(walls_2d_raw) if isinstance(walls_2d_raw, str) else walls_2d_raw
+        model_2d["metadata"] = walls_2d["metadata"]
     GBQ_query = """
     SELECT MAX(revision_number) AS revision_number FROM `drywall_takeoff.model_revisions_2d` WHERE 
-    LOWER(project_id) = LOWER(@project_id) AND LOWER(plan_id) = LOWER(@plan_id) AND LOWER(user_id) = LOWER(@user_id) AND page_number = @page_number;
+    LOWER(project_id) = LOWER(@project_id) AND LOWER(plan_id) = LOWER(@plan_id) AND page_number = @page_number;
     """
-    job_config = bigquery.QueryJobConfig(
+    job_config = dict(
         query_parameters=[
             bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
             bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
-            bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
             bigquery.ScalarQueryParameter("page_number", "INT64", page_number)
         ]
     )
-
-    bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
-    query_output = list(bigquery_client.query(GBQ_query, job_config=job_config).result())
+    query_output = list(bigquery_run(credentials, GBQ_query, job_config=job_config).result())
     
     if query_output and query_output[0].revision_number is not None:
         revision_number = query_output[0].revision_number + 1
@@ -127,7 +133,7 @@ def insert_model_2d_revision(
         @revision_number
     );
     """
-    job_config = bigquery.QueryJobConfig(
+    job_config = dict(
         query_parameters=[
             bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
             bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
@@ -139,7 +145,7 @@ def insert_model_2d_revision(
         ]
     )
 
-    query_output = bigquery_client.query(GBQ_query, job_config=job_config).result()
+    query_output = bigquery_run(credentials, GBQ_query, job_config=job_config).result()
     return query_output
 
 
@@ -154,6 +160,12 @@ def insert_model_2d(
     GCS_URL_target_drywalls_page,
     credentials
     ):
+    if not model_2d.get("metadata", None):
+        GBQ_query = f"SELECT model_2d FROM `drywall_takeoff.models` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+        query_output = bigquery_run(credentials, GBQ_query).result()
+        walls_2d_raw = list(query_output)[0].model_2d
+        walls_2d = json.loads(walls_2d_raw) if isinstance(walls_2d_raw, str) else walls_2d_raw
+        model_2d["metadata"] = walls_2d["metadata"]
     GBQ_query = """
     MERGE `drywall_takeoff.models` t
     USING (
@@ -167,11 +179,12 @@ def insert_model_2d(
             @target_drywalls AS target_drywalls,
             @scale AS scale,
     ) s
-    ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id) AND LOWER(t.user_id) = LOWER(s.user_id) AND t.page_number = s.page_number
+    ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id) AND t.page_number = s.page_number
     WHEN MATCHED THEN
     UPDATE SET
         model_2d = s.model_2d,
         scale = COALESCE(NULLIF(s.scale, ''), t.scale),
+        user_id = @user_id,
         updated_at = CURRENT_TIMESTAMP()
     WHEN NOT MATCHED THEN
     INSERT (
@@ -203,7 +216,7 @@ def insert_model_2d(
         CURRENT_TIMESTAMP()
     );
     """
-    job_config = bigquery.QueryJobConfig(
+    job_config = dict(
         query_parameters=[
             bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
             bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
@@ -216,8 +229,7 @@ def insert_model_2d(
         ]
     )
 
-    bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
-    query_output = bigquery_client.query(GBQ_query, job_config=job_config).result()
+    query_output = bigquery_run(credentials, GBQ_query, job_config=job_config).result()
     return query_output
 
 
@@ -232,19 +244,16 @@ def insert_model_3d_revision(
     ):
     GBQ_query = """
     SELECT MAX(revision_number) AS revision_number FROM `drywall_takeoff.model_revisions_3d` WHERE 
-    LOWER(project_id) = LOWER(@project_id) AND LOWER(plan_id) = LOWER(@plan_id) AND LOWER(user_id) = LOWER(@user_id) AND page_number = @page_number;
+    LOWER(project_id) = LOWER(@project_id) AND LOWER(plan_id) = LOWER(@plan_id) AND page_number = @page_number;
     """
-    job_config = bigquery.QueryJobConfig(
+    job_config = dict(
         query_parameters=[
             bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
             bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
-            bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
             bigquery.ScalarQueryParameter("page_number", "INT64", page_number)
         ]
     )
-
-    bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
-    query_output = list(bigquery_client.query(GBQ_query, job_config=job_config).result())
+    query_output = list(bigquery_run(credentials, GBQ_query, job_config=job_config).result())
     
     if query_output and query_output[0].revision_number is not None:
         revision_number = query_output[0].revision_number + 1
@@ -275,7 +284,7 @@ def insert_model_3d_revision(
         @revision_number
     );
     """
-    job_config = bigquery.QueryJobConfig(
+    job_config = dict(
         query_parameters=[
             bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
             bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
@@ -287,7 +296,7 @@ def insert_model_3d_revision(
         ]
     )
 
-    query_output = bigquery_client.query(GBQ_query, job_config=job_config).result()
+    query_output = bigquery_run(credentials, GBQ_query, job_config=job_config).result()
     return query_output
 
 
@@ -305,14 +314,14 @@ def insert_model_3d(
     SET
         model_3d = @model_3d,
         scale = COALESCE(NULLIF(@scale, ''), t.scale),
+        user_id = @user_id,
         updated_at = CURRENT_TIMESTAMP()
     WHERE
         LOWER(project_id) = LOWER(@project_id)
         AND LOWER(plan_id) = LOWER(@plan_id)
-        AND LOWER(user_id) = LOWER(@user_id)
         AND page_number = @page_number
     """
-    job_config = bigquery.QueryJobConfig(
+    job_config = dict(
         query_parameters=[
             bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
             bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
@@ -322,9 +331,7 @@ def insert_model_3d(
             bigquery.ScalarQueryParameter("model_3d", "JSON", model_3d)
         ]
     )
-
-    bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
-    query_output = bigquery_client.query(GBQ_query, job_config=job_config).result()
+    query_output = bigquery_run(credentials, GBQ_query, job_config=job_config).result()
     return query_output
 
 
@@ -336,16 +343,14 @@ def delete_floorplan(project_id, plan_id, user_id, credentials):
         AND LOWER(plan_id) = LOWER(@plan_id)
         AND LOWER(user_id) = LOWER(@user_id);
     """
-    job_config = bigquery.QueryJobConfig(
+    job_config = dict(
         query_parameters=[
             bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
             bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
             bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
         ]
     )
-
-    bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
-    bigquery_client.query(GBQ_query, job_config=job_config).result()
+    bigquery_run(credentials, GBQ_query, job_config=job_config).result()
 
     GBQ_query = """
     DELETE FROM `drywall_takeoff.models`
@@ -354,7 +359,7 @@ def delete_floorplan(project_id, plan_id, user_id, credentials):
         AND LOWER(plan_id) = LOWER(@plan_id)
         AND LOWER(user_id) = LOWER(@user_id);
     """
-    bigquery_client.query(GBQ_query, job_config=job_config).result()
+    bigquery_run(credentials, GBQ_query, job_config=job_config).result()
 
     GBQ_query = """
     DELETE FROM `drywall_takeoff.model_revisions_2d`
@@ -363,7 +368,7 @@ def delete_floorplan(project_id, plan_id, user_id, credentials):
         AND LOWER(plan_id) = LOWER(@plan_id)
         AND LOWER(user_id) = LOWER(@user_id);
     """
-    bigquery_client.query(GBQ_query, job_config=job_config).result()
+    bigquery_run(credentials, GBQ_query, job_config=job_config).result()
 
     GBQ_query = """
     DELETE FROM `drywall_takeoff.model_revisions_3d`
@@ -372,7 +377,7 @@ def delete_floorplan(project_id, plan_id, user_id, credentials):
         AND LOWER(plan_id) = LOWER(@plan_id)
         AND LOWER(user_id) = LOWER(@user_id);
     """
-    bigquery_client.query(GBQ_query, job_config=job_config).result()
+    bigquery_run(credentials, GBQ_query, job_config=job_config).result()
 
     client = CloudStorageClient()
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
@@ -395,14 +400,14 @@ def insert_takeoff(
     UPDATE `drywall_takeoff.models` t
     SET
         takeoff = @takeoff,
-        updated_at = CURRENT_TIMESTAMP()
+        updated_at = CURRENT_TIMESTAMP(),
+        user_id = @user_id
     WHERE
         LOWER(project_id) = LOWER(@project_id)
         AND LOWER(plan_id) = LOWER(@plan_id)
-        AND LOWER(user_id) = LOWER(@user_id)
         AND page_number = @page_number
     """
-    job_config = bigquery.QueryJobConfig(
+    job_config = dict(
         query_parameters=[
             bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
             bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
@@ -411,23 +416,21 @@ def insert_takeoff(
             bigquery.ScalarQueryParameter("takeoff", "JSON", takeoff)
         ]
     )
-
-    bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
-    query_output_takeoff_insert = bigquery_client.query(GBQ_query, job_config=job_config).result()
+    query_output_takeoff_insert = bigquery_run(credentials, GBQ_query, job_config=job_config).result()
 
     if revision_number:
         GBQ_query = """
         UPDATE `drywall_takeoff.model_revisions_3d` t
         SET
-            takeoff = @takeoff
+            takeoff = @takeoff,
+            user_id = @user_id
         WHERE
             LOWER(project_id) = LOWER(@project_id)
             AND LOWER(plan_id) = LOWER(@plan_id)
-            AND LOWER(user_id) = LOWER(@user_id)
             AND page_number = @page_number
             AND revision_number = @revision_number
         """
-        job_config = bigquery.QueryJobConfig(
+        job_config = dict(
             query_parameters=[
                 bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
                 bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
@@ -437,7 +440,7 @@ def insert_takeoff(
                 bigquery.ScalarQueryParameter("revision_number", "INT64", revision_number)
             ]
         )
-        bigquery_client.query(GBQ_query, job_config=job_config).result()
+        bigquery_run(credentials, GBQ_query, job_config=job_config).result()
 
     return query_output_takeoff_insert
 
@@ -466,12 +469,13 @@ def insert_plan(
             @pages AS pages,
             @source AS source
     ) s
-    ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id) AND LOWER(t.user_id) = LOWER(s.user_id)
+    ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id)
     WHEN MATCHED THEN
     UPDATE SET
         pages = s.pages,
         source = s.source,
         status = s.status,
+        user_id = s.user_id,
         updated_at = CURRENT_TIMESTAMP()
     WHEN NOT MATCHED THEN
     INSERT (
@@ -510,7 +514,7 @@ def insert_plan(
         n_pages = 0
     if not GCS_URL_floorplan:
         GCS_URL_floorplan = ''
-    job_config = bigquery.QueryJobConfig(
+    job_config = dict(
         query_parameters=[
             bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
             bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
@@ -524,8 +528,7 @@ def insert_plan(
         ]
     )
 
-    bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
-    query_output = bigquery_client.query(GBQ_query, job_config=job_config).result()
+    query_output = bigquery_run(credentials, GBQ_query, job_config=job_config).result()
     return query_output
 
 
@@ -568,7 +571,7 @@ def insert_project(payload_project, credentials):
         s.created_by
     );
     """
-    job_config = bigquery.QueryJobConfig(
+    job_config = dict(
         query_parameters=[
             bigquery.ScalarQueryParameter("project_id", "STRING", payload_project.project_id),
             bigquery.ScalarQueryParameter("project_name", "STRING", payload_project.project_name),
@@ -581,10 +584,9 @@ def insert_project(payload_project, credentials):
         ]
     )
 
-    bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
-    query_output = bigquery_client.query(GBQ_query, job_config=job_config).result()
+    query_output = bigquery_run(credentials, GBQ_query, job_config=job_config).result()
     GBQ_query = f"SELECT created_at FROM `{credentials["GBQServer"]["table_name_projects"]}` WHERE project_id = '{payload_project.project_id}'"
-    query_output = bigquery_client.query(GBQ_query).result()
+    query_output = bigquery_run(credentials, GBQ_query).result()
     created_at = list(query_output)[0].created_at.isoformat()
     return created_at
 
@@ -642,34 +644,16 @@ def enable_logging_on_stdout():
 
 def load_gcp_credentials() -> dict:
     yaml = YAML(typ="safe", pure=True)
-    with open("config/gcp.yaml", 'r') as f:
+    with open("gcp.yaml", 'r') as f:
         credentials = yaml.load(f)
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials["service_drywall_account_key"]
 
     return credentials
 
 
-def download_secrets(credentials):
-    def _download_secret(secret_manager_client, secret_key, secret_url):
-        response = secret_manager_client.access_secret_version(request={"name": secret_url})
-        secret_data = json.loads(response.payload.data)
-        with open(credentials[secret_key], 'w') as f:
-            json.dump(secret_data, f)
-    if "GOOGLE_APPLICATION_CREDENTIALS" in os.environ:
-        del os.environ["GOOGLE_APPLICATION_CREDENTIALS"]
-
-    secret_manager_client = secretmanager.SecretManagerServiceClient()
-    executor = ThreadPoolExecutor(max_workers=5)
-    download_secret_futures = list()
-    for secret_key, secret_url in credentials["SecretManager"].items():
-        download_secret_futures.append(executor.submit(_download_secret, secret_manager_client, secret_key, secret_url))
-    [future.result() for future in download_secret_futures]
-
-    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials["service_drywall_account_key"]
-
-
 def load_hyperparameters() -> dict:
     yaml = YAML(typ="safe", pure=True)
-    with open("config/hyperparameters.yaml", 'r') as f:
+    with open("hyperparameters.yaml", 'r') as f:
         hyperparameters = yaml.load(f)
 
     return hyperparameters
@@ -678,8 +662,6 @@ def load_hyperparameters() -> dict:
 app = FastAPI(title="Drywall Takeoff (Cloud Run)")
 
 CREDENTIALS = load_gcp_credentials()
-download_secrets(CREDENTIALS)
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CREDENTIALS["CloudRun"]["origins_cors"],
@@ -736,14 +718,9 @@ async def load_projects(request: Request):
         body = await request.json()
     except Exception:
         body = dict()
-    user_id = parameters.get("user_id", '') or body.get("user_id", '')
 
-    if user_id:
-        GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_projects"]}` WHERE LOWER(created_by) = LOWER('{user_id}')"
-    else:
-        GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_projects"]}`"
-    bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
-    query_output = bigquery_client.query(GBQ_query).to_dataframe()
+    GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_projects"]}`"
+    query_output = bigquery_run(CREDENTIALS, GBQ_query).to_dataframe()
     dataframe = load_UI_dataframe(query_output)
     projects = dataframe.to_dict(orient="records")
 
@@ -760,22 +737,16 @@ async def load_project_plans(request: Request):
     except Exception:
         body = dict()
     project_id = parameters.get("project_id") or body.get("project_id")
-    user_id = parameters.get("user_id", '') or body.get("user_id", '')
 
     GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_projects"]}` WHERE LOWER(project_id) = LOWER('{project_id}');"
-    bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
-    query_output = bigquery_client.query(GBQ_query).to_dataframe()
+    query_output = bigquery_run(CREDENTIALS, GBQ_query).to_dataframe()
     dataframe = load_UI_dataframe(query_output)
     project_metadata = dict()
     if dataframe.to_dict(orient="records"):
         project_metadata = dataframe.to_dict(orient="records")[0]
 
-    if user_id:
-        GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(user_id) = LOWER('{user_id}');"
-    else:
-        GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}');"
-    bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
-    query_output = bigquery_client.query(GBQ_query).to_dataframe()
+    GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}');"
+    query_output = bigquery_run(CREDENTIALS, GBQ_query).to_dataframe()
     dataframe = load_UI_dataframe(query_output)
     project_plans_data = dataframe.to_dict(orient="records")
 
@@ -829,25 +800,16 @@ async def load_plan_pages(request: Request):
         body = dict()
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
-    user_id = parameters.get("user_id", '') or body.get("user_id", '')
 
-    if user_id:
-        GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) = LOWER('{user_id}');"
-    else:
-        GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
-    bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
-    query_output = bigquery_client.query(GBQ_query).to_dataframe()
+    GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
+    query_output = bigquery_run(CREDENTIALS, GBQ_query).to_dataframe()
     dataframe = load_UI_dataframe(query_output)
     plan_metadata = dict()
     if dataframe.to_dict(orient="records"):
         plan_metadata = dataframe.to_dict(orient="records")[0]
 
-    if user_id:
-        GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) = LOWER('{user_id}');"
-    else:
-        GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
-    bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
-    query_output = bigquery_client.query(GBQ_query).to_dataframe()
+    GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
+    query_output = bigquery_run(CREDENTIALS, GBQ_query).to_dataframe()
     dataframe = load_UI_dataframe(query_output)
     plan_pages_data = dataframe.to_dict(orient="records")
 
@@ -866,6 +828,7 @@ async def floorplan_to_2d(request: Request):
     project_id = parameters.get("project_id") or body.get("project_id")
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
+    verbose = parameters.get("verbose") or body.get("verbose")
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
 
     client = CloudStorageClient()
@@ -893,36 +856,83 @@ async def floorplan_to_2d(request: Request):
     logging.info("SYSTEM: Floorplan Preprocessing Completed")
 
     vertex_ai_client, generation_config = load_vertex_ai_client(CREDENTIALS)
-    vertex_ai_client_lambda = lambda contents: vertex_ai_client.generate_content(
-        contents=contents,
-        generation_config=generation_config,
-    )
-    floor_plan_modeller_2d = FloorPlan2D(hyperparameters, vertex_ai_client_lambda)
+    vertex_ai_client_partial = partial(vertex_ai_client.generate_content, generation_config=generation_config)
+    floor_plan_modeller_2d = FloorPlan2D(hyperparameters, vertex_ai_client_partial)
     walls_2d_all = dict(pages=list())
     for index, floor_plan_path in enumerate(floor_plan_paths_preprocessed):
-        scale = "0.25``:1`0``"
         floorplan_page_source = upload_floorplan(floor_plan_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
         logging.info(f"SYSTEM: Preprocessed Floorplan Image uploaded to GCS from PAGE: {index}")
-        wall_segmented_path = floorplan_to_walls(CREDENTIALS, project_id, plan_id, user_id, index)
-        upload_floorplan(wall_segmented_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
-        logging.info(f"SYSTEM: Wall Detection Completed from PAGE: {index}")
+        futures = dict()
+        with ProcessPoolExecutor(max_workers=5) as executor:
+            futures["floorplan_to_walls"] = executor.submit(
+                floorplan_to_walls,
+                CREDENTIALS,
+                project_id,
+                plan_id,
+                user_id,
+                index
+            )
+            transcriber = Transcriber(CREDENTIALS, hyperparameters)
+            futures["transcriber"] = executor.submit(
+                transcriber.transcribe,
+                floor_plan_path,
+                [0, 1, -1, -2]
+            )
+            wall_segmented_path = futures["floorplan_to_walls"].result()
+            upload_floorplan(wall_segmented_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
+            logging.info(f"SYSTEM: Wall Detection Completed from PAGE: {index}")
 
-        transcriber = Transcriber(CREDENTIALS, hyperparameters)
-        transcription_block_with_centroids = transcriber.transcribe(floor_plan_path)
-        logging.info(f"SYSTEM: Transcription Completed from PAGE: {index}")
+            transcription_block_with_centroids, transcription_headers_and_footers = futures["transcriber"].result()
+            logging.info(f"SYSTEM: Transcription Completed from PAGE: {index}")
 
-        walls_2d, walls_2d_path = floor_plan_modeller_2d.model(
+        walls_2d, polygons, walls_2d_path, external_contour = floor_plan_modeller_2d.model(
             image_path=wall_segmented_path,
             floor_plan_path=floor_plan_path,
-            transcription_block_with_centroids=transcription_block_with_centroids
+            transcription_block_with_centroids=transcription_block_with_centroids,
+            transcription_headers_and_footers=transcription_headers_and_footers
         )
+        if not polygons:
+            continue
+        #if verbose.upper() == "TRUE":
         model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_path)
         upload_floorplan(model_2d_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
-        model_2d_path_overlay_enabled = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_path, overlay_enabled=True)
-        target_drywalls_page_source = upload_floorplan(model_2d_path_overlay_enabled, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
+        #model_2d_path_overlay_enabled = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_path, overlay_enabled=True)
+        #upload_floorplan(model_2d_path_overlay_enabled, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
+        floorplan_baseline, floorplan_page_statistics = floor_plan_modeller_2d.scale_to(floor_plan_path=floor_plan_path)
+        floorplan_baseline_page_source = upload_floorplan(floorplan_baseline, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
         logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {index} Generated Successfully")
-        insert_model_2d(walls_2d, scale, index, plan_id, user_id, project_id, floorplan_page_source, target_drywalls_page_source, CREDENTIALS)
-        page = dict(page_number=index, walls_2d=walls_2d, page_name='', scale=scale)
+        metadata = dict(
+            size_in_bytes=floorplan_page_statistics["size"],
+            height_in_pixels=floorplan_page_statistics["height"],
+            width_in_pixels=floorplan_page_statistics["width"],
+            origin=["LEFT", "TOP"],
+            offset=(0, 0),
+            contour_root_vertices=external_contour
+        )
+        insert_model_2d(
+            dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
+            floor_plan_modeller_2d.scale,
+            index,
+            plan_id,
+            user_id,
+            project_id,
+            floorplan_page_source,
+            floorplan_baseline_page_source,
+            CREDENTIALS
+        )
+        page = dict(
+            plan_id=plan_id,
+            page_number=index,
+            size_in_bytes=floorplan_page_statistics["size"],
+            height_in_pixels=floorplan_page_statistics["height"],
+            width_in_pixels=floorplan_page_statistics["width"],
+            origin=["LEFT", "TOP"],
+            offset=(0, 0),
+            contour_root_vertices=external_contour,
+            scale=floor_plan_modeller_2d.scale,
+            walls_2d=walls_2d,
+            polygons=polygons,
+        )
         walls_2d_all["pages"].append(page)
     insert_plan(
         project_id,
@@ -935,7 +945,7 @@ async def floorplan_to_2d(request: Request):
     )
 
     with open("/tmp/model_2d.json", 'w') as f:
-        json.dump(walls_2d_all, f)
+        json.dump(walls_2d_all, f, indent=4)
     blob.upload_from_filename("/tmp/model_2d.json")
     return respond_with_UI_payload(walls_2d_all)
 
@@ -956,7 +966,7 @@ async def load_latest_floorplan_to_2d(request: Request):
     bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
     blob_path = f"tmp/{user_id.lower()}/model_2d.json"
     blob = bucket.blob(blob_path)
-    timeout = from_unix_epoch() + 600
+    timeout = from_unix_epoch() + 120
     walls_2d_all = dict(pages=list())
     while from_unix_epoch() < timeout:
         try:
@@ -966,6 +976,7 @@ async def load_latest_floorplan_to_2d(request: Request):
                 logging.info("SYSTEM: Floorplan 2D Model generated")
                 return respond_with_UI_payload(walls_2d_all)
         except NotFound:
+            sleep(2)
             continue
     logging.info("SYSTEM: Floorplan 2D Model not found")
     return respond_with_UI_payload(walls_2d_all)
@@ -1000,15 +1011,13 @@ async def load_2d_revision(request: Request):
     except Exception:
         body = dict()
     project_id = parameters.get("project_id") or body.get("project_id")
-    user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     page_number = parameters.get("page_number") or body.get("page_number")
     revision_number = parameters.get("revision_number") or body.get("revision_number")
     logging.info(f"SYSTEM: Received Floorplan 2D Model (Revision: {revision_number}) Load Request")
 
-    GBQ_query = f"SELECT model FROM `{CREDENTIALS["GBQServer"]["table_name_model_revisions_2d"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND user_id = '{user_id}' AND page_number = {page_number} AND revision_number = {revision_number};"
-    bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
-    query_output = list(bigquery_client.query(GBQ_query).result())
+    GBQ_query = f"SELECT model FROM `{CREDENTIALS["GBQServer"]["table_name_model_revisions_2d"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number} AND revision_number = {revision_number};"
+    query_output = list(bigquery_run(CREDENTIALS, GBQ_query).result())
     walls_2d_JSON = dict()
     if query_output and query_output[0].model is not None:
         walls_2d_JSON = json.loads(query_output[0].model)
@@ -1025,14 +1034,12 @@ async def load_available_revision_numbers_2d(request: Request):
     except Exception:
         body = dict()
     project_id = parameters.get("project_id") or body.get("project_id")
-    user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     page_number = parameters.get("page_number") or body.get("page_number")
     logging.info(f"SYSTEM: Received Available Revisions Load Request for 2D Model")
 
-    GBQ_query = f"SELECT revision_number FROM `{CREDENTIALS["GBQServer"]["table_name_model_revisions_2d"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) = LOWER('{user_id}') AND page_number = {page_number};"
-    bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
-    query_output = list(bigquery_client.query(GBQ_query).result())
+    GBQ_query = f"SELECT revision_number FROM `{CREDENTIALS["GBQServer"]["table_name_model_revisions_2d"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+    query_output = list(bigquery_run(CREDENTIALS, GBQ_query).result())
     revision_numbers = list()
     if query_output:
         for revision in query_output:
@@ -1051,18 +1058,37 @@ async def load_2d_all(request: Request):
     except Exception:
         body = dict()
     project_id = parameters.get("project_id") or body.get("project_id")
-    user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     logging.info("SYSTEM: Received All Floorplan 2D Models Load Request")
 
+    status = "IN PROGRESS"
+    timeout = from_unix_epoch() + 120
+    while from_unix_epoch() < timeout:
+        GBQ_query = f"SELECT status FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
+        try:
+            query_output = list(bigquery_run(CREDENTIALS, GBQ_query).result())[0]
+            status = query_output.status
+            if status == "COMPLETED":
+                break
+        except IndexError:
+            return respond_with_UI_payload(dict(error="Floor Plan does not exist"), status_code=500)
+        sleep(2)
+    if status != "COMPLETED":
+        return respond_with_UI_payload(dict(error="Floor Plan extraction not completed within 15 minutes"), status_code=500)
     walls_2d_all = dict(pages=list())
-    GBQ_query = f"SELECT page_number, scale, model_2d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) = LOWER('{user_id}');"
-    bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
-    query_output = bigquery_client.query(GBQ_query).to_dataframe()
+    GBQ_query = f"SELECT page_number, scale, model_2d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
+    query_output = bigquery_run(CREDENTIALS, GBQ_query).to_dataframe()
     dataframe = load_UI_dataframe(query_output)
     for page_number, scale, model_2d in zip(dataframe["page_number"], dataframe["scale"], dataframe["model_2d"]):
         walls_2d = json.loads(model_2d)
-        page = dict(page_number=page_number, walls_2d=walls_2d, page_name='', scale=scale)
+        page = dict(
+            plan_id=plan_id,
+            page_number=page_number,
+            scale=scale,
+            walls_2d=walls_2d["walls_2d"],
+            polygons=walls_2d["polygons"],
+            **walls_2d["metadata"]
+        )
         walls_2d_all["pages"].append(page)
 
     return respond_with_UI_payload(walls_2d_all)
@@ -1077,6 +1103,7 @@ async def update_floorplan_to_2d(request: Request):
     except Exception:
         body = dict()
     walls_2d_JSON = parameters.get("walls_2d") or body.get("walls_2d")
+    polygons_JSON = parameters.get("polygons") or body.get("polygons")
     scale = parameters.get("scale") or body.get("scale")
     project_id = parameters.get("project_id") or body.get("project_id")
     user_id = parameters.get("user_id") or body.get("user_id")
@@ -1084,23 +1111,26 @@ async def update_floorplan_to_2d(request: Request):
     index = parameters.get("page_number") or body.get("page_number")
     logging.info("SYSTEM: Received a Floorplan 2D Model Update Request")
 
-    insert_model_2d(walls_2d_JSON, scale, index, plan_id, user_id, project_id, None, CREDENTIALS)
-    insert_model_2d_revision(walls_2d_JSON, scale, index, plan_id, user_id, project_id, CREDENTIALS)
+    insert_model_2d(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), scale, index, plan_id, user_id, project_id, None, None, CREDENTIALS)
+    insert_model_2d_revision(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), scale, index, plan_id, user_id, project_id, CREDENTIALS)
     logging.info("SYSTEM: Floorplan 2D Model Updated Successfully")
 
     logging.info("SYSTEM: Generating Floorplan 3D Model")
     model_2d_path = "/tmp/walls_2d.json"
     with open(model_2d_path, 'w') as f:
         json.dump(walls_2d_JSON, f)
+    polygons_path = "/tmp/polygons.json"
+    with open(polygons_path, 'w') as f:
+        json.dump(polygons_JSON, f)
     hyperparameters = load_hyperparameters()
     floor_plan_modeller_3d = Extrapolate3D(hyperparameters)
-    walls_3d, walls_3d_path = floor_plan_modeller_3d.extrapolate(model_2d_path=model_2d_path)
+    walls_3d, polygons_3d, walls_3d_path, _ = floor_plan_modeller_3d.extrapolate(model_2d_path=model_2d_path, polygons_path=polygons_path)
     gltf_paths = floor_plan_modeller_3d.gltf(model_2d_path=model_2d_path)
     model_3d_path = floor_plan_modeller_3d.save_plot_3d(walls_3d_path)
     upload_floorplan(model_3d_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
     for gltf_path in gltf_paths:
         upload_floorplan(gltf_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2), directory="gltf")
-    insert_model_3d(walls_3d, scale, index, plan_id, user_id, project_id, CREDENTIALS)
+    insert_model_3d(dict(walls_3d=walls_3d, polygons=polygons_3d), scale, index, plan_id, user_id, project_id, CREDENTIALS)
     logging.info("SYSTEM: A 3D Model of the Floorplan Generated Successfully")
 
     return respond_with_UI_payload(walls_3d)
@@ -1115,6 +1145,7 @@ async def floorplan_to_3d(request: Request):
     except Exception:
         body = dict()
     walls_2d_JSON = parameters.get("walls_2d") or body.get("walls_2d")
+    polygons_JSON = parameters.get("polygons") or body.get("polygons")
     project_id = parameters.get("project_id") or body.get("project_id")
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
@@ -1125,15 +1156,18 @@ async def floorplan_to_3d(request: Request):
     model_2d_path = "/tmp/walls_2d.json"
     with open(model_2d_path, 'w') as f:
         json.dump(walls_2d_JSON, f)
+    polygons_path = "/tmp/polygons.json"
+    with open(polygons_path, 'w') as f:
+        json.dump(polygons_JSON, f)
     hyperparameters = load_hyperparameters()
     floor_plan_modeller_3d = Extrapolate3D(hyperparameters)
-    walls_3d, walls_3d_path = floor_plan_modeller_3d.extrapolate(model_2d_path=model_2d_path)
+    walls_3d, polygons_3d, walls_3d_path, _ = floor_plan_modeller_3d.extrapolate(model_2d_path=model_2d_path, polygons_path=polygons_path)
     gltf_paths = floor_plan_modeller_3d.gltf(model_2d_path=model_2d_path)
     model_3d_path = floor_plan_modeller_3d.save_plot_3d(walls_3d_path)
     upload_floorplan(model_3d_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
     for gltf_path in gltf_paths:
         upload_floorplan(gltf_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2), directory="gltf")
-    insert_model_3d(walls_3d, scale, index, plan_id, user_id, project_id, CREDENTIALS)
+    insert_model_3d(dict(walls_3d=walls_3d, polygons=polygons_3d), scale, index, plan_id, user_id, project_id, CREDENTIALS)
     logging.info("SYSTEM: A 3D Model of the Floorplan Generated Successfully")
 
     return respond_with_UI_payload(walls_3d)
@@ -1155,8 +1189,7 @@ async def load_3d_revision(request: Request):
     logging.info(f"SYSTEM: Received Floorplan 3D Model (Revision: {revision_number}) Load Request")
 
     GBQ_query = f"SELECT model FROM `{CREDENTIALS["GBQServer"]["table_name_model_revisions_3d"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) = LOWER('{user_id}') AND page_number = {page_number} AND revision_number = {revision_number};"
-    bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
-    query_output = list(bigquery_client.query(GBQ_query).result())
+    query_output = list(bigquery_run(CREDENTIALS, GBQ_query).result())
     walls_3d_JSON = dict()
     if query_output and query_output[0].model is not None:
         walls_3d_JSON = json.loads(query_output[0].model)
@@ -1179,8 +1212,7 @@ async def load_available_revision_numbers_3d(request: Request):
     logging.info(f"SYSTEM: Received Available Revisions Load Request for 3D Model")
 
     GBQ_query = f"SELECT revision_number FROM `{CREDENTIALS["GBQServer"]["table_name_model_revisions_3d"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) = LOWER('{user_id}') AND page_number = {page_number};"
-    bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
-    query_output = list(bigquery_client.query(GBQ_query).result())
+    query_output = list(bigquery_run(CREDENTIALS, GBQ_query).result())
     revision_numbers = list()
     if query_output:
         for revision in query_output:
@@ -1205,8 +1237,7 @@ async def load_3d_all(request: Request):
 
     walls_3d_all = dict(pages=list())
     GBQ_query = f"SELECT page_number, scale, model_3d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) = LOWER('{user_id}');"
-    bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
-    query_output = bigquery_client.query(GBQ_query).to_dataframe()
+    query_output = bigquery_run(CREDENTIALS, GBQ_query).to_dataframe()
     dataframe = load_UI_dataframe(query_output)
     for page_number, scale, model_3d in zip(dataframe["page_number"], dataframe["scale"], dataframe["model_3d"]):
         walls_3d = json.loads(model_3d)
@@ -1248,20 +1279,25 @@ async def generate_drywall_overlaid_floorplan_download_signed_URL(request: Reque
     index = parameters.get("page_number") or body.get("page_number")
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
-    user_id = parameters.get("user_id") or body.get("user_id")
-    poll = bool(parameters.get("poll")) or bool(body.get("poll"))
     logging.info("SYSTEM: Received Signed Floorplan download URL generation Request")
 
-    GBQ_query = f"SELECT target_drywalls FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) = LOWER('{user_id}') AND page_number = {index};"
-    bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
-    query_output = list(bigquery_client.query(GBQ_query).result())
-    if poll:
-        timeout = from_unix_epoch() + 600
-        while from_unix_epoch() < timeout:
-            if query_output:
+    status = "IN PROGRESS"
+    timeout = from_unix_epoch() + 120
+    while from_unix_epoch() < timeout:
+        GBQ_query = f"SELECT status FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
+        try:
+            query_output = list(bigquery_run(CREDENTIALS, GBQ_query).result())[0]
+            status = query_output.status
+            if status == "COMPLETED":
                 break
-            else:
-                query_output = list(bigquery_client.query(GBQ_query).result())
+        except IndexError:
+            return respond_with_UI_payload(dict(error="Floor Plan does not exist"), status_code=500)
+        sleep(2)
+    if status != "COMPLETED":
+        return respond_with_UI_payload(dict(error="Floor Plan extraction not completed within 15 minutes"), status_code=500)
+
+    GBQ_query = f"SELECT target_drywalls FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index};"
+    query_output = list(bigquery_run(CREDENTIALS, GBQ_query).result())
     drywall_overlaid_floorplan_source_path = list(query_output)[0].target_drywalls
     _, _, _, blob_path = drywall_overlaid_floorplan_source_path.split('/', 3)
 
@@ -1303,6 +1339,7 @@ async def compute_takeoff(request: Request):
     except Exception:
         body = dict()
     walls_3d_JSON = parameters.get("walls_3d", list()) or body.get("walls_3d", list())
+    polygons_JSON = parameters.get("polygons", list()) or body.get("polygons", list())
     index = parameters.get("page_number") or body.get("page_number")
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
@@ -1311,25 +1348,37 @@ async def compute_takeoff(request: Request):
     logging.info("SYSTEM: Received a Drywall Takeoff computation Request")
 
     if not walls_3d_JSON:
-        bigquery_client = bigquery.Client.from_service_account_json(CREDENTIALS["GBQServer"]["service_account_key"])
         if revision_number:
             GBQ_query = f"SELECT model FROM `{CREDENTIALS["GBQServer"]["table_name_model_revisions_3d"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) = LOWER('{user_id}') AND page_number = {index} AND revision_number = {revision_number};"
-            walls_3d_JSON = list(bigquery_client.query(GBQ_query, job_config=job_config).result())[0].model
+            walls_3d_JSON = list(bigquery_run(CREDENTIALS, GBQ_query).result())[0].model
         else:
             GBQ_query = f"SELECT model_3d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) = LOWER('{user_id}') AND page_number = {index};"
-            walls_3d_JSON = list(bigquery_client.query(GBQ_query, job_config=job_config).result())[0].model_3d
+            walls_3d_JSON = list(bigquery_run(CREDENTIALS, GBQ_query).result())[0].model_3d
     
         if walls_3d_JSON is None:
             walls_3d_JSON = list()
+
+    hyperparameters = load_hyperparameters()
+    floor_plan_modeller_3d = Extrapolate3D(hyperparameters)
+    walls_3d_JSON, polygons_JSON = floor_plan_modeller_3d.extrapolate_wall_heights_given_polygons(walls_3d_JSON, polygons_JSON)
     drywall_takeoff = dict(total=0, per_drywall=defaultdict(lambda: 0))
     for wall in walls_3d_JSON:
         surface_area = wall["height"] * wall["length"]
         drywall_count = 0
-        for drywall in wall["surfaces_drywall"]:
+        for drywall in wall["polygons_drywall"]:
             if drywall["enabled"]:
                 drywall_takeoff["per_drywall"][drywall["type"]] += surface_area
                 drywall_count += 1
         drywall_takeoff["total"] += drywall_count * surface_area
+    for polygon in polygons_JSON:
+        surface_area = floor_plan_modeller_3d.compute_updated_area_polygon(
+            polygon["vertices"],
+            polygon["area"],
+            polygon["slope"],
+            polygon["tilt_axis"]
+        )
+        drywall_takeoff["per_drywall"][polygon["type"]] += surface_area
+        drywall_takeoff["total"] += surface_area
 
     drywall_takeoff["total"] = round(drywall_takeoff["total"], 2)
     for key in drywall_takeoff["per_drywall"]:
