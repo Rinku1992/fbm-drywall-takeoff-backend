@@ -33,7 +33,7 @@ from preprocessing import preprocess
 from transcriber import Transcriber
 from modeller_2d import FloorPlan2D
 from extrapolate_3d import Extrapolate3D
-from helper import load_vertex_ai_client, bigquery_run
+from helper import load_vertex_ai_client, bigquery_run, load_drywall_choices
 
 
 def respond_with_UI_payload(payload, status_code=200):
@@ -893,6 +893,7 @@ async def floorplan_to_2d(request: Request):
         )
         if not polygons:
             continue
+        walls_2d, polygons = load_drywall_choices(walls_2d, polygons)
         #if verbose.upper() == "TRUE":
         model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_path)
         upload_floorplan(model_2d_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))

@@ -1227,6 +1227,7 @@ class FloorPlan2D(FloorPlan):
                     thickness=wall_parameter["width"],
                     height=wall_parameter["height"] if wall_parameter["height"] else height_default,
                     length=wall_parameter["length"],
+                    type=wall_parameter["wall_type"],
                     polygons_drywall=list()
                 )
                 try:
@@ -1313,7 +1314,8 @@ class FloorPlan2D(FloorPlan):
                 thickness=thickness_default,
                 height=height_default,
                 length=wall_length_expected,
-                polygons_drywall=list()
+                polygons_drywall=list(),
+                type=''
             )
             for polygon, polygon_index in zip(polygons, ['a', 'b']):
                 wall["polygons_drywall"].append(
