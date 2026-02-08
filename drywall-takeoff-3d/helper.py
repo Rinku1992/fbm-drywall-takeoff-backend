@@ -4,6 +4,8 @@ from google.cloud import bigquery
 import vertexai
 from vertexai.generative_models import GenerativeModel
 
+from transcriber import Transcriber
+
 
 def load_vertex_ai_client(credentials, region="us-central1"):
     with open(credentials["VertexAI"]["service_account_key"], 'r') as f:
@@ -23,3 +25,7 @@ def bigquery_run(credentials, GBQ_query, job_config=dict()):
     )
     query_output = bigquery_client.query(GBQ_query, job_config=job_config)
     return query_output
+
+def transcribe(credentials, hyperparameters, floor_plan_path):
+    transcriber = Transcriber(credentials, hyperparameters)
+    return transcriber.transcribe(floor_plan_path, [0, 1, -1, -2])
