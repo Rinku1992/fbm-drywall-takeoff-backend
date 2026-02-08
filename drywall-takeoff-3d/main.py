@@ -17,7 +17,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pydantic_core import ValidationError
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 
 import google.auth.transport.requests
 from google.oauth2.service_account import IDTokenCredentials
@@ -30,10 +30,9 @@ import pandas as pd
 import numpy as np
 import math
 from preprocessing import preprocess
-from transcriber import Transcriber
 from modeller_2d import FloorPlan2D
 from extrapolate_3d import Extrapolate3D
-from helper import load_vertex_ai_client, bigquery_run
+from helper import load_vertex_ai_client, bigquery_run, transcribe
 
 
 def respond_with_UI_payload(payload, status_code=200):
@@ -863,7 +862,7 @@ async def floorplan_to_2d(request: Request):
         floorplan_page_source = upload_floorplan(floor_plan_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
         logging.info(f"SYSTEM: Preprocessed Floorplan Image uploaded to GCS from PAGE: {index}")
         futures = dict()
-        with ProcessPoolExecutor(max_workers=5) as executor:
+        with ThreadPoolExecutor(max_workers=5) as executor:
             futures["floorplan_to_walls"] = executor.submit(
                 floorplan_to_walls,
                 CREDENTIALS,
@@ -872,11 +871,11 @@ async def floorplan_to_2d(request: Request):
                 user_id,
                 index
             )
-            transcriber = Transcriber(CREDENTIALS, hyperparameters)
             futures["transcriber"] = executor.submit(
-                transcriber.transcribe,
+                transcribe,
+                CREDENTIALS,
+                hyperparameters,
                 floor_plan_path,
-                [0, 1, -1, -2]
             )
             wall_segmented_path = futures["floorplan_to_walls"].result()
             upload_floorplan(wall_segmented_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
