@@ -1,3 +1,7 @@
+from typing import List, Dict, Optional, Union
+from pydantic import BaseModel
+
+
 WALL_RECTIFIER = """
   You are a senior architectural plan-correction specialist with 20+ years of experience in residential and commercial floor plans.
 
@@ -266,6 +270,10 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
     }}
 """
 
+class DrywallPredictorCaliforniaResponse(BaseModel):
+    ceiling: Dict
+    wall_parameters: List[Dict]
+
 SCALE_AND_CEILING_HEIGHT_DETECTOR = """
   You are a Senior Architectural Drawing Interpretation Engine. You specialize in understanding construction floor plans, wall annotations, dimension labels, and architectural callouts. You reason spatially using dimension standards and drafting conventions. You never invent dimensions that are not present in the input. You return structured, deterministic outputs.
 
@@ -290,6 +298,10 @@ SCALE_AND_CEILING_HEIGHT_DETECTOR = """
         "scale": "<Scale of the drawing mentioned in the transcriptions i.e. number_in_inches``: number_in_feet`number_in_inches``>"
     }}
 """
+
+class ScaleAndCeilingHeightDetectorResponse(BaseModel):
+    ceiling_height: Union[float, int]
+    scale: str
 
 DRYWALL_CHOICES = {
     
