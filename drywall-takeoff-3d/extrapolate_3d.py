@@ -49,7 +49,7 @@ class Extrapolate3D(FloorPlan):
     def _load_wall_height_in_pixels(self, wall_line):
         wall_height = wall_line["height"]
         if not wall_height:
-            self._height_in_pixels
+            return self._height_in_pixels
         pixel_aspect_ratio_average = (self._hyperparameters["pixel_aspect_ratio"]["horizontal"] + self._hyperparameters["pixel_aspect_ratio"]["vertical"]) / 2
         return round(wall_height / pixel_aspect_ratio_average)
 
