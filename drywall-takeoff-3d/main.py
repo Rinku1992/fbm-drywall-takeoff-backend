@@ -1135,7 +1135,7 @@ async def update_floorplan_to_2d(request: Request):
     insert_model_3d(dict(walls_3d=walls_3d, polygons=polygons_3d), scale, index, plan_id, user_id, project_id, CREDENTIALS)
     logging.info("SYSTEM: A 3D Model of the Floorplan Generated Successfully")
 
-    return respond_with_UI_payload(walls_3d)
+    return respond_with_UI_payload(dict(walls_3d=walls_3d, polygons=polygons_3d))
 
 
 @app.post("/floorplan_to_3d")
@@ -1173,7 +1173,7 @@ async def floorplan_to_3d(request: Request):
     insert_model_3d(dict(walls_3d=walls_3d, polygons=polygons_3d), scale, index, plan_id, user_id, project_id, CREDENTIALS)
     logging.info("SYSTEM: A 3D Model of the Floorplan Generated Successfully")
 
-    return respond_with_UI_payload(walls_3d)
+    return respond_with_UI_payload(dict(walls_3d=walls_3d, polygons=polygons_3d))
 
 
 @app.post("/load_3d_revision")
@@ -1368,7 +1368,7 @@ async def compute_takeoff(request: Request):
     for wall in walls_3d_JSON:
         surface_area = wall["height"] * wall["length"]
         drywall_count = 0
-        for drywall in wall["polygons_drywall"]:
+        for drywall in wall["surfaces_drywall"]:
             if drywall["enabled"]:
                 drywall_takeoff["per_drywall"][drywall["type"]] += surface_area
                 drywall_count += 1
@@ -1380,7 +1380,7 @@ async def compute_takeoff(request: Request):
             polygon["slope"],
             polygon["tilt_axis"]
         )
-        drywall_takeoff["per_drywall"][polygon["type"]] += surface_area
+        drywall_takeoff["per_drywall"][polygon["surface_drywall"]["type"]] += surface_area
         drywall_takeoff["total"] += surface_area
 
     drywall_takeoff["total"] = round(drywall_takeoff["total"], 2)

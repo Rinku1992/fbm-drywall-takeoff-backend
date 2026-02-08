@@ -338,7 +338,10 @@ class Extrapolate3D(FloorPlan):
             slope_enabled=polygon["slope_enabled"],
             tilt_axis=polygon["tilt_axis"],
             room_name=polygon["room_name"],
-            surface_drywall=self._extrude_roof_3d(polygon["vertices"], polygon["slope"], polygon["tilt_axis"], height_in_pixels, width_in_pixels)
+            surface_drywall=dict(
+                polygon=self._extrude_roof_3d(polygon["vertices"], polygon["slope"], polygon["tilt_axis"], height_in_pixels, width_in_pixels),
+                type=polygon["polygon_drywall"]["type"]
+            )
         )
         self._polygons_3d.append(polygon)
 
