@@ -458,7 +458,7 @@ class FloorPlan2D(FloorPlan):
 
         return lines
 
-    def _merge_nearest_neighbor(self, wall_lines, tolerance=200):
+    def _merge_nearest_neighbor(self, wall_lines, tolerance=500):
         wall_lines_closed_dead_end = deepcopy(wall_lines)
         for wall_line in wall_lines:
             X1, Y1, X2, Y2 = wall_line[0]
@@ -715,7 +715,6 @@ class FloorPlan2D(FloorPlan):
             open_ends = self.is_open(wall_line, wall_lines, tolerance=open_tolerance_threshold)
             if open_ends and 'A' in open_ends and 'B' in open_ends:
                 orientation = self.classify_line(X1, Y1, X2, Y2)
-                wall_line_length = math.hypot(X1 - X2, Y1 - Y2)
                 if orientation == "horizontal":
                     is_extended = False
                     pixel_distance_UP_A = np.argmin(canvas[: Y1, X1 - open_tolerance_threshold: X1 + open_tolerance_threshold].mean(axis=1)[::-1])

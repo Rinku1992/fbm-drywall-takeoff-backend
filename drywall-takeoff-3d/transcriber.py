@@ -79,7 +79,7 @@ class Transcriber:
         n_vertical_strides = (image.shape[0] // kernel_parameters["stride"]) + 1
 
         futures = list()
-        with ThreadPoolExecutor(max_workers=50) as executor:
+        with ThreadPoolExecutor(max_workers=1) as executor:
             for v_stride_index in range(n_vertical_strides):
                 for h_stride_index in range(n_horizontal_strides):
                     futures.append(executor.submit(
@@ -93,7 +93,7 @@ class Transcriber:
                         "ocr_clip",
                     ))
 
-        [future.result() for future in futures]
+            [future.result() for future in futures]
         if filter_transciption_block_tiles_row_major_indexes:
             return self._transcription_block_centroids, self.transciption_block_tiles_row_major(filter_transciption_block_tiles_row_major_indexes)
         return self._transcription_block_centroids
