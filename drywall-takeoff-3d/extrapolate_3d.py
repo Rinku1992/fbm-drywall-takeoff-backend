@@ -429,7 +429,7 @@ class Extrapolate3D(FloorPlan):
         for polygon in polygons_3d:
             vertices = polygon["vertices"]
             height = self._load_wall_height_in_pixels(polygon)
-            color = polygon["surface_drywall"]["color"]
+            color = polygon["surface_drywall"]["color"][::-1]
             color = tuple(c / 255 for c in color)
 
             add_roof_face(
