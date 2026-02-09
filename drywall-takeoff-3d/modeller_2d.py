@@ -19,7 +19,8 @@ from prompt import (
     DRYWALL_PREDICTOR_CALIFORNIA,
     SCALE_AND_CEILING_HEIGHT_DETECTOR,
     WALL_RECTIFIER,
-    DRYWALL_CHOICES
+    DRYWALL_CHOICES,
+    CEILING_CHOICES
 )
 
 __all__ = ["FloorPlan2D"]
@@ -1761,6 +1762,10 @@ class FloorPlan2D(FloorPlan):
                 polygon["drywall_choices"] = list(unique_drywalls_roofs)
             else:
                 polygon["drywall_choices"] = DRYWALL_CHOICES.get(polygon["type"], list())
+
+    def load_ceiling_choices(self, polygons_2d_JSON):
+        for polygon in polygons_2d_JSON:
+            polygon["type_choices"] = CEILING_CHOICES
 
     def save_plot_2d(
         self,
