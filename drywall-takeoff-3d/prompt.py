@@ -303,6 +303,23 @@ class ScaleAndCeilingHeightDetectorResponse(BaseModel):
     ceiling_height: Union[float, int]
     scale: str
 
-DRYWALL_CHOICES = {
-    
+DRYWALL_CHOICES = {   
 }
+
+CEILING_CHOICES = [
+    "Flat",
+    "Single-sloped",
+    "Gable",
+    "Tray",
+    "Barrel vault",
+    "Coffered",
+    "Combination",
+    "Soffit",
+    "Cove",
+    "Dome",
+    "Cloister Vault",
+    "Knee-Wall",
+    "Cathedral with Flat Center",
+    "Angled-Plane",
+    "Boxed-Beam"
+]
