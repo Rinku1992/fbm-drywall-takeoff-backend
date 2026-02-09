@@ -455,11 +455,11 @@ class Extrapolate3D(FloorPlan):
         plt.savefig(image_path, dpi=dpi)
         return Path(image_path)
 
-    def gltf(self, model_2d_path="/tmp/walls_2d.json"):
+    def gltf(self, model_2d_path="/tmp/walls_2d.json", polygons_path="/tmp/polygons.json"):
         wall_lines = self._load_model_2d(model_2d_path)
+        polygons = self._load_polygons(polygons_path)
         walls = list()
         for wall_line in wall_lines:
-            wall_width = self._load_wall_width_in_pixels(wall_line)
             walls.append(
                 dict(
                     x1=wall_line["wall_line"][0]['x'], 
@@ -470,8 +470,8 @@ class Extrapolate3D(FloorPlan):
                     thickness=wall_line["thickness"]
                 )
             )
-        load_gltf(walls, "/tmp/walls.gltf")
-        return [Path("/tmp/walls.gltf"), Path("/tmp/walls.bin")] 
+        load_gltf(walls, polygons, "/tmp/walls.gltf")
+        return [Path("/tmp/walls.gltf"), Path("/tmp/walls.bin")]
 
     def extrapolate_wall_heights_given_polygons(self, walls_3d, polygons):
         def load_payload_wall_3d(wall_line):
