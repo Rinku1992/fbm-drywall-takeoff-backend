@@ -342,7 +342,8 @@ class Extrapolate3D(FloorPlan):
             drywall_choices=polygon["drywall_choices"],
             surface_drywall=dict(
                 polygon=self._extrude_roof_3d(polygon["vertices"], polygon["slope"], polygon["tilt_axis"], height_in_pixels, width_in_pixels),
-                type=polygon["polygon_drywall"]["type"]
+                type=polygon["polygon_drywall"]["type"],
+                color=polygon["polygon_drywall"]["color"]
             )
         )
         self._polygons_3d.append(polygon)
