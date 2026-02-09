@@ -1159,7 +1159,7 @@ class FloorPlan2D(FloorPlan):
 
         polygon = dict(
             id=index,
-            area=area,
+            area=model_polygon["ceiling"]["area"],
             vertices=vertices,
             type=model_polygon["ceiling"]["ceiling_type"],
             height=model_polygon["ceiling"]["height"] if model_polygon["ceiling"]["height"] else height_default,
