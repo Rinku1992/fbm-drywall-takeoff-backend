@@ -912,6 +912,10 @@ class FloorPlan2D(FloorPlan):
         except (JSONDecodeError, ValueError):
             ceiling_height_and_scale = dict(ceiling_height=self._height_in_feet, scale=self._scale)
 
+        new_pixel_aspect_ratio_in_feet = self.compute_pixel_aspect_ratio(ceiling_height_and_scale["scale"], self._hyperparameters["pixel_aspect_ratio_to_feet"])
+        self._hyperparameters["pixel_aspect_ratio_in_feet"] = new_pixel_aspect_ratio_in_feet
+        self._hyperparameters["modelling"]["pixel_aspect_ratio"] = new_pixel_aspect_ratio_in_feet
+        self._hyperparameters["modelling"]["height_in_feet"] = ceiling_height_and_scale["ceiling_height"]
         return ceiling_height_and_scale
 
     def _wall_rectifier(
