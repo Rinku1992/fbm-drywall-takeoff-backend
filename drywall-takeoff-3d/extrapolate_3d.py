@@ -360,7 +360,7 @@ class Extrapolate3D(FloorPlan):
         a = slope / polygon_width
         return round(area * math.sqrt(1 + a * a), 2)
 
-    def save_plot_3d(self, model_3d_path):
+    def save_plot_3d(self, model_3d_path, polygons_3d_path):
         def add_side_face(ax, p1_i, p2_i, p1_o, p2_o):
             face = [
                 (p1_i["x"], 1080 - p1_i["y"], p1_i["z"]),
@@ -369,19 +369,30 @@ class Extrapolate3D(FloorPlan):
                 (p1_o["x"], 1080 - p1_o["y"], p1_o["z"]),
             ]
 
-            coll = Poly3DCollection([face], alpha=0.4)
+            coll = Poly3DCollection([face], alpha=0.5)
             coll.set_edgecolor('k')
             ax.add_collection3d(coll)
 
+        def add_roof_face(ax, vertices, height, color=(0.6, 0.6, 0.6)):
+            verts_3d = [
+                (x, 1080 - y, height)
+                for x, y in vertices
+            ]
+
+            coll = Poly3DCollection([verts_3d], alpha=0.3)
+            coll.set_facecolor(color)
+            coll.set_edgecolor("k")
+            ax.add_collection3d(coll)
+
         with open(model_3d_path, 'r') as f:
-            data = json.load(f)
+            walls_3d = json.load(f)
 
         xs, ys, zs = list(), list(), list()
 
         dpi = 100
         fig = plt.figure(figsize=(1920 / dpi, 1080 / dpi), dpi=dpi)
         ax = fig.add_subplot(111, projection="3d")
-        for wall in data:
+        for wall in walls_3d:
             surfaces = [s for s in wall["surfaces_drywall"]]
 
             if len(surfaces) != 2:
@@ -407,9 +418,25 @@ class Extrapolate3D(FloorPlan):
                 verts = [(p["x"], 1080 - p["y"], p["z"]) for p in poly]
 
                 poly3d = [verts]
-                coll = Poly3DCollection(poly3d, alpha=0.4)
+                coll = Poly3DCollection(poly3d, alpha=0.5)
                 coll.set_edgecolor('k')
                 ax.add_collection3d(coll)
+
+        with open(polygons_3d_path, 'r') as f:
+            polygons_3d = json.load(f)
+
+        for polygon in polygons_3d:
+            vertices = polygon["vertices"]
+            height = self._load_wall_height_in_pixels(polygon)
+            color = polygon["surface_drywall"]["color"]
+            color = tuple(c / 255 for c in color)
+
+            add_roof_face(
+                ax,
+                vertices=vertices,
+                height=height,
+                color=color
+            )
 
         ax.set_xlabel("X")
         ax.set_ylabel("Y")
