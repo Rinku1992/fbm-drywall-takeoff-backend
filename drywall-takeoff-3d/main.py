@@ -891,6 +891,7 @@ async def floorplan_to_2d(request: Request):
             transcription_headers_and_footers=transcription_headers_and_footers
         )
         floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons)
+        floor_plan_modeller_2d.load_ceiling_choices(polygons)
         if not polygons:
             continue
         #if verbose.upper() == "TRUE":
