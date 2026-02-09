@@ -31,6 +31,21 @@ class FloorPlan:
         for polygon in polygons_JSON:
             polygon["drywall_choices"] = DRYWALL_CHOICES.get(polygon["type"], [])
 
+    def compute_pixel_aspect_ratio(self, scale_new, pixel_aspect_ratio_standard):
+        scale_new_on_paper_length = float(scale_new.split(':')[0].strip('`'))
+        scale_new_real_world_length_in_feet_and_inches = scale_new.split(':')[1].strip('`').split('`')
+        scale_new_real_world_length_in_feet = float(scale_new_real_world_length_in_feet_and_inches[0])
+        if len(scale_new_real_world_length_in_feet_and_inches) == 2:
+            scale_new_real_world_length_in_feet += float(scale_new_real_world_length_in_feet_and_inches[-1]) / 12
+        scale_new_real_world_length_in_feet_scale = 0.25 / scale_new_on_paper_length
+        scale_new_real_world_length_in_feet_new = scale_new_real_world_length_in_feet * scale_new_real_world_length_in_feet_scale
+        scale = scale_new_real_world_length_in_feet_new / 1
+        pixel_aspect_ratio_new = dict()
+        pixel_aspect_ratio_new["horizontal"] = scale * pixel_aspect_ratio_standard["horizontal"]
+        pixel_aspect_ratio_new["vertical"] = scale * pixel_aspect_ratio_standard["vertical"]
+
+        return pixel_aspect_ratio_new
+
     def detect_lines(self, image_GRAY):
         lines = cv2.HoughLinesP(
             image_GRAY,
