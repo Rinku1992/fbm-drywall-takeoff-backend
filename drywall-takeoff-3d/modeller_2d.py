@@ -18,7 +18,8 @@ from floor_plan import FloorPlan
 from prompt import (
     DRYWALL_PREDICTOR_CALIFORNIA,
     SCALE_AND_CEILING_HEIGHT_DETECTOR,
-    WALL_RECTIFIER
+    WALL_RECTIFIER,
+    DRYWALL_CHOICES
 )
 
 __all__ = ["FloorPlan2D"]
@@ -1738,6 +1739,26 @@ class FloorPlan2D(FloorPlan):
         pdf_path = "/tmp/scaled_floor_plan.pdf"
         canvas.save(pdf_path, save_all=True)
         return Path(pdf_path), dict(height=height, width=width, size=Path(pdf_path).stat().st_size)
+
+    def load_drywall_choices(self, model_2d_JSON, polygons_2d_JSON, all_unique=True):
+        if all_unique:
+            unique_drywalls_walls = set()
+            for wall in model_2d_JSON:
+                for drywall in wall["polygons_drywall"]:
+                    unique_drywalls_walls.add(drywall["type"])
+            unique_drywalls_roofs = set()
+            for polygon in polygons_2d_JSON:
+                unique_drywalls_roofs.add(polygon["polygon_drywall"]["type"])
+        for wall in model_2d_JSON:
+            if all_unique:
+                wall["drywall_choices"] = list(unique_drywalls_walls)
+            else:
+                wall["drywall_choices"] = DRYWALL_CHOICES.get(wall["type"], list())
+        for polygon in polygons_2d_JSON:
+            if all_unique:
+                polygon["drywall_choices"] = list(unique_drywalls_roofs)
+            else:
+                polygon["drywall_choices"] = DRYWALL_CHOICES.get(polygon["type"], list())
 
     def save_plot_2d(
         self,
