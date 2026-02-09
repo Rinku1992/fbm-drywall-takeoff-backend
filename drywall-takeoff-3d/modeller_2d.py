@@ -1747,11 +1747,11 @@ class FloorPlan2D(FloorPlan):
             for wall in model_2d_JSON:
                 for drywall in wall["polygons_drywall"]:
                     unique_drywalls_walls.add(drywall["type"])
-            unique_drywalls_walls.remove("None")
+            unique_drywalls_walls.discard("None")
             unique_drywalls_roofs = set()
             for polygon in polygons_2d_JSON:
                 unique_drywalls_roofs.add(polygon["polygon_drywall"]["type"])
-            unique_drywalls_roofs.remove("None")
+            unique_drywalls_roofs.discard("None")
         for wall in model_2d_JSON:
             if all_unique:
                 wall["drywall_choices"] = list(unique_drywalls_walls)
