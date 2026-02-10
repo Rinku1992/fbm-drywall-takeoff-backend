@@ -172,7 +172,7 @@ def extract_floorplan_from_page(
             plan_id,
             user_id,
             page_number,
-            output_path=f"/tmp/floor_plan_wall_segmented_{str(page_number).zfill(2)).png"
+            output_path=f"/tmp/floor_plan_wall_segmented_{str(page_number).zfill(2)}.png"
         )
         futures["transcriber"] = executor.submit(
             transcribe_worker,
