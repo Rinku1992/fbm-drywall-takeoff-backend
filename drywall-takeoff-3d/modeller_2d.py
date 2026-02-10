@@ -1029,7 +1029,9 @@ class FloorPlan2D(FloorPlan):
         polygon_bounding_box_Y1 = min(vertex[1] for vertex in vertices)
         polygon_bounding_box_X2 = max(vertex[0] for vertex in vertices)
         polygon_bounding_box_Y2 = max(vertex[1] for vertex in vertices)
-        canvas_cropped = canvas[max(0, polygon_bounding_box_Y1 - threshold): polygon_bounding_box_Y2 + threshold, max(0, polygon_bounding_box_X1 - threshold): polygon_bounding_box_X2 + threshold]
+        threshold_X = max((polygon_bounding_box_X2 - polygon_bounding_box_X1) // 2, threshold)
+        threshold_Y = max((polygon_bounding_box_Y2 - polygon_bounding_box_Y1) // 2, threshold)
+        canvas_cropped = canvas[max(0, polygon_bounding_box_Y1 - threshold_Y): polygon_bounding_box_Y2 + threshold_Y, max(0, polygon_bounding_box_X1 - threshold_X): polygon_bounding_box_X2 + threshold_X]
         centroid_polygon_X = round(sum([vertex[0] for vertex in vertices]) / len(vertices))
         centroid_polygon_Y = round(sum([vertex[1] for vertex in vertices]) / len(vertices))
         nearest_transcription_blocks = self._load_nearest_transcription_blocks((centroid_polygon_X, centroid_polygon_Y), transcription_block_with_centroids)
