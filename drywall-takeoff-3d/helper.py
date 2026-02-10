@@ -1,4 +1,5 @@
 import json
+import hashlib
 
 from google.cloud import bigquery
 import vertexai
@@ -29,3 +30,10 @@ def bigquery_run(credentials, GBQ_query, job_config=dict()):
 def transcribe(credentials, hyperparameters, floor_plan_path):
     transcriber = Transcriber(credentials, hyperparameters)
     return transcriber.transcribe(floor_plan_path, [0, 1, -1, -2])
+
+def sha256(path, chunk_size=8192):
+    sha256 = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(chunk_size), b""):
+            sha256.update(chunk)
+    return sha256.hexdigest()
