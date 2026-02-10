@@ -1374,15 +1374,15 @@ async def compute_takeoff(request: Request):
     hyperparameters = load_hyperparameters()
     floor_plan_modeller_3d = Extrapolate3D(hyperparameters)
     walls_3d_JSON, polygons_JSON = floor_plan_modeller_3d.extrapolate_wall_heights_given_polygons(walls_3d_JSON, polygons_JSON)
-    drywall_takeoff = dict(total=0, per_drywall=defaultdict(lambda: 0))
+    drywall_takeoff = dict(total=dict(roof=0, wall=0), per_drywall=dict(roof=defaultdict(lambda: 0), wall=defaultdict(lambda: 0)))
     for wall in walls_3d_JSON:
         surface_area = wall["height"] * wall["length"]
         drywall_count = 0
         for drywall in wall["surfaces_drywall"]:
             if drywall["enabled"]:
-                drywall_takeoff["per_drywall"][drywall["type"]] += surface_area
+                drywall_takeoff["per_drywall"]["wall"][drywall["type"]] += surface_area
                 drywall_count += 1
-        drywall_takeoff["total"] += drywall_count * surface_area
+        drywall_takeoff["total"]["wall"] += drywall_count * surface_area
     for polygon in polygons_JSON:
         surface_area = floor_plan_modeller_3d.compute_updated_area_polygon(
             polygon["vertices"],
@@ -1390,8 +1390,8 @@ async def compute_takeoff(request: Request):
             polygon["slope"],
             polygon["tilt_axis"]
         )
-        drywall_takeoff["per_drywall"][polygon["surface_drywall"]["type"]] += surface_area
-        drywall_takeoff["total"] += surface_area
+        drywall_takeoff["per_drywall"]["roof"][polygon["surface_drywall"]["type"]] += surface_area
+        drywall_takeoff["total"]["roof"] += surface_area
 
     drywall_takeoff["total"] = round(drywall_takeoff["total"], 2)
     for key in drywall_takeoff["per_drywall"]:
