@@ -508,7 +508,7 @@ def insert_project(payload_project, credentials):
     return created_at
 
 
-def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number):
+def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, output_path=None):
     auth_req = google.auth.transport.requests.Request()
     service_account_credentials = IDTokenCredentials.from_service_account_file(
         credentials["service_compute_account_key"],
@@ -533,10 +533,11 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number):
         )
     )
 
-    image_path  = Path("/tmp/floor_plan_wall_segmented.png")
-    with open(image_path, "wb") as f:
+    if not output_path:
+        output_path  = Path("/tmp/floor_plan_wall_segmented.png")
+    with open(output_path, "wb") as f:
         f.write(response.content)
-    return image_path
+    return output_path
 
 
 def load_UI_dataframe(df: pd.DataFrame) -> pd.DataFrame:
