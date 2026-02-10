@@ -1393,9 +1393,12 @@ async def compute_takeoff(request: Request):
         drywall_takeoff["per_drywall"]["roof"][polygon["surface_drywall"]["type"]] += surface_area
         drywall_takeoff["total"]["roof"] += surface_area
 
-    drywall_takeoff["total"] = round(drywall_takeoff["total"], 2)
-    for key in drywall_takeoff["per_drywall"]:
-        drywall_takeoff["per_drywall"][key] = round(drywall_takeoff["per_drywall"][key], 2)
+    drywall_takeoff["total"]["wall"] = round(drywall_takeoff["total"]["wall"], 2)
+    drywall_takeoff["total"]["roof"] = round(drywall_takeoff["total"]["roof"], 2)
+    for key in drywall_takeoff["per_drywall"]["wall"]:
+        drywall_takeoff["per_drywall"]["wall"][key] = round(drywall_takeoff["per_drywall"]["wall"][key], 2)
+    for key in drywall_takeoff["per_drywall"]["roof"]:
+        drywall_takeoff["per_drywall"]["roof"][key] = round(drywall_takeoff["per_drywall"]["roof"][key], 2)
 
     insert_takeoff(drywall_takeoff, index, plan_id, user_id, project_id, revision_number, CREDENTIALS)
     logging.info("SYSTEM: Drywall Takeoff Computed Successfully for the provided Floorplan")
