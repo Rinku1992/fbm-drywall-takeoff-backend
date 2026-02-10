@@ -1084,7 +1084,10 @@ async def load_2d_all(request: Request):
     logging.info("SYSTEM: Received All Floorplan 2D Models Load Request")
 
     status = "IN PROGRESS"
-    timeout = from_unix_epoch() + 120
+    GBQ_query = f"SELECT pages FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
+    query_output = list(bigquery_run(CREDENTIALS, GBQ_query).result())[0]
+    n_pages = query_output.pages
+    timeout = from_unix_epoch() + (n_pages * 120)
     while from_unix_epoch() < timeout:
         GBQ_query = f"SELECT status FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
         try:
@@ -1306,7 +1309,10 @@ async def generate_drywall_overlaid_floorplan_download_signed_URL(request: Reque
     logging.info("SYSTEM: Received Signed Floorplan download URL generation Request")
 
     status = "IN PROGRESS"
-    timeout = from_unix_epoch() + 120
+    GBQ_query = f"SELECT pages FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
+    query_output = list(bigquery_run(CREDENTIALS, GBQ_query).result())[0]
+    n_pages = query_output.pages
+    timeout = from_unix_epoch() + (n_pages * 120)
     while from_unix_epoch() < timeout:
         GBQ_query = f"SELECT status FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
         try:
