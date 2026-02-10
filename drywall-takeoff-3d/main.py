@@ -858,6 +858,7 @@ async def floorplan_to_2d(request: Request):
     pdf_path = Path("/tmp/floor_plan.PDF")
     GCS_URL_floorplan = download_floorplan(user_id, plan_id, project_id, CREDENTIALS, destination_path=pdf_path)
     logging.info("SYSTEM: Floorplan Downloaded")
+    size_in_bytes = Path(pdf_path).stat().st_size
 
     floor_plan_paths_preprocessed = preprocess(pdf_path)
     insert_plan(
@@ -866,6 +867,7 @@ async def floorplan_to_2d(request: Request):
         "IN PROGRESS",
         CREDENTIALS,
         plan_id=plan_id,
+        size_in_bytes=size_in_bytes,
         GCS_URL_floorplan=GCS_URL_floorplan,
         n_pages=len(floor_plan_paths_preprocessed),
     )
@@ -958,6 +960,7 @@ async def floorplan_to_2d(request: Request):
         "COMPLETED",
         CREDENTIALS,
         plan_id=plan_id,
+        size_in_bytes=size_in_bytes,
         GCS_URL_floorplan=GCS_URL_floorplan,
         n_pages=len(floor_plan_paths_preprocessed),
     )
