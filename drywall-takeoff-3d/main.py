@@ -508,9 +508,11 @@ def insert_plan(
         CURRENT_TIMESTAMP()
     );
     """
-    pdf_path = Path("/tmp/floor_plan.PDF")
-    download_floorplan(user_id, plan_id, project_id, credentials, destination_path=pdf_path)
-    sha_256 = sha256(pdf_path)
+    sha_256 = ''
+    if plan_id:
+        pdf_path = Path("/tmp/floor_plan.PDF")
+        download_floorplan(user_id, plan_id, project_id, credentials, destination_path=pdf_path)
+        sha_256 = sha256(pdf_path)
     if not plan_id:
         plan_id = payload_plan.plan_id
     plan_name, plan_type, file_type = '', '', ''
