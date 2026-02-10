@@ -537,7 +537,7 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, o
         output_path  = Path("/tmp/floor_plan_wall_segmented.png")
     with open(output_path, "wb") as f:
         f.write(response.content)
-    return output_path
+    return Path(output_path)
 
 
 def load_UI_dataframe(df: pd.DataFrame) -> pd.DataFrame:
