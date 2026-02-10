@@ -32,7 +32,7 @@ import math
 from preprocessing import preprocess
 from modeller_2d import FloorPlan2D
 from extrapolate_3d import Extrapolate3D
-from helper import load_vertex_ai_client, bigquery_run, transcribe
+from helper import load_vertex_ai_client, bigquery_run, transcribe, sha256
 
 
 def respond_with_UI_payload(payload, status_code=200):
