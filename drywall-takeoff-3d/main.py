@@ -467,7 +467,7 @@ def insert_plan(
             @file_type AS file_type,
             @pages AS pages,
             @source AS source,
-            @sha256 A sha256
+            @sha256 AS sha256
     ) s
     ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id)
     WHEN MATCHED THEN
