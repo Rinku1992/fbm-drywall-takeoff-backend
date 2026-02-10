@@ -1891,6 +1891,8 @@ class FloorPlan2D(FloorPlan):
         scale_y = height / 1080
         #height_default = self._load_ceiling_height_and_scale(transcription_headers_and_footers)["ceiling_height"]
         height_default = 10.125
+        if not wall_lines:
+            return None, None, None, None
         polygons, polygons_perimeter_walls, external_contour = self.polygonize(wall_lines)
         if len(polygons) < 5:
             return None, None, None, None
