@@ -189,6 +189,7 @@ def extract_floorplan_from_page(
 
     walls_2d, polygons, walls_2d_path, external_contour = floor_plan_modeller_2d.model(
         image_path=wall_segmented_path,
+        model_2d_path=f"/tmp/walls_2d_{str(page_number).zfill(2)}.json",
         floor_plan_path=floor_plan_preprocessed_path,
         transcription_block_with_centroids=transcription_block_with_centroids,
         transcription_headers_and_footers=transcription_headers_and_footers
