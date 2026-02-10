@@ -451,6 +451,7 @@ def insert_plan(
     credentials,
     payload_plan=None,
     plan_id=None,
+    size_in_bytes=None,
     GCS_URL_floorplan=None,
     n_pages=None
     ):
@@ -466,6 +467,7 @@ def insert_plan(
             @plan_type AS plan_type,
             @file_type AS file_type,
             @pages AS pages,
+            @size_in_bytes AS size_in_bytes,
             @source AS source,
             @sha256 AS sha256
     ) s
@@ -476,6 +478,7 @@ def insert_plan(
         source = s.source,
         sha256 = s.sha256,
         status = s.status,
+        size_in_bytes = s.size_in_bytes,
         user_id = s.user_id,
         updated_at = CURRENT_TIMESTAMP()
     WHEN NOT MATCHED THEN
@@ -488,6 +491,7 @@ def insert_plan(
         plan_type,
         file_type,
         pages,
+        size_in_bytes,
         source,
         sha256,
         created_at,
@@ -502,6 +506,7 @@ def insert_plan(
         s.plan_type,
         s.file_type,
         s.pages,
+        s.size_in_bytes,
         s.source,
         s.sha256,
         CURRENT_TIMESTAMP(),
@@ -522,6 +527,8 @@ def insert_plan(
         n_pages = 0
     if not GCS_URL_floorplan:
         GCS_URL_floorplan = ''
+    if not size_in_bytes:
+        size_in_bytes = 0
     job_config = dict(
         query_parameters=[
             bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
@@ -533,13 +540,13 @@ def insert_plan(
             bigquery.ScalarQueryParameter("file_type", "STRING", file_type),
             bigquery.ScalarQueryParameter("pages", "INT64", n_pages),
             bigquery.ScalarQueryParameter("source", "STRING", GCS_URL_floorplan),
-            bigquery.ScalarQueryParameter("sha256", "STRING", sha_256)
+            bigquery.ScalarQueryParameter("sha256", "STRING", sha_256),
+            bigquery.ScalarQueryParameter("size_in_bytes", "INT64", size_in_bytes)
         ]
     )
 
     query_output = bigquery_run(credentials, GBQ_query, job_config=job_config).result()
     return query_output
-
 
 def insert_project(payload_project, credentials):
     GBQ_query = """
