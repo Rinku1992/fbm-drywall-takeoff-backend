@@ -501,7 +501,7 @@ class Extrapolate3D(FloorPlan):
                     else:
                         roof_high_Y = max([vertex[1] for vertex in polygon["vertices"]])
                     if orientation == "horizontal":
-                        payload["height"] = polygon["height"] - a * (round(np.median([Y1, Y2])) - roof_high_Y)
+                        payload["height"] = round(max(0, polygon["height"] - a * (round(np.median([Y1, Y2])) - roof_high_Y)))
                     if orientation == "vertical":
                         payload["height"] = polygon["height"]
                 elif tilt_axis == "vertical":
@@ -511,7 +511,7 @@ class Extrapolate3D(FloorPlan):
                     else:
                         roof_high_X = max([vertex[0] for vertex in polygon["vertices"]])
                     if orientation == "vertical":
-                        payload["height"] = polygon["height"] - a * (round(np.median([X1, X2])) - roof_high_X)
+                        payload["height"] = round(max(0, polygon["height"] - a * (round(np.median([X1, X2])) - roof_high_X)))
                     if orientation == "horizontal":
                         payload["height"] = polygon["height"]
                 else:
