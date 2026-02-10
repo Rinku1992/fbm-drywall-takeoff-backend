@@ -548,6 +548,7 @@ def insert_plan(
     query_output = bigquery_run(credentials, GBQ_query, job_config=job_config).result()
     return query_output
 
+
 def insert_project(payload_project, credentials):
     GBQ_query = """
     MERGE `drywall_takeoff.projects` t
