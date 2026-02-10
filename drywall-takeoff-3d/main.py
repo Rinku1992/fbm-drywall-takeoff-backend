@@ -466,13 +466,15 @@ def insert_plan(
             @plan_type AS plan_type,
             @file_type AS file_type,
             @pages AS pages,
-            @source AS source
+            @source AS source,
+            @sha256 A sha256
     ) s
     ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id)
     WHEN MATCHED THEN
     UPDATE SET
         pages = s.pages,
         source = s.source,
+        sha256 = s.sha256,
         status = s.status,
         user_id = s.user_id,
         updated_at = CURRENT_TIMESTAMP()
@@ -487,6 +489,7 @@ def insert_plan(
         file_type,
         pages,
         source,
+        sha256,
         created_at,
         updated_at
     )
@@ -500,10 +503,14 @@ def insert_plan(
         s.file_type,
         s.pages,
         s.source,
+        s.sha256,
         CURRENT_TIMESTAMP(),
         CURRENT_TIMESTAMP()
     );
     """
+    pdf_path = Path("/tmp/floor_plan.PDF")
+    download_floorplan(user_id, plan_id, project_id, credentials, destination_path=pdf_path)
+    sha_256 = sha256(pdf_path)
     if not plan_id:
         plan_id = payload_plan.plan_id
     plan_name, plan_type, file_type = '', '', ''
@@ -523,7 +530,8 @@ def insert_plan(
             bigquery.ScalarQueryParameter("plan_type", "STRING", plan_type),
             bigquery.ScalarQueryParameter("file_type", "STRING", file_type),
             bigquery.ScalarQueryParameter("pages", "INT64", n_pages),
-            bigquery.ScalarQueryParameter("source", "STRING", GCS_URL_floorplan)
+            bigquery.ScalarQueryParameter("source", "STRING", GCS_URL_floorplan),
+            bigquery.ScalarQueryParameter("sha256", "STRING", sha_256)
         ]
     )
 
