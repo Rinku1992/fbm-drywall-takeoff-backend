@@ -71,11 +71,11 @@ def insert_model_2d_revision(
     credentials
     ):
     if not model_2d.get("metadata", None):
-        GBQ_query = f"SELECT model_2d FROM `drywall_takeoff.models` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+        GBQ_query = f"SELECT model_2d.metadata FROM `drywall_takeoff.models` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
         query_output = bigquery_run(credentials, GBQ_query).result()
-        walls_2d_raw = list(query_output)[0].model_2d
-        walls_2d = json.loads(walls_2d_raw) if isinstance(walls_2d_raw, str) else walls_2d_raw
-        model_2d["metadata"] = walls_2d["metadata"]
+        metadata = list(query_output)[0].metadata
+        metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
+        model_2d["metadata"] = metadata
     GBQ_query = """
     SELECT MAX(revision_number) AS revision_number FROM `drywall_takeoff.model_revisions_2d` WHERE 
     LOWER(project_id) = LOWER(@project_id) AND LOWER(plan_id) = LOWER(@plan_id) AND page_number = @page_number;
