@@ -1165,6 +1165,8 @@ async def generate_drywall_overlaid_floorplan_download_signed_URL(request: Reque
 
     status = "IN PROGRESS"
     GBQ_query = f"SELECT pages FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
+    if not list(bigquery_run(CREDENTIALS, GBQ_query).result()):
+        return respond_with_UI_payload(dict(error="Floor Plan already exists"))
     query_output = list(bigquery_run(CREDENTIALS, GBQ_query).result())[0]
     n_pages = query_output.pages
     timeout = from_unix_epoch() + (n_pages * 120)
