@@ -17,7 +17,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pydantic_core import ValidationError
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 
 import google.auth.transport.requests
 from google.oauth2.service_account import IDTokenCredentials
@@ -780,10 +780,8 @@ async def floorplan_to_2d(request: Request):
     floor_plan_modeller_2d = FloorPlan2D(hyperparameters, vertex_ai_client_partial)
     walls_2d_all = dict(pages=list())
     futures = list()
-    with ProcessPoolExecutor(max_workers=5) as executor:
+    with ThreadPoolExecutor(max_workers=5) as executor:
         for index, floor_plan_path in enumerate(floor_plan_paths_preprocessed):
-            with open(floor_plan_path, "rb") as f:
-                floor_plan_bytes = f.read()
             futures.append(
                 executor.submit(
                     extract_floorplan_from_page,
@@ -792,7 +790,7 @@ async def floorplan_to_2d(request: Request):
                     user_id,
                     project_id,
                     plan_id,
-                    floor_plan_bytes,
+                    floor_plan_path,
                     index,
                     floor_plan_modeller_2d,
                     floorplan_to_walls,
