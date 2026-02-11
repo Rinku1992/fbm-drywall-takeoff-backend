@@ -782,6 +782,8 @@ async def floorplan_to_2d(request: Request):
     futures = list()
     with ProcessPoolExecutor(max_workers=5) as executor:
         for index, floor_plan_path in enumerate(floor_plan_paths_preprocessed):
+            with open(floor_plan_path, "rb") as f:
+                floor_plan_bytes = f.read()
             futures.append(
                 executor.submit(
                     extract_floorplan_from_page,
@@ -790,7 +792,7 @@ async def floorplan_to_2d(request: Request):
                     user_id,
                     project_id,
                     plan_id,
-                    floor_plan_path,
+                    floor_plan_bytes,
                     index,
                     floor_plan_modeller_2d,
                     floorplan_to_walls,
