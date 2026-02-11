@@ -154,15 +154,12 @@ def extract_floorplan_from_page(
     user_id,
     project_id,
     plan_id,
-    floor_plan_preprocessed_bytes,
+    floor_plan_preprocessed_path,
     page_number,
     floor_plan_modeller_2d,
     floorplan_to_walls_worker,
     transcribe_worker
     ):
-    floor_plan_preprocessed_path = Path(f"/tmp/floor_plan_{str(page_number).zfill(2)}.png")
-    with open(floor_plan_preprocessed_path, "wb") as f:
-        f.write(floor_plan_preprocessed_bytes)
     logging.info(f"SYSTEM: Processing Page: {page_number}")
     floorplan_page_source = upload_floorplan(floor_plan_preprocessed_path, user_id, plan_id, project_id, credentials, index=str(page_number).zfill(2))
     logging.info(f"SYSTEM: Preprocessed Floorplan Image uploaded to GCS from PAGE: {page_number}")
