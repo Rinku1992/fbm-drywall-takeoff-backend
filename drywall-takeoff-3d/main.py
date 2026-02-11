@@ -40,6 +40,8 @@ from helper import (
     upload_floorplan,
     insert_model_2d,
     extract_floorplan_from_page,
+    is_duplicate,
+    delete_plan,
 )
 
 
@@ -749,6 +751,14 @@ async def floorplan_to_2d(request: Request):
     verbose = parameters.get("verbose") or body.get("verbose")
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
 
+    pdf_path = Path("/tmp/floor_plan.PDF")
+    GCS_URL_floorplan = download_floorplan(user_id, plan_id, project_id, CREDENTIALS, destination_path=pdf_path)
+    logging.info("SYSTEM: Floorplan Downloaded")
+    plan_duplicate = is_duplicate(CREDENTIALS, pdf_path, project_id)
+    if plan_duplicate:
+        delete_plan(CREDENTIALS, plan_id, project_id)
+        return respond_with_UI_payload(dict(error="Floor Plan already exists"))
+
     client = CloudStorageClient()
     bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
     blob_path = f"tmp/{user_id.lower()}/model_2d.json"
@@ -757,9 +767,6 @@ async def floorplan_to_2d(request: Request):
         blob.delete()
 
     hyperparameters = load_hyperparameters()
-    pdf_path = Path("/tmp/floor_plan.PDF")
-    GCS_URL_floorplan = download_floorplan(user_id, plan_id, project_id, CREDENTIALS, destination_path=pdf_path)
-    logging.info("SYSTEM: Floorplan Downloaded")
     size_in_bytes = Path(pdf_path).stat().st_size
 
     floor_plan_paths_preprocessed = preprocess(pdf_path)
@@ -931,6 +938,8 @@ async def load_2d_all(request: Request):
 
     status = "IN PROGRESS"
     GBQ_query = f"SELECT pages FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
+    if not list(bigquery_run(CREDENTIALS, GBQ_query).result()):
+        respond_with_UI_payload(dict(error="Floor Plan already exists"))
     query_output = list(bigquery_run(CREDENTIALS, GBQ_query).result())[0]
     n_pages = query_output.pages
     timeout = from_unix_epoch() + (n_pages * 120)
