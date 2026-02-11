@@ -160,7 +160,7 @@ def extract_floorplan_from_page(
     floorplan_to_walls_worker,
     transcribe_worker
     ):
-    floor_plan_preprocessed_path = f"/tmp/floor_plan_{str(page_number).zfill(2)}.png"
+    floor_plan_preprocessed_path = Path(f"/tmp/floor_plan_{str(page_number).zfill(2)}.png")
     with open(floor_plan_preprocessed_path, "wb") as f:
         f.write(floor_plan_preprocessed_bytes)
     logging.info(f"SYSTEM: Processing Page: {page_number}")
