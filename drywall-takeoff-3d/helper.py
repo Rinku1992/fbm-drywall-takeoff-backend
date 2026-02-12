@@ -242,11 +242,14 @@ def extract_floorplan_from_page(
 
 def is_duplicate(credentials, pdf_path, project_id):
     sha_256 = sha256(pdf_path)
-    GBQ_query = f"SELECT plan_id, sha256 FROM `drywall_takeoff.plans` WHERE LOWER(project_id) = LOWER('{project_id}');"
+    GBQ_query = f"SELECT plan_id, sha256, status FROM `drywall_takeoff.plans` WHERE LOWER(project_id) = LOWER('{project_id}');"
     query_output = bigquery_run(credentials, GBQ_query).result()
     for plan_target in list(query_output):
         if plan_target.sha256 == sha_256:
-         return plan_target.plan_id
+            if plan_target.status == "FAILED":
+                delete_plan(credentials, plan_target, project_id)
+                return False
+            return plan_target.plan_id
     return False
 
 def delete_plan(credentials, plan_id, project_id):
