@@ -761,7 +761,7 @@ async def floorplan_to_2d(request: Request):
 
     client = CloudStorageClient()
     bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
-    blob_path = f"tmp/{user_id.lower()}/model_2d.json"
+    blob_path = f"tmp/{user_id.lower()}/{project_id.lower()}/{plan_id.lower()}/model_2d.json"
     blob = bucket.blob(blob_path)
     if blob.exists():
         blob.delete()
@@ -789,7 +789,7 @@ async def floorplan_to_2d(request: Request):
     futures = list()
     status = "COMPLETED"
     try:
-        with ThreadPoolExecutor(max_workers=10) as executor:
+        with ThreadPoolExecutor(max_workers=8) as executor:
             for index, floor_plan_path in enumerate(floor_plan_paths_preprocessed):
                 futures.append(
                     executor.submit(
@@ -827,58 +827,6 @@ async def floorplan_to_2d(request: Request):
         json.dump(walls_2d_all, f, indent=4)
     blob.upload_from_filename("/tmp/model_2d.json")
     return respond_with_UI_payload(walls_2d_all)
-
-
-@app.post("/load_latest_floorplan_to_2d")
-async def load_latest_floorplan_to_2d(request: Request):
-    enable_logging_on_stdout()
-    parameters = dict(request.query_params)
-    try:
-        body = await request.json()
-    except Exception:
-        body = dict()
-    user_id = parameters.get("user_id") or body.get("user_id")
-
-    logging.info("SYSTEM: Received a Floorplan 2D Model load Request")
-    walls_2d_all = dict(pages=list())
-    client = CloudStorageClient()
-    bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
-    blob_path = f"tmp/{user_id.lower()}/model_2d.json"
-    blob = bucket.blob(blob_path)
-    timeout = from_unix_epoch() + 3600
-    walls_2d_all = dict(pages=list())
-    while from_unix_epoch() < timeout:
-        try:
-            blob.download_to_filename("/tmp/model_2d.json")
-            with open("/tmp/model_2d.json", 'r') as f:
-                walls_2d_all = json.load(f)
-                logging.info("SYSTEM: Floorplan 2D Model generated")
-                return respond_with_UI_payload(walls_2d_all)
-        except NotFound:
-            sleep(2)
-            continue
-    logging.info("SYSTEM: Floorplan 2D Model not found")
-    return respond_with_UI_payload(walls_2d_all)
-
-
-@app.post("/status_latest_floorplan_to_2d")
-async def status_latest_floorplan_to_2d(request: Request):
-    enable_logging_on_stdout()
-    parameters = dict(request.query_params)
-    try:
-        body = await request.json()
-    except Exception:
-        body = dict()
-    user_id = parameters.get("user_id") or body.get("user_id")
-
-    logging.info("SYSTEM: Received a Floorplan 2D Model load status Request")
-    client = CloudStorageClient()
-    bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
-    blob_path = f"tmp/{user_id.lower()}/model_2d.json"
-    blob = bucket.blob(blob_path)
-    if blob.exists():
-        return respond_with_UI_payload(dict(status="completed"))
-    return respond_with_UI_payload(dict(status="in_progress"))
 
 
 @app.post("/load_2d_revision")
