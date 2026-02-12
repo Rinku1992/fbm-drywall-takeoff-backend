@@ -247,7 +247,7 @@ def is_duplicate(credentials, pdf_path, project_id):
     for plan_target in list(query_output):
         if plan_target.sha256 == sha_256:
             if plan_target.status == "FAILED":
-                delete_plan(credentials, plan_target, project_id)
+                delete_plan(credentials, plan_target.plan_id, project_id)
                 return False
             return plan_target.plan_id
     return False
