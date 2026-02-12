@@ -20,8 +20,11 @@ def load_vertex_ai_client(credentials, region="us-central1"):
     generation_config = credentials["VertexAI"]["llm"]["parameters"]
     return vertex_ai_client, generation_config
 
-def bigquery_run(credentials, GBQ_query, job_config=dict()):
+def load_bigquery_client(credentials):
     bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
+    return bigquery_client
+
+def bigquery_run(credentials, bigquery_client, GBQ_query, job_config=dict()):
     job_config = bigquery.QueryJobConfig(
         destination_encryption_configuration=bigquery.EncryptionConfiguration(
             kms_key_name=credentials["GBQServer"]["KMS_key"]
@@ -74,11 +77,12 @@ def insert_model_2d(
     project_id,
     GCS_URL_floorplan_page,
     GCS_URL_target_drywalls_page,
+    bigquery_client,
     credentials
     ):
     if not model_2d.get("metadata", None):
         GBQ_query = f"SELECT model_2d.metadata FROM `drywall_takeoff.models` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
-        query_output = bigquery_run(credentials, GBQ_query).result()
+        query_output = bigquery_run(credentials, bigquery_client, GBQ_query).result()
         metadata = list(query_output)[0].metadata
         metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
         model_2d["metadata"] = metadata
@@ -145,12 +149,13 @@ def insert_model_2d(
         ]
     )
 
-    query_output = bigquery_run(credentials, GBQ_query, job_config=job_config).result()
+    query_output = bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
     return query_output
 
 def extract_floorplan_from_page(
     credentials,
     hyperparameters,
+    bigquery_client,
     user_id,
     project_id,
     plan_id,
@@ -180,12 +185,12 @@ def extract_floorplan_from_page(
             hyperparameters,
             floor_plan_preprocessed_path,
         )
-        wall_segmented_path = futures["floorplan_to_walls"].result()
-        upload_floorplan(wall_segmented_path, user_id, plan_id, project_id, credentials, index=str(page_number).zfill(2))
-        logging.info(f"SYSTEM: Wall Detection Completed from PAGE: {page_number}")
+    wall_segmented_path = futures["floorplan_to_walls"].result()
+    upload_floorplan(wall_segmented_path, user_id, plan_id, project_id, credentials, index=str(page_number).zfill(2))
+    logging.info(f"SYSTEM: Wall Detection Completed from PAGE: {page_number}")
 
-        transcription_block_with_centroids, transcription_headers_and_footers = futures["transcriber"].result()
-        logging.info(f"SYSTEM: Transcription Completed from PAGE: {page_number}")
+    transcription_block_with_centroids, transcription_headers_and_footers = futures["transcriber"].result()
+    logging.info(f"SYSTEM: Transcription Completed from PAGE: {page_number}")
 
     walls_2d, polygons, walls_2d_path, external_contour = floor_plan_modeller_2d.model(
         image_path=wall_segmented_path,
@@ -223,6 +228,7 @@ def extract_floorplan_from_page(
         project_id,
         floorplan_page_source,
         floorplan_baseline_page_source,
+        bigquery_client,
         credentials
     )
     page = dict(
@@ -240,19 +246,19 @@ def extract_floorplan_from_page(
     )
     return page
 
-def is_duplicate(credentials, pdf_path, project_id):
+def is_duplicate(bigquery_client, credentials, pdf_path, project_id):
     sha_256 = sha256(pdf_path)
     GBQ_query = f"SELECT plan_id, sha256, status FROM `drywall_takeoff.plans` WHERE LOWER(project_id) = LOWER('{project_id}');"
-    query_output = bigquery_run(credentials, GBQ_query).result()
+    query_output = bigquery_run(credentials, bigquery_client, GBQ_query).result()
     for plan_target in list(query_output):
         if plan_target.sha256 == sha_256:
             if plan_target.status == "FAILED":
-                delete_plan(credentials, plan_target.plan_id, project_id)
+                delete_plan(credentials, bigquery_client, plan_target.plan_id, project_id)
                 return False
             return plan_target.plan_id
     return False
 
-def delete_plan(credentials, plan_id, project_id):
+def delete_plan(credentials, bigquery_client, plan_id, project_id):
     GBQ_query = f"DELETE FROM `drywall_takeoff.plans` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
-    query_output = bigquery_run(credentials, GBQ_query).result()
+    query_output = bigquery_run(credentials, bigquery_client, GBQ_query).result()
     return query_output
