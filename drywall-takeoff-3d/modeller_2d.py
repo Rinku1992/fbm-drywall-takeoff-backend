@@ -1901,7 +1901,7 @@ class FloorPlan2D(FloorPlan):
         futures = list()
         with Manager() as manager:
             shared_memory = dict(walls_2d=manager.list(), polygons=manager.list(), lock=manager.Lock())
-            with ProcessPoolExecutor(max_workers=20) as executor:
+            with ProcessPoolExecutor(max_workers=8) as executor:
                 for index, ((polygon_area, polygon_vertices), polygon_perimeter_walls) in enumerate(zip(polygons, polygons_perimeter_walls)):
                     index += 1
                     polygon_vertices_normalized = [(round(scale_x * vertex[0]), round(scale_y * vertex[1])) for vertex in polygon_vertices]
