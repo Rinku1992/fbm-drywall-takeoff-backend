@@ -787,31 +787,35 @@ async def floorplan_to_2d(request: Request):
     floor_plan_modeller_2d = FloorPlan2D(hyperparameters, vertex_ai_client_partial)
     walls_2d_all = dict(pages=list())
     futures = list()
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        for index, floor_plan_path in enumerate(floor_plan_paths_preprocessed):
-            futures.append(
-                executor.submit(
-                    extract_floorplan_from_page,
-                    CREDENTIALS,
-                    hyperparameters,
-                    user_id,
-                    project_id,
-                    plan_id,
-                    floor_plan_path,
-                    index,
-                    floor_plan_modeller_2d,
-                    floorplan_to_walls,
-                    transcribe
+    status = "COMPLETED"
+    try:
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for index, floor_plan_path in enumerate(floor_plan_paths_preprocessed):
+                futures.append(
+                    executor.submit(
+                        extract_floorplan_from_page,
+                        CREDENTIALS,
+                        hyperparameters,
+                        user_id,
+                        project_id,
+                        plan_id,
+                        floor_plan_path,
+                        index,
+                        floor_plan_modeller_2d,
+                        floorplan_to_walls,
+                        transcribe
+                    )
                 )
-            )
-        pages = [future.result() for future in futures]
-        for page in pages:
-            if page:
-                walls_2d_all["pages"].append(page)
+            pages = [future.result() for future in futures]
+            for page in pages:
+                if page:
+                    walls_2d_all["pages"].append(page)
+    except Exception as e:
+        status = "FAILED"
     insert_plan(
         project_id,
         user_id,
-        "COMPLETED",
+        status,
         CREDENTIALS,
         plan_id=plan_id,
         size_in_bytes=size_in_bytes,
