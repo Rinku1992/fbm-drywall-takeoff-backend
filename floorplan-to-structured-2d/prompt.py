@@ -1,4 +1,4 @@
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Union
 from pydantic import BaseModel
 
 
@@ -303,7 +303,7 @@ class ScaleAndCeilingHeightDetectorResponse(BaseModel):
     ceiling_height: Union[float, int]
     scale: str
 
-DRYWALL_CHOICES = {   
+DRYWALL_CHOICES = {
 }
 
 CEILING_CHOICES = [

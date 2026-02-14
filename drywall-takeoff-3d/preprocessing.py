@@ -1,4 +1,5 @@
 from pathlib import Path
+from pypdf import PdfReader, PdfWriter
 from pdf2image import convert_from_path
 import cv2
 
@@ -8,15 +9,24 @@ def pdf2image(pdf_path, image_path):
         pdf_path,
         dpi=400,
     )
+    reader = PdfReader(pdf_path)
 
     image_path = Path(image_path)
     image_path_pages = list()
-    for index, page in enumerate(pages):
+    vector_pdf_pages = list()
+    for index, (page, vector_page) in enumerate(zip(pages, reader.pages)):
         image_path_page = image_path.parent.joinpath(image_path.stem).with_suffix(f".{str(index).zfill(2)}{image_path.suffix}")
         page.save(image_path_page, "PNG")
         image_path_pages.append(image_path_page)
 
-    return image_path_pages
+        writer = PdfWriter()
+        writer.add_page(vector_page)
+        vector_pdf_page = image_path.parent.joinpath(str(index).zfill(2)).joinpath(f"scaled_{image_path.stem}").with_suffix(".pdf")
+        vector_pdf_page.parent.mkdir(parents=True, exist_ok=True)
+        with open(vector_pdf_page, "wb") as f:
+            writer.write(f)
+        vector_pdf_pages.append(vector_pdf_page)
+    return vector_pdf_pages, image_path_pages
 
 def to_sharp(image_path_pages, output_path=None):
     sharpened_images = list()
@@ -38,7 +48,7 @@ def to_sharp(image_path_pages, output_path=None):
     return sharpened_images
 
 def preprocess(pdf_path, image_path="/tmp/floor_plan.png"):
-    image_path_pages = pdf2image(pdf_path, image_path)
+    vector_pdf_pages, image_path_pages = pdf2image(pdf_path, image_path)
     to_sharp(image_path_pages, output_path=image_path)
 
-    return image_path_pages
+    return vector_pdf_pages, image_path_pages

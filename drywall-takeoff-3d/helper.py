@@ -1,24 +1,12 @@
-import logging
 import json
 import hashlib
 from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor
 
 from google.cloud import bigquery
-import vertexai
-from vertexai.generative_models import GenerativeModel
 from google.cloud.storage import Client as CloudStorageClient
+import google.auth.transport.requests
+from google.oauth2.service_account import IDTokenCredentials
 
-from transcriber import Transcriber
-
-
-def load_vertex_ai_client(credentials, region="us-central1"):
-    with open(credentials["VertexAI"]["service_account_key"], 'r') as f:
-        project_id = json.load(f)["project_id"]
-    vertexai.init(project=project_id, location=region)
-    vertex_ai_client = GenerativeModel(credentials["VertexAI"]["llm"]["model_name"])
-    generation_config = credentials["VertexAI"]["llm"]["parameters"]
-    return vertex_ai_client, generation_config
 
 def load_bigquery_client(credentials):
     bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
@@ -33,10 +21,6 @@ def bigquery_run(credentials, bigquery_client, GBQ_query, job_config=dict()):
     )
     query_output = bigquery_client.query(GBQ_query, job_config=job_config)
     return query_output
-
-def transcribe(credentials, hyperparameters, floor_plan_path):
-    transcriber = Transcriber(credentials, hyperparameters)
-    return transcriber.transcribe(floor_plan_path, [0, 1, -1, -2])
 
 def sha256(path, chunk_size=8192):
     sha256 = hashlib.sha256()
@@ -152,100 +136,6 @@ def insert_model_2d(
     query_output = bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
     return query_output
 
-def extract_floorplan_from_page(
-    credentials,
-    hyperparameters,
-    bigquery_client,
-    user_id,
-    project_id,
-    plan_id,
-    floor_plan_preprocessed_path,
-    page_number,
-    floor_plan_modeller_2d,
-    floorplan_to_walls_worker,
-    transcribe_worker
-    ):
-    logging.info(f"SYSTEM: Processing Page: {page_number}")
-    floorplan_page_source = upload_floorplan(floor_plan_preprocessed_path, user_id, plan_id, project_id, credentials, index=str(page_number).zfill(2))
-    logging.info(f"SYSTEM: Preprocessed Floorplan Image uploaded to GCS from PAGE: {page_number}")
-    futures = dict()
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        futures["floorplan_to_walls"] = executor.submit(
-            floorplan_to_walls_worker,
-            credentials,
-            project_id,
-            plan_id,
-            user_id,
-            page_number,
-            output_path=f"/tmp/floor_plan_wall_segmented_{str(page_number).zfill(2)}.png"
-        )
-        futures["transcriber"] = executor.submit(
-            transcribe_worker,
-            credentials,
-            hyperparameters,
-            floor_plan_preprocessed_path,
-        )
-    wall_segmented_path = futures["floorplan_to_walls"].result()
-    upload_floorplan(wall_segmented_path, user_id, plan_id, project_id, credentials, index=str(page_number).zfill(2))
-    logging.info(f"SYSTEM: Wall Detection Completed from PAGE: {page_number}")
-
-    transcription_block_with_centroids, transcription_headers_and_footers = futures["transcriber"].result()
-    logging.info(f"SYSTEM: Transcription Completed from PAGE: {page_number}")
-
-    walls_2d, polygons, walls_2d_path, external_contour = floor_plan_modeller_2d.model(
-        image_path=wall_segmented_path,
-        model_2d_path=f"/tmp/walls_2d_{str(page_number).zfill(2)}.json",
-        floor_plan_path=floor_plan_preprocessed_path,
-        transcription_block_with_centroids=transcription_block_with_centroids,
-        transcription_headers_and_footers=transcription_headers_and_footers
-    )
-    floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons)
-    floor_plan_modeller_2d.load_ceiling_choices(polygons)
-    if not polygons:
-        return
-    #if verbose.upper() == "TRUE":
-    model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_preprocessed_path)
-    upload_floorplan(model_2d_path, user_id, plan_id, project_id, credentials, index=str(page_number).zfill(2))
-    #model_2d_path_overlay_enabled = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_path, overlay_enabled=True)
-    #upload_floorplan(model_2d_path_overlay_enabled, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
-    floorplan_baseline, floorplan_page_statistics = floor_plan_modeller_2d.scale_to(floor_plan_path=floor_plan_preprocessed_path)
-    floorplan_baseline_page_source = upload_floorplan(floorplan_baseline, user_id, plan_id, project_id, credentials, index=str(page_number).zfill(2))
-    logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} Generated Successfully")
-    metadata = dict(
-        size_in_bytes=floorplan_page_statistics["size"],
-        height_in_pixels=floorplan_page_statistics["height"],
-        width_in_pixels=floorplan_page_statistics["width"],
-        origin=["LEFT", "TOP"],
-        offset=(0, 0),
-        contour_root_vertices=external_contour
-    )
-    insert_model_2d(
-        dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
-        floor_plan_modeller_2d.scale,
-        page_number,
-        plan_id,
-        user_id,
-        project_id,
-        floorplan_page_source,
-        floorplan_baseline_page_source,
-        bigquery_client,
-        credentials
-    )
-    page = dict(
-        plan_id=plan_id,
-        page_number=page_number,
-        size_in_bytes=floorplan_page_statistics["size"],
-        height_in_pixels=floorplan_page_statistics["height"],
-        width_in_pixels=floorplan_page_statistics["width"],
-        origin=["LEFT", "TOP"],
-        offset=(0, 0),
-        contour_root_vertices=external_contour,
-        scale=floor_plan_modeller_2d.scale,
-        walls_2d=walls_2d,
-        polygons=polygons,
-    )
-    return page
-
 def is_duplicate(bigquery_client, credentials, pdf_path, project_id):
     sha_256 = sha256(pdf_path)
     GBQ_query = f"SELECT plan_id, sha256, status FROM `drywall_takeoff.plans` WHERE LOWER(project_id) = LOWER('{project_id}');"
@@ -265,3 +155,13 @@ def delete_plan(credentials, bigquery_client, plan_id, project_id):
     GBQ_query = f"DELETE FROM `drywall_takeoff.plans` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
     query_output = bigquery_run(credentials, bigquery_client, GBQ_query).result()
     return query_output
+
+def load_floorplan_to_structured_2d_ID_token(credentials):
+    auth_req = google.auth.transport.requests.Request()
+    service_account_credentials = IDTokenCredentials.from_service_account_file(
+        credentials["service_drywall_account_key"],
+        target_audience=credentials["CloudRun"]["APIs"]["floorplan_to_structured_2d"]
+    )
+    service_account_credentials.refresh(auth_req)
+    id_token = service_account_credentials.token
+    return id_token

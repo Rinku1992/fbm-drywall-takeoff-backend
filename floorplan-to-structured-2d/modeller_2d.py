@@ -728,7 +728,7 @@ class FloorPlan2D(FloorPlan):
                     pixel_distance_LEFT_A = np.argmin(canvas[round(np.median([Y1, Y2])) - open_tolerance_threshold: round(np.median([Y1, Y2])) + open_tolerance_threshold, : X1].mean(axis=0)[::-1])
                     pixel_value_LEFT_A = canvas[round(np.median([Y1, Y2])) - open_tolerance_threshold: round(np.median([Y1, Y2])) + open_tolerance_threshold, : X1].mean(axis=0)[::-1][np.argmin(canvas[round(np.median([Y1, Y2])) - open_tolerance_threshold: round(np.median([Y1, Y2])) + open_tolerance_threshold, : X1].mean(axis=0)[::-1])]
                     pixel_distance_LEFT_A = pixel_distance_LEFT_A if pixel_value_LEFT_A != 255 else np.inf
-                    if min(pixel_distance_UP_A, pixel_distance_DOWN_A, pixel_distance_LEFT_A) <= 1000:
+                    if min(pixel_distance_UP_A, pixel_distance_DOWN_A, pixel_distance_LEFT_A) <= 500:
                         if np.argmin([pixel_distance_UP_A, pixel_distance_DOWN_A, pixel_distance_LEFT_A]) == 0 and pixel_value_UP_A != 255:
                             valid_wall_lines.append([[X1, Y1 - pixel_distance_UP_A, X1, Y1]])
                             is_extended = True
@@ -747,7 +747,7 @@ class FloorPlan2D(FloorPlan):
                     pixel_distance_RIGHT_B = np.argmin(canvas[round(np.median([Y1, Y2])) - open_tolerance_threshold: round(np.median([Y1, Y2])) + open_tolerance_threshold, X2 + 1:].mean(axis=0)[::-1])
                     pixel_value_RIGHT_B = canvas[round(np.median([Y1, Y2])) - open_tolerance_threshold: round(np.median([Y1, Y2])) + open_tolerance_threshold, X2 + 1:].mean(axis=0)[::-1][np.argmin(canvas[round(np.median([Y1, Y2])) - open_tolerance_threshold: round(np.median([Y1, Y2])) + open_tolerance_threshold, X2 + 1:].mean(axis=0)[::-1])]
                     pixel_distance_RIGHT_B = pixel_distance_RIGHT_B if pixel_value_RIGHT_B != 255 else np.inf
-                    if min(pixel_distance_UP_B, pixel_distance_DOWN_B, pixel_distance_RIGHT_B) <= 1000:
+                    if min(pixel_distance_UP_B, pixel_distance_DOWN_B, pixel_distance_RIGHT_B) <= 500:
                         if np.argmin([pixel_distance_UP_B, pixel_distance_DOWN_B, pixel_distance_RIGHT_B]) == 0 and pixel_value_UP_B != 255:
                             valid_wall_lines.append([[X2, Y2 - pixel_distance_UP_B, X2, Y2]])
                             is_extended = True
@@ -770,7 +770,7 @@ class FloorPlan2D(FloorPlan):
                     pixel_distance_UP_A = np.argmin(canvas[:Y1, X1 - open_tolerance_threshold:X1 + open_tolerance_threshold].mean(axis=1)[::-1])
                     pixel_value_UP_A = canvas[:Y1, X1 - open_tolerance_threshold:X1 + open_tolerance_threshold].mean(axis=1)[::-1][np.argmin(canvas[:Y1, X1 - open_tolerance_threshold:X1 + open_tolerance_threshold].mean(axis=1)[::-1])]
                     pixel_distance_UP_A = pixel_distance_UP_A if pixel_value_UP_A != 255 else np.inf
-                    if min(pixel_distance_LEFT_A, pixel_distance_RIGHT_A, pixel_distance_UP_A) <= 1000:
+                    if min(pixel_distance_LEFT_A, pixel_distance_RIGHT_A, pixel_distance_UP_A) <= 500:
                         if np.argmin([pixel_distance_LEFT_A, pixel_distance_RIGHT_A, pixel_distance_UP_A]) == 0 and pixel_value_LEFT_A != 255:
                             valid_wall_lines.append([[X1 - pixel_distance_LEFT_A, Y1, X1, Y1]])
                             is_extended = True
@@ -789,7 +789,7 @@ class FloorPlan2D(FloorPlan):
                     pixel_distance_DOWN_B = np.argmin(canvas[Y2 + 1:, X2 - open_tolerance_threshold:X2 + open_tolerance_threshold].mean(axis=1))
                     pixel_value_DOWN_B = canvas[Y2 + 1:, X2 - open_tolerance_threshold:X2 + open_tolerance_threshold].mean(axis=1)[np.argmin(canvas[Y2 + 1:, X2 - open_tolerance_threshold:X2 + open_tolerance_threshold].mean(axis=1))]
                     pixel_distance_DOWN_B = pixel_distance_DOWN_B if pixel_value_DOWN_B != 255 else np.inf
-                    if min(pixel_distance_LEFT_B, pixel_distance_RIGHT_B, pixel_distance_DOWN_B) <= 1000:
+                    if min(pixel_distance_LEFT_B, pixel_distance_RIGHT_B, pixel_distance_DOWN_B) <= 500:
                         if np.argmin([pixel_distance_LEFT_B, pixel_distance_RIGHT_B, pixel_distance_DOWN_B]) == 0 and pixel_value_LEFT_B != 255:
                             valid_wall_lines.append([[X2 - pixel_distance_LEFT_B, Y2, X2, Y2]])
                             is_extended = True
@@ -1351,14 +1351,14 @@ class FloorPlan2D(FloorPlan):
             polygon_a = [
                 dict(x=X1+20, y=Y1-20),
                 dict(x=X2-20, y=Y2-20),
-                dict(x=X2-40, y=Y2-40),
-                dict(x=X1+40, y=Y1-40)
+                dict(x=X2-60, y=Y2-60),
+                dict(x=X1+60, y=Y1-60)
             ]
             polygon_b = [
                 dict(x=X1+20, y=Y1+20),
                 dict(x=X2-20, y=Y2+20),
-                dict(x=X2-40, y=Y2+40),
-                dict(x=X1+40, y=Y1+40)
+                dict(x=X2-60, y=Y2+60),
+                dict(x=X1+60, y=Y1+60)
             ]
             if outer_drywall_surface == "UP" or outer_drywall_surface == "INVALID":
                 polygons.append(dict(coordinates=polygon_a, enabled=False))
@@ -1369,14 +1369,14 @@ class FloorPlan2D(FloorPlan):
             polygon_a = [
                 dict(x=X1-20, y=Y1+20),
                 dict(x=X2-20, y=Y2-20),
-                dict(x=X2-40, y=Y2-40),
-                dict(x=X1-40, y=Y1+40)
+                dict(x=X2-60, y=Y2-60),
+                dict(x=X1-60, y=Y1+60)
             ]
             polygon_b = [
                 dict(x=X1+20, y=Y1+20),
                 dict(x=X2+20, y=Y2-20),
-                dict(x=X2+40, y=Y2-40),
-                dict(x=X1+40, y=Y1+40)
+                dict(x=X2+60, y=Y2-60),
+                dict(x=X1+60, y=Y1+60)
             ]
             if outer_drywall_surface == "LEFT" or outer_drywall_surface == "INVALID":
                 polygons.append(dict(coordinates=polygon_a, enabled=False))
@@ -1406,12 +1406,12 @@ class FloorPlan2D(FloorPlan):
                     y=int(Y2 + ny * 20 - ty * 20),
                 ),
                 dict(
-                    x=int(X2 + nx * 40 - tx * 40),
-                    y=int(Y2 + ny * 40 - ty * 40),
+                    x=int(X2 + nx * 60 - tx * 60),
+                    y=int(Y2 + ny * 60 - ty * 60),
                 ),
                 dict(
-                    x=int(X1 + nx * 40 + tx * 40),
-                    y=int(Y1 + ny * 40 + ty * 40),
+                    x=int(X1 + nx * 60 + tx * 60),
+                    y=int(Y1 + ny * 60 + ty * 60),
                 ),
             ]
             polygons.append(dict(coordinates=polygon_a, enabled=False))
@@ -1426,12 +1426,12 @@ class FloorPlan2D(FloorPlan):
                     y=int(Y2 - ny * 20 - ty * 20),
                 ),
                 dict(
-                    x=int(X2 - nx * 40 - tx * 40),
-                    y=int(Y2 - ny * 40 - ty * 40),
+                    x=int(X2 - nx * 60 - tx * 60),
+                    y=int(Y2 - ny * 60 - ty * 60),
                 ),
                 dict(
-                    x=int(X1 - nx * 40 + tx * 40),
-                    y=int(Y1 - ny * 40 + ty * 40),
+                    x=int(X1 - nx * 60 + tx * 60),
+                    y=int(Y1 - ny * 60 + ty * 60),
                 ),
             ]
             polygons.append(dict(coordinates=polygon_b, enabled=False))
@@ -1448,15 +1448,15 @@ class FloorPlan2D(FloorPlan):
                     polygon = [
                         dict(x=X1+20, y=Y1-20),
                         dict(x=X2-20, y=Y2-20),
-                        dict(x=X2-40, y=Y2-40),
-                        dict(x=X1+40, y=Y1-40)
+                        dict(x=X2-60, y=Y2-60),
+                        dict(x=X1+60, y=Y1-60)
                     ]
                 else:
                     polygon = [
                         dict(x=X1+20, y=Y1+20),
                         dict(x=X2-20, y=Y2+20),
-                        dict(x=X2-40, y=Y2+40),
-                        dict(x=X1+40, y=Y1+40)
+                        dict(x=X2-60, y=Y2+60),
+                        dict(x=X1+60, y=Y1+60)
                     ]
                 polygons.append(dict(coordinates=polygon, enabled=True))
 
@@ -1466,15 +1466,15 @@ class FloorPlan2D(FloorPlan):
                     polygon = [
                         dict(x=X1-20, y=Y1+20),
                         dict(x=X2-20, y=Y2-20),
-                        dict(x=X2-40, y=Y2-40),
-                        dict(x=X1-40, y=Y1+40)
+                        dict(x=X2-60, y=Y2-60),
+                        dict(x=X1-60, y=Y1+60)
                     ]
                 else:
                     polygon = [
                         dict(x=X1+20, y=Y1+20),
                         dict(x=X2+20, y=Y2-20),
-                        dict(x=X2+40, y=Y2-40),
-                        dict(x=X1+40, y=Y1+40)
+                        dict(x=X2+60, y=Y2-60),
+                        dict(x=X1+60, y=Y1+60)
                     ]
                 polygons.append(dict(coordinates=polygon, enabled=True))
 
@@ -1512,12 +1512,12 @@ class FloorPlan2D(FloorPlan):
                         y=int(Y2 + ny * 20 - ty * 20),
                     ),
                     dict(
-                        x=int(X2 + nx * 40 - tx * 40),
-                        y=int(Y2 + ny * 40 - ty * 40),
+                        x=int(X2 + nx * 60 - tx * 60),
+                        y=int(Y2 + ny * 60 - ty * 60),
                     ),
                     dict(
-                        x=int(X1 + nx * 40 + tx * 40),
-                        y=int(Y1 + ny * 40 + ty * 40),
+                        x=int(X1 + nx * 60 + tx * 60),
+                        y=int(Y1 + ny * 60 + ty * 60),
                     ),
                 ]
                 polygons.append(dict(coordinates=polygon, enabled=True))
@@ -1538,30 +1538,30 @@ class FloorPlan2D(FloorPlan):
                             polygon_vertices = [
                                 dict(x=X1+20, y=Y1-20),
                                 dict(x=X2-20, y=Y2-20),
-                                dict(x=X2-40, y=Y2-40),
-                                dict(x=X1+40, y=Y1-40)
+                                dict(x=X2-60, y=Y2-60),
+                                dict(x=X1+60, y=Y1-60)
                             ]
                         else:
                             polygon_vertices = [
                                 dict(x=X1+20, y=Y1+20),
                                 dict(x=X2-20, y=Y2+20),
-                                dict(x=X2-40, y=Y2+40),
-                                dict(x=X1+40, y=Y1+40)
+                                dict(x=X2-60, y=Y2+60),
+                                dict(x=X1+60, y=Y1+60)
                             ]
                     if orientation == "vertical":
                         if index == 'a':   
                             polygon_vertices = [
                                 dict(x=X1-20, y=Y1+20),
                                 dict(x=X2-20, y=Y2-20),
-                                dict(x=X2-40, y=Y2-40),
-                                dict(x=X1-40, y=Y1+40)
+                                dict(x=X2-60, y=Y2-60),
+                                dict(x=X1-60, y=Y1+60)
                             ]
                         else:
                             polygon_vertices = [
                                 dict(x=X1+20, y=Y1+20),
                                 dict(x=X2+20, y=Y2-20),
-                                dict(x=X2+40, y=Y2-40),
-                                dict(x=X1+40, y=Y1+40)
+                                dict(x=X2+60, y=Y2-60),
+                                dict(x=X1+60, y=Y1+60)
                             ]
                     if orientation == "inclined":
                         dx = X2 - X1
@@ -1587,12 +1587,12 @@ class FloorPlan2D(FloorPlan):
                                     y=int(Y2 + ny * 20 - ty * 20),
                                 ),
                                 dict(
-                                    x=int(X2 + nx * 40 - tx * 40),
-                                    y=int(Y2 + ny * 40 - ty * 40),
+                                    x=int(X2 + nx * 60 - tx * 60),
+                                    y=int(Y2 + ny * 60 - ty * 60),
                                 ),
                                 dict(
-                                    x=int(X1 + nx * 40 + tx * 40),
-                                    y=int(Y1 + ny * 40 + ty * 40),
+                                    x=int(X1 + nx * 60 + tx * 60),
+                                    y=int(Y1 + ny * 60 + ty * 60),
                                  ),
                                 ]
                         else:
@@ -1606,12 +1606,12 @@ class FloorPlan2D(FloorPlan):
                                     y=int(Y2 - ny * 20 - ty * 20),
                                 ),
                                 dict(
-                                    x=int(X2 - nx * 40 - tx * 40),
-                                    y=int(Y2 - ny * 40 - ty * 40),
+                                    x=int(X2 - nx * 60 - tx * 60),
+                                    y=int(Y2 - ny * 60 - ty * 60),
                                 ),
                                 dict(
-                                    x=int(X1 - nx * 40 + tx * 40),
-                                    y=int(Y1 - ny * 40 + ty * 40),
+                                    x=int(X1 - nx * 60 + tx * 60),
+                                    y=int(Y1 - ny * 60 + ty * 60),
                                  ),
                                 ]
                     wall["polygons_drywall"].append(
@@ -1638,30 +1638,30 @@ class FloorPlan2D(FloorPlan):
                         polygon_vertices = [
                             dict(x=X1+20, y=Y1+20),
                             dict(x=X2-20, y=Y2+20),
-                            dict(x=X2-40, y=Y2+40),
-                            dict(x=X1+40, y=Y1+40)
+                            dict(x=X2-60, y=Y2+60),
+                            dict(x=X1+60, y=Y1+60)
                         ]
                     else:
                         polygon_vertices = [
                             dict(x=X1+20, y=Y1-20),
                             dict(x=X2-20, y=Y2-20),
-                            dict(x=X2-40, y=Y2-40),
-                            dict(x=X1+40, y=Y1-40)
+                            dict(x=X2-60, y=Y2-60),
+                            dict(x=X1+60, y=Y1-60)
                         ]
                 if orientation == "vertical":
                     if centroid_polygon_X <= np.median([X1, X2]):
                         polygon_vertices = [
                             dict(x=X1+20, y=Y1+20),
                             dict(x=X2+20, y=Y2-20),
-                            dict(x=X2+40, y=Y2-40),
-                            dict(x=X1+40, y=Y1+40)
+                            dict(x=X2+60, y=Y2-60),
+                            dict(x=X1+60, y=Y1+60)
                         ]
                     else:
                         polygon_vertices = [
                             dict(x=X1-20, y=Y1+20),
                             dict(x=X2-20, y=Y2-20),
-                            dict(x=X2-40, y=Y2-40),
-                            dict(x=X1-40, y=Y1+40)
+                            dict(x=X2-60, y=Y2-60),
+                            dict(x=X1-60, y=Y1+60)
                         ]
                 if orientation == "inclined":
                     dx = X2 - X1
@@ -1697,12 +1697,12 @@ class FloorPlan2D(FloorPlan):
                             y=int(Y2 + ny * 20 - ty * 20),
                         ),
                         dict(
-                            x=int(X2 + nx * 40 - tx * 40),
-                            y=int(Y2 + ny * 40 - ty * 40),
+                            x=int(X2 + nx * 60 - tx * 60),
+                            y=int(Y2 + ny * 60 - ty * 60),
                         ),
                         dict(
-                            x=int(X1 + nx * 40 + tx * 40),
-                            y=int(Y1 + ny * 40 + ty * 40),
+                            x=int(X1 + nx * 60 + tx * 60),
+                            y=int(Y1 + ny * 60 + ty * 60),
                         ),
                     ]
                 if len(wall["polygons_drywall"]) == 2:
@@ -1743,10 +1743,10 @@ class FloorPlan2D(FloorPlan):
         canvas.save(pdf_path, save_all=True)
         return Path(pdf_path), dict(height=height, width=width, size=Path(pdf_path).stat().st_size)
 
-    def load_drywall_choices(self, model_2d_JSON, polygons_2d_JSON, all_unique=True):
+    def load_drywall_choices(self, walls_2d_JSON, polygons_2d_JSON, all_unique=True):
         if all_unique:
             unique_drywalls_walls = set()
-            for wall in model_2d_JSON:
+            for wall in walls_2d_JSON:
                 for drywall in wall["polygons_drywall"]:
                     unique_drywalls_walls.add(drywall["type"])
             unique_drywalls_walls.discard("None")
@@ -1754,7 +1754,7 @@ class FloorPlan2D(FloorPlan):
             for polygon in polygons_2d_JSON:
                 unique_drywalls_roofs.add(polygon["polygon_drywall"]["type"])
             unique_drywalls_roofs.discard("None")
-        for wall in model_2d_JSON:
+        for wall in walls_2d_JSON:
             if all_unique:
                 wall["drywall_choices"] = list(unique_drywalls_walls)
             else:

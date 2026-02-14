@@ -11,7 +11,6 @@ from time import time as from_unix_epoch
 from time import sleep
 from collections import defaultdict
 import requests
-from functools import partial
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -19,8 +18,6 @@ from pydantic import BaseModel
 from pydantic_core import ValidationError
 from concurrent.futures import ThreadPoolExecutor
 
-import google.auth.transport.requests
-from google.oauth2.service_account import IDTokenCredentials
 from google.cloud.storage import Client as CloudStorageClient
 from google.cloud import bigquery
 from google.cloud import secretmanager
@@ -29,19 +26,16 @@ import pandas as pd
 import numpy as np
 import math
 from preprocessing import preprocess
-from modeller_2d import FloorPlan2D
 from extrapolate_3d import Extrapolate3D
 from helper import (
-    load_vertex_ai_client,
     load_bigquery_client,
     bigquery_run,
-    transcribe,
     sha256,
     upload_floorplan,
     insert_model_2d,
-    extract_floorplan_from_page,
     is_duplicate,
     delete_plan,
+    load_floorplan_to_structured_2d_ID_token,
 )
 
 
@@ -515,36 +509,25 @@ def insert_project(payload_project, bigquery_client, credentials):
     return created_at
 
 
-def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, output_path=None):
-    auth_req = google.auth.transport.requests.Request()
-    service_account_credentials = IDTokenCredentials.from_service_account_file(
-        credentials["service_compute_account_key"],
-        target_audience=credentials["CloudRun"]["APIs"]["wall_detector"]
-    )
-    service_account_credentials.refresh(auth_req)
-    id_token = service_account_credentials.token
-
+def floorplan_to_structured_2d(credentials, id_token, project_id, plan_id, user_id, page_number):
     headers = {
         "Authorization": f"Bearer {id_token}",
         "Content-Type": "application/json"
     }
-
     response = requests.post(
-        f"{credentials["CloudRun"]["APIs"]["wall_detector"]}/detect_wall",
+        f"{credentials["CloudRun"]["APIs"]["floorplan_to_structured_2d"]}/floorplan_to_structured_2d",
         headers=headers,
         json=dict(
             project_id=project_id,
             plan_id=plan_id,
             user_id=user_id,
             page_number=page_number
-        )
+        ),
+        timeout=(10, 3600)
     )
+    walls_2d = json.loads(response.content)
 
-    if not output_path:
-        output_path  = Path("/tmp/floor_plan_wall_segmented.png")
-    with open(output_path, "wb") as f:
-        f.write(response.content)
-    return Path(output_path)
+    return walls_2d
 
 
 def load_UI_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -773,15 +756,13 @@ async def floorplan_to_2d(request: Request):
 
     client = CloudStorageClient()
     bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
-    blob_path = f"tmp/{user_id.lower()}/{project_id.lower()}/{plan_id.lower()}/model_2d.json"
+    blob_path = f"tmp/{user_id.lower()}/{project_id.lower()}/{plan_id.lower()}/floorplan_structured_2d.json"
     blob = bucket.blob(blob_path)
     if blob.exists():
         blob.delete()
 
-    hyperparameters = load_hyperparameters()
     size_in_bytes = Path(pdf_path).stat().st_size
-
-    floor_plan_paths_preprocessed = preprocess(pdf_path)
+    floor_plan_paths_vector, floor_plan_paths_preprocessed = preprocess(pdf_path)
     insert_plan(
         project_id,
         user_id,
@@ -795,36 +776,66 @@ async def floorplan_to_2d(request: Request):
     )
     logging.info("SYSTEM: Floorplan Preprocessing Completed")
 
-    vertex_ai_client, generation_config = load_vertex_ai_client(CREDENTIALS)
-    vertex_ai_client_partial = partial(vertex_ai_client.generate_content, generation_config=generation_config)
-    floor_plan_modeller_2d = FloorPlan2D(hyperparameters, vertex_ai_client_partial)
     walls_2d_all = dict(pages=list())
     futures = list()
     status = "COMPLETED"
     try:
-        with ThreadPoolExecutor(max_workers=8) as executor:
-            for index, floor_plan_path in enumerate(floor_plan_paths_preprocessed):
+        id_token = load_floorplan_to_structured_2d_ID_token(CREDENTIALS)
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            for index, (floor_plan_vector, floor_plan_path) in enumerate(zip(floor_plan_paths_vector, floor_plan_paths_preprocessed)):
+                floorplan_baseline_page_source = upload_floorplan(floor_plan_vector, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
+                floorplan_page_source = upload_floorplan(floor_plan_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
                 futures.append(
                     executor.submit(
-                        extract_floorplan_from_page,
+                        floorplan_to_structured_2d,
                         CREDENTIALS,
-                        hyperparameters,
-                        bigquery_client,
-                        user_id,
+                        id_token,
                         project_id,
                         plan_id,
-                        floor_plan_path,
-                        index,
-                        floor_plan_modeller_2d,
-                        floorplan_to_walls,
-                        transcribe
+                        user_id,
+                        index
                     )
                 )
-            pages = [future.result() for future in futures]
-            for page in pages:
-                if page:
-                    walls_2d_all["pages"].append(page)
+            for page_number, future in enumerate(futures):
+                floorplan_structured = future.result()
+                if not floorplan_structured["polygons"]:
+                    continue
+                metadata = dict(
+                    size_in_bytes=floorplan_structured["size_in_bytes"],
+                    height_in_pixels=floorplan_structured["height_in_pixels"],
+                    width_in_pixels=floorplan_structured["width_in_pixels"],
+                    origin=floorplan_structured["origin"],
+                    offset=floorplan_structured["offset"],
+                    contour_root_vertices=floorplan_structured["contour_root_vertices"]
+                )
+                insert_model_2d(
+                    dict(walls_2d=floorplan_structured["walls_2d"], polygons=floorplan_structured["polygons"], metadata=metadata),
+                    floorplan_structured["scale"],
+                    page_number,
+                    plan_id,
+                    user_id,
+                    project_id,
+                    floorplan_page_source,
+                    floorplan_baseline_page_source,
+                    bigquery_client,
+                    CREDENTIALS
+                )
+                page = dict(
+                    plan_id=plan_id,
+                    page_number=page_number,
+                    size_in_bytes=floorplan_structured["size_in_bytes"],
+                    height_in_pixels=floorplan_structured["height_in_pixels"],
+                    width_in_pixels=floorplan_structured["width_in_pixels"],
+                    origin=floorplan_structured["origin"],
+                    offset=floorplan_structured["offset"],
+                    contour_root_vertices=floorplan_structured["contour_root_vertices"],
+                    scale=floorplan_structured["scale"],
+                    walls_2d=floorplan_structured["walls_2d"],
+                    polygons=floorplan_structured["polygons"],
+                )
+                walls_2d_all["pages"].append(page)
     except Exception as e:
+        logging.info(f"SYSTEM: Floorplan extraction failed with error: {e}")
         status = "FAILED"
     insert_plan(
         project_id,
@@ -838,9 +849,9 @@ async def floorplan_to_2d(request: Request):
         n_pages=len(floor_plan_paths_preprocessed),
     )
 
-    with open("/tmp/model_2d.json", 'w') as f:
+    with open("/tmp/floorplan_structured_2d.json", 'w') as f:
         json.dump(walls_2d_all, f, indent=4)
-    blob.upload_from_filename("/tmp/model_2d.json")
+    blob.upload_from_filename("/tmp/floorplan_structured_2d.json")
     return respond_with_UI_payload(walls_2d_all)
 
 
