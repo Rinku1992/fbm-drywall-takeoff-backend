@@ -23,6 +23,9 @@ class FloorPlan:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         return gray
 
+    def is_none(self, image_path):
+        return cv2.imread(image_path) is None
+
     def compute_pixel_aspect_ratio(self, scale_new, pixel_aspect_ratio_standard):
         scale_new_on_paper_length = float(scale_new.split(':')[0].strip('`'))
         scale_new_real_world_length_in_feet_and_inches = scale_new.split(':')[1].strip('`').split('`')

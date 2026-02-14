@@ -1,5 +1,6 @@
 import os
 import sys
+from pathlib import Path
 import logging
 from ruamel.yaml import YAML
 from PIL import Image
@@ -12,12 +13,14 @@ from google.cloud.storage import Client as CloudStorageClient
 from wall_detector import WallDetector
 
 
-def respond_with_image_payload(image: Image):
-    image_path = "/tmp/wall_detected.png"
-    image.save(image_path)
+def respond_with_image_payload(image: Image, project_id, plan_id, user_id, index):
+    destination_path = Path("/tmp/wall_detected.png")
+    destination_path = destination_path.parent.joinpath(project_id).joinpath(plan_id).joinpath(user_id).joinpath(str(index)).joinpath(destination_path.name)
+    destination_path.parent.mkdir(parents=True, exist_ok=True)
+    image.save(destination_path)
 
     return FileResponse(
-        image_path,
+        destination_path,
         media_type="image/png",
         filename="wall_detected.png"
     )
@@ -78,11 +81,13 @@ async def detect_wall(request: Request):
     bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
     blob_path = f"{project_id.lower()}/{plan_id.lower()}/{user_id.lower()}/{str(index).zfill(2)}/{CREDENTIALS["CloudStorage"]["blob_name"]}"
     blob = bucket.blob(blob_path)
-    image_path = "/tmp/floor_plan.png"
-    blob.download_to_filename(image_path)
+    destination_path = Path("/tmp/floor_plan.png")
+    destination_path = destination_path.parent.joinpath(project_id).joinpath(plan_id).joinpath(user_id).joinpath(str(index)).joinpath(destination_path.name)
+    destination_path.parent.mkdir(parents=True, exist_ok=True)
+    blob.download_to_filename(destination_path)
 
     wall_detector = WallDetector()
-    image = wall_detector.detect(image_path, hyperparameters)
+    image = wall_detector.detect(destination_path, hyperparameters)
 
     logging.info("SYSTEM: Wall Detection Completed")
-    return respond_with_image_payload(image)
+    return respond_with_image_payload(image, project_id, plan_id, user_id, index)
