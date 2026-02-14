@@ -1159,30 +1159,7 @@ class FloorPlan2D(FloorPlan):
             height_default=height_default,
         )
 
-        polygon = dict(
-            id=index,
-            area=model_polygon["ceiling"]["area"],
-            vertices=vertices,
-            type=model_polygon["ceiling"]["ceiling_type"],
-            height=model_polygon["ceiling"]["height"] if model_polygon["ceiling"]["height"] else height_default,
-            slope=model_polygon["ceiling"]["slope"],
-            slope_enabled=model_polygon["ceiling"]["slope_enabled"],
-            tilt_axis=model_polygon["ceiling"]["tilt_axis"],
-            room_name=model_polygon["ceiling"]["room_name"],
-            polygon_drywall=dict(
-                type=model_polygon["ceiling"]["drywall_assembly"]["material"],
-                color=tuple(model_polygon["ceiling"]["drywall_assembly"]["color_code"]),
-                thickness=model_polygon["ceiling"]["drywall_assembly"]["thickness"],
-                layers=model_polygon["ceiling"]["drywall_assembly"]["layers"],
-                fire_rating=model_polygon["ceiling"]["drywall_assembly"]["fire_rating"],
-                recommendation=model_polygon["ceiling"]["recommendation"],
-                waste_factor=model_polygon["ceiling"]["drywall_assembly"]["waste_factor"],
-                enabled=True,
-            )
-        )
-        with shared_memory["lock"]:
-            shared_memory["polygons"].append(polygon)
-
+        polygon_ids_drywall_interior = list()
         for wall_line, wall_parameter, polygon in zip(perimeter_walls, model_polygon["wall_parameters"], polygons):
             wall_payload = load_wall_payload(wall_line)
             if wall_payload:
@@ -1220,6 +1197,7 @@ class FloorPlan2D(FloorPlan):
                         enabled=True
                     )
                 )
+                polygon_ids_drywall_interior.append(f"{wall_payload["id"]}.b")
                 with shared_memory["lock"]:
                     shared_memory["walls_2d"].remove(wall_payload_outdated)
                     shared_memory["walls_2d"].append(wall_payload)
@@ -1268,8 +1246,34 @@ class FloorPlan2D(FloorPlan):
                         enabled=True,
                     )
                 )
+                polygon_ids_drywall_interior.append(f"{len(shared_memory["walls_2d"])}.a")
                 with shared_memory["lock"]:
                     shared_memory["walls_2d"].append(wall)
+
+        polygon = dict(
+            id=index,
+            area=model_polygon["ceiling"]["area"],
+            vertices=vertices,
+            type=model_polygon["ceiling"]["ceiling_type"],
+            height=model_polygon["ceiling"]["height"] if model_polygon["ceiling"]["height"] else height_default,
+            slope=model_polygon["ceiling"]["slope"],
+            slope_enabled=model_polygon["ceiling"]["slope_enabled"],
+            tilt_axis=model_polygon["ceiling"]["tilt_axis"],
+            room_name=model_polygon["ceiling"]["room_name"],
+            polygon_ids_drywall_interior=polygon_ids_drywall_interior,
+            polygon_drywall=dict(
+                type=model_polygon["ceiling"]["drywall_assembly"]["material"],
+                color=tuple(model_polygon["ceiling"]["drywall_assembly"]["color_code"]),
+                thickness=model_polygon["ceiling"]["drywall_assembly"]["thickness"],
+                layers=model_polygon["ceiling"]["drywall_assembly"]["layers"],
+                fire_rating=model_polygon["ceiling"]["drywall_assembly"]["fire_rating"],
+                recommendation=model_polygon["ceiling"]["recommendation"],
+                waste_factor=model_polygon["ceiling"]["drywall_assembly"]["waste_factor"],
+                enabled=True,
+            )
+        )
+        with shared_memory["lock"]:
+            shared_memory["polygons"].append(polygon)
 
     def _add_wall_perimeter(
         self,
