@@ -143,7 +143,8 @@ async def floorplan_to_2d(request: Request):
             upload_floorplan(model_2d_path, user_id, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
             #model_2d_path_overlay_enabled = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path, overlay_enabled=True)
             #upload_floorplan(model_2d_path_overlay_enabled, user_id, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
-            _, floorplan_page_statistics = floor_plan_modeller_2d.scale_to(floor_plan_path=floor_plan_processed_path)
+            floorplan_baseline, floorplan_page_statistics = floor_plan_modeller_2d.scale_to(floor_plan_path=floor_plan_processed_path)
+            floorplan_baseline_page_source = upload_floorplan(floorplan_baseline, user_id, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
 
             metadata = dict(
                 size_in_bytes=floorplan_page_statistics["size"],
@@ -161,6 +162,7 @@ async def floorplan_to_2d(request: Request):
         plan_id,
         user_id,
         project_id,
+        floorplan_baseline_page_source,
         bigquery_client,
         CREDENTIALS
     )
