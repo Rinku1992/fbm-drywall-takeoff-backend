@@ -1250,6 +1250,15 @@ class FloorPlan2D(FloorPlan):
                 with shared_memory["lock"]:
                     shared_memory["walls_2d"].append(wall)
 
+        polygon_ids_drywall_interior_filtered = list()
+        interior_wall_ids = set()
+        for polygon_id_drywall_interior in polygon_ids_drywall_interior:
+            wall_id = polygon_id_drywall_interior.split('.')[0]
+            if wall_id in interior_wall_ids:
+                continue
+            polygon_ids_drywall_interior_filtered.append(polygon_id_drywall_interior)
+            interior_wall_ids.add(wall_id)
+
         polygon = dict(
             id=index,
             area=model_polygon["ceiling"]["area"],
@@ -1260,7 +1269,7 @@ class FloorPlan2D(FloorPlan):
             slope_enabled=model_polygon["ceiling"]["slope_enabled"],
             tilt_axis=model_polygon["ceiling"]["tilt_axis"],
             room_name=model_polygon["ceiling"]["room_name"],
-            polygon_ids_drywall_interior=polygon_ids_drywall_interior,
+            polygon_ids_drywall_interior=polygon_ids_drywall_interior_filtered,
             polygon_drywall=dict(
                 type=model_polygon["ceiling"]["drywall_assembly"]["material"],
                 color=tuple(model_polygon["ceiling"]["drywall_assembly"]["color_code"]),
