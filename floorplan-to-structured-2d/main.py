@@ -127,6 +127,7 @@ async def floorplan_to_2d(request: Request):
             walls_2d=None,
             polygons=None
         )
+        logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} Generated Successfully")
         return respond_with_UI_payload(payload_2d)
     walls_2d, polygons, walls_2d_path, external_contour = floor_plan_modeller_2d.model(
         image_path=wall_segmented_path,
@@ -140,6 +141,7 @@ async def floorplan_to_2d(request: Request):
             walls_2d=None,
             polygons=None
         )
+        logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} Generated Successfully")
         return respond_with_UI_payload(payload_2d)
     floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons)
     floor_plan_modeller_2d.load_ceiling_choices(polygons)
