@@ -514,7 +514,7 @@ def floorplan_to_structured_2d(credentials, id_token, project_id, plan_id, user_
         "Authorization": f"Bearer {id_token}",
         "Content-Type": "application/json"
     }
-    response = requests.post(
+    requests.post(
         f"{credentials["CloudRun"]["APIs"]["floorplan_to_structured_2d"]}/floorplan_to_structured_2d",
         headers=headers,
         json=dict(
@@ -525,10 +525,6 @@ def floorplan_to_structured_2d(credentials, id_token, project_id, plan_id, user_
         ),
         timeout=(10, 7200)
     )
-    logging.info(f"SYSTEM: Received processed page: {page_number}: {response.content}")
-    walls_2d = json.loads(response.content)
-
-    return walls_2d
 
 
 def load_UI_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -783,9 +779,13 @@ async def floorplan_to_2d(request: Request):
     try:
         id_token = load_floorplan_to_structured_2d_ID_token(CREDENTIALS)
         with ThreadPoolExecutor(max_workers=3) as executor:
+            floorplan_baseline_page_sources = list()
+            floorplan_page_sources = list()
             for index, (floor_plan_vector, floor_plan_path) in enumerate(zip(floor_plan_paths_vector, floor_plan_paths_preprocessed)):
                 floorplan_baseline_page_source = upload_floorplan(floor_plan_vector, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
+                floorplan_baseline_page_sources.append(floorplan_baseline_page_source)
                 floorplan_page_source = upload_floorplan(floor_plan_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
+                floorplan_page_sources.append(floorplan_page_source)
                 futures.append(
                     executor.submit(
                         floorplan_to_structured_2d,
@@ -797,42 +797,28 @@ async def floorplan_to_2d(request: Request):
                         index
                     )
                 )
-            for page_number, future in enumerate(futures):
-                floorplan_structured = future.result()
-                if not floorplan_structured["polygons"]:
+            for page_number, (floorplan_baseline_page_source, floorplan_page_source) in enumerate(zip(floorplan_baseline_page_sources, floorplan_page_sources)):
+                timeout = from_unix_epoch() + 7200
+                while from_unix_epoch() < timeout:
+                    GBQ_query = f"SELECT scale, model_2d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+                    query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())
+                    if query_output:
+                        break
+                    sleep(2)
+                walls_2d = json.loads(query_output[0].model_2d) if isinstance(query_output[0].model_2d, str) else query_output[0].model_2d
+                if not walls_2d["polygons"] or not walls_2d["walls_2d"]:
+                    GBQ_query = f"DELETE FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+                    bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()
                     continue
-                metadata = dict(
-                    size_in_bytes=floorplan_structured["size_in_bytes"],
-                    height_in_pixels=floorplan_structured["height_in_pixels"],
-                    width_in_pixels=floorplan_structured["width_in_pixels"],
-                    origin=floorplan_structured["origin"],
-                    offset=floorplan_structured["offset"],
-                    contour_root_vertices=floorplan_structured["contour_root_vertices"]
-                )
-                insert_model_2d(
-                    dict(walls_2d=floorplan_structured["walls_2d"], polygons=floorplan_structured["polygons"], metadata=metadata),
-                    floorplan_structured["scale"],
-                    page_number,
-                    plan_id,
-                    user_id,
-                    project_id,
-                    floorplan_page_source,
-                    floorplan_baseline_page_source,
-                    bigquery_client,
-                    CREDENTIALS
-                )
+                GBQ_query = f"UPDATE `{CREDENTIALS["GBQServer"]["table_name_models"]}` SET source = '{floorplan_page_source}', target_drywalls = '{floorplan_baseline_page_source}' WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+                bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()
                 page = dict(
                     plan_id=plan_id,
                     page_number=page_number,
-                    size_in_bytes=floorplan_structured["size_in_bytes"],
-                    height_in_pixels=floorplan_structured["height_in_pixels"],
-                    width_in_pixels=floorplan_structured["width_in_pixels"],
-                    origin=floorplan_structured["origin"],
-                    offset=floorplan_structured["offset"],
-                    contour_root_vertices=floorplan_structured["contour_root_vertices"],
-                    scale=floorplan_structured["scale"],
-                    walls_2d=floorplan_structured["walls_2d"],
-                    polygons=floorplan_structured["polygons"],
+                    scale=query_output[0].scale,
+                    walls_2d=walls_2d["walls_2d"],
+                    polygons=walls_2d["polygons"],
+                    **walls_2d["metadata"]
                 )
                 walls_2d_all["pages"].append(page)
     except Exception as e:
