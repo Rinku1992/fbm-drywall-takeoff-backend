@@ -136,8 +136,6 @@ async def floorplan_to_2d(request: Request):
         if walls_2d and polygons:
             floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons)
             floor_plan_modeller_2d.load_ceiling_choices(polygons)
-            #if not polygons:
-            #    return
             #if verbose.upper() == "TRUE":
             model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path)
             upload_floorplan(model_2d_path, user_id, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
