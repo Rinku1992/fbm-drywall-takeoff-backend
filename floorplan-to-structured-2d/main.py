@@ -21,6 +21,8 @@ from helper import (
     transcribe,
     upload_floorplan,
     download_floorplan,
+    insert_model_2d,
+    load_bigquery_client,
 )
 
 
@@ -122,49 +124,44 @@ async def floorplan_to_2d(request: Request):
     transcription_block_with_centroids, transcription_headers_and_footers = futures["transcriber"].result()
     logging.info(f"SYSTEM: Transcription Completed from PAGE: {page_number}")
 
-    if floor_plan_modeller_2d.is_none(wall_segmented_path):
-        payload_2d = dict(
-            walls_2d=None,
-            polygons=None
+    walls_2d, polygons, metadata = None, None, None
+    if not floor_plan_modeller_2d.is_none(wall_segmented_path):
+        walls_2d, polygons, walls_2d_path, external_contour = floor_plan_modeller_2d.model(
+            image_path=wall_segmented_path,
+            model_2d_path=f"/tmp/{project_id}/{plan_id}/{user_id}/walls_2d_{str(page_number).zfill(2)}.json",
+            floor_plan_path=floor_plan_processed_path,
+            transcription_block_with_centroids=transcription_block_with_centroids,
+            transcription_headers_and_footers=transcription_headers_and_footers
         )
-        logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} Generated Successfully")
-        return respond_with_UI_payload(payload_2d)
-    walls_2d, polygons, walls_2d_path, external_contour = floor_plan_modeller_2d.model(
-        image_path=wall_segmented_path,
-        model_2d_path=f"/tmp/{project_id}/{plan_id}/{user_id}/walls_2d_{str(page_number).zfill(2)}.json",
-        floor_plan_path=floor_plan_processed_path,
-        transcription_block_with_centroids=transcription_block_with_centroids,
-        transcription_headers_and_footers=transcription_headers_and_footers
+        if walls_2d and polygons:
+            floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons)
+            floor_plan_modeller_2d.load_ceiling_choices(polygons)
+            #if not polygons:
+            #    return
+            #if verbose.upper() == "TRUE":
+            model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path)
+            upload_floorplan(model_2d_path, user_id, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
+            #model_2d_path_overlay_enabled = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path, overlay_enabled=True)
+            #upload_floorplan(model_2d_path_overlay_enabled, user_id, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
+            _, floorplan_page_statistics = floor_plan_modeller_2d.scale_to(floor_plan_path=floor_plan_processed_path)
+
+            metadata = dict(
+                size_in_bytes=floorplan_page_statistics["size"],
+                height_in_pixels=floorplan_page_statistics["height"],
+                width_in_pixels=floorplan_page_statistics["width"],
+                origin=["LEFT", "TOP"],
+                offset=(0, 0),
+                contour_root_vertices=external_contour,
+            )
+    bigquery_client = load_bigquery_client(CREDENTIALS)
+    insert_model_2d(
+        dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
+        floor_plan_modeller_2d.scale,
+        page_number,
+        plan_id,
+        user_id,
+        project_id,
+        bigquery_client,
+        CREDENTIALS
     )
-    if not walls_2d or not polygons:
-        payload_2d = dict(
-            walls_2d=None,
-            polygons=None
-        )
-        logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} Generated Successfully")
-        return respond_with_UI_payload(payload_2d)
-    floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons)
-    floor_plan_modeller_2d.load_ceiling_choices(polygons)
-    #if not polygons:
-    #    return
-    #if verbose.upper() == "TRUE":
-    model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path)
-    upload_floorplan(model_2d_path, user_id, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
-    #model_2d_path_overlay_enabled = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path, overlay_enabled=True)
-    #upload_floorplan(model_2d_path_overlay_enabled, user_id, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
-    _, floorplan_page_statistics = floor_plan_modeller_2d.scale_to(floor_plan_path=floor_plan_processed_path)
     logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} Generated Successfully")
-
-    payload_2d = dict(
-        size_in_bytes=floorplan_page_statistics["size"],
-        height_in_pixels=floorplan_page_statistics["height"],
-        width_in_pixels=floorplan_page_statistics["width"],
-        origin=["LEFT", "TOP"],
-        offset=(0, 0),
-        contour_root_vertices=external_contour,
-        scale=floor_plan_modeller_2d.scale,
-        walls_2d=walls_2d,
-        polygons=polygons
-    )
-
-    return respond_with_UI_payload(payload_2d)
