@@ -103,6 +103,7 @@ def insert_model_2d(
     plan_id,
     user_id,
     project_id,
+    target_drywalls,
     bigquery_client,
     credentials
     ):
@@ -116,6 +117,7 @@ def insert_model_2d(
             @page_number AS page_number,
             @model_2d AS model_2d,
             @scale AS scale,
+            @target_drywalls AS target_drywalls,
     ) s
     ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id) AND t.page_number = s.page_number
     WHEN MATCHED THEN
@@ -134,6 +136,7 @@ def insert_model_2d(
         model_2d,
         model_3d,
         takeoff,
+        target_drywalls,
         created_at,
         updated_at
     )
@@ -146,6 +149,7 @@ def insert_model_2d(
         s.model_2d,
         JSON '{}',
         JSON '{}',
+        s.target_drywalls,
         CURRENT_TIMESTAMP(),
         CURRENT_TIMESTAMP()
     );
@@ -158,6 +162,7 @@ def insert_model_2d(
             bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
             bigquery.ScalarQueryParameter("scale", "STRING", scale),
             bigquery.ScalarQueryParameter("model_2d", "JSON", model_2d),
+            bigquery.ScalarQueryParameter("target_drywalls", "STRING", target_drywalls),
         ]
     )
 
