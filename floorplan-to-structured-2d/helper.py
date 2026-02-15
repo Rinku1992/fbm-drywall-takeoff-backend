@@ -8,6 +8,7 @@ from ruamel.yaml import YAML
 import vertexai
 from vertexai.generative_models import GenerativeModel
 from google.cloud.storage import Client as CloudStorageClient
+from google.cloud import bigquery
 
 from transcriber import Transcriber
 
@@ -80,3 +81,85 @@ def download_floorplan(user_id, plan_id, project_id, credentials, index, destina
     destination_path.parent.mkdir(parents=True, exist_ok=True)
     blob.download_to_filename(destination_path)
     return destination_path
+
+def load_bigquery_client(credentials):
+    bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
+    return bigquery_client
+
+def bigquery_run(credentials, bigquery_client, GBQ_query, job_config=dict()):
+    job_config = bigquery.QueryJobConfig(
+        destination_encryption_configuration=bigquery.EncryptionConfiguration(
+            kms_key_name=credentials["GBQServer"]["KMS_key"]
+        ),
+        **job_config
+    )
+    query_output = bigquery_client.query(GBQ_query, job_config=job_config)
+    return query_output
+
+def insert_model_2d(
+    model_2d,
+    scale,
+    page_number,
+    plan_id,
+    user_id,
+    project_id,
+    bigquery_client,
+    credentials
+    ):
+    GBQ_query = """
+    MERGE `drywall_takeoff.models` t
+    USING (
+        SELECT
+            @plan_id AS plan_id,
+            @project_id AS project_id,
+            @user_id AS user_id,
+            @page_number AS page_number,
+            @model_2d AS model_2d,
+            @scale AS scale,
+    ) s
+    ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id) AND t.page_number = s.page_number
+    WHEN MATCHED THEN
+    UPDATE SET
+        model_2d = s.model_2d,
+        scale = COALESCE(NULLIF(s.scale, ''), t.scale),
+        user_id = @user_id,
+        updated_at = CURRENT_TIMESTAMP()
+    WHEN NOT MATCHED THEN
+    INSERT (
+        plan_id,
+        project_id,
+        user_id,
+        page_number,
+        scale,
+        model_2d,
+        model_3d,
+        takeoff,
+        created_at,
+        updated_at
+    )
+    VALUES (
+        s.plan_id,
+        s.project_id,
+        s.user_id,
+        s.page_number,
+        s.scale,
+        s.model_2d,
+        JSON '{}',
+        JSON '{}',
+        CURRENT_TIMESTAMP(),
+        CURRENT_TIMESTAMP()
+    );
+    """
+    job_config = dict(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
+            bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
+            bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
+            bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
+            bigquery.ScalarQueryParameter("scale", "STRING", scale),
+            bigquery.ScalarQueryParameter("model_2d", "JSON", model_2d),
+        ]
+    )
+
+    query_output = bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
+    return query_output
