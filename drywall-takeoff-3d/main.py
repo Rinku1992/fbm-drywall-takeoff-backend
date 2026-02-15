@@ -797,7 +797,7 @@ async def floorplan_to_2d(request: Request):
                         index
                     )
                 )
-            for page_number, (floorplan_baseline_page_source, floorplan_page_source) in enumerate(zip(floorplan_baseline_page_sources, floorplan_page_sources)):
+            for page_number, (_, floorplan_page_source) in enumerate(zip(floorplan_baseline_page_sources, floorplan_page_sources)):
                 timeout = from_unix_epoch() + 7200
                 while from_unix_epoch() < timeout:
                     GBQ_query = f"SELECT scale, model_2d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
@@ -810,7 +810,7 @@ async def floorplan_to_2d(request: Request):
                     GBQ_query = f"DELETE FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
                     bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()
                     continue
-                GBQ_query = f"UPDATE `{CREDENTIALS["GBQServer"]["table_name_models"]}` SET source = '{floorplan_page_source}', target_drywalls = '{floorplan_baseline_page_source}' WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+                GBQ_query = f"UPDATE `{CREDENTIALS["GBQServer"]["table_name_models"]}` SET source = '{floorplan_page_source}' WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
                 bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()
                 page = dict(
                     plan_id=plan_id,
