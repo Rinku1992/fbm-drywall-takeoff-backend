@@ -265,9 +265,9 @@ class Extrapolate3D(FloorPlan):
             polygons = self._extrude_height_polygon(height_in_pixels, [front_face, back_face])
             return polygons
 
-    def _add_wall(self, wall_line, polygons, index):
+    def _add_wall(self, wall_line, polygons):
         wall = dict(
-            id=index,
+            id=wall_line["id"],
             thickness=wall_line["thickness"],
             height=wall_line["height"],
             length=wall_line["length"],
@@ -279,6 +279,7 @@ class Extrapolate3D(FloorPlan):
         for polygon, polygon_type in zip(polygons, wall_line["polygons_drywall"]):
             wall["surfaces_drywall"].append(
                 dict(
+                    id=polygon_type["id"],
                     room_name=polygon_type["room_name"],
                     polygon=polygon,
                     type=polygon_type["type"],
@@ -325,12 +326,12 @@ class Extrapolate3D(FloorPlan):
             back_face.append(dict(x=x, y=y, z=height_back_face))
         return [front_face, back_face]
 
-    def _add_polygon(self, polygon, index):
+    def _add_polygon(self, polygon):
         height_in_pixels = self._load_wall_height_in_pixels(polygon)
         pixel_aspect_ratio_average = (self._hyperparameters["pixel_aspect_ratio"]["horizontal"] + self._hyperparameters["pixel_aspect_ratio"]["vertical"]) / 2
         width_in_pixels = round(polygon["polygon_drywall"]["thickness"] / pixel_aspect_ratio_average)
         polygon = dict(
-            id=index,
+            id=polygon["id"],
             area=polygon["area"],
             vertices=polygon["vertices"],
             type=polygon["type"],
@@ -339,6 +340,7 @@ class Extrapolate3D(FloorPlan):
             slope_enabled=polygon["slope_enabled"],
             tilt_axis=polygon["tilt_axis"],
             room_name=polygon["room_name"],
+            surface_drywall_ids_interior=polygon["polygon_ids_drywall_interior"],
             drywall_choices=polygon["drywall_choices"],
             surface_drywall=dict(
                 polygon=self._extrude_roof_3d(polygon["vertices"], polygon["slope"], polygon["tilt_axis"], height_in_pixels, width_in_pixels),
@@ -537,16 +539,16 @@ class Extrapolate3D(FloorPlan):
                     horizontal_wall_lines.append(wall_line)
                 if orientation == "vertical":
                     vertical_wall_lines.append(wall_line)
-        for index, polygon in enumerate(polygons):
-            self._add_polygon(polygon, index)
-        for index, line in enumerate(lines):
+        for polygon in polygons:
+            self._add_polygon(polygon)
+        for line in lines:
             polygons = self._extrude_3d(
                 line,
                 horizontal_wall_lines=horizontal_wall_lines,
                 vertical_wall_lines=vertical_wall_lines,
             )
             if polygons:
-                self._add_wall(line, polygons, index)
+                self._add_wall(line, polygons)
 
         if model_3d_path:
             with open(model_3d_path, 'w') as f:
