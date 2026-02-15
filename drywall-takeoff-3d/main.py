@@ -523,7 +523,7 @@ def floorplan_to_structured_2d(credentials, id_token, project_id, plan_id, user_
             user_id=user_id,
             page_number=page_number
         ),
-        timeout=(10, 3600)
+        timeout=(10, 7200)
     )
     logging.info(f"SYSTEM: Received processed page: {page_number}: {response.content}")
     walls_2d = json.loads(response.content)
