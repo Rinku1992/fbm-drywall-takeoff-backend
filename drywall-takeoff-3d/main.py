@@ -1,6 +1,7 @@
 import os
 import sys
 import logging
+from functools import partial
 from datetime import timedelta, datetime, date, time
 from decimal import Decimal
 from base64 import b64encode
@@ -36,6 +37,8 @@ from helper import (
     is_duplicate,
     delete_plan,
     load_floorplan_to_structured_2d_ID_token,
+    load_vertex_ai_client,
+    classify_plan,
 )
 
 
@@ -774,14 +777,19 @@ async def floorplan_to_2d(request: Request):
     logging.info("SYSTEM: Floorplan Preprocessing Completed")
 
     walls_2d_all = dict(pages=list())
-    futures = list()
     status = "COMPLETED"
+    vertex_ai_client, generation_config = load_vertex_ai_client(CREDENTIALS)
+    vertex_ai_client_partial = partial(vertex_ai_client.generate_content, generation_config=generation_config)
     try:
         id_token = load_floorplan_to_structured_2d_ID_token(CREDENTIALS)
         with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = list()
             floorplan_baseline_page_sources = list()
             floorplan_page_sources = list()
+            plan_types = list()
             for index, (floor_plan_vector, floor_plan_path) in enumerate(zip(floor_plan_paths_vector, floor_plan_paths_preprocessed)):
+                plan_type = classify_plan(floor_plan_path, vertex_ai_client_partial)
+                plan_types.append(plan_type)
                 floorplan_baseline_page_source = upload_floorplan(floor_plan_vector, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
                 floorplan_baseline_page_sources.append(floorplan_baseline_page_source)
                 floorplan_page_source = upload_floorplan(floor_plan_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
@@ -797,7 +805,9 @@ async def floorplan_to_2d(request: Request):
                         index
                     )
                 )
-            for page_number, (_, floorplan_page_source) in enumerate(zip(floorplan_baseline_page_sources, floorplan_page_sources)):
+            for page_number, (plan_type, _, floorplan_page_source) in enumerate(zip(plan_types, floorplan_baseline_page_sources, floorplan_page_sources)):
+                if plan_type["plan_type"].upper().find("FLOOR") != -1:
+                    continue
                 timeout = from_unix_epoch() + 7200
                 while from_unix_epoch() < timeout:
                     GBQ_query = f"SELECT scale, model_2d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
