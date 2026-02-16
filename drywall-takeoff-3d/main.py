@@ -806,7 +806,7 @@ async def floorplan_to_2d(request: Request):
                     )
                 )
             for page_number, (plan_type, _, floorplan_page_source) in enumerate(zip(plan_types, floorplan_baseline_page_sources, floorplan_page_sources)):
-                if plan_type["plan_type"].upper().find("FLOOR") != -1:
+                if plan_type["plan_type"].upper().find("FLOOR") == -1:
                     continue
                 timeout = from_unix_epoch() + 7200
                 while from_unix_epoch() < timeout:
