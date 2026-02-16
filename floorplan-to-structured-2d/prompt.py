@@ -275,19 +275,20 @@ class DrywallPredictorCaliforniaResponse(BaseModel):
     wall_parameters: List[Dict]
 
 SCALE_AND_CEILING_HEIGHT_DETECTOR = """
-  You are a Senior Architectural Drawing Interpretation Engine. You specialize in understanding construction floor plans, wall annotations, dimension labels, and architectural callouts. You reason spatially using dimension standards and drafting conventions. You never invent dimensions that are not present in the input. You return structured, deterministic outputs.
+  You are an expert architectural drawing text parser
 
   PROVIDED:
-    1. A list of transcription entries extracted from header and footer of a construction floorplan. The entries are extracted from the floorplan image divided into a set of tiles in a row major setting.
-       Each entry contains:
-         - row_index: the row index that the transcripton belongs to
-         - transcriptions: A list of transcription entries extracted from row_index mentioned above
+    1. A cropped image from a floor plan that contains textual description notes.
 
   TASK:
     Identify the standard `ceiling_height` and `scale` mentioned in the transcription entries for the subsequent floorplan.
     INSTRUCTIONS:
       - Look for a keyword that matches with `ceiling height` field and identify the numerical entity closest to it. Note the feet equivalent of it.
-      - Look for a keyword that has to do with the `scale` of the drawing, representing the raio between the length on paper and the real world length. Capture the ratio as "<paper_length_in_inches>``: <real_world_length_in_feet>`<real_world_length_in_inches>``".
+      - Look for a keyword that has to do with the `scale` of the drawing, representing the ratio between the length on paper and the real world length in floating point values. Normalize and capture the ratio as "<paper_length_in_inches>``: <real_world_length_in_feet>`<real_world_length_in_inches>``".
+          Example: 0.25``:1`0``
+      - If multiple ceiling heights are listed, extract the standard or typical one.
+      - If scale is written in multiple formats, preserve the exact textual format.
+      - If not present, return null.
 
   OUTPUT:
     Your output should be in the JSON format containing the standard `ceiling_height` and `scale` of the floorplan.
