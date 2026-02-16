@@ -1,11 +1,17 @@
 import json
 import hashlib
 from pathlib import Path
+import cv2
+from json.decoder import JSONDecodeError
 
 from google.cloud import bigquery
 from google.cloud.storage import Client as CloudStorageClient
 import google.auth.transport.requests
 from google.oauth2.service_account import IDTokenCredentials
+import vertexai
+from vertexai.generative_models import GenerativeModel, Part, Content
+
+from prompt import ARCHITECTURAL_DRAWING_CLASSIFIER
 
 
 def load_bigquery_client(credentials):
@@ -165,3 +171,27 @@ def load_floorplan_to_structured_2d_ID_token(credentials):
     service_account_credentials.refresh(auth_req)
     id_token = service_account_credentials.token
     return id_token
+
+def load_vertex_ai_client(credentials, region="us-central1"):
+    with open(credentials["VertexAI"]["service_account_key"], 'r') as f:
+        project_id = json.load(f)["project_id"]
+    vertexai.init(project=project_id, location=region)
+    vertex_ai_client = GenerativeModel(credentials["VertexAI"]["llm"]["model_name"])
+    generation_config = credentials["VertexAI"]["llm"]["parameters"]
+    return vertex_ai_client, generation_config
+
+def classify_plan(plan_path, vertex_ai_client):
+    plan_BGR = cv2.imread(plan_path)
+    _, canvas_buffer_array = cv2.imencode(".png", plan_BGR)
+    bytes_canvas = canvas_buffer_array.tobytes()
+    system = Content(role="model", parts=[Part.from_text(ARCHITECTURAL_DRAWING_CLASSIFIER)])
+    query = Content(role="user", parts=[
+        Part.from_data(data=bytes_canvas, mime_type="image/png")
+    ])
+    response = vertex_ai_client(contents=[system, query])
+    try:
+        plan_type = json.loads(response.text.strip("`json").replace("{{", '{').replace("}}", '}'))
+    except (JSONDecodeError, ValueError):
+        plan_type = dict(plan_type="FLOOR_PLAN")
+
+    return plan_type
