@@ -790,6 +790,8 @@ async def floorplan_to_2d(request: Request):
             for index, (floor_plan_vector, floor_plan_path) in enumerate(zip(floor_plan_paths_vector, floor_plan_paths_preprocessed)):
                 plan_type = classify_plan(floor_plan_path, vertex_ai_client_partial)
                 plan_types.append(plan_type)
+                if plan_type["plan_type"].upper().find("FLOOR") == -1:
+                    continue
                 floorplan_baseline_page_source = upload_floorplan(floor_plan_vector, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
                 floorplan_baseline_page_sources.append(floorplan_baseline_page_source)
                 floorplan_page_source = upload_floorplan(floor_plan_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
