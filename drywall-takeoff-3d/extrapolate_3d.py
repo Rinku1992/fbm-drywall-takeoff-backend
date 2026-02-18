@@ -538,8 +538,8 @@ class Extrapolate3D(FloorPlan):
             walls_3d_JSON_updated.append(wall_3d)
         for polygon in polygons_JSON:
             polygon_vertices_scaled = [(scale_x * vertex[0], scale_y * vertex[1]) for vertex in polygon["vertices"]]
-            polygon = np.array(polygon_vertices_scaled, np.float32)
-            area = cv2.contourArea(polygon)
+            polygon_vertices_scaled = np.array(polygon_vertices_scaled, np.float32)
+            area = cv2.contourArea(polygon_vertices_scaled)
             polygon["area"] = pixel_aspect_ratio_new["horizontal"] * pixel_aspect_ratio_new["vertical"] * area
             polygons_JSON_updated.append(polygon)
 
