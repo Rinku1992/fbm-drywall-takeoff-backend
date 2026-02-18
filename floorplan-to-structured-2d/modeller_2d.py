@@ -7,7 +7,7 @@ from PIL import Image
 from json.decoder import JSONDecodeError
 from pathlib import Path
 from collections import defaultdict
-from concurrent.futures import ProcessPoolExecutor, wait
+from concurrent.futures import ThreadPoolExecutor, wait
 from multiprocessing import Manager
 
 import numpy as np
@@ -896,11 +896,11 @@ class FloorPlan2D(FloorPlan):
     def scale(self):
         return self._scale
 
-    def _load_ceiling_height_and_scale(self, transcription_headers_and_footers):
+    def _load_ceiling_height_and_scale(self, cropped_plan_BGR):
         system = Content(role="model", parts=[Part.from_text(SCALE_AND_CEILING_HEIGHT_DETECTOR)])
-        query = Content(role="user", parts=[
-            Part.from_text(json.dumps(transcription_headers_and_footers))
-        ])
+        _, canvas_buffer_array = cv2.imencode(".png", cropped_plan_BGR)
+        bytes_canvas = canvas_buffer_array.tobytes()
+        query = Content(role="user", parts=[Part.from_data(data=bytes_canvas, mime_type="image/png")])
         response = self._vertex_ai_client(contents=[system, query])
         try:
             ceiling_height_and_scale = json.loads(response.text.strip("`json").replace("{{", '{').replace("}}", '}'))
@@ -914,9 +914,9 @@ class FloorPlan2D(FloorPlan):
         except (JSONDecodeError, ValueError):
             ceiling_height_and_scale = dict(ceiling_height=self._height_in_feet, scale=self._scale)
 
-        new_pixel_aspect_ratio_in_feet = self.compute_pixel_aspect_ratio(ceiling_height_and_scale["scale"], self._hyperparameters["pixel_aspect_ratio_to_feet"])
-        self._hyperparameters["pixel_aspect_ratio_in_feet"] = new_pixel_aspect_ratio_in_feet
-        self._hyperparameters["modelling"]["pixel_aspect_ratio"] = new_pixel_aspect_ratio_in_feet
+        new_pixel_aspect_ratio_to_feet = self.compute_pixel_aspect_ratio(ceiling_height_and_scale["scale"], self._hyperparameters["pixel_aspect_ratio_to_feet"])
+        self._hyperparameters["pixel_aspect_ratio_to_feet"] = new_pixel_aspect_ratio_to_feet
+        self._hyperparameters["modelling"]["pixel_aspect_ratio"] = new_pixel_aspect_ratio_to_feet
         self._hyperparameters["modelling"]["height_in_feet"] = ceiling_height_and_scale["ceiling_height"]
         return ceiling_height_and_scale
 
@@ -1064,7 +1064,7 @@ class FloorPlan2D(FloorPlan):
                     "room_name": '',
                     "area": -1,
                     "ceiling_type": "Flat",
-                    "height": 9.125,
+                    "height": height_default,
                     "slope": 0,
                     "slope_enabled": False,
                     "tilt_axis": '',
@@ -1258,7 +1258,7 @@ class FloorPlan2D(FloorPlan):
                 continue
             polygon_ids_drywall_interior_filtered.append(polygon_id_drywall_interior)
             interior_wall_ids.add(wall_id)
-
+        
         polygon = dict(
             id=index,
             area=model_polygon["ceiling"]["area"],
@@ -1902,8 +1902,7 @@ class FloorPlan2D(FloorPlan):
         height, width, _ = canvas.shape
         scale_x = width / 1920
         scale_y = height / 1080
-        #height_default = self._load_ceiling_height_and_scale(transcription_headers_and_footers)["ceiling_height"]
-        height_default = 10.125
+        height_default = self._load_ceiling_height_and_scale(canvas.copy()[:, -round(width / 4):])["ceiling_height"]
         if not wall_lines:
             return None, None, None, None
         polygons, polygons_perimeter_walls, external_contour = self.polygonize(wall_lines)
@@ -1914,7 +1913,7 @@ class FloorPlan2D(FloorPlan):
         futures = list()
         with Manager() as manager:
             shared_memory = dict(walls_2d=manager.list(), polygons=manager.list(), lock=manager.Lock())
-            with ProcessPoolExecutor(max_workers=8) as executor:
+            with ThreadPoolExecutor(max_workers=8) as executor:
                 for index, ((polygon_area, polygon_vertices), polygon_perimeter_walls) in enumerate(zip(polygons, polygons_perimeter_walls)):
                     index += 1
                     polygon_vertices_normalized = [(round(scale_x * vertex[0]), round(scale_y * vertex[1])) for vertex in polygon_vertices]
