@@ -1,5 +1,6 @@
 from copy import deepcopy
 
+from fractions import Fraction
 import math
 import numpy as np
 import cv2
@@ -25,6 +26,28 @@ class FloorPlan:
 
     def is_none(self, image_path):
         return cv2.imread(image_path) is None
+
+    @property
+    def scales_architectural(self):
+        return [
+            "3/64``=1`0``",
+            "1/32``=1`0``",
+            "1/16``=1`0``",
+            "3/32``=1`0``",
+            "1/8``=1`0``",
+            "3/16``=1`0``",
+            "1/4``=1`0``",
+            "3/8``=1`0``",
+            "1/2``=1`0``",
+            "3/4``=1`0``",
+            "1``=1`0``"
+        ]
+
+    def normalize_scale(self, scale):
+        scale_on_paper_length = round(float(scale.split(':')[0].strip('`')), 2)
+        for scale_architecture in self.scales_architectural:
+            if round(float(Fraction(scale_architecture.split('=')[0].strip('`'))), 2) == scale_on_paper_length:
+                return scale_architecture
 
     def compute_pixel_aspect_ratio(self, scale_new, pixel_aspect_ratio_standard):
         scale_new_on_paper_length = float(scale_new.split(':')[0].strip('`'))
