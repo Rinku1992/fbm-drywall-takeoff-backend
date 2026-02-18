@@ -1035,6 +1035,26 @@ async def update_floorplan_to_2d(request: Request):
     return respond_with_UI_payload(dict(walls_3d=walls_3d, polygons=polygons_3d))
 
 
+@app.post("/update_scale")
+async def update_scale(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    scale = parameters.get("scale") or body.get("scale")
+    project_id = parameters.get("project_id") or body.get("project_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
+    plan_id = parameters.get("plan_id") or body.get("plan_id")
+    page_number = parameters.get("page_number") or body.get("page_number")
+    logging.info("SYSTEM: Received a Scale Update Request")
+
+    GBQ_query = f"UPDATE `{CREDENTIALS["GBQServer"]["table_name_models"]}` SET scale = '{scale}' WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+    bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()
+    logging.info("SYSTEM: Scale Updated Successfully")
+
+
 @app.post("/floorplan_to_3d")
 async def floorplan_to_3d(request: Request):
     enable_logging_on_stdout()
@@ -1252,6 +1272,12 @@ async def compute_takeoff(request: Request):
     revision_number = parameters.get("revision_number", '') or body.get("revision_number", '')
     logging.info("SYSTEM: Received a Drywall Takeoff computation Request")
 
+    GBQ_query = f"SELECT scale FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index};"
+    query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
+    scale = query_output.scale
+    pdf_path = Path("/tmp/floor_plan.PDF")
+    download_floorplan(user_id, plan_id, project_id, CREDENTIALS, destination_path=pdf_path)
+
     if not walls_3d_JSON:
         if revision_number:
             GBQ_query = f"SELECT model FROM `{CREDENTIALS["GBQServer"]["table_name_model_revisions_3d"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) = LOWER('{user_id}') AND page_number = {index} AND revision_number = {revision_number};"
@@ -1265,6 +1291,9 @@ async def compute_takeoff(request: Request):
 
     hyperparameters = load_hyperparameters()
     floor_plan_modeller_3d = Extrapolate3D(hyperparameters)
+    if scale != "1/4``=1`0``":
+        pixel_aspect_ratio_new = floor_plan_modeller_3d.compute_pixel_aspect_ratio(scale, hyperparameters["pixel_aspect_ratio_to_feet"])
+        walls_3d_JSON, polygons_JSON = floor_plan_modeller_3d.recompute_dimensions_walls_and_polygons(walls_3d_JSON, polygons_JSON, pixel_aspect_ratio_new, pdf_path)
     walls_3d_JSON, polygons_JSON = floor_plan_modeller_3d.extrapolate_wall_heights_given_polygons(walls_3d_JSON, polygons_JSON)
     drywall_takeoff = dict(total=dict(roof=0, wall=0), per_drywall=dict(roof=defaultdict(lambda: 0), wall=defaultdict(lambda: 0)))
     for wall in walls_3d_JSON:
