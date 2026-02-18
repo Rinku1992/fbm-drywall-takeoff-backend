@@ -1055,6 +1055,25 @@ async def update_scale(request: Request):
     logging.info("SYSTEM: Scale Updated Successfully")
 
 
+@app.post("/load_scale")
+async def load_scale(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    project_id = parameters.get("project_id") or body.get("project_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
+    plan_id = parameters.get("plan_id") or body.get("plan_id")
+    page_number = parameters.get("page_number") or body.get("page_number")
+    logging.info("SYSTEM: Received a Scale Update Request")
+
+    GBQ_query = f"SELECT scale FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+    query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
+    return respond_with_UI_payload(dict(scale=query_output.scale))
+
+
 @app.post("/floorplan_to_3d")
 async def floorplan_to_3d(request: Request):
     enable_logging_on_stdout()
