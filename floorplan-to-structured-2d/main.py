@@ -151,11 +151,12 @@ async def floorplan_to_2d(request: Request):
                 origin=["LEFT", "TOP"],
                 offset=(0, 0),
                 contour_root_vertices=external_contour,
+                scales_architectural=floor_plan_modeller_2d.scales_architectural,
             )
     bigquery_client = load_bigquery_client(CREDENTIALS)
     insert_model_2d(
         dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
-        floor_plan_modeller_2d.scale,
+        floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale),
         page_number,
         plan_id,
         user_id,
