@@ -20,7 +20,8 @@ from prompt import (
     SCALE_AND_CEILING_HEIGHT_DETECTOR,
     WALL_RECTIFIER,
     DRYWALL_CHOICES,
-    CEILING_CHOICES
+    CEILING_CHOICES,
+    COLOR_CODES_DRYWALLS,
 )
 
 __all__ = ["FloorPlan2D"]
@@ -1757,6 +1758,14 @@ class FloorPlan2D(FloorPlan):
         return Path(pdf_path), dict(height=height, width=width, size=Path(pdf_path).stat().st_size)
 
     def load_drywall_choices(self, walls_2d_JSON, polygons_2d_JSON, all_unique=True):
+        def add_color_codes(drywalls, drywall_type):
+            drywalls_color_coded = dict()
+            for drywall in drywalls:
+                if drywall_type == "CEILING":
+                    drywalls_color_coded[drywall] = COLOR_CODES_DRYWALLS["CEILINGS"].get(drywall, (250, 100, 0))
+                if drywall_type == "WALL":
+                    drywalls_color_coded[drywall] = COLOR_CODES_DRYWALLS["WALLS"].get(drywall, (250, 100, 0))
+            return drywalls_color_coded
         if all_unique:
             unique_drywalls_walls = set()
             for wall in walls_2d_JSON:
@@ -1769,14 +1778,14 @@ class FloorPlan2D(FloorPlan):
             unique_drywalls_roofs.discard("None")
         for wall in walls_2d_JSON:
             if all_unique:
-                wall["drywall_choices"] = list(unique_drywalls_walls)
+                wall["drywall_choices"] = add_color_codes(list(unique_drywalls_walls), "WALL")
             else:
-                wall["drywall_choices"] = DRYWALL_CHOICES.get(wall["type"], list())
+                wall["drywall_choices"] = add_color_codes(DRYWALL_CHOICES.get(wall["type"], list()), "WALL")
         for polygon in polygons_2d_JSON:
             if all_unique:
-                polygon["drywall_choices"] = list(unique_drywalls_roofs)
+                polygon["drywall_choices"] = add_color_codes(list(unique_drywalls_roofs), "CEILING")
             else:
-                polygon["drywall_choices"] = DRYWALL_CHOICES.get(polygon["type"], list())
+                polygon["drywall_choices"] = add_color_codes(DRYWALL_CHOICES.get(polygon["type"], list()), "CEILING")
 
     def load_ceiling_choices(self, polygons_2d_JSON):
         for polygon in polygons_2d_JSON:
