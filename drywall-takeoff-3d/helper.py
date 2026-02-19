@@ -147,9 +147,6 @@ def is_duplicate(bigquery_client, credentials, pdf_path, project_id):
     GBQ_query = f"SELECT plan_id, sha256, status FROM `drywall_takeoff.plans` WHERE LOWER(project_id) = LOWER('{project_id}');"
     query_output = bigquery_run(credentials, bigquery_client, GBQ_query).result()
     for plan_target in list(query_output):
-        if not plan_target.sha256:
-            delete_plan(credentials, bigquery_client, plan_target.plan_id, project_id)
-            continue
         if plan_target.sha256 == sha_256:
             if plan_target.status == "FAILED":
                 delete_plan(credentials, bigquery_client, plan_target.plan_id, project_id)
