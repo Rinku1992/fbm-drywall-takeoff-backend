@@ -10,6 +10,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, wait
 from multiprocessing import Manager
 
+from fractions import Fraction
 import numpy as np
 from skimage.morphology import skeletonize
 from vertexai.generative_models import Part, Content
