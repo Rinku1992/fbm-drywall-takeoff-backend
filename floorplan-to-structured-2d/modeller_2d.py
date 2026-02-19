@@ -898,6 +898,12 @@ class FloorPlan2D(FloorPlan):
         return self._scale
 
     def _load_ceiling_height_and_scale(self, cropped_plan_BGR):
+        def normalize_scale(scale):
+            if scale.find(':') != -1:
+                on_paper, real_world = scale.split(':')
+            if scale.find('=') != -1:
+                on_paper, real_world = scale.split('=')
+            return f"{round(float(Fraction(on_paper.strip('`'))), 2)}``:{real_world}"
         system = Content(role="model", parts=[Part.from_text(SCALE_AND_CEILING_HEIGHT_DETECTOR)])
         _, canvas_buffer_array = cv2.imencode(".png", cropped_plan_BGR)
         bytes_canvas = canvas_buffer_array.tobytes()
@@ -905,7 +911,7 @@ class FloorPlan2D(FloorPlan):
         response = self._vertex_ai_client(contents=[system, query])
         try:
             ceiling_height_and_scale = json.loads(response.text.strip("`json").replace("{{", '{').replace("}}", '}'))
-            scale, ceiling_height = ceiling_height_and_scale["scale"], ceiling_height_and_scale["ceiling_height"]
+            scale, ceiling_height = normalize_scale(ceiling_height_and_scale["scale"]), ceiling_height_and_scale["ceiling_height"]
             if scale:
                 self._scale = scale
             else:
