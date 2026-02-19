@@ -324,3 +324,29 @@ CEILING_CHOICES = [
     "Angled-Plane",
     "Boxed-Beam"
 ]
+
+COLOR_CODES_DRYWALLS = {
+    "WALLS": {
+        "Standard gypsum board": (245, 66, 149),
+        "Type X fire-rated drywall": (245, 66, 191),
+        "Moisture-resistant (green board)": (221, 66, 245),
+        "Mold-resistant drywall": (66, 141, 245),
+        "Cement board / backer board (where required)": (66, 245, 72),
+        "Double-layer assemblies": (221, 245, 66),
+        "Shaft wall assemblies (if applicable)": (163, 24, 8),
+        "DISABLED": (0, 0, 255)
+    },
+    "CEILINGS": {
+        "1/2\" regular": (240, 57, 140),
+        "1/2\" regular gypsum board": (240, 50, 135),
+        "5/8\" regular": (245, 66, 149),
+        "5/8\" Type X fire-rated drywall": (245, 66, 191),
+        "5/8\" lightweight gypsum board": (221, 66, 245),
+        "1/4\" flex (layered)": (66, 141, 245),
+        "5/8\" + Level 5 finish": (66, 245, 72),
+        "3/8\" flex (layered)": (60, 240, 70),
+        "5/8\" bottom, 1/2\" sides": (221, 245, 66),
+        "5/8\" Type X": (163, 24, 8),
+        "DISABLED": (0, 0, 255)
+    }
+}
