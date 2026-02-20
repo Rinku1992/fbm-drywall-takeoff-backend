@@ -1023,7 +1023,7 @@ class FloorPlan2D(FloorPlan):
             return dimension_wall
 
         def verify_tolerance_area(area_polygon_predicted, area_polygon_target):
-            if area_polygon_predicted and abs(area_polygon_target - area_polygon_predicted) > tolerance:
+            if area_polygon_predicted and abs(area_polygon_target - area_polygon_predicted) > tolerance ** 2:
                 return area_polygon_target
 
             return area_polygon_predicted
