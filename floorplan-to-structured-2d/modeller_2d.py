@@ -3,10 +3,12 @@ import cv2
 import numpy as np
 import math
 import json
+import xml.etree.ElementTree as ET
 from PIL import Image
 from json.decoder import JSONDecodeError
 from pathlib import Path
 from collections import defaultdict
+import subprocess
 from concurrent.futures import ThreadPoolExecutor, wait
 from multiprocessing import Manager
 
@@ -1758,20 +1760,37 @@ class FloorPlan2D(FloorPlan):
     def scale_to(
         self,
         floor_plan_path="/tmp/floor_plan.png",
-        resolution=None,
+        resolution=None
     ):
         canvas = Image.open(floor_plan_path)
-        width, height = canvas.size
+        width_in_pixels, height_in_pixels = canvas.size
         if canvas.mode != "RGB":
             canvas = canvas.convert("RGB")
 
         if resolution:
             canvas = canvas.resize(resolution, Image.Resampling.LANCZOS)
-            width, height = resolution
+            width_in_pixels, height_in_pixels = resolution
 
         pdf_path = "/tmp/scaled_floor_plan.pdf"
         canvas.save(pdf_path, save_all=True)
-        return Path(pdf_path), dict(height=height, width=width, size=Path(pdf_path).stat().st_size)
+
+        svg_path = "/tmp/scaled_floor_plan.svg"
+        subprocess.run(
+            ["pdftocairo", "-svg", pdf_path, svg_path],
+            check=True
+        )
+        tree = ET.parse(svg_path)
+        root = tree.getroot()
+        width_in_points = root.attrib.get("width")
+        height_in_points = root.attrib.get("height")
+
+        return Path(svg_path), dict(
+            height_in_pixels=height_in_pixels,
+            width_in_pixels=width_in_pixels,
+            height_in_points=height_in_points,
+            width_in_points=width_in_points,
+            size=Path(svg_path).stat().st_size
+        )
 
     def load_drywall_choices(self, walls_2d_JSON, polygons_2d_JSON, all_unique=True):
         def add_color_codes(drywalls, drywall_type):
