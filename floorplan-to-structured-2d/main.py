@@ -147,8 +147,10 @@ async def floorplan_to_2d(request: Request):
 
             metadata = dict(
                 size_in_bytes=floorplan_page_statistics["size"],
-                height_in_pixels=floorplan_page_statistics["height"],
-                width_in_pixels=floorplan_page_statistics["width"],
+                height_in_pixels=floorplan_page_statistics["height_in_pixels"],
+                width_in_pixels=floorplan_page_statistics["width_in_pixels"],
+                height_in_points=floorplan_page_statistics["height_in_points"],
+                width_in_points=floorplan_page_statistics["width_in_points"],
                 origin=["LEFT", "TOP"],
                 offset=(0, 0),
                 contour_root_vertices=external_contour,
