@@ -963,8 +963,8 @@ async def load_2d_all(request: Request):
                 model_2d
             FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}`
             WHERE
-                project_id = @project_id
-                AND plan_id = @plan_id
+                LOWER(project_id) = LOWER(@project_id)
+                AND LOWER(plan_id) = LOWER(@plan_id)
                 AND page_number = @page_number
             ORDER BY page_number
         """
@@ -983,8 +983,8 @@ async def load_2d_all(request: Request):
                 model_2d
             FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}`
             WHERE
-                project_id = @project_id
-                AND plan_id = @plan_id
+                LOWER(project_id) = LOWER(@project_id)
+                AND LOWER(plan_id) = LOWER(@plan_id)
             ORDER BY page_number
         """
         job_config = bigquery.QueryJobConfig(
