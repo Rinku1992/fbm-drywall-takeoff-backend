@@ -931,6 +931,7 @@ async def load_2d_all(request: Request):
         body = dict()
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
+    page_number = parameters.get("page_number", '') or body.get("page_number", '')
     logging.info("SYSTEM: Received All Floorplan 2D Models Load Request")
 
     status = "IN PROGRESS"
@@ -954,23 +955,44 @@ async def load_2d_all(request: Request):
         return respond_with_UI_payload(dict(error="Floor Plan extraction not completed within 15 minutes"), status_code=500)
 
     walls_2d_all = dict(pages=list())
-    query = f"""
-        SELECT
-            page_number,
-            scale,
-            model_2d
-        FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}`
-        WHERE
-            project_id = @project_id
-            AND plan_id = @plan_id
-        ORDER BY page_number
-    """
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[
-            bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
-            bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
-        ]
-    )
+    if page_number:
+        query = f"""
+            SELECT
+                page_number,
+                scale,
+                model_2d
+            FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}`
+            WHERE
+                project_id = @project_id
+                AND plan_id = @plan_id
+                AND page_number = @page_number
+            ORDER BY page_number
+        """
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
+                bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
+                bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
+            ]
+        )
+    else:
+        query = f"""
+            SELECT
+                page_number,
+                scale,
+                model_2d
+            FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}`
+            WHERE
+                project_id = @project_id
+                AND plan_id = @plan_id
+            ORDER BY page_number
+        """
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
+                bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
+            ]
+        )
     query_job = bigquery_client.query(query, job_config=job_config)
 
     for row in query_job.result():
