@@ -955,7 +955,7 @@ async def load_2d_all(request: Request):
         return respond_with_UI_payload(dict(error="Floor Plan extraction not completed within 15 minutes"), status_code=500)
 
     walls_2d_all = dict(pages=list())
-    if page_number:
+    if page_number != '':
         query = f"""
             SELECT
                 page_number,
