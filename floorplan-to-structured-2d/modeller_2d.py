@@ -992,6 +992,7 @@ class FloorPlan2D(FloorPlan):
         vertices,
         walls,
         polygons_pts,
+        area_target,
         floor_plan_path,
         transcription_block_with_centroids,
         walls_unnormalized,
@@ -999,7 +1000,7 @@ class FloorPlan2D(FloorPlan):
         tolerance=10,
         height_default=9.125,
     ):
-        def verify_tolerance(dimension_wall, wall_unnormalized):
+        def verify_tolerance_distance(dimension_wall, wall_unnormalized):
             X1, Y1, X2, Y2 = wall_unnormalized[0]
             length_target = round(math.hypot(
                 (X1 - X2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["horizontal"],
@@ -1018,6 +1019,12 @@ class FloorPlan2D(FloorPlan):
                 dimension_wall["length"] = length_target
 
             return dimension_wall
+
+        def verify_tolerance_area(area_polygon_predicted, area_polygon_target):
+            if area_polygon_predicted and abs(area_polygon_target - area_polygon_predicted) > tolerance:
+                return area_polygon_target
+
+            return area_polygon_predicted
 
         canvas = cv2.imread(floor_plan_path)
         vertices = np.array(vertices)
@@ -1063,8 +1070,9 @@ class FloorPlan2D(FloorPlan):
         response = self._vertex_ai_client(contents=[system, query])
         try:
             model_polygon = json.loads(response.text.strip("`json").replace("{{", '{').replace("}}", '}'))
+            model_polygon["ceiling"]["area"] = verify_tolerance_area(model_polygon["ceiling"]["area"], area_target)
             for index, (dimension_wall_predicted, wall_unnormalized )in enumerate(zip(model_polygon["wall_parameters"], walls_unnormalized)):
-                dimension_wall_rectified = verify_tolerance(dimension_wall_predicted, wall_unnormalized)
+                dimension_wall_rectified = verify_tolerance_distance(dimension_wall_predicted, wall_unnormalized)
                 model_polygon["wall_parameters"][index] = dimension_wall_rectified
         except (JSONDecodeError, ValueError):
             model_polygon = {
@@ -1160,6 +1168,7 @@ class FloorPlan2D(FloorPlan):
         model_polygon = self._model_polygon(
             vertices,
             perimeter_walls,
+            area,
             polygons_pts_normalized,
             floor_plan_path,
             transcription_block_with_centroids,
@@ -1938,7 +1947,7 @@ class FloorPlan2D(FloorPlan):
                         X1, Y1, X2, Y2 = polygon_perimeter_wall[0]
                         polygon_perimeter_wall_normalized = [[round(scale_x * X1), round(scale_y * Y1), round(scale_x * X2), round(scale_y * Y2)]]
                         polygon_perimeter_walls_normalized.append(polygon_perimeter_wall_normalized)
-                    polygon_area_normalized = polygon_area * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["horizontal"] * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["vertical"]
+                    polygon_area_normalized = polygon_area * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["area"]
                     drywall_polygons = self._extrude_polygon_drywalls(polygon_perimeter_walls_normalized, polygon_vertices_normalized)
                     futures.append(executor.submit(
                         self._add_walls_polygon,
