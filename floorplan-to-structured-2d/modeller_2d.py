@@ -1786,6 +1786,7 @@ class FloorPlan2D(FloorPlan):
         root.set("width", "100%")
         root.set("height", "100%")
         root.set("preserveAspectRatio", "xMidYMid meet")
+        tree.write(svg_path, encoding="utf-8", xml_declaration=True)
 
         return Path(svg_path), dict(
             height_in_pixels=height_in_pixels,
