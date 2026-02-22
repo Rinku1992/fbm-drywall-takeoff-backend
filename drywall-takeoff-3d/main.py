@@ -1393,9 +1393,9 @@ async def insert_templates():
 
     def generate_random_colors(n, seed=0):
         rng = np.random.default_rng(seed)
-        colors = rng.integers(0, 256, size=(n, 3), dtype=np.uint8)
+        colors = rng.integers(0, 256, size=(n, 3))
 
-        return [dict(r=color[0], g=color[1], b=color[2]) for color in colors]
+        return [dict(r=int(color[0]), g=int(color[1]), b=int(color[2])) for color in colors]
 
     dataframe = pd.read_excel("Drywall_P_Code_20260122.xlsx")
     rows_to_insert = list()
