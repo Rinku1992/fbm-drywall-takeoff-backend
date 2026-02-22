@@ -1402,6 +1402,8 @@ async def insert_templates():
     product_color_codes = generate_random_colors(dataframe.size)
 
     for (_, row), product_color_code in zip(dataframe.iterrows(), product_color_codes):
+        if pd.isna(row["user10"]) or pd.isna(row["user11"]) or pd.isna(row["PRODUCT_CAT_CODE"]) or pd.isna(row["PRODUCT_CAT_DESC"]) or not isinstance(row["PRODUCT_CAT_CODE"], int):
+            continue
         sku_description = str(row["user11"]).upper()
 
         parsed_row = {
