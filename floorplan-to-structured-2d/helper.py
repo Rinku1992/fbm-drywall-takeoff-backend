@@ -9,6 +9,7 @@ import vertexai
 from vertexai.generative_models import GenerativeModel
 from google.cloud.storage import Client as CloudStorageClient
 from google.cloud import bigquery
+from fastapi.encoders import jsonable_encoder
 
 from transcriber import Transcriber
 
@@ -168,3 +169,10 @@ def insert_model_2d(
 
     query_output = bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
     return query_output
+
+def load_templates(bigquery_client, credentials):
+    GBQ_query = f"SELECT * FROM `{credentials["GBQServer"]["table_name_sku"]}`"
+    product_templates = list(bigquery_run(credentials, bigquery_client, GBQ_query).result())
+
+    logging.info("SYSTEM: Product Templates retrieved successfully")
+    return jsonable_encoder(product_templates)
