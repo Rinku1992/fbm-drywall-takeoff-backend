@@ -23,6 +23,7 @@ from helper import (
     download_floorplan,
     insert_model_2d,
     load_bigquery_client,
+    load_templates,
 )
 
 
@@ -125,6 +126,7 @@ async def floorplan_to_2d(request: Request):
     transcription_block_with_centroids, transcription_headers_and_footers = futures["transcriber"].result()
     logging.info(f"SYSTEM: Transcription Completed from PAGE: {page_number}")
 
+    DRYWALL_TEMPLATES = load_templates(bigquery_client, CREDENTIALS)
     walls_2d, polygons, metadata, floorplan_baseline_page_source = None, None, None, None
     if not floor_plan_modeller_2d.is_none(wall_segmented_path):
         walls_2d, polygons, walls_2d_path, external_contour = floor_plan_modeller_2d.model(
