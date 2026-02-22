@@ -633,7 +633,7 @@ async def load_projects(request: Request):
     GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_projects"]}`"
     projects = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())
 
-    logging.info("SYSTEM: Project Metaaata retrieved successfully")
+    logging.info("SYSTEM: Project Metadata retrieved successfully")
     return respond_with_UI_payload(
         jsonable_encoder({
             "projects": projects
