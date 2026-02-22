@@ -175,4 +175,9 @@ def load_templates(bigquery_client, credentials):
     product_templates = list(bigquery_run(credentials, bigquery_client, GBQ_query).result())
 
     logging.info("SYSTEM: Product Templates retrieved successfully")
-    return jsonable_encoder(product_templates)
+    product_templates_target = list()
+    for product_template in product_templates:
+        product_template = dict(product_template)
+        product_template["sku_variant"] = f"{product_template["sku_id"]} - {product_template["sku_description"]}"
+        product_templates_target.append(product_template)
+    return jsonable_encoder(product_templates_target)
