@@ -1407,7 +1407,7 @@ async def insert_templates():
         sku_description = str(row["user11"]).upper()
 
         parsed_row = {
-            "sku_code": row["user10"],
+            "sku_id": row["user10"],
             "sku_description": row["user11"],
             "product_cat_code": int(row["PRODUCT_CAT_CODE"]),
             "product_cat_description": row["PRODUCT_CAT_DESC"],
