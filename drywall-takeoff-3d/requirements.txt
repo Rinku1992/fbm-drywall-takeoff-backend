@@ -16,6 +16,7 @@ pdf2image
 pydantic
 python-multipart
 pandas
+openpyxl
 scikit-image
 opencv-python
 numpy
