@@ -1,5 +1,6 @@
 import os
 import sys
+import re
 import logging
 from functools import partial
 from datetime import timedelta, datetime, date, time
@@ -1365,3 +1366,59 @@ async def compute_takeoff(request: Request):
     insert_takeoff(drywall_takeoff, index, plan_id, user_id, project_id, revision_number, bigquery_client, CREDENTIALS)
     logging.info("SYSTEM: Drywall Takeoff Computed Successfully for the provided Floorplan")
     return respond_with_UI_payload(drywall_takeoff)
+
+@app.get("/insert_templates")
+async def insert_templates():
+    def parse_fire_rating(description: str):
+        if "TYPE C" in description:
+            return "Type C"
+        if "TYPE X" in description:
+            return "Type X"
+        return None
+
+    def parse_lightweight(description: str):
+        return "LITE" in description.upper()
+
+    def parse_wide_stretch(description: str):
+        return "WIDE-STRETCH" in description.upper()
+
+    def parse_thickness(description: str):
+        match = re.search(r'(\d+\/\d+)"', description)
+        if match:
+            fraction = match.group(1)
+            numerator, denominator = fraction.split("/")
+            return float(numerator) / float(denominator)
+        return None
+
+    def generate_random_colors(n, seed=0):
+        rng = np.random.default_rng(seed)
+        colors = rng.integers(0, 256, size=(n, 3), dtype=np.uint8)
+
+        return [dict(r=color[0], g=color[1], b=color[2]) for color in colors]
+
+    dataframe = pd.read_excel("Drywall_P_Code_20260122.xlsx")
+    rows_to_insert = list()
+    product_color_codes = generate_random_colors(dataframe.size)
+
+    for (_, row), product_color_code in zip(dataframe.iterrows(), product_color_codes):
+        sku_description = str(row["user11"]).upper()
+
+        parsed_row = {
+            "sku_code": row["user10"],
+            "sku_description": row["user11"],
+            "product_cat_code": int(row["PRODUCT_CAT_CODE"]),
+            "product_cat_description": row["PRODUCT_CAT_DESC"],
+            "thickness_inches": parse_thickness(sku_description),
+            "fire_rating": parse_fire_rating(sku_description),
+            "is_lightweight": parse_lightweight(sku_description),
+            "is_wide_stretch": parse_wide_stretch(sku_description),
+            "color_code": product_color_code
+        }
+
+        rows_to_insert.append(parsed_row)
+
+    error = bigquery_client.insert_rows_json(CREDENTIALS["GBQServer"]["table_name_sku"], rows_to_insert)
+    if error:
+        logging.info(f"SYSTEM: Template insertion failed with error: {error}")
+    else:
+        logging.info("SYSTEM: Templates successfully inserted")
