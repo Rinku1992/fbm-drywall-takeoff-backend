@@ -1343,7 +1343,15 @@ async def compute_takeoff(request: Request):
         drywall_count = 0
         for drywall in wall["surfaces_drywall"]:
             if drywall["enabled"]:
-                drywall_takeoff["per_drywall"]["wall"][drywall["type"]] += surface_area
+                waste_factor = drywall["waste_factor"]
+                if waste_factor.find('%') != -1:
+                    waste_factor = float(waste_factor.strip('%')) / 100
+                else:
+                    try:
+                        waste_factor = float(waste_factor)
+                    except ValueError:
+                        waste_factor = 0
+                drywall_takeoff["per_drywall"]["wall"][drywall["type"]] += surface_area * (1 + waste_factor)
                 drywall_count += 1
         drywall_takeoff["total"]["wall"] += drywall_count * surface_area
     for polygon in polygons_JSON:
@@ -1353,7 +1361,15 @@ async def compute_takeoff(request: Request):
             polygon["slope"],
             polygon["tilt_axis"]
         )
-        drywall_takeoff["per_drywall"]["roof"][polygon["surface_drywall"]["type"]] += surface_area
+        waste_factor = polygon["surface_drywall"]["waste_factor"]
+        if waste_factor.find('%') != -1:
+            waste_factor = float(waste_factor.strip('%')) / 100
+        else:
+            try:
+                waste_factor = float(waste_factor)
+            except ValueError:
+                waste_factor = 0
+        drywall_takeoff["per_drywall"]["roof"][polygon["surface_drywall"]["type"]] += surface_area * (1 + waste_factor)
         drywall_takeoff["total"]["roof"] += surface_area
 
     drywall_takeoff["total"]["wall"] = round(drywall_takeoff["total"]["wall"], 2)
