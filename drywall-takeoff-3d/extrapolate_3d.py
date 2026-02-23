@@ -291,6 +291,7 @@ class Extrapolate3D(FloorPlan):
                     fire_rating=polygon_type["fire_rating"],
                     recommendation=polygon_type["recommendation"],
                     color=polygon_type["color"],
+                    waste_factor=polygon_type["waste_factor"],
                 )
             )
         self._walls_3d.append(wall)
@@ -347,7 +348,8 @@ class Extrapolate3D(FloorPlan):
             surface_drywall=dict(
                 polygon=self._extrude_roof_3d(polygon["vertices"], polygon["slope"], polygon["tilt_axis"], height_in_pixels, width_in_pixels),
                 type=polygon["polygon_drywall"]["type"],
-                color=polygon["polygon_drywall"]["color"]
+                color=polygon["polygon_drywall"]["color"],
+                waste_factor=polygon["polygon_drywall"]["waste_factor"],
             )
         )
         self._polygons_3d.append(polygon)
