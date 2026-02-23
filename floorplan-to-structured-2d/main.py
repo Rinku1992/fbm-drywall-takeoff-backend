@@ -158,6 +158,7 @@ async def floorplan_to_2d(request: Request):
                 offset=(0, 0),
                 contour_root_vertices=external_contour,
                 scales_architectural=floor_plan_modeller_2d.scales_architectural,
+                drywall_choices_color_codes={drywall_template["sku_variant"]: drywall_template["color_code"][::-1] for drywall_template in DRYWALL_TEMPLATES},
             )
     insert_model_2d(
         dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
