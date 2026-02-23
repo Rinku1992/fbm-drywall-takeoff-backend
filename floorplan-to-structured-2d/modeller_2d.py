@@ -22,9 +22,7 @@ from prompt import (
     DRYWALL_PREDICTOR_CALIFORNIA,
     SCALE_AND_CEILING_HEIGHT_DETECTOR,
     WALL_RECTIFIER,
-    DRYWALL_CHOICES,
     CEILING_CHOICES,
-    COLOR_CODES_DRYWALLS,
 )
 
 __all__ = ["FloorPlan2D"]
@@ -995,6 +993,7 @@ class FloorPlan2D(FloorPlan):
         walls,
         area_target,
         polygons_pts,
+        drywall_templates,
         floor_plan_path,
         transcription_block_with_centroids,
         walls_unnormalized,
@@ -1055,7 +1054,7 @@ class FloorPlan2D(FloorPlan):
         transcription_entries = list()
         for transcription, centroid in nearest_transcription_blocks.items():
             transcription_entries.append(dict(text=transcription, centroid=dict(X=centroid[0], Y=centroid[1])))
-        system = Content(role="model", parts=[Part.from_text(DRYWALL_PREDICTOR_CALIFORNIA)])
+        system = Content(role="model", parts=[Part.from_text(DRYWALL_PREDICTOR_CALIFORNIA.format(drywall_templates=drywall_templates))])
         _, canvas_buffer_array = cv2.imencode(".png", canvas_cropped)
         bytes_canvas = canvas_buffer_array.tobytes()
         perimeter_lines = list()
@@ -1134,6 +1133,7 @@ class FloorPlan2D(FloorPlan):
         area,
         perimeter_walls,
         polygons,
+        drywall_templates,
         scale,
         height_default,
         floor_plan_path,
@@ -1172,6 +1172,7 @@ class FloorPlan2D(FloorPlan):
             perimeter_walls,
             area,
             polygons_pts_normalized,
+            drywall_templates,
             floor_plan_path,
             transcription_block_with_centroids,
             perimeter_walls_unnormalized,
@@ -1797,35 +1798,16 @@ class FloorPlan2D(FloorPlan):
             size=Path(svg_path).stat().st_size
         )
 
-    def load_drywall_choices(self, walls_2d_JSON, polygons_2d_JSON, all_unique=True):
-        def add_color_codes(drywalls, drywall_type):
-            drywalls_color_coded = dict()
-            for drywall in drywalls:
-                if drywall_type == "CEILING":
-                    drywalls_color_coded[drywall] = COLOR_CODES_DRYWALLS["CEILINGS"].get(drywall, (250, 100, 0))
-                if drywall_type == "WALL":
-                    drywalls_color_coded[drywall] = COLOR_CODES_DRYWALLS["WALLS"].get(drywall, (250, 100, 0))
-            return drywalls_color_coded
-        if all_unique:
-            unique_drywalls_walls = set()
-            for wall in walls_2d_JSON:
-                for drywall in wall["polygons_drywall"]:
-                    unique_drywalls_walls.add(drywall["type"])
-            unique_drywalls_walls.discard("None")
-            unique_drywalls_roofs = set()
-            for polygon in polygons_2d_JSON:
-                unique_drywalls_roofs.add(polygon["polygon_drywall"]["type"])
-            unique_drywalls_roofs.discard("None")
+    def load_drywall_choices(self, walls_2d_JSON, polygons_2d_JSON, drywall_templates):
         for wall in walls_2d_JSON:
-            if all_unique:
-                wall["drywall_choices"] = add_color_codes(list(unique_drywalls_walls), "WALL")
-            else:
-                wall["drywall_choices"] = add_color_codes(DRYWALL_CHOICES.get(wall["type"], list()), "WALL")
+            wall["drywall_choices"] = {drywall_template["sku_variant"]: drywall_template["color_code"][::-1] for drywall_template in drywall_templates}
+            wall["drywall_choices"].update(dict(DISABLED=[255, 0, 0]))
+            for polygon_drywall in wall["polygons_drywall"]:
+                polygon_drywall["color"] = polygon_drywall["color"][::-1]
         for polygon in polygons_2d_JSON:
-            if all_unique:
-                polygon["drywall_choices"] = add_color_codes(list(unique_drywalls_roofs), "CEILING")
-            else:
-                polygon["drywall_choices"] = add_color_codes(DRYWALL_CHOICES.get(polygon["type"], list()), "CEILING")
+            polygon["drywall_choices"] = {drywall_template["sku_variant"]: drywall_template["color_code"][::-1] for drywall_template in drywall_templates}
+            polygon["drywall_choices"].update(dict(DISABLED=[255, 0, 0]))
+            polygon["polygon_drywall"]["color"] = polygon["polygon_drywall"]["color"][::-1]
 
     def load_ceiling_choices(self, polygons_2d_JSON):
         for polygon in polygons_2d_JSON:
@@ -1860,7 +1842,7 @@ class FloorPlan2D(FloorPlan):
         for polygon in polygons:
             canvas_to_overlay = canvas.copy()
             vertices = np.array(polygon["vertices"])
-            color = tuple(polygon["polygon_drywall"]["color"])
+            color = tuple(polygon["polygon_drywall"]["color"][::-1])
             cv2.fillPoly(canvas_to_overlay, pts=[vertices], color=color)
             canvas = cv2.addWeighted(canvas_to_overlay, 0.3, canvas, 0.7, 0)
 
@@ -1876,9 +1858,9 @@ class FloorPlan2D(FloorPlan):
                 ], np.int32)
                 pts = pts.reshape((-1, 1, 2))
                 if drywall["enabled"]:
-                    canvas = cv2.fillPoly(canvas, pts=[pts], color=drywall["color"])
+                    canvas = cv2.fillPoly(canvas, pts=[pts], color=drywall["color"][::-1])
                 else:
-                    canvas = cv2.fillPoly(canvas, pts=[pts], color=(0, 0, 255))
+                    canvas = cv2.fillPoly(canvas, pts=[pts], color=(255, 0, 0))
                 if overlay_enabled:
                     canvas_annotation_origin_X = int(round((drywall["polygon"][0]['x'] + drywall["polygon"][1]['x'] + drywall["polygon"][2]['x'] + drywall["polygon"][3]['x']) / 4))
                     canvas_annotation_origin_Y = int(round((drywall["polygon"][0]['y'] + drywall["polygon"][1]['y'] + drywall["polygon"][2]['y'] + drywall["polygon"][3]['y']) / 4))
@@ -1942,6 +1924,7 @@ class FloorPlan2D(FloorPlan):
         output_path="/tmp/blueprint_model_2d.png",
         transcription_block_with_centroids=dict(),
         transcription_headers_and_footers=dict(),
+        drywall_templates=None,
     ):
         image_GRAY = self.read_floor_plan(image_path)
         output_path = Path(output_path)
@@ -1979,6 +1962,7 @@ class FloorPlan2D(FloorPlan):
                         polygon_area_normalized,
                         polygon_perimeter_walls_normalized,
                         drywall_polygons,
+                        drywall_templates,
                         (scale_x, scale_y),
                         height_default,
                         floor_plan_path,
