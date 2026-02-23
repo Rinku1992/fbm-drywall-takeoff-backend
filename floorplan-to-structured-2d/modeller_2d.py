@@ -1841,7 +1841,7 @@ class FloorPlan2D(FloorPlan):
         for polygon in polygons:
             canvas_to_overlay = canvas.copy()
             vertices = np.array(polygon["vertices"])
-            color = tuple(polygon["polygon_drywall"]["color"][::-1])
+            color = tuple(polygon["polygon_drywall"]["color"])
             cv2.fillPoly(canvas_to_overlay, pts=[vertices], color=color)
             canvas = cv2.addWeighted(canvas_to_overlay, 0.3, canvas, 0.7, 0)
 
@@ -1857,9 +1857,9 @@ class FloorPlan2D(FloorPlan):
                 ], np.int32)
                 pts = pts.reshape((-1, 1, 2))
                 if drywall["enabled"]:
-                    canvas = cv2.fillPoly(canvas, pts=[pts], color=drywall["color"][::-1])
+                    canvas = cv2.fillPoly(canvas, pts=[pts], color=drywall["color"])
                 else:
-                    canvas = cv2.fillPoly(canvas, pts=[pts], color=(255, 0, 0))
+                    canvas = cv2.fillPoly(canvas, pts=[pts], color=(0, 0, 255))
                 if overlay_enabled:
                     canvas_annotation_origin_X = int(round((drywall["polygon"][0]['x'] + drywall["polygon"][1]['x'] + drywall["polygon"][2]['x'] + drywall["polygon"][3]['x']) / 4))
                     canvas_annotation_origin_Y = int(round((drywall["polygon"][0]['y'] + drywall["polygon"][1]['y'] + drywall["polygon"][2]['y'] + drywall["polygon"][3]['y']) / 4))
