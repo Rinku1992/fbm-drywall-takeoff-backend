@@ -134,10 +134,11 @@ async def floorplan_to_2d(request: Request):
             model_2d_path=f"/tmp/{project_id}/{plan_id}/{user_id}/walls_2d_{str(page_number).zfill(2)}.json",
             floor_plan_path=floor_plan_processed_path,
             transcription_block_with_centroids=transcription_block_with_centroids,
-            transcription_headers_and_footers=transcription_headers_and_footers
+            transcription_headers_and_footers=transcription_headers_and_footers,
+            drywall_templates=DRYWALL_TEMPLATES,
         )
         if walls_2d and polygons:
-            floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons)
+            floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons, DRYWALL_TEMPLATES)
             floor_plan_modeller_2d.load_ceiling_choices(polygons)
             #if verbose.upper() == "TRUE":
             model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path)
