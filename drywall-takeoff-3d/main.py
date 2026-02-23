@@ -1393,7 +1393,22 @@ async def insert_templates():
 
     def generate_random_colors(n, seed=0):
         rng = np.random.default_rng(seed)
-        colors = rng.integers(0, 256, size=(n, 3))
+        total_colors = 256**3
+        excluded_index = 255 * 256 * 256 + 0 * 256 + 0
+
+        indices = rng.choice(
+            total_colors - 1,
+            size=n,
+            replace=False
+        )
+
+        indices = np.where(indices >= excluded_index, indices + 1, indices)
+        colors = list()
+        for index in indices:
+            r = index // (256 * 256)
+            g = (index // 256) % 256
+            b = index % 256
+            colors.append((int(r), int(g), int(b)))
 
         return [dict(r=int(color[0]), g=int(color[1]), b=int(color[2])) for color in colors]
 
