@@ -1345,7 +1345,10 @@ async def compute_takeoff(request: Request):
             if drywall["enabled"]:
                 waste_factor = drywall["waste_factor"]
                 if waste_factor.find('%') != -1:
-                    waste_factor = float(waste_factor.strip('%')) / 100
+                    if waste_factor.find('-') != -1:
+                        waste_factor = float(waste_factor.strip('%').split('-')[1]) / 100
+                    else:
+                        waste_factor = float(waste_factor.strip('%')) / 100
                 else:
                     try:
                         waste_factor = float(waste_factor)
@@ -1363,7 +1366,10 @@ async def compute_takeoff(request: Request):
         )
         waste_factor = polygon["surface_drywall"]["waste_factor"]
         if waste_factor.find('%') != -1:
-            waste_factor = float(waste_factor.strip('%')) / 100
+            if waste_factor.find('-') != -1:
+                waste_factor = float(waste_factor.strip('%').split('-')[1]) / 100
+            else:
+                waste_factor = float(waste_factor.strip('%')) / 100
         else:
             try:
                 waste_factor = float(waste_factor)
