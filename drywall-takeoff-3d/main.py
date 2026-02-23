@@ -1036,27 +1036,6 @@ async def update_floorplan_to_2d(request: Request):
     insert_model_2d_revision(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), scale, index, plan_id, user_id, project_id, bigquery_client, CREDENTIALS)
     logging.info("SYSTEM: Floorplan 2D Model Updated Successfully")
 
-    logging.info("SYSTEM: Generating Floorplan 3D Model")
-    model_2d_path = "/tmp/walls_2d.json"
-    with open(model_2d_path, 'w') as f:
-        json.dump(walls_2d_JSON, f)
-    polygons_path = "/tmp/polygons.json"
-    with open(polygons_path, 'w') as f:
-        json.dump(polygons_JSON, f)
-    hyperparameters = load_hyperparameters()
-    floor_plan_modeller_3d = Extrapolate3D(hyperparameters)
-    walls_3d, polygons_3d, walls_3d_path, polygons_3d_path = floor_plan_modeller_3d.extrapolate(model_2d_path=model_2d_path, polygons_path=polygons_path)
-    walls_3d, polygons_3d = floor_plan_modeller_3d.extrapolate_wall_heights_given_polygons(walls_3d, polygons_3d)
-    gltf_paths = floor_plan_modeller_3d.gltf(model_2d_path=model_2d_path, polygons_path=polygons_path)
-    model_3d_path = floor_plan_modeller_3d.save_plot_3d(walls_3d_path, polygons_3d_path)
-    upload_floorplan(model_3d_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
-    for gltf_path in gltf_paths:
-        upload_floorplan(gltf_path, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2), directory="gltf")
-    insert_model_3d(dict(walls_3d=walls_3d, polygons=polygons_3d), scale, index, plan_id, user_id, project_id, bigquery_client, CREDENTIALS)
-    logging.info("SYSTEM: A 3D Model of the Floorplan Generated Successfully")
-
-    return respond_with_UI_payload(dict(walls_3d=walls_3d, polygons=polygons_3d))
-
 
 @app.post("/update_scale")
 async def update_scale(request: Request):
