@@ -1800,12 +1800,12 @@ class FloorPlan2D(FloorPlan):
 
     def load_drywall_choices(self, walls_2d_JSON, polygons_2d_JSON, drywall_templates):
         for wall in walls_2d_JSON:
-            wall["drywall_choices"] = {drywall_template["sku_variant"]: drywall_template["color_code"][::-1] for drywall_template in drywall_templates}
+            wall["drywall_choices"] = [drywall_template["sku_variant"] for drywall_template in drywall_templates]
             wall["drywall_choices"].update(dict(DISABLED=[255, 0, 0]))
             for polygon_drywall in wall["polygons_drywall"]:
                 polygon_drywall["color"] = polygon_drywall["color"][::-1]
         for polygon in polygons_2d_JSON:
-            polygon["drywall_choices"] = {drywall_template["sku_variant"]: drywall_template["color_code"][::-1] for drywall_template in drywall_templates}
+            polygon["drywall_choices"] = [drywall_template["sku_variant"] for drywall_template in drywall_templates]
             polygon["drywall_choices"].update(dict(DISABLED=[255, 0, 0]))
             polygon["polygon_drywall"]["color"] = polygon["polygon_drywall"]["color"][::-1]
 
