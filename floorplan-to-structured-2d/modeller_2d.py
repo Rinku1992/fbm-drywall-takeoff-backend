@@ -1079,7 +1079,7 @@ class FloorPlan2D(FloorPlan):
             model_polygon = {
                 "ceiling": {
                     "room_name": '',
-                    "area": -1,
+                    "area": area_target,
                     "ceiling_type": "Flat",
                     "height": height_default,
                     "slope": 0,
@@ -1108,7 +1108,7 @@ class FloorPlan2D(FloorPlan):
                     {
                         "room_name": '',
                         "length": length,
-                        "width": -1,
+                        "width": self._hyperparameters["modelling"]["width_in_feet"],
                         "height": height_default,
                         "wall_type": '',
                         "drywall_assembly": {
