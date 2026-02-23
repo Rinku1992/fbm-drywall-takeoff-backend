@@ -148,6 +148,8 @@ async def floorplan_to_2d(request: Request):
             floorplan_baseline, floorplan_page_statistics = floor_plan_modeller_2d.scale_to(floor_plan_path=floor_plan_processed_path)
             floorplan_baseline_page_source = upload_floorplan(floorplan_baseline, user_id, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
 
+            drywall_choices_color_codes={drywall_template["sku_variant"]: drywall_template["color_code"][::-1] for drywall_template in DRYWALL_TEMPLATES}
+            drywall_choices_color_codes.update(dict(DISABLED=[255, 0, 0]))
             metadata = dict(
                 size_in_bytes=floorplan_page_statistics["size"],
                 height_in_pixels=floorplan_page_statistics["height_in_pixels"],
@@ -158,7 +160,7 @@ async def floorplan_to_2d(request: Request):
                 offset=(0, 0),
                 contour_root_vertices=external_contour,
                 scales_architectural=floor_plan_modeller_2d.scales_architectural,
-                drywall_choices_color_codes={drywall_template["sku_variant"]: drywall_template["color_code"][::-1] for drywall_template in DRYWALL_TEMPLATES},
+                drywall_choices_color_codes=drywall_choices_color_codes,
             )
     insert_model_2d(
         dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
