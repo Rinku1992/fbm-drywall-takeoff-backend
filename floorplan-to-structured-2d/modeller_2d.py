@@ -1799,13 +1799,13 @@ class FloorPlan2D(FloorPlan):
         )
 
     def load_drywall_choices(self, walls_2d_JSON, polygons_2d_JSON, drywall_templates):
+        drywall_choices = ["DISABLED"] + [drywall_template["sku_variant"] for drywall_template in drywall_templates]
         for wall in walls_2d_JSON:
-            wall["drywall_choices"] = ["DISABLED"] + [drywall_template["sku_variant"] for drywall_template in drywall_templates]
+            wall["drywall_choices"] = drywall_choices
             for polygon_drywall in wall["polygons_drywall"]:
                 polygon_drywall["color"] = polygon_drywall["color"][::-1]
         for polygon in polygons_2d_JSON:
-            polygon["drywall_choices"] = ["DISABLED"] + [drywall_template["sku_variant"] for drywall_template in drywall_templates]
-            polygon["drywall_choices"].update(dict(DISABLED=[255, 0, 0]))
+            polygon["drywall_choices"] = drywall_choices
             polygon["polygon_drywall"]["color"] = polygon["polygon_drywall"]["color"][::-1]
 
     def load_ceiling_choices(self, polygons_2d_JSON):
