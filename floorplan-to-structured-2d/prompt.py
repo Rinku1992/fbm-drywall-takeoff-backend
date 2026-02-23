@@ -171,38 +171,11 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
         - Moisture and mold resistance needs
         - Typical residential drywall standards in California
 
-        You must support all common drywall types including,
+        You must only support the drywall types from the provided templates,
+        DRYWALL TEMPLATES: {drywall_templates}
 
-          DRYWALLS FOR WALLS:
-            - Standard gypsum board -> color_code: (245, 66, 149)
-            - Type X fire-rated drywall -> color_code: (245, 66, 191)
-            - Moisture-resistant (green board) -> color_code: (221, 66, 245)
-            - Mold-resistant drywall -> color_code: (66, 141, 245)
-            - Cement board / backer board (where required) -> color_code: (66, 245, 72)
-            - Double-layer assemblies -> color_code: (221, 245, 66)
-            - Shaft wall assemblies (if applicable) -> color_code: (163, 24, 8)
-
-          DRYWALLS FOR CEILINGS:
-            Ceiling Type: Flat
-              - 1/2" regular -> color_code: (240, 57, 140)
-              - 5/8" regular -> color_code: (245, 66, 149)
-              - Type X -> color_code: (245, 66, 191)
-            Ceiling Type: Sloped / Vaulted / Cathedral
-              - 5/8" lightweight -> color_code: (221, 66, 245)
-            Ceiling Type: Curved / Cove
-              - 1/4" flex (layered) -> color_code: (66, 141, 245)
-            Ceiling Type: Tray / Coffered / Barrel
-              - 5/8" + Level 5 finish -> color_code: (66, 245, 72)
-              - 3/8" flex (layered) -> color_code: (60, 240, 70)
-            Ceiling Type: Soffit
-              - 5/8" bottom, 1/2" sides -> color_code: (221, 245, 66)
-            Ceiling Type: Garage / Rated
-              - 5/8" Type X -> color_code: (163, 24, 8)
-            Ceiling Type: Luxury Custom
-              - None -> color_code: (82, 84, 82)
-
-        **STRICTLY** Use the same drywall -> color map as provided above to map each of the listed drywalls to their color codes and mention the confidence score associated with each of the drywall prediction.
-        All of the provided drywall types are associated with a definite color code presented in BGR (blue, green, red) format. Use different color codes which are uniquely identifiable from the above color codes for the drywalls which are not included in the above list.
+        **STRICTLY** use the field `sku_variant` which contains both `sku_id` and `sku_description` as the target drywall material and the field `color_code` to map to it's target color code accompanied by the fields `fire_rating` aand `thickness` to derive it's fire rating and thickness respectively and mention the confidence score associated with each of the drywall material prediction.
+        Do not invent other drywall materials or color codes which are not included into the template list. All of the provided drywall types are associated with a definite color code presented in BGR (blue, green, red) format.
 
   OUTPUT:
     Your output must be precise, code-aligned, and structured. Do not hallucinate dimensions or materials. If information is ambiguous, state assumptions explicitly.
@@ -304,9 +277,6 @@ class ScaleAndCeilingHeightDetectorResponse(BaseModel):
     ceiling_height: Union[float, int]
     scale: str
 
-DRYWALL_CHOICES = {
-}
-
 CEILING_CHOICES = [
     "Flat",
     "Single-sloped",
@@ -324,29 +294,3 @@ CEILING_CHOICES = [
     "Angled-Plane",
     "Boxed-Beam"
 ]
-
-COLOR_CODES_DRYWALLS = {
-    "WALLS": {
-        "Standard gypsum board": (245, 66, 149),
-        "Type X fire-rated drywall": (245, 66, 191),
-        "Moisture-resistant (green board)": (221, 66, 245),
-        "Mold-resistant drywall": (66, 141, 245),
-        "Cement board / backer board (where required)": (66, 245, 72),
-        "Double-layer assemblies": (221, 245, 66),
-        "Shaft wall assemblies (if applicable)": (163, 24, 8),
-        "DISABLED": (0, 0, 255)
-    },
-    "CEILINGS": {
-        "1/2\" regular": (240, 57, 140),
-        "1/2\" regular gypsum board": (240, 50, 135),
-        "5/8\" regular": (245, 66, 149),
-        "5/8\" Type X fire-rated drywall": (245, 66, 191),
-        "5/8\" lightweight gypsum board": (221, 66, 245),
-        "1/4\" flex (layered)": (66, 141, 245),
-        "5/8\" + Level 5 finish": (66, 245, 72),
-        "3/8\" flex (layered)": (60, 240, 70),
-        "5/8\" bottom, 1/2\" sides": (221, 245, 66),
-        "5/8\" Type X": (163, 24, 8),
-        "DISABLED": (0, 0, 255)
-    }
-}
