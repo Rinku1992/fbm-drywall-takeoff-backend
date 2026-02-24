@@ -39,7 +39,7 @@ def sha256(path, chunk_size=8192):
             sha256.update(chunk)
     return sha256.hexdigest()
 
-def upload_floorplan(plan_path, user_id, plan_id, project_id, credentials, index=None, directory=None):
+def upload_floorplan(plan_path, plan_id, project_id, credentials, index=None, directory=None):
     client = CloudStorageClient()
     page_number = Path(plan_path.stem).suffix
     if page_number:
@@ -49,14 +49,14 @@ def upload_floorplan(plan_path, user_id, plan_id, project_id, credentials, index
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
     if directory:
         if index:
-            blob_path = f"{project_id.lower()}/{plan_id.lower()}/{user_id.lower()}/{index}/{directory}/{blob_object_name}"
+            blob_path = f"{project_id.lower()}/{plan_id.lower()}/{index}/{directory}/{blob_object_name}"
         else:
-            blob_path = f"{project_id.lower()}/{plan_id.lower()}/{user_id.lower()}/{directory}/{blob_object_name}"
+            blob_path = f"{project_id.lower()}/{plan_id.lower()}/{directory}/{blob_object_name}"
     else:
         if index:
-            blob_path = f"{project_id.lower()}/{plan_id.lower()}/{user_id.lower()}/{index}/{blob_object_name}"
+            blob_path = f"{project_id.lower()}/{plan_id.lower()}/{index}/{blob_object_name}"
         else:
-            blob_path = f"{project_id.lower()}/{plan_id.lower()}/{user_id.lower()}/{blob_object_name}"
+            blob_path = f"{project_id.lower()}/{plan_id.lower()}/{blob_object_name}"
     blob = bucket.blob(blob_path)
 
     blob.upload_from_filename(plan_path)
