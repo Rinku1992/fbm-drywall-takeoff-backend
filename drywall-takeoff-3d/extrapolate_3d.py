@@ -319,7 +319,8 @@ class Extrapolate3D(FloorPlan):
             elif tilt_axis == "vertical":
                 d = cx - x
             else:
-                raise ValueError("tilt_axis must be 'horizontal' or 'vertical'")
+                slope = 0
+                d = cx - x
 
             height_offset = (d / half_span) * slope
             height_front_face = height_in_pixels - height_offset
