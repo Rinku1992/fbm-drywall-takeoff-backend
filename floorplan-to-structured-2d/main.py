@@ -2,7 +2,6 @@ import logging
 from pathlib import Path
 import json
 import requests
-from functools import partial
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -99,8 +98,7 @@ async def floorplan_to_2d(request: Request):
 
     hyperparameters = load_hyperparameters()
     vertex_ai_client, generation_config = load_vertex_ai_client(CREDENTIALS)
-    vertex_ai_client_partial = partial(vertex_ai_client.generate_content, generation_config=generation_config)
-    floor_plan_modeller_2d = FloorPlan2D(hyperparameters, vertex_ai_client_partial)
+    floor_plan_modeller_2d = FloorPlan2D(hyperparameters, (vertex_ai_client, generation_config, CREDENTIALS["VertexAI"]["llm"]["max_retry"]))
 
     futures = dict()
     with ThreadPoolExecutor(max_workers=5) as executor:
