@@ -52,10 +52,10 @@ def respond_with_UI_payload(payload, status_code=200):
     )
 
 
-def download_floorplan(user_id, plan_id, project_id, credentials, destination_path="/tmp/floor_plan.PDF"):
+def download_floorplan(plan_id, project_id, credentials, destination_path="/tmp/floor_plan.PDF"):
     client = CloudStorageClient()
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
-    blob_path = f"{project_id.lower()}/{plan_id.lower()}/{user_id.lower()}/floor_plan.PDF"
+    blob_path = f"{project_id.lower()}/{plan_id.lower()}/floor_plan.PDF"
     blob = bucket.blob(blob_path)
 
     blob.download_to_filename(destination_path)
@@ -422,7 +422,7 @@ def insert_plan(
     sha_256 = ''
     if plan_id:
         pdf_path = Path("/tmp/floor_plan.PDF")
-        download_floorplan(user_id, plan_id, project_id, credentials, destination_path=pdf_path)
+        download_floorplan(plan_id, project_id, credentials, destination_path=pdf_path)
         sha_256 = sha256(pdf_path)
     if not plan_id:
         plan_id = payload_plan.plan_id
@@ -767,7 +767,7 @@ async def floorplan_to_2d(request: Request):
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
 
     pdf_path = Path("/tmp/floor_plan.PDF")
-    GCS_URL_floorplan = download_floorplan(user_id, plan_id, project_id, CREDENTIALS, destination_path=pdf_path)
+    GCS_URL_floorplan = download_floorplan(plan_id, project_id, CREDENTIALS, destination_path=pdf_path)
     logging.info("SYSTEM: Floorplan Downloaded")
     plan_duplicate = is_duplicate(bigquery_client, CREDENTIALS, pdf_path, project_id)
     if plan_duplicate:
@@ -1297,7 +1297,7 @@ async def compute_takeoff(request: Request):
     query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
     scale = query_output.scale
     pdf_path = Path("/tmp/floor_plan.PDF")
-    download_floorplan(user_id, plan_id, project_id, CREDENTIALS, destination_path=pdf_path)
+    download_floorplan(plan_id, project_id, CREDENTIALS, destination_path=pdf_path)
 
     if not walls_3d_JSON:
         if revision_number:
