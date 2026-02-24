@@ -4,12 +4,16 @@ import sys
 import os
 from pathlib import Path
 from ruamel.yaml import YAML
+from time import sleep
+
+from random import uniform
 
 import vertexai
 from vertexai.generative_models import GenerativeModel
 from google.cloud.storage import Client as CloudStorageClient
 from google.cloud import bigquery
 from fastapi.encoders import jsonable_encoder
+from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, DeadlineExceeded
 
 from transcriber import Transcriber
 
@@ -186,3 +190,29 @@ def load_templates(bigquery_client, credentials):
         product_template["color_code"] = [product_template["color_code"]['b'], product_template["color_code"]['g'], product_template["color_code"]['r']]
         product_templates_target.append(product_template)
     return jsonable_encoder(product_templates_target)
+
+def phoenix_call(generate_content_lambda, max_retry=5, base_delay=1.0, pydantic_model=None):
+    n_iterations = 0
+    temperature = 0
+    while n_iterations < max_retry:
+        try:
+            response = generate_content_lambda(temperature)
+            if pydantic_model:
+                json_response = json.loads(response.text.strip("`json").replace("{{", '{').replace("}}", '}'))
+                response_json = pydantic_model(**json_response)
+                return response_json, response.text
+            return response.text
+        except (ResourceExhausted, ServiceUnavailable, DeadlineExceeded) as e:
+            n_iterations += 1
+            if n_iterations >= max_retry:
+                raise e
+            sleep_time = base_delay * (2 ** (n_iterations - 1)) + uniform(0, 0.5)
+            sleep(sleep_time)
+            logging.warning(f"SYSTEM: {e}: RETRYING ...")
+        except Exception as e:
+            n_iterations += 1
+            if n_iterations >= max_retry:
+                raise e
+            temperature = min(0.5 * (n_iterations + 1) / max_retry, 0.5)
+            logging.warning(f"SYSTEM: Response Generation/Parsing failed with ERROR: {e}")
+            logging.warning(f"SYSTEM: RETRYING with TEMPERATURE: {temperature}")
