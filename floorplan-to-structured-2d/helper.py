@@ -199,8 +199,8 @@ def phoenix_call(generate_content_lambda, max_retry=5, base_delay=1.0, pydantic_
             response = generate_content_lambda(temperature)
             if pydantic_model:
                 json_response = json.loads(response.text.strip("`json").replace("{{", '{').replace("}}", '}'))
-                response_json = pydantic_model(**json_response)
-                return response_json, response.text
+                response_json_pydantic = pydantic_model(**json_response)
+                return response_json_pydantic, json_response
             return response.text
         except (ResourceExhausted, ServiceUnavailable, DeadlineExceeded) as e:
             n_iterations += 1
