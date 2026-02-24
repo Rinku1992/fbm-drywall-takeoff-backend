@@ -1,9 +1,14 @@
 from concurrent.futures import ThreadPoolExecutor
 import json
 from pathlib import Path
+from time import sleep
+import logging
+
+from random import uniform
 
 from google.cloud import vision
 from google.oauth2 import service_account
+from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, DeadlineExceeded
 import cv2
 
 __all__ = ["Transcriber"]
@@ -25,7 +30,8 @@ class Transcriber:
         kernel_parameters,
         n_horizontal_strides,
         image_array,
-        output_path
+        output_path,
+        max_retry
     ):
         X1 = h_stride_index * kernel_parameters["stride"]
         X2 = X1 + kernel_parameters["width"]
@@ -39,7 +45,24 @@ class Transcriber:
             content = f.read()
         image = vision.Image(content=content)
 
-        response = image_to_string_client.document_text_detection(image=image)
+        n_iterations = 0
+        base_delay = 1.0
+        while n_iterations < max_retry:
+            try:
+                response = image_to_string_client.document_text_detection(image=image)
+                break
+            except (ResourceExhausted, ServiceUnavailable, DeadlineExceeded) as e:
+                n_iterations += 1
+                if n_iterations >= max_retry:
+                    raise e
+                sleep_time = base_delay * (2 ** (n_iterations - 1)) + uniform(0, 0.5)
+                sleep(sleep_time)
+                logging.warning(f"SYSTEM: {e}: RETRYING ...")
+            except Exception as e:
+                n_iterations += 1
+                if n_iterations >= max_retry:
+                    raise e
+
         response_json = json.loads(response.__class__.to_json(response))
         if response_json["textAnnotations"]:
             text = response_json["textAnnotations"][0]["description"]
@@ -69,7 +92,7 @@ class Transcriber:
 
         return transcription_block_tiles_row_major
 
-    def transcribe(self, image_path: Path, filter_transciption_block_tiles_row_major_indexes=None):
+    def transcribe(self, image_path: Path, filter_transciption_block_tiles_row_major_indexes=None, max_retry=5):
         credentials = service_account.Credentials.from_service_account_file(self._credentials["service_drywall_account_key"])
         vision_client = vision.ImageAnnotatorClient(credentials=credentials)
 
@@ -91,6 +114,7 @@ class Transcriber:
                         n_horizontal_strides,
                         image,
                         "ocr_clip",
+                        max_retry,
                     ))
 
             [future.result() for future in futures]
