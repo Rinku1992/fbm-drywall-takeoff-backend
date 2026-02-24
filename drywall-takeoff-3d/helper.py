@@ -1,8 +1,11 @@
 import json
+import logging
 import hashlib
 from pathlib import Path
 import cv2
 from json.decoder import JSONDecodeError
+from time import sleep
+from random import uniform
 
 from google.cloud import bigquery
 from google.cloud.storage import Client as CloudStorageClient
@@ -10,8 +13,9 @@ import google.auth.transport.requests
 from google.oauth2.service_account import IDTokenCredentials
 import vertexai
 from vertexai.generative_models import GenerativeModel, Part, Content
+from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, DeadlineExceeded
 
-from prompt import ARCHITECTURAL_DRAWING_CLASSIFIER
+from prompt import ARCHITECTURAL_DRAWING_CLASSIFIER, ArchitecturalDrawingClassifierResponse
 
 
 def load_bigquery_client(credentials):
@@ -177,7 +181,8 @@ def load_vertex_ai_client(credentials, region="us-central1"):
     generation_config = credentials["VertexAI"]["llm"]["parameters"]
     return vertex_ai_client, generation_config
 
-def classify_plan(plan_path, vertex_ai_client):
+def classify_plan(plan_path, vertex_ai_client_parameters):
+    vertex_ai_client, vertex_ai_generation_config, vertex_ai_max_retry = vertex_ai_client_parameters
     plan_BGR = cv2.imread(plan_path)
     _, canvas_buffer_array = cv2.imencode(".png", plan_BGR)
     bytes_canvas = canvas_buffer_array.tobytes()
@@ -185,10 +190,44 @@ def classify_plan(plan_path, vertex_ai_client):
     query = Content(role="user", parts=[
         Part.from_data(data=bytes_canvas, mime_type="image/png")
     ])
-    response = vertex_ai_client(contents=[system, query])
+    contents = [system, query]
     try:
-        plan_type = json.loads(response.text.strip("`json").replace("{{", '{').replace("}}", '}'))
-    except (JSONDecodeError, ValueError):
+        _, plan_type = phoenix_call(
+            lambda temperature: vertex_ai_client.generate_content(
+            contents=contents,
+            generation_config={**vertex_ai_generation_config, "temperature": temperature},
+            ),
+                max_retry=vertex_ai_max_retry,
+                pydantic_model=ArchitecturalDrawingClassifierResponse,
+        )
+    except Exception as e:
+        logging.warning(f"SYSTEM: Plan Classification has failed")
         plan_type = dict(plan_type="FLOOR_PLAN")
 
     return plan_type
+
+def phoenix_call(generate_content_lambda, max_retry=5, base_delay=1.0, pydantic_model=None):
+    n_iterations = 0
+    temperature = 0
+    while n_iterations < max_retry:
+        try:
+            response = generate_content_lambda(temperature)
+            if pydantic_model:
+                json_response = json.loads(response.text.strip("`json").replace("{{", '{').replace("}}", '}'))
+                response_json_pydantic = pydantic_model(**json_response)
+                return response_json_pydantic, json_response
+            return response.text
+        except (ResourceExhausted, ServiceUnavailable, DeadlineExceeded) as e:
+            n_iterations += 1
+            if n_iterations >= max_retry:
+                raise e
+            sleep_time = base_delay * (2 ** (n_iterations - 1)) + uniform(0, 0.5)
+            sleep(sleep_time)
+            logging.warning(f"SYSTEM: {e}: RETRYING ...")
+        except Exception as e:
+            n_iterations += 1
+            if n_iterations >= max_retry:
+                raise e
+            temperature = min(0.5 * (n_iterations + 1) / max_retry, 0.5)
+            logging.warning(f"SYSTEM: Response Generation/Parsing failed with ERROR: {e}")
+            logging.warning(f"SYSTEM: RETRYING with TEMPERATURE: {temperature}")
