@@ -140,11 +140,11 @@ async def floorplan_to_2d(request: Request):
             floor_plan_modeller_2d.load_ceiling_choices(polygons)
             #if verbose.upper() == "TRUE":
             model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path)
-            upload_floorplan(model_2d_path, user_id, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
+            upload_floorplan(model_2d_path, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
             #model_2d_path_overlay_enabled = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path, overlay_enabled=True)
-            #upload_floorplan(model_2d_path_overlay_enabled, user_id, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
+            #upload_floorplan(model_2d_path_overlay_enabled, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
             floorplan_baseline, floorplan_page_statistics = floor_plan_modeller_2d.scale_to(floor_plan_path=floor_plan_processed_path)
-            floorplan_baseline_page_source = upload_floorplan(floorplan_baseline, user_id, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
+            floorplan_baseline_page_source = upload_floorplan(floorplan_baseline, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
 
             drywall_choices_color_codes={drywall_template["sku_variant"]: drywall_template["color_code"][::-1] for drywall_template in DRYWALL_TEMPLATES}
             drywall_choices_color_codes.update(dict(DISABLED=[255, 0, 0]))
