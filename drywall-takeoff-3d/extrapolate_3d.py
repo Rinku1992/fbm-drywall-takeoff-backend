@@ -297,7 +297,7 @@ class Extrapolate3D(FloorPlan):
         self._walls_3d.append(wall)
 
     def _extrude_roof_3d(self, vertices, slope, tilt_axis, height_in_pixels, width_in_pixels):
-        if slope == 0:
+        if slope is None or slope == 0:
             height_front_face = height_in_pixels - (width_in_pixels // 2)
             height_back_face = height_in_pixels + (width_in_pixels // 2)
             front_face = [dict(x=vertex[0], y=vertex[1], z=height_front_face) for vertex in vertices]
