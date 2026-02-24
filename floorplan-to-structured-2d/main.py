@@ -93,7 +93,7 @@ async def floorplan_to_2d(request: Request):
     verbose = parameters.get("verbose") or body.get("verbose")
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
 
-    floor_plan_processed_path = download_floorplan(user_id, plan_id, project_id, CREDENTIALS, str(page_number).zfill(2))
+    floor_plan_processed_path = download_floorplan(plan_id, project_id, CREDENTIALS, str(page_number).zfill(2))
     logging.info(f"SYSTEM: Processed Floorplan Downloaded: Page Number: {page_number}")
 
     hyperparameters = load_hyperparameters()
@@ -118,7 +118,7 @@ async def floorplan_to_2d(request: Request):
             floor_plan_processed_path,
         )
     wall_segmented_path = futures["floorplan_to_walls"].result()
-    upload_floorplan(wall_segmented_path, user_id, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
+    upload_floorplan(wall_segmented_path, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
     logging.info(f"SYSTEM: Wall Detection Completed from PAGE: {page_number}")
 
     transcription_block_with_centroids, transcription_headers_and_footers = futures["transcriber"].result()
