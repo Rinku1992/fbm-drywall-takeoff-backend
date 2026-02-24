@@ -356,7 +356,7 @@ class Extrapolate3D(FloorPlan):
         self._polygons_3d.append(polygon)
 
     def compute_updated_area_polygon(self, polygon_vertices, area, slope, tilt_axis):
-        if slope == 0:
+        if slope is None or slope == 0:
             return area
 
         if tilt_axis == "horizontal":
@@ -493,7 +493,7 @@ class Extrapolate3D(FloorPlan):
             wall_lines.append([[wall_3d["wall_line"][0]['x'], wall_3d["wall_line"][0]['y'], wall_3d["wall_line"][1]['x'], wall_3d["wall_line"][1]['y']]])
         for polygon in polygons:
             slope = polygon["slope"]
-            if slope == 0:
+            if slope is None or slope == 0:
                 continue
             tilt_axis = polygon["tilt_axis"]
             perimeter_lines_contour = self.load_perimeter(polygon["vertices"], wall_lines)
