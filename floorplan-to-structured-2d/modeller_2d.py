@@ -3,6 +3,7 @@ import cv2
 import numpy as np
 import math
 import json
+import logging
 import xml.etree.ElementTree as ET
 from PIL import Image
 from json.decoder import JSONDecodeError
@@ -23,20 +24,23 @@ from prompt import (
     SCALE_AND_CEILING_HEIGHT_DETECTOR,
     WALL_RECTIFIER,
     CEILING_CHOICES,
+    DrywallPredictorCaliforniaResponse,
+    ScaleAndCeilingHeightDetectorResponse,
 )
+from helper import phoenix_call
 
 __all__ = ["FloorPlan2D"]
 
 
 class FloorPlan2D(FloorPlan):
 
-    def __init__(self, hyperparameters, vertex_ai_client=None):
+    def __init__(self, hyperparameters, vertex_ai_client_parameters):
         super().__init__(hyperparameters)
 
         self._hyperparameters = hyperparameters
         self._width_in_feet = self._hyperparameters["modelling"]["width_in_feet"]
         self._height_in_feet = self._hyperparameters["modelling"]["height_in_feet"]
-        self._vertex_ai_client = vertex_ai_client
+        self._vertex_ai_client, self._vertex_ai_generation_config, self._vertex_ai_max_retry = vertex_ai_client_parameters
         self._scale = self._hyperparameters["modelling"]["scale"]
 
     def _close_jagged_openings(
@@ -909,17 +913,25 @@ class FloorPlan2D(FloorPlan):
         _, canvas_buffer_array = cv2.imencode(".png", cropped_plan_BGR)
         bytes_canvas = canvas_buffer_array.tobytes()
         query = Content(role="user", parts=[Part.from_data(data=bytes_canvas, mime_type="image/png")])
-        response = self._vertex_ai_client(contents=[system, query])
+        contents = [system, query]
         try:
-            ceiling_height_and_scale = json.loads(response.text.strip("`json").replace("{{", '{').replace("}}", '}'))
-            scale, ceiling_height = normalize_scale(ceiling_height_and_scale["scale"]), ceiling_height_and_scale["ceiling_height"]
+            response, ceiling_height_and_scale = phoenix_call(
+                lambda temperature: self._vertex_ai_client.generate_content(
+                    contents=contents,
+                    generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
+                ),
+                max_retry=self._vertex_ai_max_retry,
+                pydantic_model=ScaleAndCeilingHeightDetectorResponse,
+            )
+            scale, ceiling_height = normalize_scale(response.scale), response.ceiling_height
             if scale:
                 self._scale = scale
             else:
                 ceiling_height_and_scale["scale"] = self._scale
             if not ceiling_height:
                 ceiling_height_and_scale["ceiling_height"] = self._height_in_feet
-        except (JSONDecodeError, ValueError):
+        except Exception as e:
+            logging.info(f"SYSTEM: Standard Scale and Ceiling Height detection failed with error: {e}")
             ceiling_height_and_scale = dict(ceiling_height=self._height_in_feet, scale=self._scale)
 
         new_pixel_aspect_ratio_to_feet = self.compute_pixel_aspect_ratio(ceiling_height_and_scale["scale"], self._hyperparameters["pixel_aspect_ratio_to_feet"])
@@ -1068,14 +1080,22 @@ class FloorPlan2D(FloorPlan):
             Part.from_text(json.dumps(polygon)),
             Part.from_data(data=bytes_canvas, mime_type="image/png")
         ])
-        response = self._vertex_ai_client(contents=[system, query])
+        contents = [system, query]
         try:
-            model_polygon = json.loads(response.text.strip("`json").replace("{{", '{').replace("}}", '}'))
+            _, model_polygon = phoenix_call(
+                lambda temperature: self._vertex_ai_client.generate_content(
+                    contents=contents,
+                    generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
+                ),
+                max_retry=self._vertex_ai_max_retry,
+                pydantic_model=DrywallPredictorCaliforniaResponse,
+            )
             model_polygon["ceiling"]["area"] = verify_tolerance_area(model_polygon["ceiling"]["area"], area_target)
             for index, (dimension_wall_predicted, wall_unnormalized )in enumerate(zip(model_polygon["wall_parameters"], walls_unnormalized)):
                 dimension_wall_rectified = verify_tolerance_distance(dimension_wall_predicted, wall_unnormalized)
                 model_polygon["wall_parameters"][index] = dimension_wall_rectified
-        except (JSONDecodeError, ValueError):
+        except Exception as e:
+            logging.warning(f"SYSTEM: Drywall prediction for polygon: {json.dumps(polygon)} failed with error: {e}")
             model_polygon = {
                 "ceiling": {
                     "room_name": '',
@@ -1086,8 +1106,8 @@ class FloorPlan2D(FloorPlan):
                     "slope_enabled": False,
                     "tilt_axis": '',
                     "drywall_assembly": {
-                        "material": "white board",
-                        "color_code": (137, 138, 136),
+                        "material": "D12C - 1/2\" DW INTERIOR CEILING",
+                        "color_code": [10, 78, 69],
                         "thickness": 0.04,
                         "layers": 1,
                         "fire_rating": 0,
@@ -1112,8 +1132,8 @@ class FloorPlan2D(FloorPlan):
                         "height": height_default,
                         "wall_type": '',
                         "drywall_assembly": {
-                            "material": "Standard gypsum board",
-                            "color_code": (245, 66, 149),
+                            "material": "D12L - 1/2\" DW LITE-WEIGHT",
+                            "color_code": [71, 239, 143],
                             "thickness": 0.04,
                             "layers": 1,
                             "fire_rating": 0,
@@ -1190,7 +1210,7 @@ class FloorPlan2D(FloorPlan):
                 except KeyError:
                     wall_parameter["drywall_assembly"] = dict(
                         material="DISABLED",
-                        color_code=(0, 0, 255),
+                        color_code=[0, 0, 255],
                         thickness=-1,
                         layers=0,
                         fire_rating=0,
@@ -1208,7 +1228,7 @@ class FloorPlan2D(FloorPlan):
                         room_name=wall_parameter["room_name"],
                         polygon=polygon["coordinates"],
                         type=wall_parameter["drywall_assembly"]["material"],
-                        color=tuple(wall_parameter["drywall_assembly"]["color_code"]),
+                        color=list(wall_parameter["drywall_assembly"]["color_code"]),
                         thickness=thickness,
                         layers=wall_parameter["drywall_assembly"]["layers"],
                         fire_rating=wall_parameter["drywall_assembly"]["fire_rating"],
@@ -1242,7 +1262,7 @@ class FloorPlan2D(FloorPlan):
                 except KeyError:
                     wall_parameter["drywall_assembly"] = dict(
                         material="DISABLED",
-                        color_code=(0, 0, 255),
+                        color_code=[0, 0, 255],
                         thickness=-1,
                         layers=0,
                         fire_rating=0,
@@ -1257,7 +1277,7 @@ class FloorPlan2D(FloorPlan):
                         room_name=wall_parameter["room_name"],
                         polygon=polygon["coordinates"],
                         type=wall_parameter["drywall_assembly"]["material"],
-                        color=tuple(wall_parameter["drywall_assembly"]["color_code"]),
+                        color=list(wall_parameter["drywall_assembly"]["color_code"]),
                         thickness=thickness,
                         layers=wall_parameter["drywall_assembly"]["layers"],
                         fire_rating=wall_parameter["drywall_assembly"]["fire_rating"],
@@ -1334,7 +1354,7 @@ class FloorPlan2D(FloorPlan):
                     id=f"{wall_payload["id"]}.b",
                     polygon=polygons[0]["coordinates"],
                     type="DISABLED",
-                    color=(0, 0, 255),
+                    color=[0, 0, 255],
                     thickness=-1,
                     layers=0,
                     fire_rating=0,
@@ -1363,7 +1383,7 @@ class FloorPlan2D(FloorPlan):
                         id=f"{len(shared_memory["walls_2d"])}.{polygon_index}",
                         polygon=polygon["coordinates"],
                         type="DISABLED",
-                        color=(0, 0, 255),
+                        color=[0, 0, 255],
                         thickness=-1,
                         layers=0,
                         fire_rating=0,
@@ -1653,7 +1673,7 @@ class FloorPlan2D(FloorPlan):
                             room_name='',
                             polygon=polygon_vertices,
                             type="DISABLED",
-                            color=(0, 0, 255),
+                            color=[0, 0, 255],
                             thickness=-1,
                             layers=0,
                             fire_rating=0,
@@ -1746,7 +1766,7 @@ class FloorPlan2D(FloorPlan):
                         room_name='',
                         polygon=polygon_vertices,
                         type="DISABLED",
-                        color=(0, 0, 255),
+                        color=[0, 0, 255],
                         thickness=-1,
                         layers=0,
                         fire_rating=0,
@@ -1790,12 +1810,12 @@ class FloorPlan2D(FloorPlan):
             root.set("preserveAspectRatio", "xMidYMid meet")
         tree.write(svg_path, encoding="utf-8", xml_declaration=True)
 
-        return Path(svg_path), dict(
+        return Path(pdf_path), dict(
             height_in_pixels=height_in_pixels,
             width_in_pixels=width_in_pixels,
             height_in_points=height_in_points,
             width_in_points=width_in_points,
-            size=Path(svg_path).stat().st_size
+            size=Path(pdf_path).stat().st_size
         )
 
     def load_drywall_choices(self, walls_2d_JSON, polygons_2d_JSON, drywall_templates):
