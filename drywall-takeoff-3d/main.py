@@ -2,7 +2,6 @@ import os
 import sys
 import re
 import logging
-from functools import partial
 from datetime import timedelta, datetime, date, time
 from decimal import Decimal
 from base64 import b64encode
@@ -28,6 +27,7 @@ from google.cloud import secretmanager
 import pandas as pd
 import numpy as np
 import math
+
 from preprocessing import preprocess
 from extrapolate_3d import Extrapolate3D
 from helper import (
@@ -633,7 +633,7 @@ async def load_projects(request: Request):
     GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_projects"]}`"
     projects = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())
 
-    logging.info("SYSTEM: Project Metadata retrieved successfully")
+    logging.info("SYSTEM: Project Metaaata retrieved successfully")
     return respond_with_UI_payload(
         jsonable_encoder({
             "projects": projects
@@ -799,7 +799,7 @@ async def floorplan_to_2d(request: Request):
     walls_2d_all = dict(pages=list())
     status = "COMPLETED"
     vertex_ai_client, generation_config = load_vertex_ai_client(CREDENTIALS)
-    vertex_ai_client_partial = partial(vertex_ai_client.generate_content, generation_config=generation_config)
+    vertex_ai_client_parameters = (vertex_ai_client, generation_config, CREDENTIALS["VertexAI"]["llm"]["max_retry"])
     try:
         id_token = load_floorplan_to_structured_2d_ID_token(CREDENTIALS)
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -808,7 +808,7 @@ async def floorplan_to_2d(request: Request):
             floorplan_page_sources = list()
             plan_types = list()
             for index, (floor_plan_vector, floor_plan_path) in enumerate(zip(floor_plan_paths_vector, floor_plan_paths_preprocessed)):
-                plan_type = classify_plan(floor_plan_path, vertex_ai_client_partial)
+                plan_type = classify_plan(floor_plan_path, vertex_ai_client_parameters)
                 plan_types.append(plan_type)
                 floorplan_baseline_page_source = upload_floorplan(floor_plan_vector, user_id, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
                 floorplan_baseline_page_sources.append(floorplan_baseline_page_source)
