@@ -75,7 +75,7 @@ def load_hyperparameters() -> dict:
 
     return hyperparameters
 
-def download_floorplan(plan_id, project_id, credentials, index, destination_path="/tmp/floor_plan_wall_processed.png"):
+def download_floorplan(user_id, plan_id, project_id, credentials, index, destination_path="/tmp/floor_plan_wall_processed.png"):
     client = CloudStorageClient()
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
     blob_path = f"{project_id.lower()}/{plan_id.lower()}/{index}/floor_plan.png"
