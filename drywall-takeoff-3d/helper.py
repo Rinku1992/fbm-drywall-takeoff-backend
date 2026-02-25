@@ -3,7 +3,6 @@ import logging
 import hashlib
 from pathlib import Path
 import cv2
-from json.decoder import JSONDecodeError
 from time import sleep
 from random import uniform
 
