@@ -79,7 +79,7 @@ async def detect_wall(request: Request):
     hyperparameters = load_hyperparameters()
     client = CloudStorageClient()
     bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
-    blob_path = f"{project_id.lower()}/{plan_id.lower()}/{user_id.lower()}/{str(index).zfill(2)}/{CREDENTIALS["CloudStorage"]["blob_name"]}"
+    blob_path = f"{project_id.lower()}/{plan_id.lower()}/{str(index).zfill(2)}/{CREDENTIALS["CloudStorage"]["blob_name"]}"
     blob = bucket.blob(blob_path)
     destination_path = Path("/tmp/floor_plan.png")
     destination_path = destination_path.parent.joinpath(project_id).joinpath(plan_id).joinpath(user_id).joinpath(str(index)).joinpath(destination_path.name)
