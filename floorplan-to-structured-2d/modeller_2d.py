@@ -1810,12 +1810,12 @@ class FloorPlan2D(FloorPlan):
             root.set("preserveAspectRatio", "xMidYMid meet")
         tree.write(svg_path, encoding="utf-8", xml_declaration=True)
 
-        return Path(pdf_path), dict(
+        return Path(svg_path), dict(
             height_in_pixels=height_in_pixels,
             width_in_pixels=width_in_pixels,
             height_in_points=height_in_points,
             width_in_points=width_in_points,
-            size=Path(pdf_path).stat().st_size
+            size=Path(svg_path).stat().st_size
         )
 
     def load_drywall_choices(self, walls_2d_JSON, polygons_2d_JSON, drywall_templates):
