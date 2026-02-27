@@ -1832,6 +1832,87 @@ class FloorPlan2D(FloorPlan):
         for polygon in polygons_2d_JSON:
             polygon["type_choices"] = CEILING_CHOICES
 
+    def _load_missing_polygons(self, walls_2d, polygons, height_default):
+        def load_polygon(shape, lines_isolated, tolerance=10):
+            polygon_vertices = list()
+            for wall_line in shape:
+                X1, Y1, X2, Y2 = wall_line[0]
+                if all([math.hypot(polygon_vertex[0] - X1, polygon_vertex[1] - Y1) > tolerance for polygon_vertex in polygon_vertices]):
+                    polygon_vertices.append([round(X1), round(Y1)])
+                if all([math.hypot(polygon_vertex[0] - X2, polygon_vertex[1] - Y2) > tolerance for polygon_vertex in polygon_vertices]):
+                    polygon_vertices.append([round(X2), round(Y2)])
+            for wall_line in lines_isolated:
+                X1, Y1, X2, Y2 = wall_line[0]
+                if all([math.hypot(polygon_vertex[0] - X1, polygon_vertex[1] - Y1) > tolerance for polygon_vertex in polygon_vertices]):
+                    polygon_vertices.append([round(X1), round(Y1)])
+                if all([math.hypot(polygon_vertex[0] - X2, polygon_vertex[1] - Y2) > tolerance for polygon_vertex in polygon_vertices]):
+                    polygon_vertices.append([round(X2), round(Y2)])
+
+            polygon_vertices_array = np.asarray(polygon_vertices, dtype=np.int32)
+            centroid = polygon_vertices_array.mean(axis=0)
+            vectors = polygon_vertices_array - centroid
+            angles = np.arctan2(vectors[:, 1], vectors[:, 0])
+            distances = np.sum(vectors**2, axis=1)
+
+            order = np.lexsort((distances, angles))
+            return polygon_vertices_array[order].tolist()
+
+        walls_null_room, walls_null_id = list(), list()
+        for wall in walls_2d:
+            if wall["polygons_drywall"][0]["type"] == wall["polygons_drywall"][1]["type"] == "DISABLED":
+                walls_null_room.append([[wall["wall_line"][0]['x'], wall["wall_line"][0]['y'], wall["wall_line"][1]['x'], wall["wall_line"][1]['y']]])
+                walls_null_id.append(wall["id"])
+        shapes = self.disconnected_shapes(walls_null_room)
+        shapes_isolated = list(filter(lambda shape: len(shape) <= 2, shapes))
+        lines_isolated = [shape[0] for shape in shapes_isolated]
+        shapes_null = list(filter(lambda shape: len(shape) > 2, shapes))
+        for shape in shapes_null:
+            shape_bounding_box_x_min = min([min(line[0][0], line[0][2]) for line in shape])
+            shape_bounding_box_x_max = max([max(line[0][0], line[0][2]) for line in shape])
+            shape_bounding_box_y_min = min([min(line[0][1], line[0][3]) for line in shape])
+            shape_bounding_box_y_max = max([max(line[0][1], line[0][3]) for line in shape])
+            lines_isolated_included = list()
+            for line_isolated in lines_isolated:
+                X1, Y1, X2, Y2 = line_isolated[0]
+                X1_in_bound = (X1 >= shape_bounding_box_x_min - 10 and X1 <= shape_bounding_box_x_max + 10)
+                X2_in_bound = (X2 >= shape_bounding_box_x_min - 10 and X2 <= shape_bounding_box_x_max + 10)
+                Y1_in_bound = (Y1 >= shape_bounding_box_y_min - 10 and Y1 <= shape_bounding_box_y_max + 10)
+                Y2_in_bound = (Y2 >= shape_bounding_box_y_min - 10 and Y2 <= shape_bounding_box_y_max + 10)
+                if X1_in_bound and X2_in_bound and Y1_in_bound and Y2_in_bound:
+                    lines_isolated_included.append(line_isolated)
+            polygon_vertices = load_polygon(shape, lines_isolated_included)
+            polygon_area = cv2.contourArea(np.array(polygon_vertices, np.int32)) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["area"]
+            polygon_ids_drywall_interior = list()
+            for wall_line in shape:
+                polygon_ids_drywall_interior.append(walls_null_id[walls_null_room.index(wall_line)])
+            for wall_line in lines_isolated:
+                polygon_ids_drywall_interior.append(walls_null_id[walls_null_room.index(wall_line)])
+            polygon = dict(
+                id=len(polygons),
+                area=polygon_area,
+                vertices=polygon_vertices,
+                type="Flat",
+                height=height_default,
+                slope=0,
+                slope_enabled=False,
+                tilt_axis='',
+                room_name='',
+                polygon_ids_drywall_interior=polygon_ids_drywall_interior,
+                polygon_drywall=dict(
+                    type="D12C - 1/2\" DW INTERIOR CEILING",
+                    color=[10, 78, 69],
+                    thickness=0.04,
+                    layers=1,
+                    fire_rating=0,
+                    recommendation='',
+                    waste_factor="8-12%",
+                    enabled=True,
+                )
+            )
+            polygons.append(polygon)
+
+        return polygons
+
     def save_plot_2d(
         self,
         model_2d_path,
@@ -1860,14 +1941,13 @@ class FloorPlan2D(FloorPlan):
 
         for polygon in polygons:
             canvas_to_overlay = canvas.copy()
-            vertices = np.array(polygon["vertices"])
+            vertices = np.array(polygon["vertices"]).reshape((-1, 1, 2))
             color = tuple(polygon["polygon_drywall"]["color"])
             cv2.fillPoly(canvas_to_overlay, pts=[vertices], color=color)
             canvas = cv2.addWeighted(canvas_to_overlay, 0.3, canvas, 0.7, 0)
 
         for wall in walls_2d:
             self._draw_line(wall["wall_line"], canvas, overlay_enabled=overlay_enabled)
-
             for drywall in wall["polygons_drywall"]:
                 pts = np.array([
                     [drywall["polygon"][0]['x'], drywall["polygon"][0]['y']],
@@ -2005,6 +2085,7 @@ class FloorPlan2D(FloorPlan):
             walls_2d, polygons = list(shared_memory["walls_2d"]), list(shared_memory["polygons"])
 
         walls_2d = self._normalize_walls_2d(walls_2d)
+        polygons = self._load_missing_polygons(walls_2d, polygons, height_default)
         if model_2d_path:
             with open(model_2d_path, 'w') as f:
                 json.dump([walls_2d, polygons], f, indent=2)
