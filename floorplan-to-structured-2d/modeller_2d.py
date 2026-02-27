@@ -1832,7 +1832,17 @@ class FloorPlan2D(FloorPlan):
         for polygon in polygons_2d_JSON:
             polygon["type_choices"] = CEILING_CHOICES
 
-    def _load_missing_polygons(self, walls_2d, polygons, height_default):
+    def _load_missing_polygons(self, walls_2d):
+        def load_wall_payload(wall_line):
+            X1, Y1, X2, Y2 = wall_line[0]
+            wall_line_structured = [
+                dict(x=int(X1), y=int(Y1)),
+                dict(x=int(X2), y=int(Y2))
+            ]
+            for wall_2d in walls_2d:
+                if wall_2d["wall_line"] == wall_line_structured:
+                    return wall_2d
+
         def load_polygon(shape, lines_isolated, tolerance=10):
             polygon_vertices = list()
             for wall_line in shape:
@@ -1866,6 +1876,7 @@ class FloorPlan2D(FloorPlan):
         shapes_isolated = list(filter(lambda shape: len(shape) <= 2, shapes))
         lines_isolated = [shape[0] for shape in shapes_isolated]
         shapes_null = list(filter(lambda shape: len(shape) > 2, shapes))
+        polygonized, perimeter_lines_contours = list(), list()
         for shape in shapes_null:
             shape_bounding_box_x_min = min([min(line[0][0], line[0][2]) for line in shape])
             shape_bounding_box_x_max = max([max(line[0][0], line[0][2]) for line in shape])
@@ -1882,36 +1893,19 @@ class FloorPlan2D(FloorPlan):
                     lines_isolated_included.append(line_isolated)
             polygon_vertices = load_polygon(shape, lines_isolated_included)
             polygon_area = cv2.contourArea(np.array(polygon_vertices, np.int32)) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["area"]
-            polygon_ids_drywall_interior = list()
+            polygon_ids_drywall_interior, perimeter_lines_contour = list(), list()
             for wall_line in shape:
                 polygon_ids_drywall_interior.append(walls_null_id[walls_null_room.index(wall_line)])
-            for wall_line in lines_isolated:
+                perimeter_lines_contour.append(wall_line)
+                walls_2d.remove(load_wall_payload(wall_line))
+            for wall_line in lines_isolated_included:
                 polygon_ids_drywall_interior.append(walls_null_id[walls_null_room.index(wall_line)])
-            polygon = dict(
-                id=len(polygons),
-                area=polygon_area,
-                vertices=polygon_vertices,
-                type="Flat",
-                height=height_default,
-                slope=0,
-                slope_enabled=False,
-                tilt_axis='',
-                room_name='',
-                polygon_ids_drywall_interior=polygon_ids_drywall_interior,
-                polygon_drywall=dict(
-                    type="D12C - 1/2\" DW INTERIOR CEILING",
-                    color=[10, 78, 69],
-                    thickness=0.04,
-                    layers=1,
-                    fire_rating=0,
-                    recommendation='',
-                    waste_factor="8-12%",
-                    enabled=True,
-                )
-            )
-            polygons.append(polygon)
+                perimeter_lines_contour.append(wall_line)
+                walls_2d.remove(load_wall_payload(wall_line))
+            perimeter_lines_contours.append(perimeter_lines_contour)
+            polygonized.append((polygon_area, polygon_vertices))
 
-        return polygons
+        return polygonized, perimeter_lines_contours
 
     def save_plot_2d(
         self,
@@ -2085,7 +2079,31 @@ class FloorPlan2D(FloorPlan):
             walls_2d, polygons = list(shared_memory["walls_2d"]), list(shared_memory["polygons"])
 
         walls_2d = self._normalize_walls_2d(walls_2d)
-        polygons = self._load_missing_polygons(walls_2d, polygons, height_default)
+        missing_polygons, missing_polygons_perimeter_walls = self._load_missing_polygons(walls_2d)
+        futures = list()
+        with Manager() as manager:
+            shared_memory = dict(walls_2d=manager.list(walls_2d), polygons=manager.list(polygons), lock=manager.Lock())
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                for index, ((polygon_area, polygon_vertices), polygon_perimeter_walls) in enumerate(zip(missing_polygons, missing_polygons_perimeter_walls)):
+                    index += len(polygons)
+                    drywall_polygons = self._extrude_polygon_drywalls(polygon_perimeter_walls, polygon_vertices)
+                    futures.append(executor.submit(
+                        self._add_walls_polygon,
+                        polygon_vertices,
+                        polygon_area,
+                        polygon_perimeter_walls,
+                        drywall_polygons,
+                        drywall_templates,
+                        (scale_x, scale_y),
+                        height_default,
+                        floor_plan_path,
+                        transcription_block_with_centroids,
+                        index,
+                        shared_memory,
+                    ))
+                wait(futures)
+            walls_2d, polygons = list(shared_memory["walls_2d"]), list(shared_memory["polygons"])
+        walls_2d = self._normalize_walls_2d(walls_2d)
         if model_2d_path:
             with open(model_2d_path, 'w') as f:
                 json.dump([walls_2d, polygons], f, indent=2)
