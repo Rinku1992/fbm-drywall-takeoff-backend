@@ -1100,8 +1100,12 @@ async def floorplan_to_3d(request: Request):
     with open(polygons_path, 'w') as f:
         json.dump(polygons_JSON, f)
     hyperparameters = load_hyperparameters()
+    if not scale:
+        GBQ_query = f"SELECT scale FROM `drywall_takeoff.models` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index};"
+        query_output = bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()
+        scale = list(query_output)[0].scale
     floor_plan_modeller_3d = Extrapolate3D(hyperparameters)
-    walls_3d, polygons_3d, walls_3d_path, polygons_3d_path = floor_plan_modeller_3d.extrapolate(model_2d_path=model_2d_path, polygons_path=polygons_path)
+    walls_3d, polygons_3d, walls_3d_path, polygons_3d_path = floor_plan_modeller_3d.extrapolate(scale, model_2d_path=model_2d_path, polygons_path=polygons_path)
     walls_3d, polygons_3d = floor_plan_modeller_3d.extrapolate_wall_heights_given_polygons(walls_3d, polygons_3d)
     gltf_paths = floor_plan_modeller_3d.gltf(model_2d_path=model_2d_path, polygons_path=polygons_path)
     model_3d_path = floor_plan_modeller_3d.save_plot_3d(walls_3d_path, polygons_3d_path)
