@@ -188,6 +188,7 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
       "ceiling": {{
         "room_name": "<Detected Room Name the ceiling belongs to / NULL>",
         "area": <Area of the ceiling in SQFT (Square Feet)>,
+        "confidence": <confidence score in predicting the area of the ceiling in float between 0 and 100 in float>
         "ceiling_type": "<Type code of the ceiling>",
         "height": <height of the (lower end, if sloped) ceiling>,
         "slope": <slope of the ceiling in degrees>,
@@ -208,12 +209,13 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
         {{
           "room_name": "<Detected Room Name the perimeter wall 1 belongs to / NULL>",
           "length": <length of perimeter wall 1 in feet>,
+          "confidence": <confidence score in predicting the length of the perimeter wall 1 in float between 0 and 100 in float>
           "width": <width of the perimeter wall 1 in feet / None>,
           "height": <height of the perimeter wall 1 in feet>,
           "wall_type": "<type of the perimeter wall 1>",
           "drywall_assembly": {{
             "material": "<drywall material for the perimeter wall 1>",
-            "color_code": <color code for the predicted ceiling drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>,
+            "color_code": <color code for the predicted perimeter wall 1 drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>,
             "thickness": <thickness of the predicted wall drywall type in feet>,
             "layers": <number of required drywall layers>,
             "fire_rating": <fire-rating of the predicted drywall type in hours>,
@@ -225,12 +227,13 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
         {{
           "room_name": "<Detected Room Name the perimeter wall 2 belongs to / NULL>",
           "length": <length of perimeter wall 2 in feet>,
+          "confidence": <confidence score in predicting the length of the perimeter wall 2 in float between 0 and 100 in float>
           "width": <width of the perimeter wall 2 in feet / None>,
           "height": <height of the perimeter wall 2 in feet>,
           "wall_type": "<type of the perimeter wall 2>",
           "drywall_assembly": {{
             "material": "<drywall material for the perimeter wall 2>",
-            "color_code": <color code for the predicted ceiling drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>,
+            "color_code": <color code for the predicted perimeter wall 2 drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>,
             "thickness": <thickness of the predicted wall drywall type in feet>,
             "layers": <number of required drywall layers>,
             "fire_rating": <fire-rating of the predicted drywall type in hours>,
