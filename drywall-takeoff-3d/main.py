@@ -1181,12 +1181,23 @@ async def load_3d_all(request: Request):
     logging.info("SYSTEM: Received All Floorplan 3D Models Load Request")
 
     walls_3d_all = dict(pages=list())
-    GBQ_query = f"SELECT page_number, scale, model_3d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) = LOWER('{user_id}');"
+    GBQ_query = f"SELECT page_number, scale, model_3d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
     query_output = bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).to_dataframe()
     dataframe = load_UI_dataframe(query_output)
     for page_number, scale, model_3d in zip(dataframe["page_number"], dataframe["scale"], dataframe["model_3d"]):
-        walls_3d = json.loads(model_3d)
-        page = dict(page_number=page_number, walls_3d=walls_3d, page_name='', scale=scale)
+        GBQ_query = f"SELECT model_2d.metadata FROM `drywall_takeoff.models` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+        query_output = bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()
+        metadata = list(query_output)[0].metadata
+        metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
+        walls_3d = json.loads(model_3d) if isinstance(model_3d, str) else model_3d
+        page = dict(
+            plan_id=plan_id,
+            page_number=page_number,
+            walls_3d=walls_3d["walls_3d"],
+            polygons=walls_3d["polygons"],
+            scale=scale,
+            **metadata,
+        )
         walls_3d_all["pages"].append(page)
 
     return respond_with_UI_payload(walls_3d_all)
