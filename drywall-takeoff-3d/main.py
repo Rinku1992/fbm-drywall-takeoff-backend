@@ -1105,13 +1105,17 @@ async def floorplan_to_3d(request: Request):
     walls_3d, polygons_3d = floor_plan_modeller_3d.extrapolate_wall_heights_given_polygons(walls_3d, polygons_3d)
     gltf_paths = floor_plan_modeller_3d.gltf(model_2d_path=model_2d_path, polygons_path=polygons_path)
     model_3d_path = floor_plan_modeller_3d.save_plot_3d(walls_3d_path, polygons_3d_path)
+    GBQ_query = f"SELECT model_2d.metadata FROM `drywall_takeoff.models` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index};"
+    query_output = bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()
+    metadata = list(query_output)[0].metadata
+    metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
     upload_floorplan(model_3d_path, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
     for gltf_path in gltf_paths:
         upload_floorplan(gltf_path, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2), directory="gltf")
     insert_model_3d(dict(walls_3d=walls_3d, polygons=polygons_3d), scale, index, plan_id, user_id, project_id, bigquery_client, CREDENTIALS)
     logging.info("SYSTEM: A 3D Model of the Floorplan Generated Successfully")
 
-    return respond_with_UI_payload(dict(walls_3d=walls_3d, polygons=polygons_3d))
+    return respond_with_UI_payload(dict(walls_3d=walls_3d, polygons=polygons_3d, metadata=metadata))
 
 
 @app.post("/load_3d_revision")
