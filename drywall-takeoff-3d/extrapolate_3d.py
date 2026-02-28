@@ -550,6 +550,7 @@ class Extrapolate3D(FloorPlan):
 
     def extrapolate(
         self,
+        scale,
         model_2d_path="/tmp/walls_2d.json",
         polygons_path="/tmp/polygons.json",
         model_3d_path="/tmp/walls_3d.json",
