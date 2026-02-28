@@ -268,7 +268,7 @@ SCALE_AND_CEILING_HEIGHT_DETECTOR = """
     **STRICTLY** Do not generate additional content apart from the designated JSON.
     Please refer the following as a reference and ensure to replace every consecutive pair of open/closed curly braces with a single one during the generation of the output.
     {{
-        "ceiling_height": <Standard ceiling height mentioned in the transcriptions converted to feet>,
+        "ceiling_height": <Standard ceiling height mentioned in the transcriptions converted to feet in float>,
         "scale": "<Scale of the drawing mentioned in the transcriptions i.e. number_in_inches``: number_in_feet`number_in_inches``>"
     }}
 """
