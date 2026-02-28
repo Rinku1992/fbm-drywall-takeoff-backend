@@ -2027,7 +2027,7 @@ class FloorPlan2D(FloorPlan):
         height, width, _ = canvas.shape
         scale_x = width / 1920
         scale_y = height / 1080
-        height_default = self._load_ceiling_height_and_scale(canvas.copy()[:, -round(width / 4):])["ceiling_height"]
+        height_default = self._load_ceiling_height_and_scale(canvas.copy()[-round(height / 4):, -round(width / 4):])["ceiling_height"]
         if not wall_lines:
             return None, None, None, None
         polygons, polygons_perimeter_walls, external_contour = self.polygonize(wall_lines)
