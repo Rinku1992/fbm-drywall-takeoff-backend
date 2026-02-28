@@ -2032,8 +2032,8 @@ class FloorPlan2D(FloorPlan):
         scale_y = height / 1080
         height_default = self._load_ceiling_height_and_scale(
             [
-                canvas.copy()[-round(height / 4):, :],
-                canvas.copy()[:, -round(width / 4):],
+                canvas.copy()[-round(height / 3):, :],
+                canvas.copy()[:, -round(width / 3):],
             ]
         )["ceiling_height"]
         if not wall_lines:
