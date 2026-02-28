@@ -1211,7 +1211,8 @@ async def update_floorplan_to_3d(request: Request):
         body = await request.json()
     except Exception:
         body = dict()
-    walls_3d_JSON = parameters.get("walls_3d") or body.get("walls_3d")
+    walls_3d = parameters.get("walls_3d") or body.get("walls_3d")
+    polygons_3d = parameters.get("polygons") or body.get("polygons")
     project_id = parameters.get("project_id") or body.get("project_id")
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
@@ -1219,8 +1220,8 @@ async def update_floorplan_to_3d(request: Request):
     index = parameters.get("page_number") or body.get("page_number")
     logging.info("SYSTEM: Received a Floorplan 3D Model Update Request")
 
-    insert_model_3d(walls_3d_JSON, scale, index, plan_id, user_id, project_id, bigquery_client, CREDENTIALS)
-    insert_model_3d_revision(walls_3d_JSON, scale, index, plan_id, user_id, project_id, bigquery_client, CREDENTIALS)
+    insert_model_3d(dict(walls_3d=walls_3d, polygons=polygons_3d), scale, index, plan_id, user_id, project_id, bigquery_client, CREDENTIALS)
+    insert_model_3d_revision(dict(walls_3d=walls_3d, polygons=polygons_3d), scale, index, plan_id, user_id, project_id, bigquery_client, CREDENTIALS)
     logging.info("SYSTEM: Floorplan 3D Model Updated Successfully")
 
 
