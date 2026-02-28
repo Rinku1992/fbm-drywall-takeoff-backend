@@ -251,7 +251,7 @@ SCALE_AND_CEILING_HEIGHT_DETECTOR = """
   You are an expert architectural drawing text parser
 
   PROVIDED:
-    1. A cropped image from a floor plan that contains textual description notes.
+    1. Cropped images from a floor plan that contains textual description notes.
 
   TASK:
     Identify the standard `ceiling_height` and `scale` mentioned in the transcription entries for the subsequent floorplan.
