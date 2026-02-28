@@ -1016,7 +1016,11 @@ class FloorPlan2D(FloorPlan):
         tolerance=10,
         height_default=9.125,
     ):
-        def verify_tolerance_distance(dimension_wall, wall_unnormalized):
+        def verify_tolerance_distance(dimension_wall, wall_unnormalized, confidence_score):
+            if confidence_score > 0.97:
+                dimension_wall["length"] = round(dimension_wall["length"], 2)
+                dimension_wall["width"] = round(dimension_wall["width"], 2)
+                return dimension_wall
             X1, Y1, X2, Y2 = wall_unnormalized[0]
             length_target = round(math.hypot(
                 (X1 - X2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["horizontal"],
@@ -1036,7 +1040,9 @@ class FloorPlan2D(FloorPlan):
 
             return dimension_wall
 
-        def verify_tolerance_area(area_polygon_predicted, area_polygon_target):
+        def verify_tolerance_area(area_polygon_predicted, area_polygon_target, confidence_score):
+            if confidence_score > 0.97:
+                return area_polygon_predicted
             if area_polygon_predicted and abs(area_polygon_target - area_polygon_predicted) > tolerance ** 2:
                 return area_polygon_target
 
@@ -1093,9 +1099,9 @@ class FloorPlan2D(FloorPlan):
                 max_retry=self._vertex_ai_max_retry,
                 pydantic_model=DrywallPredictorCaliforniaResponse,
             )
-            model_polygon["ceiling"]["area"] = verify_tolerance_area(model_polygon["ceiling"]["area"], area_target)
+            model_polygon["ceiling"]["area"] = verify_tolerance_area(model_polygon["ceiling"]["area"], area_target, model_polygon["ceiling"]["confidence"])
             for index, (dimension_wall_predicted, wall_unnormalized )in enumerate(zip(model_polygon["wall_parameters"], walls_unnormalized)):
-                dimension_wall_rectified = verify_tolerance_distance(dimension_wall_predicted, wall_unnormalized)
+                dimension_wall_rectified = verify_tolerance_distance(dimension_wall_predicted, wall_unnormalized, dimension_wall_predicted["confidence"])
                 model_polygon["wall_parameters"][index] = dimension_wall_rectified
         except Exception as e:
             logging.warning(f"SYSTEM: Drywall prediction for polygon: {json.dumps(polygon)} failed with error: {e}")
