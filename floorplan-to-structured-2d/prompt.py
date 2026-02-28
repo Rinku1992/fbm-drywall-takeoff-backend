@@ -188,7 +188,7 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
       "ceiling": {{
         "room_name": "<Detected Room Name the ceiling belongs to / NULL>",
         "area": <Area of the ceiling in SQFT (Square Feet)>,
-        "confidence": <confidence score in predicting the area of the ceiling in float between 0 and 100 in float>
+        "confidence": <confidence score in predicting the area of the ceiling in float between 0 and 1 in float>
         "ceiling_type": "<Type code of the ceiling>",
         "height": <height of the (lower end, if sloped) ceiling>,
         "slope": <slope of the ceiling in degrees>,
@@ -209,7 +209,7 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
         {{
           "room_name": "<Detected Room Name the perimeter wall 1 belongs to / NULL>",
           "length": <length of perimeter wall 1 in feet>,
-          "confidence": <confidence score in predicting the length of the perimeter wall 1 in float between 0 and 100 in float>
+          "confidence": <confidence score in predicting the length of the perimeter wall 1 in float between 0 and 1 in float>
           "width": <width of the perimeter wall 1 in feet / None>,
           "height": <height of the perimeter wall 1 in feet>,
           "wall_type": "<type of the perimeter wall 1>",
@@ -227,7 +227,7 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
         {{
           "room_name": "<Detected Room Name the perimeter wall 2 belongs to / NULL>",
           "length": <length of perimeter wall 2 in feet>,
-          "confidence": <confidence score in predicting the length of the perimeter wall 2 in float between 0 and 100 in float>
+          "confidence": <confidence score in predicting the length of the perimeter wall 2 in float between 0 and 1 in float>
           "width": <width of the perimeter wall 2 in feet / None>,
           "height": <height of the perimeter wall 2 in feet>,
           "wall_type": "<type of the perimeter wall 2>",
