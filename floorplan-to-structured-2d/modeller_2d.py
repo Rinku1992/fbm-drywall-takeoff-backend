@@ -902,7 +902,7 @@ class FloorPlan2D(FloorPlan):
     def scale(self):
         return self._scale
 
-    def _load_ceiling_height_and_scale(self, cropped_plan_BGR):
+    def _load_ceiling_height_and_scale(self, cropped_plans_BGR):
         def normalize_scale(scale):
             if scale.find(':') != -1:
                 on_paper, real_world = scale.split(':')
