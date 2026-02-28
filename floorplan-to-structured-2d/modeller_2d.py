@@ -910,9 +910,12 @@ class FloorPlan2D(FloorPlan):
                 on_paper, real_world = scale.split('=')
             return f"{round(float(Fraction(on_paper.strip('`'))), 2)}``:{real_world}"
         system = Content(role="model", parts=[Part.from_text(SCALE_AND_CEILING_HEIGHT_DETECTOR)])
-        _, canvas_buffer_array = cv2.imencode(".png", cropped_plan_BGR)
-        bytes_canvas = canvas_buffer_array.tobytes()
-        query = Content(role="user", parts=[Part.from_data(data=bytes_canvas, mime_type="image/png")])
+        parts = list()
+        for cropped_plan_BGR in cropped_plans_BGR:
+            _, canvas_buffer_array = cv2.imencode(".png", cropped_plan_BGR)
+            bytes_canvas = canvas_buffer_array.tobytes()
+            parts.append(Part.from_data(data=bytes_canvas, mime_type="image/png"))
+        query = Content(role="user", parts=parts)
         contents = [system, query]
         try:
             response, ceiling_height_and_scale = phoenix_call(
@@ -2027,7 +2030,12 @@ class FloorPlan2D(FloorPlan):
         height, width, _ = canvas.shape
         scale_x = width / 1920
         scale_y = height / 1080
-        height_default = self._load_ceiling_height_and_scale(canvas.copy()[-round(height / 4):, -round(width / 4):])["ceiling_height"]
+        height_default = self._load_ceiling_height_and_scale(
+            [
+                canvas.copy()[-round(height / 4):, :],
+                canvas.copy()[:, -round(width / 4):],
+            ]
+        )["ceiling_height"]
         if not wall_lines:
             return None, None, None, None
         polygons, polygons_perimeter_walls, external_contour = self.polygonize(wall_lines)
