@@ -1365,7 +1365,9 @@ async def compute_takeoff(request: Request):
             polygon["tilt_axis"]
         )
         waste_factor = polygon["surface_drywall"]["waste_factor"]
-        if waste_factor.find('%') != -1:
+        if isinstance(waste_factor, float):
+            waste_factor = float(waste_factor)
+        elif waste_factor.find('%') != -1:
             if waste_factor.find('-') != -1:
                 waste_factor = float(waste_factor.strip('%').split('-')[1]) / 100
             else:
