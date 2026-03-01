@@ -929,6 +929,7 @@ class FloorPlan2D(FloorPlan):
             scale, ceiling_height = normalize_scale(response.scale), response.ceiling_height
             if scale:
                 self._scale = scale
+                ceiling_height_and_scale["scale"] = scale
             else:
                 ceiling_height_and_scale["scale"] = self._scale
             if not ceiling_height:
