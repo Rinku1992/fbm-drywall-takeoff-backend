@@ -548,6 +548,14 @@ class Extrapolate3D(FloorPlan):
 
         return walls_3d_JSON_updated, polygons_JSON_updated
 
+    def _scale_hyperparameters(self, scale):
+        new_pixel_aspect_ratio_to_feet = self.compute_pixel_aspect_ratio(scale, self.hyperparameters["pixel_aspect_ratio_to_feet"])
+        self.hyperparameters["pixel_aspect_ratio_to_feet"] = new_pixel_aspect_ratio_to_feet
+        self.hyperparameters["modelling"]["pixel_aspect_ratio"] = new_pixel_aspect_ratio_to_feet
+        self._hyperparameters = self.hyperparameters["modelling"]
+        self._height_in_feet = self.hyperparameters["height_in_feet"]
+        self._height_in_pixels = int(round(self._height_in_feet / min(self._hyperparameters["pixel_aspect_ratio"]["vertical"], self._hyperparameters["pixel_aspect_ratio"]["horizontal"])))
+
     def extrapolate(
         self,
         scale,
@@ -557,6 +565,7 @@ class Extrapolate3D(FloorPlan):
         polygons_3d_path="/tmp/polygons_3d.json",
         mitered_butt_enabled=False
     ):
+        self._scale_hyperparameters(scale)
         lines = self._load_model_2d(model_2d_path)
         polygons = self._load_polygons(polygons_path)
         horizontal_wall_lines, vertical_wall_lines = list(), list()
