@@ -1342,7 +1342,7 @@ async def compute_takeoff(request: Request):
         for drywall in wall["surfaces_drywall"]:
             if drywall["enabled"]:
                 waste_factor = drywall["waste_factor"]
-                if instance(waste_factor, float):
+                if isinstance(waste_factor, float):
                     waste_factor = float(waste_factor)
                 elif waste_factor.find('%') != -1:
                     if waste_factor.find('-') != -1:
