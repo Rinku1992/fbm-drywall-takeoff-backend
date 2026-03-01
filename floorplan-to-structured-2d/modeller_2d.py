@@ -10,7 +10,7 @@ from json.decoder import JSONDecodeError
 from pathlib import Path
 from collections import defaultdict
 import subprocess
-from concurrent.futures import ThreadPoolExecutor, wait
+from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import Manager
 
 from fractions import Fraction
@@ -2077,7 +2077,7 @@ class FloorPlan2D(FloorPlan):
                         index,
                         shared_memory,
                     ))
-                wait(futures)
+                [future.result() for future in futures]
                 futures = list()
                 for perimeter_line, outer_drywall_surface in zip(perimeter_lines, outer_drywall_surfaces):
                     perimeter_polygons = self._extrude_polygon_perimeter(perimeter_line, (scale_x, scale_y), outer_drywall_surface=outer_drywall_surface)
@@ -2089,7 +2089,7 @@ class FloorPlan2D(FloorPlan):
                         (scale_x, scale_y),
                         shared_memory,
                     ))
-                wait(futures)
+                [future.result() for future in futures]
             walls_2d, polygons = list(shared_memory["walls_2d"]), list(shared_memory["polygons"])
 
         walls_2d = self._normalize_walls_2d(walls_2d)
@@ -2115,7 +2115,7 @@ class FloorPlan2D(FloorPlan):
                         index,
                         shared_memory,
                     ))
-                wait(futures)
+                [future.result() for future in futures]
             walls_2d, polygons = list(shared_memory["walls_2d"]), list(shared_memory["polygons"])
         walls_2d = self._normalize_walls_2d(walls_2d)
         if model_2d_path:
