@@ -527,8 +527,7 @@ def floorplan_to_structured_2d(credentials, id_token, project_id, plan_id, user_
             plan_id=plan_id,
             user_id=user_id,
             page_number=page_number
-        ),
-        timeout=(10, 7200)
+        )
     )
 
 
@@ -830,7 +829,7 @@ async def floorplan_to_2d(request: Request):
             for page_number, (plan_type, _, floorplan_page_source) in enumerate(zip(plan_types, floorplan_baseline_page_sources, floorplan_page_sources)):
                 if plan_type["plan_type"].upper().find("FLOOR") == -1:
                     continue
-                timeout = from_unix_epoch() + 7200
+                timeout = from_unix_epoch() + 3600
                 while from_unix_epoch() < timeout:
                     GBQ_query = f"SELECT scale, model_2d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
                     query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())
