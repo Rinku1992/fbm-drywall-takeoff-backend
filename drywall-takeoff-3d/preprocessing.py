@@ -23,7 +23,7 @@ def to_sharp(image_path_page):
     _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
     clean = cv2.fastNlMeansDenoising(binary, h=30)
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 1))
     sharpened = cv2.dilate(clean, kernel, iterations=1)
     sharpened = cv2.erode(sharpened, kernel, iterations=1)
 
