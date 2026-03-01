@@ -553,7 +553,7 @@ class Extrapolate3D(FloorPlan):
         self.hyperparameters["pixel_aspect_ratio_to_feet"] = new_pixel_aspect_ratio_to_feet
         self.hyperparameters["modelling"]["pixel_aspect_ratio"] = new_pixel_aspect_ratio_to_feet
         self._hyperparameters = self.hyperparameters["modelling"]
-        self._height_in_feet = self.hyperparameters["height_in_feet"]
+        self._height_in_feet = self._hyperparameters["height_in_feet"]
         self._height_in_pixels = int(round(self._height_in_feet / min(self._hyperparameters["pixel_aspect_ratio"]["vertical"], self._hyperparameters["pixel_aspect_ratio"]["horizontal"])))
 
     def extrapolate(
