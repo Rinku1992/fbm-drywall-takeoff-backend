@@ -1217,7 +1217,7 @@ class FloorPlan2D(FloorPlan):
                     thickness = round(float(wall_parameter["drywall_assembly"]["thickness"]), 2)
                 except ValueError:
                     thickness = wall_parameter["drywall_assembly"]["thickness"]
-                except KeyError:
+                except (KeyError, TypeError):
                     wall_parameter["drywall_assembly"] = dict(
                         material="DISABLED",
                         color_code=[0, 0, 255],
@@ -1269,7 +1269,7 @@ class FloorPlan2D(FloorPlan):
                     thickness = round(float(wall_parameter["drywall_assembly"]["thickness"]), 2)
                 except ValueError:
                     thickness = wall_parameter["drywall_assembly"]["thickness"]
-                except KeyError:
+                except (KeyError, TypeError):
                     wall_parameter["drywall_assembly"] = dict(
                         material="DISABLED",
                         color_code=[0, 0, 255],
