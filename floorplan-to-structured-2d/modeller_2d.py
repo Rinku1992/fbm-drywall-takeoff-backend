@@ -1018,7 +1018,7 @@ class FloorPlan2D(FloorPlan):
         height_default=9.125,
     ):
         def verify_tolerance_distance(dimension_wall, wall_unnormalized, confidence_score):
-            if dimension_wall["length"] and dimension_wall["width"] and confidence_score >= 0.9:
+            if dimension_wall["length"] and dimension_wall["width"] and confidence_score >= 0.95:
                 dimension_wall["length"] = round(dimension_wall["length"], 2)
                 dimension_wall["width"] = round(dimension_wall["width"], 2)
                 return dimension_wall
