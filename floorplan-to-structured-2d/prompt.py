@@ -1,5 +1,6 @@
-from typing import List, Dict, Union
-from pydantic import BaseModel
+from typing import List, Union, Optional, Tuple, Literal
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
+import math
 
 
 WALL_RECTIFIER = """
@@ -246,9 +247,93 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
     }}
 """
 
+def ensure_not_nan(v: float) -> float:
+    if v is None:
+        return v
+    if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+        raise ValueError("NaN or Inf not allowed")
+    return v
+
+class DrywallAssembly(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    material: str
+    color_code: Tuple[int, int, int]
+    thickness: float
+    layers: int
+    fire_rating: Optional[Union[str, float]]
+    waste_factor: Union[str, int, float]
+
+    @field_validator("thickness")
+    @classmethod
+    def validate_float(cls, v):
+        return ensure_not_nan(v)
+
+    @field_validator("color_code")
+    @classmethod
+    def validate_bgr(cls, v):
+        if len(v) != 3:
+            raise ValueError("color_code must be BGR tuple")
+        if not all(0 <= c <= 255 for c in v):
+            raise ValueError("Invalid BGR value")
+        return v
+
+class Ceiling(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    room_name: Optional[str]
+    area: float
+    confidence: float = Field(ge=0, le=1)
+    ceiling_type: str
+    height: float
+    slope: float
+    slope_enabled: bool
+    tilt_axis: Optional[Literal["horizontal", "vertical", "NULL"]]
+    drywall_assembly: DrywallAssembly
+    code_references: List[str]
+    recommendation: Optional[str]
+
+    @field_validator("area", "height", "slope")
+    @classmethod
+    def validate_float(cls, v):
+        return ensure_not_nan(v)
+
+class WallParameter(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    room_name: Optional[str]
+    length: float
+    confidence: float = Field(ge=0, le=1)
+    width: Optional[float]
+    height: float
+    wall_type: str
+    drywall_assembly: DrywallAssembly
+    code_references: List[str]
+    recommendation: Optional[str]
+
+    @field_validator("length", "height")
+    @classmethod
+    def validate_float(cls, v):
+        return ensure_not_nan(v)
+
+    @field_validator("width")
+    @classmethod
+    def validate_optional_float(cls, v):
+        if v is None:
+            return v
+        return ensure_not_nan(v)
+
 class DrywallPredictorCaliforniaResponse(BaseModel):
-    ceiling: Dict
-    wall_parameters: List[Dict]
+    model_config = ConfigDict(extra="forbid")
+
+    ceiling: Ceiling
+    wall_parameters: List[WallParameter]
+
+    @model_validator(mode="after")
+    def check_wall_count(self):
+        if len(self.wall_parameters) < 1:
+            raise ValueError("At least one wall required")
+        return self
 
 SCALE_AND_CEILING_HEIGHT_DETECTOR = """
   You are an expert architectural drawing text parser
