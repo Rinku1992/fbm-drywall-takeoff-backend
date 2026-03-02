@@ -206,7 +206,7 @@ class FloorPlan:
 
         return disconnected_shapes
 
-    def load_perimeter(self, coordinates, wall_lines, tolerance=10):
+    def load_perimeter(self, coordinates, wall_lines, tolerance=100):
         perimeter_lines = list()
         for source_coordinate in coordinates:
             for target_coordinate in coordinates:
