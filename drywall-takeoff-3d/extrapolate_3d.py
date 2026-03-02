@@ -309,20 +309,18 @@ class Extrapolate3D(FloorPlan):
         cx = (min(xs) + max(xs)) / 2
         cy = (min(ys) + max(ys)) / 2
 
-        half_span = width_in_pixels / 2
-
         front_face, back_face = list(), list()
 
         for x, y in vertices:
             if tilt_axis == "horizontal":
-                d = cy - y
-            elif tilt_axis == "vertical":
                 d = cx - x
+            elif tilt_axis == "vertical":
+                d = cy - y
             else:
                 slope = 0
                 d = cx - x
 
-            height_offset = (d / half_span) * slope
+            height_offset = math.tan(math.radians(slope)) * d
             height_front_face = height_in_pixels - height_offset
             height_back_face = height_in_pixels + height_offset
 
