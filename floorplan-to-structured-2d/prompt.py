@@ -181,7 +181,7 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
   OUTPUT:
     Your output must be precise, code-aligned, and structured. Do not hallucinate dimensions or materials. If information is ambiguous, state assumptions explicitly.
     **STRICTLY**
-      - `wall_parameters` field should contain predicted wall parameters and drywall assembly for all the perimeter walls provided in the input and in the highlighted polygon.
+      - `wall_parameters` field should contain predicted wall parameters and drywall assembly for all the perimeter walls provided in the input that also corresponds with the perimeter lines highlighted with blue bounding boxes of the highlighted polygon.
       - The order of the walls provided in the `wall_parameters` list should follow the oder in which the perimeter walls are provided in the input.
       - Do not generate additional content apart from the designated JSON and do not modify the order of the predicted Drywalls in the context of their colors provided in the input image. `BLUE` Drywall prediction should always appear before the `GREEN`.
     Please refer the following as a reference and ensure to replace every consecutive pair of open/closed curly braces with a single one during the generation of the output.
