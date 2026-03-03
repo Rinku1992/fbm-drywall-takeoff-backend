@@ -916,13 +916,13 @@ class FloorPlan2D(FloorPlan):
             bytes_canvas = canvas_buffer_array.tobytes()
             parts.append(Part.from_data(data=bytes_canvas, mime_type="image/png"))
         query = Content(role="user", parts=parts)
-        contents = [system, query]
         try:
             response, ceiling_height_and_scale = phoenix_call(
-                lambda temperature: self._vertex_ai_client.generate_content(
-                    contents=contents,
+                lambda system_prompt, temperature: self._vertex_ai_client.generate_content(
+                    contents=[system_prompt, query],
                     generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                 ),
+                system,
                 max_retry=self._vertex_ai_max_retry,
                 pydantic_model=ScaleAndCeilingHeightDetectorResponse,
             )
@@ -1082,24 +1082,26 @@ class FloorPlan2D(FloorPlan):
         perimeter_lines = list()
         for wall in walls:
             X1, Y1, X2, Y2 = wall[0]
-            perimeter_lines.append(
-                dict(wall=dict(X1=int(X1), Y1=int(Y1), X2=int(X2), Y2=int(Y2)))
-            )
-        polygon = dict(vertices=vertices.tolist(), perimeter_wall_lines=perimeter_lines, transcription_entries=transcription_entries)
+            perimeter_line = dict(wall=dict(X1=int(X1), Y1=int(Y1), X2=int(X2), Y2=int(Y2)))
+            if perimeter_line not in perimeter_lines:
+                perimeter_lines.append(
+                    dict(wall=dict(X1=int(X1), Y1=int(Y1), X2=int(X2), Y2=int(Y2)))
+                )
+        polygon = dict(vertices=vertices.tolist(), perimeter_wall_lines=list(perimeter_lines), transcription_entries=transcription_entries)
         query = Content(role="user", parts=[
             Part.from_text(json.dumps(polygon)),
             Part.from_data(data=bytes_canvas, mime_type="image/png")
         ])
-        contents = [system, query]
         try:
             _, model_polygon = phoenix_call(
-                lambda temperature: self._vertex_ai_client.generate_content(
-                    contents=contents,
+                lambda system_prompt, temperature: self._vertex_ai_client.generate_content(
+                    contents=[system_prompt, query],
                     generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                 ),
+                system,
                 max_retry=self._vertex_ai_max_retry,
                 pydantic_model=DrywallPredictorCaliforniaResponse,
-                verify_field_counts=dict(wall_parameters=len(walls)),
+                verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
             )
             model_polygon["ceiling"]["area"] = verify_tolerance_area(model_polygon["ceiling"]["area"], area_target, model_polygon["ceiling"]["confidence"])
             for index, (dimension_wall_predicted, wall_unnormalized )in enumerate(zip(model_polygon["wall_parameters"], walls_unnormalized)):
