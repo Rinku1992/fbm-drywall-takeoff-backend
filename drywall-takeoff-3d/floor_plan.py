@@ -223,6 +223,9 @@ class FloorPlan:
                     if orientation == "vertical" and orientation_target == "vertical":
                         if abs(np.median([X1, X2]) - np.median([target_X1, target_X2])) <= tolerance and target_Y1 - Y1 >= -tolerance and target_Y2 - Y2 <= tolerance:
                             perimeter_segments.append(wall_line)
+                    if orientation == "inclined":
+                        if target_X1 - X1 >= -tolerance and target_X2 - X2 <= tolerance and target_Y1 - Y1 >= -tolerance and target_Y2 - Y2 <= tolerance:
+                            perimeter_segments.append(wall_line)
                     if abs(target_X1 - X1) <= tolerance and abs(target_Y1 - Y1) <= tolerance and abs(target_X2 - X2) <= tolerance and abs(target_Y2 - Y2) <= tolerance:
                         perimeter_line_found = True
                         perimeter_line = [[target_X1, target_Y1, target_X2, target_Y2]]
