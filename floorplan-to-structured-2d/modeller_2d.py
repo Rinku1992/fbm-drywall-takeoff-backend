@@ -1588,14 +1588,17 @@ class FloorPlan2D(FloorPlan):
 
         return polygons
 
-    def _normalize_walls_2d(self, walls_2d):
-        for wall in walls_2d:
+    def _normalize_walls_2d(self, walls_2d, remove_drywall_disabled=False):
+        for wall in walls_2d[:]:
             if len(wall["polygons_drywall"]) == 2 and wall["polygons_drywall"][0]["polygon"] != wall["polygons_drywall"][1]["polygon"]:
                 continue
             wall_line_vertices = wall["wall_line"]
             X1, Y1, X2, Y2 = wall_line_vertices[0]['x'], wall_line_vertices[0]['y'], wall_line_vertices[1]['x'], wall_line_vertices[1]['y']
             orientation = self.classify_line(X1, Y1, X2, Y2)
             if not wall["polygons_drywall"]:
+                if remove_drywall_disabled:
+                    walls_2d.remove(wall)
+                    continue
                 for index in ['a', 'b']:
                     if orientation == "horizontal":
                         if index == 'a':
@@ -2127,7 +2130,7 @@ class FloorPlan2D(FloorPlan):
                     ))
                 [future.result() for future in futures]
             walls_2d, polygons = list(shared_memory["walls_2d"]), list(shared_memory["polygons"])
-        walls_2d = self._normalize_walls_2d(walls_2d)
+        walls_2d = self._normalize_walls_2d(walls_2d, remove_drywall_disabled=True)
         polygons = self._normalize_polygons(polygons)
         if model_2d_path:
             with open(model_2d_path, 'w') as f:
