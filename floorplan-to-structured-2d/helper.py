@@ -199,7 +199,6 @@ def phoenix_call(generate_content_lambda, system_prompt, max_retry=5, base_delay
     exceptions = list()
     while n_iterations < max_retry:
         try:
-            print(f"trying {verify_field_counts}")
             response = generate_content_lambda(system_prompt, temperature)
             if pydantic_model:
                 json_response = json.loads(response.text.strip("`json").replace("{{", '{').replace("}}", '}'))
