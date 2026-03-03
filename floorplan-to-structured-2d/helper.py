@@ -14,8 +14,10 @@ from google.cloud.storage import Client as CloudStorageClient
 from google.cloud import bigquery
 from fastapi.encoders import jsonable_encoder
 from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, DeadlineExceeded
+from vertexai.generative_models import Content, Part
 
 from transcriber import Transcriber
+from prompt import FEEDBACK_GENERATOR
 
 
 def load_vertex_ai_client(credentials, region="us-central1"):
@@ -191,18 +193,20 @@ def load_templates(bigquery_client, credentials):
         product_templates_target.append(product_template)
     return jsonable_encoder(product_templates_target)
 
-def phoenix_call(generate_content_lambda, max_retry=5, base_delay=1.0, pydantic_model=None, verify_field_counts=None):
+def phoenix_call(generate_content_lambda, system_prompt, max_retry=5, base_delay=1.0, pydantic_model=None, verify_field_counts=None):
     n_iterations = 0
     temperature = 0
+    exceptions = list()
     while n_iterations < max_retry:
         try:
-            response = generate_content_lambda(temperature)
+            print(f"trying {verify_field_counts}")
+            response = generate_content_lambda(system_prompt, temperature)
             if pydantic_model:
                 json_response = json.loads(response.text.strip("`json").replace("{{", '{').replace("}}", '}'))
                 if verify_field_counts:
                     for field, count in verify_field_counts.items():
                         if len(json_response[field]) != count:
-                            raise ValueError("Predicted wall parameter count does not match with the expected number")
+                            raise ValueError(f"Predicted {field} count: {len(json_response[field])} does not match with the expected number: {count}")
                 response_json_pydantic = pydantic_model(**json_response)
                 return response_json_pydantic, json_response
             return response.text
@@ -217,6 +221,9 @@ def phoenix_call(generate_content_lambda, max_retry=5, base_delay=1.0, pydantic_
             n_iterations += 1
             if n_iterations >= max_retry:
                 raise e
+            exceptions.append(e)
+            system_feedback = [Part.from_text(FEEDBACK_GENERATOR.format(max_retry=max_retry, exceptions=exceptions))]
+            system_prompt = Content(role=system_prompt.role, parts=system_prompt.parts+system_feedback)
             temperature = min(0.5 * (n_iterations + 1) / max_retry, 0.5)
             logging.warning(f"SYSTEM: Response Generation/Parsing failed with ERROR: {e}")
             logging.warning(f"SYSTEM: RETRYING with TEMPERATURE: {temperature}")
