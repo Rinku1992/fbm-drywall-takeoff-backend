@@ -1792,7 +1792,7 @@ class FloorPlan2D(FloorPlan):
     def _normalize_polygons(self, polygons):
         polygons_valid = list()
         for polygon in polygons:
-            if polygon["room_name"].upper() == "NULL":
+            if polygon["room_name"] and polygon["room_name"].upper() == "NULL":
                 continue
             polygons_valid.append(polygon)
         return polygons_valid
