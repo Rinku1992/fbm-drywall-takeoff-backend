@@ -254,7 +254,9 @@ class FloorPlan:
                             perimeter_lines.append([[target_X1, target_Y1, target_X2, target_Y2]])
                         break
                 if not perimeter_line_found:
-                    perimeter_lines.extend(perimeter_segments)
+                    for perimeter_segment in perimeter_segments:
+                        if perimeter_segment not in perimeter_lines:
+                            perimeter_lines.append(perimeter_segment)
 
         return perimeter_lines
 
