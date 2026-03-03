@@ -206,7 +206,7 @@ class FloorPlan:
 
         return disconnected_shapes
 
-    def load_perimeter(self, coordinates, wall_lines, tolerance=10):
+    def load_perimeter(self, coordinates, wall_lines, tolerance=10, bound_capture=True):
         perimeter_lines = list()
         for source_coordinate in coordinates:
             for target_coordinate in coordinates:
@@ -233,6 +233,17 @@ class FloorPlan:
                     for perimeter_segment in perimeter_segments:
                         if perimeter_segment not in perimeter_lines:
                             perimeter_lines.append(perimeter_segment)
+
+        if bound_capture:
+            bounding_box_minimum = [min([coordinate[0] for coordinate in coordinates]), min([coordinate[1] for coordinate in coordinates])]
+            bounding_box_maximum = [max([coordinate[0] for coordinate in coordinates]), max([coordinate[1] for coordinate in coordinates])]
+            for wall_line in wall_lines:
+                target_X1, target_Y1, target_X2, target_Y2 = wall_line[0]
+                endpoint_A_bound = target_X1 >= bounding_box_minimum[0] and target_X1 <= bounding_box_maximum[0] and target_Y1 >= bounding_box_minimum[1] and target_Y1 <= bounding_box_maximum[1]
+                endpoint_B_bound = target_X2 >= bounding_box_minimum[0] and target_X2 <= bounding_box_maximum[0] and target_Y2 >= bounding_box_minimum[1] and target_Y2 <= bounding_box_maximum[1]
+                if endpoint_A_bound and endpoint_B_bound:
+                    if wall_line not in perimeter_lines:
+                        perimeter_lines.append(wall_line)
 
         return perimeter_lines
 
