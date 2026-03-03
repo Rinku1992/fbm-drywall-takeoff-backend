@@ -177,12 +177,13 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
 
         **STRICTLY** use the field `sku_variant` which contains both `sku_id` and `sku_description` as the target drywall material and the field `color_code` to map to it's target color code accompanied by the fields `fire_rating` aand `thickness` to derive it's fire rating and thickness respectively and mention the confidence score associated with each of the drywall material prediction.
         Do not invent other drywall materials or color codes which are not included into the template list. All of the provided drywall types are associated with a definite color code presented in BGR (blue, green, red) format.
+        If an appropriate/optimal drywall material for a given wall or polygon is not provided with the `DRYWALL_TEMPLATES` mention the target drywall material as `DISABLED` with [0, 0, 255] in BGR tuple as its target color code.
 
   OUTPUT:
     Your output must be precise, code-aligned, and structured. Do not hallucinate dimensions or materials. If information is ambiguous, state assumptions explicitly.
     **STRICTLY**
       - `wall_parameters` field should contain predicted wall parameters and drywall assembly for all the perimeter walls provided in the input that also corresponds with the perimeter lines highlighted with blue bounding boxes of the highlighted polygon.
-      - The number of predicted `wall_parameters` should exactly match with count of perimeter walls provided with the input.
+      - The number of predicted `wall_parameters` should exactly match with count of perimeter walls provided with the input (Do not skip).
       - The order of the walls provided in the `wall_parameters` list should follow the oder in which the perimeter walls are provided in the input.
       - Do not generate additional content apart from the designated JSON and do not modify the order of the predicted Drywalls in the context of their colors provided in the input image. `BLUE` Drywall prediction should always appear before the `GREEN`.
     Please refer the following as a reference and ensure to replace every consecutive pair of open/closed curly braces with a single one during the generation of the output.
@@ -335,6 +336,13 @@ class DrywallPredictorCaliforniaResponse(BaseModel):
         if len(self.wall_parameters) < 1:
             raise ValueError("At least one wall required")
         return self
+
+FEEDBACK_GENERATOR = """
+  INTERNAL SELF-REVIEW (Do not skip):
+    You are given {max_retry} attempts to retry the generation process and the following are the list of errors encountered during your previous attempts.
+    {exceptions}
+    STRICTY confirm no previous error remains before producing the final output.
+"""
 
 SCALE_AND_CEILING_HEIGHT_DETECTOR = """
   You are an expert architectural drawing text parser
