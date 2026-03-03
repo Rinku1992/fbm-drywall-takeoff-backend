@@ -259,13 +259,9 @@ class FloorPlan:
                             perimeter_lines.append(perimeter_segment)
 
         if bound_capture:
-            bounding_box_minimum = [min([coordinate[0] for coordinate in coordinates]), min([coordinate[1] for coordinate in coordinates])]
-            bounding_box_maximum = [max([coordinate[0] for coordinate in coordinates]), max([coordinate[1] for coordinate in coordinates])]
             for wall_line in wall_lines:
                 target_X1, target_Y1, target_X2, target_Y2 = wall_line[0]
-                endpoint_A_bound = target_X1 >= bounding_box_minimum[0] and target_X1 <= bounding_box_maximum[0] and target_Y1 >= bounding_box_minimum[1] and target_Y1 <= bounding_box_maximum[1]
-                endpoint_B_bound = target_X2 >= bounding_box_minimum[0] and target_X2 <= bounding_box_maximum[0] and target_Y2 >= bounding_box_minimum[1] and target_Y2 <= bounding_box_maximum[1]
-                if endpoint_A_bound and endpoint_B_bound:
+                if self.is_inside_polygon((target_X1, target_Y1), coordinates) and self.is_inside_polygon((target_X2, target_Y2), coordinates):
                     if wall_line not in perimeter_lines:
                         perimeter_lines.append(wall_line)
 
