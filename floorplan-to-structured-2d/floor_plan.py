@@ -383,10 +383,8 @@ class FloorPlan:
             if component[3] == -1:
                 continue
             area = cv2.contourArea(contour)
-            if area < 250:
-                continue
 
-            epsilon = 0.01 * cv2.arcLength(contour, True)
+            epsilon = max(2, 0.005 * cv2.arcLength(contour, True))
             geometry_polygons = cv2.approxPolyDP(contour, epsilon, True)
 
             coordinates = [
