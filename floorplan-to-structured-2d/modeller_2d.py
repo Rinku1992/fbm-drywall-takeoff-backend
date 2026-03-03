@@ -1084,9 +1084,7 @@ class FloorPlan2D(FloorPlan):
             X1, Y1, X2, Y2 = wall[0]
             perimeter_line = dict(wall=dict(X1=int(X1), Y1=int(Y1), X2=int(X2), Y2=int(Y2)))
             if perimeter_line not in perimeter_lines:
-                perimeter_lines.append(
-                    dict(wall=dict(X1=int(X1), Y1=int(Y1), X2=int(X2), Y2=int(Y2)))
-                )
+                perimeter_lines.append(perimeter_line)
         polygon = dict(vertices=vertices.tolist(), perimeter_wall_lines=list(perimeter_lines), transcription_entries=transcription_entries)
         query = Content(role="user", parts=[
             Part.from_text(json.dumps(polygon)),
