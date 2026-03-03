@@ -191,7 +191,7 @@ def load_templates(bigquery_client, credentials):
         product_templates_target.append(product_template)
     return jsonable_encoder(product_templates_target)
 
-def phoenix_call(generate_content_lambda, max_retry=5, base_delay=1.0, pydantic_model=None):
+def phoenix_call(generate_content_lambda, max_retry=5, base_delay=1.0, pydantic_model=None, verify_field_counts=None):
     n_iterations = 0
     temperature = 0
     while n_iterations < max_retry:
@@ -199,6 +199,10 @@ def phoenix_call(generate_content_lambda, max_retry=5, base_delay=1.0, pydantic_
             response = generate_content_lambda(temperature)
             if pydantic_model:
                 json_response = json.loads(response.text.strip("`json").replace("{{", '{').replace("}}", '}'))
+                if verify_field_counts:
+                    for field, count in verify_field_counts.items():
+                        if len(json_response[field]) != count:
+                            raise ValueError("Predicted wall parameter count does not match with the expected number")
                 response_json_pydantic = pydantic_model(**json_response)
                 return response_json_pydantic, json_response
             return response.text
