@@ -1191,6 +1191,8 @@ class FloorPlan2D(FloorPlan):
             perimeter_walls_unnormalized.append(perimeter_wall_unnormalized)
         polygons_pts_normalized = list()
         for polygon in polygons:
+            if isinstance(polygon, list):
+                polygon = polygon[0]
             pts_normalized = np.array([
                 [polygon["coordinates"][0]['x'], polygon["coordinates"][0]['y']],
                 [polygon["coordinates"][1]['x'], polygon["coordinates"][1]['y']],
@@ -1237,7 +1239,7 @@ class FloorPlan2D(FloorPlan):
                     dict(
                         id=f"{wall_payload["id"]}.b",
                         room_name=wall_parameter["room_name"],
-                        polygon=polygon["coordinates"],
+                        polygon=polygon["coordinates"] if isinstance(polygon, dict) else polygon[0]["coordinates"],
                         type=wall_parameter["drywall_assembly"]["material"],
                         color=list(wall_parameter["drywall_assembly"]["color_code"]),
                         thickness=thickness,
@@ -1286,7 +1288,7 @@ class FloorPlan2D(FloorPlan):
                     dict(
                         id=f"{len(shared_memory["walls_2d"])}.a",
                         room_name=wall_parameter["room_name"],
-                        polygon=polygon["coordinates"],
+                        polygon=polygon["coordinates"] if isinstance(polygon, dict) else polygon[0]["coordinates"],
                         type=wall_parameter["drywall_assembly"]["material"],
                         color=list(wall_parameter["drywall_assembly"]["color_code"]),
                         thickness=thickness,
@@ -1298,6 +1300,23 @@ class FloorPlan2D(FloorPlan):
                     )
                 )
                 polygon_ids_drywall_interior.append(f"{len(shared_memory["walls_2d"])}.a")
+                if isinstance(polygon, list):
+                    wall["polygons_drywall"].append(
+                        dict(
+                            id=f"{len(shared_memory["walls_2d"])}.b",
+                            room_name=wall_parameter["room_name"],
+                            polygon=polygon[1]["coordinates"],
+                            type=wall_parameter["drywall_assembly"]["material"],
+                            color=list(wall_parameter["drywall_assembly"]["color_code"]),
+                            thickness=thickness,
+                            layers=wall_parameter["drywall_assembly"]["layers"],
+                            fire_rating=wall_parameter["drywall_assembly"]["fire_rating"],
+                            recommendation=wall_parameter["recommendation"],
+                            waste_factor=wall_parameter["drywall_assembly"]["waste_factor"],
+                            enabled=True,
+                        )
+                    )
+                    polygon_ids_drywall_interior.append(f"{len(shared_memory["walls_2d"])}.b")
                 with shared_memory["lock"]:
                     shared_memory["walls_2d"].append(wall)
 
@@ -1508,39 +1527,45 @@ class FloorPlan2D(FloorPlan):
             X1, Y1, X2, Y2 = polygon_perimeter_line[0][0], polygon_perimeter_line[0][1], polygon_perimeter_line[0][2], polygon_perimeter_line[0][3]
             if self.classify_line(X1, Y1, X2, Y2) == "horizontal":
                 centroid_perimeter_line = (round((X1 + X2) / 2), round(np.median([Y1, Y2])))
-                if self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] - 100), polygon_vertices):
-                    polygon = [
-                        dict(x=X1+20, y=Y1-20),
-                        dict(x=X2-20, y=Y2-20),
-                        dict(x=X2-60, y=Y2-60),
-                        dict(x=X1+60, y=Y1-60)
-                    ]
-                else:
-                    polygon = [
-                        dict(x=X1+20, y=Y1+20),
-                        dict(x=X2-20, y=Y2+20),
-                        dict(x=X2-60, y=Y2+60),
-                        dict(x=X1+60, y=Y1+60)
-                    ]
-                polygons.append(dict(coordinates=polygon, enabled=True))
+                polygon_up = [
+                    dict(x=X1+20, y=Y1-20),
+                    dict(x=X2-20, y=Y2-20),
+                    dict(x=X2-60, y=Y2-60),
+                    dict(x=X1+60, y=Y1-60)
+                ]
+                polygon_down = [
+                    dict(x=X1+20, y=Y1+20),
+                    dict(x=X2-20, y=Y2+20),
+                    dict(x=X2-60, y=Y2+60),
+                    dict(x=X1+60, y=Y1+60)
+                ]
+                if self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] - 100), polygon_vertices) and self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] + 100), polygon_vertices):
+                    polygons.append([dict(coordinates=polygon_up, enabled=True), dict(coordinates=polygon_down, enabled=True)])
+                elif self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] - 100), polygon_vertices):
+                    polygons.append(dict(coordinates=polygon_up, enabled=True))
+                elif self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] + 100), polygon_vertices):
+                    polygons.append(dict(coordinates=polygon_down, enabled=True))
 
             if self.classify_line(X1, Y1, X2, Y2) == "vertical":
                 centroid_perimeter_line = (round(np.median([X1, X2])), round((Y1 + Y2) / 2))
-                if self.is_inside_polygon((centroid_perimeter_line[0] - 100, centroid_perimeter_line[1]), polygon_vertices):
-                    polygon = [
+                polygon_left = [
                         dict(x=X1-20, y=Y1+20),
                         dict(x=X2-20, y=Y2-20),
                         dict(x=X2-60, y=Y2-60),
                         dict(x=X1-60, y=Y1+60)
                     ]
-                else:
-                    polygon = [
-                        dict(x=X1+20, y=Y1+20),
-                        dict(x=X2+20, y=Y2-20),
-                        dict(x=X2+60, y=Y2-60),
-                        dict(x=X1+60, y=Y1+60)
-                    ]
-                polygons.append(dict(coordinates=polygon, enabled=True))
+                polygon_right = [
+                    dict(x=X1+20, y=Y1+20),
+                    dict(x=X2+20, y=Y2-20),
+                    dict(x=X2+60, y=Y2-60),
+                    dict(x=X1+60, y=Y1+60)
+                ]
+                if self.is_inside_polygon((centroid_perimeter_line[0] - 100, centroid_perimeter_line[1]), polygon_vertices) and self.is_inside_polygon((centroid_perimeter_line[0] + 100, centroid_perimeter_line[1]), polygon_vertices):
+                    polygons.append([dict(coordinates=polygon_left, enabled=True), dict(coordinates=polygon_right, enabled=True)])
+                elif self.is_inside_polygon((centroid_perimeter_line[0] - 100, centroid_perimeter_line[1]), polygon_vertices):
+                    polygons.append(dict(coordinates=polygon_left, enabled=True))
+                elif self.is_inside_polygon((centroid_perimeter_line[0] + 100, centroid_perimeter_line[1]), polygon_vertices):
+                    polygons.append(dict(coordinates=polygon_right, enabled=True))
 
             if self.classify_line(X1, Y1, X2, Y2) == "inclined":
                 dx = X2 - X1
@@ -1558,33 +1583,34 @@ class FloorPlan2D(FloorPlan):
                 mx = (X1 + X2) / 2
                 my = (Y1 + Y2) / 2
 
-                test_coordinate = (
+                test_coordinate_A = (
                     round(mx + nx * 100),
                     round(my + ny * 100)
                 )
+                test_coordinate_B = (
+                    round(mx - nx * 100),
+                    round(my - ny * 100)
+                )
 
-                if self.is_inside_polygon(test_coordinate, polygon_vertices):
-                    nx, ny = -nx, -ny
-
-                polygon = [
-                    dict(
-                        x=int(X1 + nx * 20 + tx * 20),
-                        y=int(Y1 + ny * 20 + ty * 20),
-                    ),
-                    dict(
-                        x=int(X2 + nx * 20 - tx * 20),
-                        y=int(Y2 + ny * 20 - ty * 20),
-                    ),
-                    dict(
-                        x=int(X2 + nx * 60 - tx * 60),
-                        y=int(Y2 + ny * 60 - ty * 60),
-                    ),
-                    dict(
-                        x=int(X1 + nx * 60 + tx * 60),
-                        y=int(Y1 + ny * 60 + ty * 60),
-                    ),
+                polygon_A = [
+                    dict(x=int(X1 + nx * 20 + tx * 20), y=int(Y1 + ny * 20 + ty * 20)),
+                    dict(x=int(X2 + nx * 20 - tx * 20), y=int(Y2 + ny * 20 - ty * 20)),
+                    dict(x=int(X2 + nx * 60 - tx * 60), y=int(Y2 + ny * 60 - ty * 60)),
+                    dict(x=int(X1 + nx * 60 + tx * 60), y=int(Y1 + ny * 60 + ty * 60)),
                 ]
-                polygons.append(dict(coordinates=polygon, enabled=True))
+                polygon_B = [
+                    dict(x=int(X1 - nx * 20 + tx * 20), y=int(Y1 - ny * 20 + ty * 20)),
+                    dict(x=int(X2 - nx * 20 - tx * 20), y=int(Y2 - ny * 20 - ty * 20)),
+                    dict(x=int(X2 - nx * 60 - tx * 60), y=int(Y2 - ny * 60 - ty * 60)),
+                    dict(x=int(X1 - nx * 60 + tx * 60), y=int(Y1 - ny * 60 + ty * 60)),
+                ]
+
+                if self.is_inside_polygon(test_coordinate_A, polygon_vertices) and self.is_inside_polygon(test_coordinate_B, polygon_vertices):
+                    polygons.append([dict(coordinates=polygon_A, enabled=True), dict(coordinates=polygon_B, enabled=True)])
+                elif self.is_inside_polygon(test_coordinate_A, polygon_vertices):
+                    polygons.append(dict(coordinates=polygon_A, enabled=True))
+                elif self.is_inside_polygon(test_coordinate_B, polygon_vertices):
+                    polygons.append(dict(coordinates=polygon_B, enabled=True))
 
         return polygons
 
