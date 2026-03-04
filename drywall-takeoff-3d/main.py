@@ -1439,6 +1439,10 @@ async def insert_templates():
                 r = max(0, r - 100)
                 g = min(255, g + 50)
                 b = min(255, b + 100)
+            if v < 40:
+                r = min(255, r + 100)
+                g = min(255, g + 100)
+                b = min(255, b + 100)
             colors.append((int(r), int(g), int(b)))
 
         return [dict(r=int(color[0]), g=int(color[1]), b=int(color[2])) for color in colors]
