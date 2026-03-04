@@ -1614,17 +1614,18 @@ class FloorPlan2D(FloorPlan):
 
         return polygons
 
-    def _normalize_walls_2d(self, walls_2d, remove_drywall_disabled=False):
+    ef _normalize_walls_2d(self, walls_2d, remove_drywall_disabled=False):
         for wall in walls_2d[:]:
+            if remove_drywall_disabled:
+                if not wall["polygons_drywall"] or (not wall["polygons_drywall"][0]["enabled"] and not wall["polygons_drywall"][1]["enabled"]):
+                    walls_2d.remove(wall)
+                    continue
             if len(wall["polygons_drywall"]) == 2 and wall["polygons_drywall"][0]["polygon"] != wall["polygons_drywall"][1]["polygon"]:
                 continue
             wall_line_vertices = wall["wall_line"]
             X1, Y1, X2, Y2 = wall_line_vertices[0]['x'], wall_line_vertices[0]['y'], wall_line_vertices[1]['x'], wall_line_vertices[1]['y']
             orientation = self.classify_line(X1, Y1, X2, Y2)
             if not wall["polygons_drywall"]:
-                if remove_drywall_disabled:
-                    walls_2d.remove(wall)
-                    continue
                 for index in ['a', 'b']:
                     if orientation == "horizontal":
                         if index == 'a':
