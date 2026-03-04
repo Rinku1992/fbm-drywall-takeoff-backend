@@ -1614,7 +1614,7 @@ class FloorPlan2D(FloorPlan):
 
         return polygons
 
-    ef _normalize_walls_2d(self, walls_2d, remove_drywall_disabled=False):
+    def _normalize_walls_2d(self, walls_2d, remove_drywall_disabled=False):
         for wall in walls_2d[:]:
             if remove_drywall_disabled:
                 if not wall["polygons_drywall"] or (not wall["polygons_drywall"][0]["enabled"] and not wall["polygons_drywall"][1]["enabled"]):
