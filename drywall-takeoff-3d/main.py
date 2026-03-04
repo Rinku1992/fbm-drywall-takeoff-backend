@@ -2,6 +2,7 @@ import os
 import sys
 import re
 import logging
+import colorsys
 from datetime import timedelta, datetime, date, time
 from decimal import Decimal
 from base64 import b64encode
@@ -1432,6 +1433,12 @@ async def insert_templates():
             r = index // (256 * 256)
             g = (index // 256) % 256
             b = index % 256
+            h, s, v = colorsys.rgb_to_hsv(r/255, g/255, b/255)
+            hue_degrees = h * 360
+            if (hue_degrees < 20 or hue_degrees > 340):
+                r = max(0, r - 100)
+                g = min(255, g + 50)
+                b = min(255, b + 100)
             colors.append((int(r), int(g), int(b)))
 
         return [dict(r=int(color[0]), g=int(color[1]), b=int(color[2])) for color in colors]
