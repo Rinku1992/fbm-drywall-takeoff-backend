@@ -2157,7 +2157,7 @@ class FloorPlan2D(FloorPlan):
                 [future.result() for future in futures]
             walls_2d, polygons = list(shared_memory["walls_2d"]), list(shared_memory["polygons"])
         walls_2d = self._normalize_walls_2d(walls_2d, remove_drywall_disabled=True)
-        polygons = self._normalize_polygons(polygons)
+        #polygons = self._normalize_polygons(polygons)
         if model_2d_path:
             with open(model_2d_path, 'w') as f:
                 json.dump([walls_2d, polygons], f, indent=2)
