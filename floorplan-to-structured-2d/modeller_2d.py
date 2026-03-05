@@ -1620,10 +1620,10 @@ class FloorPlan2D(FloorPlan):
                 if not wall["polygons_drywall"][0]["enabled"] or not wall["polygons_drywall"][1]["enabled"]:
                     reference_line = [[wall["wall_line"][0]['x'], wall["wall_line"][0]['y'], wall["wall_line"][1]['x'], wall["wall_line"][1]['y']]]
                     if self.is_inside_polygon((reference_line[0][0], referene_line[0][1]), polygon_vertices_external) and self.is_inside_polygon((reference_line[0][2], referene_line[0][3]), polygon_vertices_external):
-                    target_lines = [[[wall_target["wall_line"][0]['x'], wall_target["wall_line"][0]['y'], wall_target["wall_line"][1]['x'], wall_target["wall_line"][1]['y']]] for wall_target in walls_2d[:]]
-                    neighbors = self.nearest_neighbor(reference_line, 'A', target_lines, top_k=5)
-                    valid_neighbor_found = False
-                    for neighbor in neighbors:
+                        target_lines = [[[wall_target["wall_line"][0]['x'], wall_target["wall_line"][0]['y'], wall_target["wall_line"][1]['x'], wall_target["wall_line"][1]['y']]] for wall_target in walls_2d[:]]
+                        neighbors = self.nearest_neighbor(reference_line, 'A', target_lines, top_k=5)
+                        valid_neighbor_found = False
+                        for neighbor in neighbors:
                         for wall_ in walls_2d:
                             if neighbor == [[wall_["wall_line"][0]['x'], wall_["wall_line"][0]['y'], wall_["wall_line"][1]['x'], wall_["wall_line"][1]['y']]] and (wall_["polygons_drywall"][0]["enabled"] or wall_["polygons_drywall"][1]["enabled"]):
                                 if self.classify_line(*reference_line[0]) == self.classify_line(*neighbor[0]):
