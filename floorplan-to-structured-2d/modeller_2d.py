@@ -2186,6 +2186,7 @@ class FloorPlan2D(FloorPlan):
 
         walls_2d = self._normalize_walls_2d(walls_2d, external_contour_normalized)
         missing_polygons, missing_polygons_perimeter_walls = self._load_missing_polygons(walls_2d)
+        external_contour_normalized = self.merge_polygons(external_contour_normalized, [polygon[1] for polygon in missing_polygons])
         futures = list()
         with Manager() as manager:
             shared_memory = dict(walls_2d=manager.list(walls_2d), polygons=manager.list(polygons), lock=manager.Lock())
