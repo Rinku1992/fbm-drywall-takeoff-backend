@@ -412,3 +412,11 @@ class FloorPlan:
         external_contour_normalized = self._smoothen_polygon(external_contour.reshape(-1, 2).tolist())
 
         return polygonized, perimeter_lines_contours, external_contour_normalized
+
+    def merge_polygons(self, polygon_master, polygons_to_intersect):
+        coordinates_all = np.vstack([polygon_master] + polygons_to_intersect)
+        hull_external = cv2.convexHull(coordinates_all)
+        epsilon = max(2, 0.005 * cv2.arcLength(hull_external, True))
+        external_contour = cv2.approxPolyDP(hull_external, epsilon, True)
+        external_contour_normalized = self._smoothen_polygon(external_contour.reshape(-1, 2).tolist())
+        return external_contour_normalized
