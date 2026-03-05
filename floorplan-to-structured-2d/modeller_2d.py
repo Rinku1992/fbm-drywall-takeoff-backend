@@ -1624,46 +1624,46 @@ class FloorPlan2D(FloorPlan):
                         neighbors = self.nearest_neighbor(reference_line, 'A', target_lines, top_k=5)
                         valid_neighbor_found = False
                         for neighbor in neighbors:
-                        for wall_ in walls_2d:
-                            if neighbor == [[wall_["wall_line"][0]['x'], wall_["wall_line"][0]['y'], wall_["wall_line"][1]['x'], wall_["wall_line"][1]['y']]] and (wall_["polygons_drywall"][0]["enabled"] or wall_["polygons_drywall"][1]["enabled"]):
-                                if self.classify_line(*reference_line[0]) == self.classify_line(*neighbor[0]):
-                                    if not wall["polygons_drywall"][0]["enabled"]:
-                                        wall["polygons_drywall"][0]["color"] = wall_["polygons_drywall"][0]["color"]
-                                        wall["polygons_drywall"][0]["enabled"] = wall_["polygons_drywall"][0]["enabled"]
-                                        wall["polygons_drywall"][0]["fire_rating"] = wall_["polygons_drywall"][0]["fire_rating"]
-                                        wall["polygons_drywall"][0]["layers"] = wall_["polygons_drywall"][0]["layers"]
-                                        wall["polygons_drywall"][0]["thickness"] = wall_["polygons_drywall"][0]["thickness"]
-                                        wall["polygons_drywall"][0]["type"] = wall_["polygons_drywall"][0]["type"]
-                                        wall["polygons_drywall"][0]["waste_factor"] = wall_["polygons_drywall"][0]["waste_factor"]
-                                        wall["polygons_drywall"][0]["recommendation"] = f"FP - Drywall material has been imputed from the nearby wall from Room: {wall_["polygons_drywall"][0]["room_name"]}."
-                                    if not wall["polygons_drywall"][1]["enabled"]:
-                                        wall["polygons_drywall"][1]["color"] = wall_["polygons_drywall"][1]["color"]
-                                        wall["polygons_drywall"][1]["enabled"] = wall_["polygons_drywall"][1]["enabled"]
-                                        wall["polygons_drywall"][1]["fire_rating"] = wall_["polygons_drywall"][1]["fire_rating"]
-                                        wall["polygons_drywall"][1]["layers"] = wall_["polygons_drywall"][1]["layers"]
-                                        wall["polygons_drywall"][1]["thickness"] = wall_["polygons_drywall"][1]["thickness"]
-                                        wall["polygons_drywall"][1]["type"] = wall_["polygons_drywall"][1]["type"]
-                                        wall["polygons_drywall"][1]["waste_factor"] = wall_["polygons_drywall"][1]["waste_factor"]
-                                        wall["polygons_drywall"][1]["recommendation"] = f"FP - Drywall material has been imputed from nearby wall from Room: {wall_["polygons_drywall"][1]["room_name"]}."
-                                else:
-                                    if not wall["polygons_drywall"][0]["enabled"]:
-                                        wall["polygons_drywall"][0]["color"] = wall_["polygons_drywall"][1]["color"]
-                                        wall["polygons_drywall"][0]["enabled"] = wall_["polygons_drywall"][1]["enabled"]
-                                        wall["polygons_drywall"][0]["fire_rating"] = wall_["polygons_drywall"][1]["fire_rating"]
-                                        wall["polygons_drywall"][0]["layers"] = wall_["polygons_drywall"][1]["layers"]
-                                        wall["polygons_drywall"][0]["thickness"] = wall_["polygons_drywall"][1]["thickness"]
-                                        wall["polygons_drywall"][0]["type"] = wall_["polygons_drywall"][1]["type"]
-                                        wall["polygons_drywall"][0]["waste_factor"] = wall_["polygons_drywall"][1]["waste_factor"]
-                                        wall["polygons_drywall"][0]["recommendation"] = f"FP - Drywall material has been imputed from the nearby wall from Room: {wall_["polygons_drywall"][1]["room_name"]}."
-                                    if not wall["polygons_drywall"][1]["enabled"]:
-                                        wall["polygons_drywall"][1]["color"] = wall_["polygons_drywall"][0]["color"]
-                                        wall["polygons_drywall"][1]["enabled"] = wall_["polygons_drywall"][0]["enabled"]
-                                        wall["polygons_drywall"][1]["fire_rating"] = wall_["polygons_drywall"][0]["fire_rating"]
-                                        wall["polygons_drywall"][1]["layers"] = wall_["polygons_drywall"][0]["layers"]
-                                        wall["polygons_drywall"][1]["thickness"] = wall_["polygons_drywall"][0]["thickness"]
-                                        wall["polygons_drywall"][1]["type"] = wall_["polygons_drywall"][0]["type"]
-                                        wall["polygons_drywall"][1]["waste_factor"] = wall_["polygons_drywall"][0]["waste_factor"]
-                                        wall["polygons_drywall"][1]["recommendation"] = f"FP - Drywall material has been imputed from nearby wall from Room: {wall_["polygons_drywall"][0]["room_name"]}."
+                            for wall_ in walls_2d:
+                                if neighbor == [[wall_["wall_line"][0]['x'], wall_["wall_line"][0]['y'], wall_["wall_line"][1]['x'], wall_["wall_line"][1]['y']]] and (wall_["polygons_drywall"][0]["enabled"] or wall_["polygons_drywall"][1]["enabled"]):
+                                    if self.classify_line(*reference_line[0]) == self.classify_line(*neighbor[0]):
+                                        if not wall["polygons_drywall"][0]["enabled"]:
+                                            wall["polygons_drywall"][0]["color"] = wall_["polygons_drywall"][0]["color"]
+                                            wall["polygons_drywall"][0]["enabled"] = wall_["polygons_drywall"][0]["enabled"]
+                                            wall["polygons_drywall"][0]["fire_rating"] = wall_["polygons_drywall"][0]["fire_rating"]
+                                            wall["polygons_drywall"][0]["layers"] = wall_["polygons_drywall"][0]["layers"]
+                                            wall["polygons_drywall"][0]["thickness"] = wall_["polygons_drywall"][0]["thickness"]
+                                            wall["polygons_drywall"][0]["type"] = wall_["polygons_drywall"][0]["type"]
+                                            wall["polygons_drywall"][0]["waste_factor"] = wall_["polygons_drywall"][0]["waste_factor"]
+                                            wall["polygons_drywall"][0]["recommendation"] = f"FP - Drywall material has been imputed from the nearby wall from Room: {wall_["polygons_drywall"][0]["room_name"]}."
+                                        if not wall["polygons_drywall"][1]["enabled"]:
+                                            wall["polygons_drywall"][1]["color"] = wall_["polygons_drywall"][1]["color"]
+                                            wall["polygons_drywall"][1]["enabled"] = wall_["polygons_drywall"][1]["enabled"]
+                                            wall["polygons_drywall"][1]["fire_rating"] = wall_["polygons_drywall"][1]["fire_rating"]
+                                            wall["polygons_drywall"][1]["layers"] = wall_["polygons_drywall"][1]["layers"]
+                                            wall["polygons_drywall"][1]["thickness"] = wall_["polygons_drywall"][1]["thickness"]
+                                            wall["polygons_drywall"][1]["type"] = wall_["polygons_drywall"][1]["type"]
+                                            wall["polygons_drywall"][1]["waste_factor"] = wall_["polygons_drywall"][1]["waste_factor"]
+                                            wall["polygons_drywall"][1]["recommendation"] = f"FP - Drywall material has been imputed from nearby wall from Room: {wall_["polygons_drywall"][1]["room_name"]}."
+                                    else:
+                                        if not wall["polygons_drywall"][0]["enabled"]:
+                                            wall["polygons_drywall"][0]["color"] = wall_["polygons_drywall"][1]["color"]
+                                            wall["polygons_drywall"][0]["enabled"] = wall_["polygons_drywall"][1]["enabled"]
+                                            wall["polygons_drywall"][0]["fire_rating"] = wall_["polygons_drywall"][1]["fire_rating"]
+                                            wall["polygons_drywall"][0]["layers"] = wall_["polygons_drywall"][1]["layers"]
+                                            wall["polygons_drywall"][0]["thickness"] = wall_["polygons_drywall"][1]["thickness"]
+                                            wall["polygons_drywall"][0]["type"] = wall_["polygons_drywall"][1]["type"]
+                                            wall["polygons_drywall"][0]["waste_factor"] = wall_["polygons_drywall"][1]["waste_factor"]
+                                            wall["polygons_drywall"][0]["recommendation"] = f"FP - Drywall material has been imputed from the nearby wall from Room: {wall_["polygons_drywall"][1]["room_name"]}."
+                                        if not wall["polygons_drywall"][1]["enabled"]:
+                                            wall["polygons_drywall"][1]["color"] = wall_["polygons_drywall"][0]["color"]
+                                            wall["polygons_drywall"][1]["enabled"] = wall_["polygons_drywall"][0]["enabled"]
+                                            wall["polygons_drywall"][1]["fire_rating"] = wall_["polygons_drywall"][0]["fire_rating"]
+                                            wall["polygons_drywall"][1]["layers"] = wall_["polygons_drywall"][0]["layers"]
+                                            wall["polygons_drywall"][1]["thickness"] = wall_["polygons_drywall"][0]["thickness"]
+                                            wall["polygons_drywall"][1]["type"] = wall_["polygons_drywall"][0]["type"]
+                                            wall["polygons_drywall"][1]["waste_factor"] = wall_["polygons_drywall"][0]["waste_factor"]
+                                            wall["polygons_drywall"][1]["recommendation"] = f"FP - Drywall material has been imputed from nearby wall from Room: {wall_["polygons_drywall"][0]["room_name"]}."
                                 valid_neighbor_found = True
                                 break
                         if valid_neighbor_found:
