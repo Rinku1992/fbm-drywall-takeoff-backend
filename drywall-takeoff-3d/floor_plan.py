@@ -381,8 +381,10 @@ class FloorPlan:
             perimeter_lines_contours.append(perimeter_lines_contour)
             polygonized.append((area, coordinates))
 
-        contours, _ = cv2.findContours(canvas_eroded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        external_contour = sorted(contours, key=cv2.contourArea, reverse=True)[0]
+        coordinates_all = np.vstack([polygon[1] for polygon in polygonized])
+        hull_external = cv2.convexHull(coordinates_all)
+        epsilon = max(2, 0.005 * cv2.arcLength(hull_external, True))
+        external_contour = cv2.approxPolyDP(hull_external, epsilon, True)
         external_contour_normalized = self._smoothen_polygon(external_contour.reshape(-1, 2).tolist())
 
         return polygonized, perimeter_lines_contours, external_contour_normalized
