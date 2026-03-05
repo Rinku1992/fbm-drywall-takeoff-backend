@@ -11,7 +11,6 @@ from pathlib import Path
 from collections import defaultdict
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
-from multiprocessing import Manager
 
 from fractions import Fraction
 import numpy as np
@@ -42,6 +41,8 @@ class FloorPlan2D(FloorPlan):
         self._height_in_feet = self._hyperparameters["modelling"]["height_in_feet"]
         self._vertex_ai_client, self._vertex_ai_generation_config, self._vertex_ai_max_retry = vertex_ai_client_parameters
         self._scale = self._hyperparameters["modelling"]["scale"]
+        self._walls_2d = list()
+        self._polygons = list()
 
     def _close_jagged_openings(
         self,
@@ -1170,7 +1171,6 @@ class FloorPlan2D(FloorPlan):
         floor_plan_path,
         transcription_block_with_centroids,
         index,
-        shared_memory,
     ):
         def load_wall_payload(wall_line):
             X1, Y1, X2, Y2 = wall_line[0]
@@ -1178,10 +1178,9 @@ class FloorPlan2D(FloorPlan):
                 dict(x=int(X1), y=int(Y1)),
                 dict(x=int(X2), y=int(Y2))
             ]
-            with shared_memory["lock"]:
-                for wall_2d in shared_memory["walls_2d"]:
-                    if wall_2d["wall_line"] == wall_line_structured:
-                        return wall_2d
+            for wall_2d in self._walls_2d:
+                if wall_2d["wall_line"] == wall_line_structured:
+                    return wall_2d
 
         scale_x, scale_y = scale
         perimeter_walls_unnormalized = list()
@@ -1232,7 +1231,6 @@ class FloorPlan2D(FloorPlan):
                     wall_parameter["recommendation"] = "NA"
                     wall_parameter["room_name"] = ''
                     thickness=-1
-                wall_payload_outdated = deepcopy(wall_payload)
                 if len(wall_payload["polygons_drywall"]) == 2:
                     continue
                 wall_payload["polygons_drywall"].append(
@@ -1251,13 +1249,10 @@ class FloorPlan2D(FloorPlan):
                     )
                 )
                 polygon_ids_drywall_interior.append(f"{wall_payload["id"]}.b")
-                with shared_memory["lock"]:
-                    shared_memory["walls_2d"].remove(wall_payload_outdated)
-                    shared_memory["walls_2d"].append(wall_payload)
             else:
                 X1, Y1, X2, Y2 = wall_line[0]
                 wall = dict(
-                    id=len(shared_memory["walls_2d"]),
+                    id=len(self._walls_2d),
                     wall_line=[
                         dict(x=int(X1), y=int(Y1)),
                         dict(x=int(X2), y=int(Y2))
@@ -1286,7 +1281,7 @@ class FloorPlan2D(FloorPlan):
                     thickness=-1
                 wall["polygons_drywall"].append(
                     dict(
-                        id=f"{len(shared_memory["walls_2d"])}.a",
+                        id=f"{len(self._walls_2d)}.a",
                         room_name=wall_parameter["room_name"],
                         polygon=polygon["coordinates"] if isinstance(polygon, dict) else polygon[0]["coordinates"],
                         type=wall_parameter["drywall_assembly"]["material"],
@@ -1299,11 +1294,11 @@ class FloorPlan2D(FloorPlan):
                         enabled=True,
                     )
                 )
-                polygon_ids_drywall_interior.append(f"{len(shared_memory["walls_2d"])}.a")
+                polygon_ids_drywall_interior.append(f"{len(self._walls_2d)}.a")
                 if isinstance(polygon, list):
                     wall["polygons_drywall"].append(
                         dict(
-                            id=f"{len(shared_memory["walls_2d"])}.b",
+                            id=f"{len(self._walls_2d)}.b",
                             room_name=wall_parameter["room_name"],
                             polygon=polygon[1]["coordinates"],
                             type=wall_parameter["drywall_assembly"]["material"],
@@ -1316,9 +1311,8 @@ class FloorPlan2D(FloorPlan):
                             enabled=True,
                         )
                     )
-                    polygon_ids_drywall_interior.append(f"{len(shared_memory["walls_2d"])}.b")
-                with shared_memory["lock"]:
-                    shared_memory["walls_2d"].append(wall)
+                    polygon_ids_drywall_interior.append(f"{len(self._walls_2d)}.b")
+                self._walls_2d.append(wall)
 
         polygon_ids_drywall_interior_filtered = list()
         interior_wall_ids = set()
@@ -1351,8 +1345,7 @@ class FloorPlan2D(FloorPlan):
                 enabled=True,
             )
         )
-        with shared_memory["lock"]:
-            shared_memory["polygons"].append(polygon)
+        self._polygons.append(polygon)
 
     def _add_wall_perimeter(
         self,
@@ -1360,7 +1353,6 @@ class FloorPlan2D(FloorPlan):
         polygons,
         height_default,
         scale,
-        shared_memory,
         thickness_default=0.29,
     ):
         X1, Y1, X2, Y2 = wall_line[0]
@@ -1374,7 +1366,7 @@ class FloorPlan2D(FloorPlan):
             dict(x=round(scale_x * X2), y=round(scale_y * Y2))
         ]
         wall_payload = None
-        for wall_2d in shared_memory["walls_2d"]:
+        for wall_2d in self._walls_2d:
             if wall_2d["wall_line"] == wall_line_structured:
                 wall_payload = wall_2d
 
@@ -1396,7 +1388,7 @@ class FloorPlan2D(FloorPlan):
             )
         else:
             wall = dict(
-                id=len(shared_memory["walls_2d"]),
+                id=len(self._walls_2d),
                 wall_line=[
                     dict(x=round(scale_x * X1), y=round(scale_y * Y1)),
                     dict(x=round(scale_x * X2), y=round(scale_y * Y2))
@@ -1410,7 +1402,7 @@ class FloorPlan2D(FloorPlan):
             for polygon, polygon_index in zip(polygons, ['a', 'b']):
                 wall["polygons_drywall"].append(
                     dict(
-                        id=f"{len(shared_memory["walls_2d"])}.{polygon_index}",
+                        id=f"{len(self._walls_2d)}.{polygon_index}",
                         polygon=polygon["coordinates"],
                         type="DISABLED",
                         color=[0, 0, 255],
@@ -1423,8 +1415,7 @@ class FloorPlan2D(FloorPlan):
                         room_name='',
                     )
                 )
-            with shared_memory["lock"]:
-                shared_memory["walls_2d"].append(wall)
+            self._walls_2d.append(wall)
 
     def _extrude_polygon_perimeter(self, line, scale, outer_drywall_surface=None):
         polygons = list()
@@ -1539,11 +1530,11 @@ class FloorPlan2D(FloorPlan):
                     dict(x=X2-60, y=Y2+60),
                     dict(x=X1+60, y=Y1+60)
                 ]
-                if self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] - 100), polygon_vertices) and self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] + 100), polygon_vertices):
+                if self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] - 200), polygon_vertices) and self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] + 200), polygon_vertices):
                     polygons.append([dict(coordinates=polygon_up, enabled=True), dict(coordinates=polygon_down, enabled=True)])
-                elif self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] - 100), polygon_vertices):
+                elif self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] - 200), polygon_vertices):
                     polygons.append(dict(coordinates=polygon_up, enabled=True))
-                elif self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] + 100), polygon_vertices):
+                elif self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] + 200), polygon_vertices):
                     polygons.append(dict(coordinates=polygon_down, enabled=True))
 
             if self.classify_line(X1, Y1, X2, Y2) == "vertical":
@@ -1560,11 +1551,11 @@ class FloorPlan2D(FloorPlan):
                     dict(x=X2+60, y=Y2-60),
                     dict(x=X1+60, y=Y1+60)
                 ]
-                if self.is_inside_polygon((centroid_perimeter_line[0] - 100, centroid_perimeter_line[1]), polygon_vertices) and self.is_inside_polygon((centroid_perimeter_line[0] + 100, centroid_perimeter_line[1]), polygon_vertices):
+                if self.is_inside_polygon((centroid_perimeter_line[0] - 200, centroid_perimeter_line[1]), polygon_vertices) and self.is_inside_polygon((centroid_perimeter_line[0] + 200, centroid_perimeter_line[1]), polygon_vertices):
                     polygons.append([dict(coordinates=polygon_left, enabled=True), dict(coordinates=polygon_right, enabled=True)])
-                elif self.is_inside_polygon((centroid_perimeter_line[0] - 100, centroid_perimeter_line[1]), polygon_vertices):
+                elif self.is_inside_polygon((centroid_perimeter_line[0] - 200, centroid_perimeter_line[1]), polygon_vertices):
                     polygons.append(dict(coordinates=polygon_left, enabled=True))
-                elif self.is_inside_polygon((centroid_perimeter_line[0] + 100, centroid_perimeter_line[1]), polygon_vertices):
+                elif self.is_inside_polygon((centroid_perimeter_line[0] + 200, centroid_perimeter_line[1]), polygon_vertices):
                     polygons.append(dict(coordinates=polygon_right, enabled=True))
 
             if self.classify_line(X1, Y1, X2, Y2) == "inclined":
@@ -1584,12 +1575,12 @@ class FloorPlan2D(FloorPlan):
                 my = (Y1 + Y2) / 2
 
                 test_coordinate_A = (
-                    round(mx + nx * 100),
-                    round(my + ny * 100)
+                    round(mx + nx * 200),
+                    round(my + ny * 200)
                 )
                 test_coordinate_B = (
-                    round(mx - nx * 100),
-                    round(my - ny * 100)
+                    round(mx - nx * 200),
+                    round(my - ny * 200)
                 )
 
                 polygon_A = [
@@ -1664,10 +1655,10 @@ class FloorPlan2D(FloorPlan):
                                             wall["polygons_drywall"][1]["type"] = wall_["polygons_drywall"][0]["type"]
                                             wall["polygons_drywall"][1]["waste_factor"] = wall_["polygons_drywall"][0]["waste_factor"]
                                             wall["polygons_drywall"][1]["recommendation"] = f"FP - Drywall material has been imputed from nearby wall from Room: {wall_["polygons_drywall"][0]["room_name"]}."
-                                valid_neighbor_found = True
+                                    valid_neighbor_found = True
+                                    break
+                            if valid_neighbor_found:
                                 break
-                        if valid_neighbor_found:
-                            break
             if remove_drywall_disabled:
                 if not wall["polygons_drywall"] or (not wall["polygons_drywall"][0]["enabled"] and not wall["polygons_drywall"][1]["enabled"]):
                     walls_2d.remove(wall)
@@ -2142,77 +2133,68 @@ class FloorPlan2D(FloorPlan):
         external_contour_normalized = [(round(scale_x * coordinate[0]), round(scale_y * coordinate[1])) for coordinate in external_contour]
         perimeter_lines, outer_drywall_surfaces = self.perimeter_lines(wall_lines)
         futures = list()
-        with Manager() as manager:
-            shared_memory = dict(walls_2d=manager.list(), polygons=manager.list(), lock=manager.Lock())
-            with ThreadPoolExecutor(max_workers=8) as executor:
-                for index, ((polygon_area, polygon_vertices), polygon_perimeter_walls) in enumerate(zip(polygons, polygons_perimeter_walls)):
-                    index += 1
-                    polygon_vertices_normalized = [(round(scale_x * vertex[0]), round(scale_y * vertex[1])) for vertex in polygon_vertices]
-                    polygon_perimeter_walls_normalized = list()
-                    for polygon_perimeter_wall in polygon_perimeter_walls:
-                        X1, Y1, X2, Y2 = polygon_perimeter_wall[0]
-                        polygon_perimeter_wall_normalized = [[round(scale_x * X1), round(scale_y * Y1), round(scale_x * X2), round(scale_y * Y2)]]
-                        polygon_perimeter_walls_normalized.append(polygon_perimeter_wall_normalized)
-                    polygon_area_normalized = polygon_area * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["area"]
-                    drywall_polygons = self._extrude_polygon_drywalls(polygon_perimeter_walls_normalized, polygon_vertices_normalized)
-                    futures.append(executor.submit(
-                        self._add_walls_polygon,
-                        polygon_vertices_normalized,
-                        polygon_area_normalized,
-                        polygon_perimeter_walls_normalized,
-                        drywall_polygons,
-                        drywall_templates,
-                        (scale_x, scale_y),
-                        height_default,
-                        floor_plan_path,
-                        transcription_block_with_centroids,
-                        index,
-                        shared_memory,
-                    ))
-                [future.result() for future in futures]
-                futures = list()
-                for perimeter_line, outer_drywall_surface in zip(perimeter_lines, outer_drywall_surfaces):
-                    perimeter_polygons = self._extrude_polygon_perimeter(perimeter_line, (scale_x, scale_y), outer_drywall_surface=outer_drywall_surface)
-                    futures.append(executor.submit(
-                        self._add_wall_perimeter,
-                        perimeter_line,
-                        perimeter_polygons,
-                        height_default,
-                        (scale_x, scale_y),
-                        shared_memory,
-                    ))
-                [future.result() for future in futures]
-            walls_2d, polygons = list(shared_memory["walls_2d"]), list(shared_memory["polygons"])
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            for index, ((polygon_area, polygon_vertices), polygon_perimeter_walls) in enumerate(zip(polygons, polygons_perimeter_walls)):
+                index += 1
+                polygon_vertices_normalized = [(round(scale_x * vertex[0]), round(scale_y * vertex[1])) for vertex in polygon_vertices]
+                polygon_perimeter_walls_normalized = list()
+                for polygon_perimeter_wall in polygon_perimeter_walls:
+                    X1, Y1, X2, Y2 = polygon_perimeter_wall[0]
+                    polygon_perimeter_wall_normalized = [[round(scale_x * X1), round(scale_y * Y1), round(scale_x * X2), round(scale_y * Y2)]]
+                    polygon_perimeter_walls_normalized.append(polygon_perimeter_wall_normalized)
+                polygon_area_normalized = polygon_area * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["area"]
+                drywall_polygons = self._extrude_polygon_drywalls(polygon_perimeter_walls_normalized, polygon_vertices_normalized)
+                futures.append(executor.submit(
+                    self._add_walls_polygon,
+                    polygon_vertices_normalized,
+                    polygon_area_normalized,
+                    polygon_perimeter_walls_normalized,
+                    drywall_polygons,
+                    drywall_templates,
+                    (scale_x, scale_y),
+                    height_default,
+                    floor_plan_path,
+                    transcription_block_with_centroids,
+                    index,
+                ))
+            [future.result() for future in futures]
+            futures = list()
+            for perimeter_line, outer_drywall_surface in zip(perimeter_lines, outer_drywall_surfaces):
+                perimeter_polygons = self._extrude_polygon_perimeter(perimeter_line, (scale_x, scale_y), outer_drywall_surface=outer_drywall_surface)
+                futures.append(executor.submit(
+                    self._add_wall_perimeter,
+                    perimeter_line,
+                    perimeter_polygons,
+                    height_default,
+                    (scale_x, scale_y),
+                ))
+            [future.result() for future in futures]
 
-        walls_2d = self._normalize_walls_2d(walls_2d, external_contour_normalized)
-        missing_polygons, missing_polygons_perimeter_walls = self._load_missing_polygons(walls_2d)
+        self._walls_2d = self._normalize_walls_2d(self._walls_2d, external_contour_normalized)
+        missing_polygons, missing_polygons_perimeter_walls = self._load_missing_polygons(self._walls_2d)
         external_contour_normalized = self.merge_polygons(external_contour_normalized, [polygon[1] for polygon in missing_polygons])
         futures = list()
-        with Manager() as manager:
-            shared_memory = dict(walls_2d=manager.list(walls_2d), polygons=manager.list(polygons), lock=manager.Lock())
-            with ThreadPoolExecutor(max_workers=8) as executor:
-                for index, ((polygon_area, polygon_vertices), polygon_perimeter_walls) in enumerate(zip(missing_polygons, missing_polygons_perimeter_walls)):
-                    index += len(polygons)
-                    drywall_polygons = self._extrude_polygon_drywalls(polygon_perimeter_walls, polygon_vertices)
-                    futures.append(executor.submit(
-                        self._add_walls_polygon,
-                        polygon_vertices,
-                        polygon_area,
-                        polygon_perimeter_walls,
-                        drywall_polygons,
-                        drywall_templates,
-                        (scale_x, scale_y),
-                        height_default,
-                        floor_plan_path,
-                        transcription_block_with_centroids,
-                        index,
-                        shared_memory,
-                    ))
-                [future.result() for future in futures]
-            walls_2d, polygons = list(shared_memory["walls_2d"]), list(shared_memory["polygons"])
-        walls_2d = self._normalize_walls_2d(walls_2d, external_contour_normalized, impute_drywall_disabled=True)
-        #polygons = self._normalize_polygons(polygons)
+        with ThreadPoolExecutor(max_workers=8) as executor:
+            for index, ((polygon_area, polygon_vertices), polygon_perimeter_walls) in enumerate(zip(missing_polygons, missing_polygons_perimeter_walls)):
+                index += len(polygons)
+                drywall_polygons = self._extrude_polygon_drywalls(polygon_perimeter_walls, polygon_vertices)
+                futures.append(executor.submit(
+                    self._add_walls_polygon,
+                    polygon_vertices,
+                    polygon_area,
+                    polygon_perimeter_walls,
+                    drywall_polygons,
+                    drywall_templates,
+                    (scale_x, scale_y),
+                    height_default,
+                    floor_plan_path,
+                    transcription_block_with_centroids,
+                    index,
+                ))
+            [future.result() for future in futures]
+        self._walls_2d = self._normalize_walls_2d(self._walls_2d, external_contour_normalized, impute_drywall_disabled=True)
+        #self._polygons = self._normalize_polygons(self._polygons)
         if model_2d_path:
             with open(model_2d_path, 'w') as f:
-                json.dump([walls_2d, polygons], f, indent=2)
-        return walls_2d, polygons, model_2d_path, external_contour_normalized
+                json.dump([self._walls_2d, self._polygons], f, indent=2)
+        return self._walls_2d, self._polygons, model_2d_path, external_contour_normalized
