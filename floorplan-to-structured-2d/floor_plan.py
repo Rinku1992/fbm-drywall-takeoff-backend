@@ -4,6 +4,8 @@ from fractions import Fraction
 import math
 import numpy as np
 import cv2
+from shapely.geometry import LineString
+from shapely.ops import polygonize
 
 __all__ = ["FloorPlan"]
 
@@ -405,13 +407,12 @@ class FloorPlan:
             perimeter_lines_contours.append(perimeter_lines_contour)
             polygonized.append((area, coordinates))
 
-        coordinates_all = np.vstack([polygon[1] for polygon in polygonized])
-        hull_external = cv2.convexHull(coordinates_all)
-        epsilon = max(2, 0.005 * cv2.arcLength(hull_external, True))
-        external_contour = cv2.approxPolyDP(hull_external, epsilon, True)
-        external_contour_normalized = self._smoothen_polygon(external_contour.reshape(-1, 2).tolist())
+        lines_shapely = [LineString([(wall_line[0][0], wall_line[0][1]),(wall_line[0][2], wall_line[0][3])]) for wall_line in wall_lines]
+        polygons_shapely = list(polygonize(lines_shapely))
+        polygons_shapely_exterior = max(polygons_shapely, key=lambda p: p.area)
+        external_contour = list(polygons_shapely_exterior.exterior.coords[:-1])
 
-        return polygonized, perimeter_lines_contours, external_contour_normalized
+        return polygonized, perimeter_lines_contours, external_contour
 
     def merge_polygons(self, polygon_master, polygons_to_intersect):
         coordinates_all = np.vstack([polygon_master] + polygons_to_intersect)
