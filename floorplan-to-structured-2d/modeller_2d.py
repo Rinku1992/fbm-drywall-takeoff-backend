@@ -1420,8 +1420,10 @@ class FloorPlan2D(FloorPlan):
     def _extrude_polygon_perimeter(self, line, scale, outer_drywall_surface=None):
         polygons = list()
         scale_x, scale_y = scale
+        X1_unnormalized, Y1_unnormalized, X2_unnormalized, Y2_unnormalized = line[0][0], line[0][1], line[0][2], line[0][3]
+        orientation = self.classify_line(X1_unnormalized, Y1_unnormalized, X2_unnormalized, Y2_unnormalized)
         X1, Y1, X2, Y2 = round(scale_x * line[0][0]), round(scale_y * line[0][1]), round(scale_x * line[0][2]), round(scale_y * line[0][3])
-        if self.classify_line(X1, Y1, X2, Y2) == "horizontal":
+        if orientation == "horizontal":
             polygon_a = [
                 dict(x=X1+20, y=Y1-20),
                 dict(x=X2-20, y=Y2-20),
@@ -1439,7 +1441,7 @@ class FloorPlan2D(FloorPlan):
             if outer_drywall_surface == "DOWN" or outer_drywall_surface == "INVALID":
                 polygons.append(dict(coordinates=polygon_b, enabled=False))
 
-        if self.classify_line(X1, Y1, X2, Y2) == "vertical":
+        if orientation == "vertical":
             polygon_a = [
                 dict(x=X1-20, y=Y1+20),
                 dict(x=X2-20, y=Y2-20),
@@ -1457,7 +1459,7 @@ class FloorPlan2D(FloorPlan):
             if outer_drywall_surface == "RIGHT" or outer_drywall_surface == "INVALID":
                 polygons.append(dict(coordinates=polygon_b, enabled=False))
 
-        if self.classify_line(X1, Y1, X2, Y2) == "inclined":
+        if orientation == "inclined":
             dx = X2 - X1
             dy = Y2 - Y1
             length = math.hypot(dx, dy)
@@ -1512,11 +1514,13 @@ class FloorPlan2D(FloorPlan):
 
         return polygons
 
-    def _extrude_polygon_drywalls(self, polygon_perimeter_lines, polygon_vertices):
+    def _extrude_polygon_drywalls(self, polygon_perimeter_lines, polygon_vertices, scale):
         polygons = list()
+        scale_x, scale_y = scale
         for polygon_perimeter_line in polygon_perimeter_lines:
             X1, Y1, X2, Y2 = polygon_perimeter_line[0][0], polygon_perimeter_line[0][1], polygon_perimeter_line[0][2], polygon_perimeter_line[0][3]
-            if self.classify_line(X1, Y1, X2, Y2) == "horizontal":
+            orientation = self.classify_line(round(X1 / scale_x), round(Y1 / scale_y), round(X2 / scale_x), round(Y2 / scale_y))
+            if orientation == "horizontal":
                 centroid_perimeter_line = (round((X1 + X2) / 2), round(np.median([Y1, Y2])))
                 polygon_up = [
                     dict(x=X1+20, y=Y1-20),
@@ -1537,7 +1541,7 @@ class FloorPlan2D(FloorPlan):
                 else:
                     polygons.append(dict(coordinates=polygon_down, enabled=True))
 
-            if self.classify_line(X1, Y1, X2, Y2) == "vertical":
+            if orientation == "vertical":
                 centroid_perimeter_line = (round(np.median([X1, X2])), round((Y1 + Y2) / 2))
                 polygon_left = [
                         dict(x=X1-20, y=Y1+20),
@@ -1558,7 +1562,7 @@ class FloorPlan2D(FloorPlan):
                 else:
                     polygons.append(dict(coordinates=polygon_right, enabled=True))
 
-            if self.classify_line(X1, Y1, X2, Y2) == "inclined":
+            if orientation == "inclined":
                 dx = X2 - X1
                 dy = Y2 - Y1
                 length = math.hypot(dx, dy)
@@ -1605,21 +1609,31 @@ class FloorPlan2D(FloorPlan):
 
         return polygons
 
-    def _normalize_walls_2d(self, walls_2d, polygon_vertices_external, remove_drywall_disabled=False, impute_drywall_disabled=False):
+    def _normalize_walls_2d(
+        self,
+        walls_2d,
+        scale,
+        remove_drywall_disabled=False,
+        impute_drywall_disabled=False,
+        polygon_vertices_external=None
+    ):
+        scale_x, scale_y = scale
         for wall in walls_2d[:]:
             if impute_drywall_disabled and len(wall["polygons_drywall"]) == 2:
                 if not wall["polygons_drywall"][0]["enabled"] or not wall["polygons_drywall"][1]["enabled"]:
                     centroid_A = (round(sum([vertex['x'] for vertex in wall["polygons_drywall"][0]["polygon"]]) / 4), round(sum([vertex['y'] for vertex in wall["polygons_drywall"][0]["polygon"]]) / 4))
                     centroid_B = (round(sum([vertex['x'] for vertex in wall["polygons_drywall"][1]["polygon"]]) / 4), round(sum([vertex['y'] for vertex in wall["polygons_drywall"][1]["polygon"]]) / 4))
                     reference_line = [[wall["wall_line"][0]['x'], wall["wall_line"][0]['y'], wall["wall_line"][1]['x'], wall["wall_line"][1]['y']]]
+                    reference_line_unnormalized = [round(wall["wall_line"][0]['x'] / scale_x), round(wall["wall_line"][0]['y'] / scale_y), round(wall["wall_line"][1]['x'] / scale_x), round(wall["wall_line"][1]['y'] / scale_y)]
                     if self.is_inside_polygon(centroid_A, polygon_vertices_external) and self.is_inside_polygon(centroid_B, polygon_vertices_external):
                         target_lines = [[[wall_target["wall_line"][0]['x'], wall_target["wall_line"][0]['y'], wall_target["wall_line"][1]['x'], wall_target["wall_line"][1]['y']]] for wall_target in walls_2d[:]]
                         neighbors = self.nearest_neighbor(reference_line, 'A', target_lines, top_k=5)
                         valid_neighbor_found = False
                         for neighbor in neighbors:
+                            neighbor_unnormalized = [round(neighbor[0][0] / scale_x), round(neighbor[0][1] / scale_y), round(neighbor[0][2] / scale_x), round(neighbor[0][3] / scale_y)]
                             for wall_ in walls_2d:
                                 if neighbor == [[wall_["wall_line"][0]['x'], wall_["wall_line"][0]['y'], wall_["wall_line"][1]['x'], wall_["wall_line"][1]['y']]] and (wall_["polygons_drywall"][0]["enabled"] or wall_["polygons_drywall"][1]["enabled"]):
-                                    if self.classify_line(*reference_line[0]) == self.classify_line(*neighbor[0]):
+                                    if self.classify_line(*reference_line_unnormalized) == self.classify_line(*neighbor_unnormalized):
                                         if not wall["polygons_drywall"][0]["enabled"]:
                                             wall["polygons_drywall"][0]["color"] = wall_["polygons_drywall"][0]["color"]
                                             wall["polygons_drywall"][0]["enabled"] = wall_["polygons_drywall"][0]["enabled"]
@@ -1669,7 +1683,7 @@ class FloorPlan2D(FloorPlan):
                 continue
             wall_line_vertices = wall["wall_line"]
             X1, Y1, X2, Y2 = wall_line_vertices[0]['x'], wall_line_vertices[0]['y'], wall_line_vertices[1]['x'], wall_line_vertices[1]['y']
-            orientation = self.classify_line(X1, Y1, X2, Y2)
+            orientation = self.classify_line(round(X1 / scale_x), round(Y1 / scale_y), round(X2 / scale_x), round(Y2 / scale_y))
             if not wall["polygons_drywall"]:
                 for index in ['a', 'b']:
                     if orientation == "horizontal":
@@ -2148,7 +2162,11 @@ class FloorPlan2D(FloorPlan):
                     polygon_perimeter_wall_normalized = [[round(scale_x * X1), round(scale_y * Y1), round(scale_x * X2), round(scale_y * Y2)]]
                     polygon_perimeter_walls_normalized.append(polygon_perimeter_wall_normalized)
                 polygon_area_normalized = polygon_area * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["area"]
-                drywall_polygons = self._extrude_polygon_drywalls(polygon_perimeter_walls_normalized, polygon_vertices_normalized)
+                drywall_polygons = self._extrude_polygon_drywalls(
+                    polygon_perimeter_walls_normalized,
+                    polygon_vertices_normalized,
+                    (scale_x, scale_y)
+                )
                 futures.append(executor.submit(
                     self._add_walls_polygon,
                     polygon_vertices_normalized,
@@ -2165,7 +2183,11 @@ class FloorPlan2D(FloorPlan):
             [future.result() for future in futures]
             futures = list()
             for perimeter_line, outer_drywall_surface in zip(perimeter_lines, outer_drywall_surfaces):
-                perimeter_polygons = self._extrude_polygon_perimeter(perimeter_line, (scale_x, scale_y), outer_drywall_surface=outer_drywall_surface)
+                perimeter_polygons = self._extrude_polygon_perimeter(
+                    perimeter_line,
+                    (scale_x, scale_y),
+                    outer_drywall_surface=outer_drywall_surface
+                )
                 futures.append(executor.submit(
                     self._add_wall_perimeter,
                     perimeter_line,
@@ -2175,14 +2197,14 @@ class FloorPlan2D(FloorPlan):
                 ))
             [future.result() for future in futures]
 
-        self._walls_2d = self._normalize_walls_2d(self._walls_2d, external_contour_normalized)
+        self._walls_2d = self._normalize_walls_2d(self._walls_2d, (scale_x, scale_y))
         missing_polygons, missing_polygons_perimeter_walls = self._load_missing_polygons(self._walls_2d, (scale_x, scale_y))
         external_contour_normalized = self.merge_polygons(external_contour_normalized, [polygon[1] for polygon in missing_polygons])
         futures = list()
         with ThreadPoolExecutor(max_workers=8) as executor:
             for index, ((polygon_area, polygon_vertices), polygon_perimeter_walls) in enumerate(zip(missing_polygons, missing_polygons_perimeter_walls)):
                 index += len(polygons)
-                drywall_polygons = self._extrude_polygon_drywalls(polygon_perimeter_walls, polygon_vertices)
+                drywall_polygons = self._extrude_polygon_drywalls(polygon_perimeter_walls, polygon_vertices, (scale_x, scale_y))
                 futures.append(executor.submit(
                     self._add_walls_polygon,
                     polygon_vertices,
@@ -2197,7 +2219,7 @@ class FloorPlan2D(FloorPlan):
                     index,
                 ))
             [future.result() for future in futures]
-        self._walls_2d = self._normalize_walls_2d(self._walls_2d, external_contour_normalized, remove_drywall_disabled=True)
+        self._walls_2d = self._normalize_walls_2d(self._walls_2d, (scale_x, scale_y), remove_drywall_disabled=True)
         #self._polygons = self._normalize_polygons(self._polygons)
         if model_2d_path:
             with open(model_2d_path, 'w') as f:
