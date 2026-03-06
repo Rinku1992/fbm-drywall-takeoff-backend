@@ -18,6 +18,7 @@ python-multipart
 scikit-image
 opencv-python
 numpy
+shapely
 ruamel-yaml
 matplotlib
 pygltflib
