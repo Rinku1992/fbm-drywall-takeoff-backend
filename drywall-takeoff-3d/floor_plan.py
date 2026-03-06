@@ -214,26 +214,33 @@ class FloorPlan:
 
         return disconnected_shapes
 
-    def load_perimeter(self, coordinates, wall_lines, tolerance=10, bound_capture=True):
+    def load_perimeter(self, coordinates, wall_lines, tolerance=10, bound_capture=True, scale=None):
+        if scale:
+            scale_x, scale_y = scale
+            tolerance *= np.mean([scale[0], scale[1]])
         perimeter_lines = list()
         for source_coordinate in coordinates:
             for target_coordinate in coordinates:
                 perimeter_line_found = False
                 perimeter_segments = list()
                 X1, Y1, X2, Y2 = self.normalize([[[source_coordinate[0], source_coordinate[1], target_coordinate[0], target_coordinate[1]]]])[0][0]
-                orientation = self.classify_line(X1, Y1, X2, Y2)
+                if scale:
+                    orientation = self.classify_line(X1 / scale_x, Y1 / scale_y, X2 / scale_x, Y2 / scale_y)
+                else:
+                    orientation = self.classify_line(X1, Y1, X2, Y2)
                 for wall_line in wall_lines:
                     target_X1, target_Y1, target_X2, target_Y2 = wall_line[0]
-                    orientation_target = self.classify_line(target_X1, target_Y1, target_X2, target_Y2)
+                    if scale:
+                        orientation_target = self.classify_line(target_X1 / scale_x, target_Y1 / scale_y, target_X2 / scale_x, target_Y2 / scale_y)
+                    else:
+                        orientation_target = self.classify_line(target_X1, target_Y1, target_X2, target_Y2)
                     if orientation == "horizontal" and orientation_target == "horizontal":
                         if abs(np.median([Y1, Y2]) - np.median([target_Y1, target_Y2])) <= tolerance and target_X1 - X1 >= -tolerance and target_X2 - X2 <= tolerance:
                             perimeter_segments.append(wall_line)
                     if orientation == "vertical" and orientation_target == "vertical":
                         if abs(np.median([X1, X2]) - np.median([target_X1, target_X2])) <= tolerance and target_Y1 - Y1 >= -tolerance and target_Y2 - Y2 <= tolerance:
                             perimeter_segments.append(wall_line)
-                    #if orientation == "inclined":
-                    #    if target_X1 - X1 >= -tolerance and target_X2 - X2 <= tolerance and target_Y1 - Y1 >= -tolerance and target_Y2 - Y2 <= tolerance:
-                    #        perimeter_segments.append(wall_line)
+
                     if abs(target_X1 - X1) <= tolerance and abs(target_Y1 - Y1) <= tolerance and abs(target_X2 - X2) <= tolerance and abs(target_Y2 - Y2) <= tolerance:
                         perimeter_line_found = True
                         perimeter_line = [[target_X1, target_Y1, target_X2, target_Y2]]
