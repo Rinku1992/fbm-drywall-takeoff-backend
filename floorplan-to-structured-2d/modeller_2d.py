@@ -1926,7 +1926,7 @@ class FloorPlan2D(FloorPlan):
         for polygon in polygons_2d_JSON:
             polygon["type_choices"] = CEILING_CHOICES
 
-    def _load_missing_polygons(self, walls_2d):
+    def _load_missing_polygons(self, walls_2d, scale):
         def load_wall_payload(wall_line):
             X1, Y1, X2, Y2 = wall_line[0]
             wall_line_structured = [
@@ -1986,17 +1986,20 @@ class FloorPlan2D(FloorPlan):
                 if X1_in_bound and X2_in_bound and Y1_in_bound and Y2_in_bound:
                     lines_isolated_included.append(line_isolated)
             polygon_vertices = load_polygon(shape, lines_isolated_included)
+            perimeter_lines_contour_all = self.load_perimeter(polygon_vertices, [[[wall["wall_line"][0]['x'], wall["wall_line"][0]['y'], wall["wall_line"][1]['x'], wall["wall_line"][1]['y']]] for wall in walls_2d], scale=scale)
             polygon_area = cv2.contourArea(np.array(polygon_vertices, np.int32)) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["area"]
-            polygon_ids_drywall_interior, perimeter_lines_contour = list(), list()
-            for wall_line in shape:
-                polygon_ids_drywall_interior.append(walls_null_id[walls_null_room.index(wall_line)])
-                perimeter_lines_contour.append(wall_line)
-                walls_2d.remove(load_wall_payload(wall_line))
-            for wall_line in lines_isolated_included:
-                polygon_ids_drywall_interior.append(walls_null_id[walls_null_room.index(wall_line)])
-                perimeter_lines_contour.append(wall_line)
-                walls_2d.remove(load_wall_payload(wall_line))
-            perimeter_lines_contours.append(perimeter_lines_contour)
+            for wall_line in perimeter_lines_contour_all:
+                wall_payload = load_wall_payload(wall_line)
+                if wall_line in shape:
+                    walls_2d.remove(wall_payload)
+                    continue
+                if wall_line in lines_isolated_included:
+                    walls_2d.remove(wall_payload)
+                    continue
+                polygon_payload = wall_payload["polygons_drywall"][0] if not wall_payload["polygons_drywall"][0]["enabled"] else wall_payload["polygons_drywall"][1]
+                wall_payload["polygons_drywall"].remove(polygon_payload)
+
+            perimeter_lines_contours.append(perimeter_lines_contour_all)
             polygonized.append((polygon_area, polygon_vertices))
 
         return polygonized, perimeter_lines_contours
@@ -2173,7 +2176,7 @@ class FloorPlan2D(FloorPlan):
             [future.result() for future in futures]
 
         self._walls_2d = self._normalize_walls_2d(self._walls_2d, external_contour_normalized)
-        missing_polygons, missing_polygons_perimeter_walls = self._load_missing_polygons(self._walls_2d)
+        missing_polygons, missing_polygons_perimeter_walls = self._load_missing_polygons(self._walls_2d, (scale_x, scale_y))
         external_contour_normalized = self.merge_polygons(external_contour_normalized, [polygon[1] for polygon in missing_polygons])
         futures = list()
         with ThreadPoolExecutor(max_workers=8) as executor:
