@@ -1019,7 +1019,7 @@ class FloorPlan2D(FloorPlan):
         height_default=9.125,
     ):
         def verify_tolerance_distance(dimension_wall, wall_unnormalized, confidence_score):
-            if dimension_wall["length"] and dimension_wall["width"] and confidence_score >= 0.95:
+            if dimension_wall["length"] and dimension_wall["width"] and confidence_score >= 0.9:
                 dimension_wall["length"] = round(dimension_wall["length"], 2)
                 dimension_wall["width"] = round(dimension_wall["width"], 2)
                 return dimension_wall
@@ -1530,11 +1530,11 @@ class FloorPlan2D(FloorPlan):
                     dict(x=X2-60, y=Y2+60),
                     dict(x=X1+60, y=Y1+60)
                 ]
-                if self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] - 200), polygon_vertices) and self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] + 200), polygon_vertices):
+                if self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] - 50), polygon_vertices) and self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] + 50), polygon_vertices):
                     polygons.append([dict(coordinates=polygon_up, enabled=True), dict(coordinates=polygon_down, enabled=True)])
-                elif self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] - 200), polygon_vertices):
+                elif self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] - 50), polygon_vertices):
                     polygons.append(dict(coordinates=polygon_up, enabled=True))
-                elif self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] + 200), polygon_vertices):
+                else:
                     polygons.append(dict(coordinates=polygon_down, enabled=True))
 
             if self.classify_line(X1, Y1, X2, Y2) == "vertical":
@@ -1551,11 +1551,11 @@ class FloorPlan2D(FloorPlan):
                     dict(x=X2+60, y=Y2-60),
                     dict(x=X1+60, y=Y1+60)
                 ]
-                if self.is_inside_polygon((centroid_perimeter_line[0] - 200, centroid_perimeter_line[1]), polygon_vertices) and self.is_inside_polygon((centroid_perimeter_line[0] + 200, centroid_perimeter_line[1]), polygon_vertices):
+                if self.is_inside_polygon((centroid_perimeter_line[0] - 50, centroid_perimeter_line[1]), polygon_vertices) and self.is_inside_polygon((centroid_perimeter_line[0] + 50, centroid_perimeter_line[1]), polygon_vertices):
                     polygons.append([dict(coordinates=polygon_left, enabled=True), dict(coordinates=polygon_right, enabled=True)])
-                elif self.is_inside_polygon((centroid_perimeter_line[0] - 200, centroid_perimeter_line[1]), polygon_vertices):
+                elif self.is_inside_polygon((centroid_perimeter_line[0] - 50, centroid_perimeter_line[1]), polygon_vertices):
                     polygons.append(dict(coordinates=polygon_left, enabled=True))
-                elif self.is_inside_polygon((centroid_perimeter_line[0] + 200, centroid_perimeter_line[1]), polygon_vertices):
+                else:
                     polygons.append(dict(coordinates=polygon_right, enabled=True))
 
             if self.classify_line(X1, Y1, X2, Y2) == "inclined":
@@ -1575,12 +1575,12 @@ class FloorPlan2D(FloorPlan):
                 my = (Y1 + Y2) / 2
 
                 test_coordinate_A = (
-                    round(mx + nx * 200),
-                    round(my + ny * 200)
+                    round(mx + nx * 50),
+                    round(my + ny * 50)
                 )
                 test_coordinate_B = (
-                    round(mx - nx * 200),
-                    round(my - ny * 200)
+                    round(mx - nx * 50),
+                    round(my - ny * 50)
                 )
 
                 polygon_A = [
@@ -1600,17 +1600,19 @@ class FloorPlan2D(FloorPlan):
                     polygons.append([dict(coordinates=polygon_A, enabled=True), dict(coordinates=polygon_B, enabled=True)])
                 elif self.is_inside_polygon(test_coordinate_A, polygon_vertices):
                     polygons.append(dict(coordinates=polygon_A, enabled=True))
-                elif self.is_inside_polygon(test_coordinate_B, polygon_vertices):
+                else:
                     polygons.append(dict(coordinates=polygon_B, enabled=True))
 
         return polygons
 
     def _normalize_walls_2d(self, walls_2d, polygon_vertices_external, remove_drywall_disabled=False, impute_drywall_disabled=False):
         for wall in walls_2d[:]:
-            if impute_drywall_disabled:
+            if impute_drywall_disabled and len(wall["polygons_drywall"]) == 2:
                 if not wall["polygons_drywall"][0]["enabled"] or not wall["polygons_drywall"][1]["enabled"]:
+                    centroid_A = (round(sum([vertex['x'] for vertex in wall["polygons_drywall"][0]["polygon"]]) / 4), round(sum([vertex['y'] for vertex in wall["polygons_drywall"][0]["polygon"]]) / 4))
+                    centroid_B = (round(sum([vertex['x'] for vertex in wall["polygons_drywall"][1]["polygon"]]) / 4), round(sum([vertex['y'] for vertex in wall["polygons_drywall"][1]["polygon"]]) / 4))
                     reference_line = [[wall["wall_line"][0]['x'], wall["wall_line"][0]['y'], wall["wall_line"][1]['x'], wall["wall_line"][1]['y']]]
-                    if self.is_inside_polygon((reference_line[0][0], reference_line[0][1]), polygon_vertices_external) and self.is_inside_polygon((reference_line[0][2], reference_line[0][3]), polygon_vertices_external):
+                    if self.is_inside_polygon(centroid_A, polygon_vertices_external) and self.is_inside_polygon(centroid_B, polygon_vertices_external):
                         target_lines = [[[wall_target["wall_line"][0]['x'], wall_target["wall_line"][0]['y'], wall_target["wall_line"][1]['x'], wall_target["wall_line"][1]['y']]] for wall_target in walls_2d[:]]
                         neighbors = self.nearest_neighbor(reference_line, 'A', target_lines, top_k=5)
                         valid_neighbor_found = False
