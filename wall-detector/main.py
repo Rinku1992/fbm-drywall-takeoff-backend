@@ -74,6 +74,7 @@ async def detect_wall(request: Request):
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     user_id = parameters.get("user_id") or body.get("user_id")
     index = parameters.get("page_number") or body.get("page_number")
+    mask = parameters.get("mask") or body.get("mask")
     logging.info("SYSTEM: Received a Wall Detection Request")
 
     hyperparameters = load_hyperparameters()
@@ -87,7 +88,10 @@ async def detect_wall(request: Request):
     blob.download_to_filename(destination_path)
 
     wall_detector = WallDetector()
-    image = wall_detector.detect(destination_path, hyperparameters)
+    mask_offset = None
+    if mask:
+        mask_offset = dict(horizontal=mask.get("horizontal", 0), vertical=mask.get("vertical", 0))
+    image = wall_detector.detect(destination_path, hyperparameters, mask_offset=mask_offset)
 
     logging.info("SYSTEM: Wall Detection Completed")
     return respond_with_image_payload(image, project_id, plan_id, user_id, index)
