@@ -80,7 +80,7 @@ app.add_middleware(
 bigquery_client = load_bigquery_client(CREDENTIALS)
 
 @app.post("/floorplan_to_structured_2d")
-async def floorplan_to_2d(request: Request):
+async def floorplan_to_structured_2d(request: Request):
     enable_logging_on_stdout()
     parameters = dict(request.query_params)
     try:
