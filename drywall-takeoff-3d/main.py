@@ -825,7 +825,8 @@ async def floorplan_to_2d(request: Request):
                         project_id,
                         plan_id,
                         user_id,
-                        index
+                        index,
+                        plan_type["mask_factor"]
                     )
                 )
             for page_number, (plan_type, _, floorplan_page_source) in enumerate(zip(plan_types, floorplan_baseline_page_sources, floorplan_page_sources)):
