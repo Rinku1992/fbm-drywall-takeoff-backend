@@ -34,7 +34,7 @@ def respond_with_UI_payload(payload, status_code=200):
     )
 
 
-def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, output_path=None):
+def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, mask, output_path=None):
     auth_req = google.auth.transport.requests.Request()
     service_account_credentials = IDTokenCredentials.from_service_account_file(
         credentials["service_compute_account_key"],
@@ -55,7 +55,8 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, o
             project_id=project_id,
             plan_id=plan_id,
             user_id=user_id,
-            page_number=page_number
+            page_number=page_number,
+            mask=mask
         )
     )
 
@@ -90,6 +91,7 @@ async def floorplan_to_2d(request: Request):
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     page_number = parameters.get("page_number") or body.get("page_number")
+    mask = parameters.get("mask") or body.get("mask")
     verbose = parameters.get("verbose") or body.get("verbose")
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
 
@@ -109,6 +111,7 @@ async def floorplan_to_2d(request: Request):
             plan_id,
             user_id,
             page_number,
+            mask,
             output_path=f"/tmp/{project_id}/{plan_id}/{user_id}/floor_plan_wall_segmented_{str(page_number).zfill(2)}.png"
         )
         futures["transcriber"] = executor.submit(
