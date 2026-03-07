@@ -22,8 +22,15 @@ class WallDetector:
         )
         self.pipe = pipe.to(self.device)
 
-    def detect(self, image_path, hyperparameters):
+    def detect(self, image_path, hyperparameters, mask_offset=None):
         image = Image.open(image_path).convert("RGB")
+        if mask_offset:
+            image = np.array(image)
+            height, width, _ = image.shape
+            mask_height_factor = mask_offset["vertical"]
+            mask_width_factor = mask_offset["horizontal"]
+            image[-round(height * mask_height_factor):, -round(width * mask_width_factor):] = 255
+            image = Image.fromarray(image)
         if hyperparameters["RESOLUTION"]["KEEP_ORIGINAL"]:
             width, height = image.size
         else:
