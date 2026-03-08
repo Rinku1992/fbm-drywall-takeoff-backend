@@ -1993,10 +1993,10 @@ class FloorPlan2D(FloorPlan):
             lines_isolated_included = list()
             for line_isolated in lines_isolated:
                 X1, Y1, X2, Y2 = line_isolated[0]
-                X1_in_bound = (X1 >= shape_bounding_box_x_min - 10 and X1 <= shape_bounding_box_x_max + 10)
-                X2_in_bound = (X2 >= shape_bounding_box_x_min - 10 and X2 <= shape_bounding_box_x_max + 10)
-                Y1_in_bound = (Y1 >= shape_bounding_box_y_min - 10 and Y1 <= shape_bounding_box_y_max + 10)
-                Y2_in_bound = (Y2 >= shape_bounding_box_y_min - 10 and Y2 <= shape_bounding_box_y_max + 10)
+                X1_in_bound = (X1 >= shape_bounding_box_x_min - 20 and X1 <= shape_bounding_box_x_max + 20)
+                X2_in_bound = (X2 >= shape_bounding_box_x_min - 20 and X2 <= shape_bounding_box_x_max + 20)
+                Y1_in_bound = (Y1 >= shape_bounding_box_y_min - 20 and Y1 <= shape_bounding_box_y_max + 20)
+                Y2_in_bound = (Y2 >= shape_bounding_box_y_min - 20 and Y2 <= shape_bounding_box_y_max + 20)
                 if X1_in_bound and X2_in_bound and Y1_in_bound and Y2_in_bound:
                     lines_isolated_included.append(line_isolated)
             polygon_vertices = load_polygon(shape, lines_isolated_included)
