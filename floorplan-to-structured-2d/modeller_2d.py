@@ -2219,7 +2219,7 @@ class FloorPlan2D(FloorPlan):
                     index,
                 ))
             [future.result() for future in futures]
-        self._walls_2d = self._normalize_walls_2d(self._walls_2d, (scale_x, scale_y), remove_drywall_disabled=True)
+        self._walls_2d = self._normalize_walls_2d(self._walls_2d, (scale_x, scale_y))
         #self._polygons = self._normalize_polygons(self._polygons)
         if model_2d_path:
             with open(model_2d_path, 'w') as f:
