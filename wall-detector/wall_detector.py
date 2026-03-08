@@ -24,14 +24,7 @@ class WallDetector:
 
     def detect(self, image_path, hyperparameters, mask_offset=None):
         image = Image.open(image_path).convert("RGB")
-        if mask_offset:
-            image = np.array(image)
-            height, width, _ = image.shape
-            mask_height_factor = mask_offset["vertical"]
-            mask_width_factor = mask_offset["horizontal"]
-            image[:, -round(width * mask_width_factor):, :] = 255
-            image[-round(height * mask_height_factor):, :, :] = 255
-            image = Image.fromarray(image)
+        width_original, height_original = image.size
         if hyperparameters["RESOLUTION"]["KEEP_ORIGINAL"]:
             width, height = image.size
         else:
@@ -50,4 +43,15 @@ class WallDetector:
         )
         I = np.stack([np.asarray(img) for img in out.images]).mean(axis=0).mean(axis=-1)
         I = np.uint8(I)
-        return Image.fromarray(np.uint8((I > 127) * 255))
+        image_detected = Image.fromarray(np.uint8((I > 127) * 255))
+
+        if mask_offset:
+            image_detected = image_detected.resize((width_original, height_original))
+            image = np.array(image_detected)
+            mask_height_factor = mask_offset["vertical"]
+            mask_width_factor = mask_offset["horizontal"]
+            image[:, -round(width_original * mask_width_factor):, :] = 255
+            image[-round(height_original * mask_height_factor):, :, :] = 255
+            image_detected = Image.fromarray(image)
+            image_detected = image_detected.resize((width, height))
+        return image_detected
