@@ -12,8 +12,8 @@ class FloorPlan:
 
     def __init__(self, hyperparameters):
         self.hyperparameters = hyperparameters
-        self.tolerance_vertical = self.hyperparameters["modelling"]["tolerance_vertical"]
-        self.tolerance_horizontal = self.hyperparameters["modelling"]["tolerance_horizontal"]
+        self.tolerance_angle = self.hyperparameters["modelling"]["tolerance_angle"]
+        self._lines_classified = dict()
         self._perimeter_lines = list()
 
     def read_floor_plan(self, image_path, resize=None):
@@ -93,13 +93,18 @@ class FloorPlan:
 
     def classify_line(self, x1, y1, x2, y2):
         """Classify a line as horizontal, vertical, or inclined."""
-        if abs(x2 - x1) > self.tolerance_horizontal and abs(y2 - y1) <= self.tolerance_vertical:
-            return "horizontal"
-        elif abs(x2 - x1) <= self.tolerance_horizontal and abs(y2 - y1) > self.tolerance_vertical:
-            return "vertical"
-        elif abs(x2 - x1) > self.tolerance_horizontal and abs(y2 - y1) > self.tolerance_vertical:
-            return "inclined"
-        return "invalid"
+        line_id = str([x1, y1, x2, y2])
+        if line_id in self._lines_classified:
+            return self._lines_classified[line_id]
+        inclination = math.degrees(math.atan2(abs(y1 - y2), abs(x1 - x2)))
+        if inclination <= self.tolerance_angle:
+            orientation = "horizontal"
+        elif inclination >= 45 + self.tolerance_angle:
+            orientation = "vertical"
+        else:
+            orientation = "inclined"
+        self._lines_classified[line_id] = orientation
+        return orientation
 
     def normalize(self, lines):
         if lines is None:
