@@ -515,7 +515,7 @@ def insert_project(payload_project, bigquery_client, credentials):
     return created_at
 
 
-def floorplan_to_structured_2d(credentials, id_token, project_id, plan_id, user_id, page_number, mask_factor):
+def floorplan_to_structured_2d(credentials, id_token, project_id, plan_id, user_id, page_number, mask_factor, bounding_box_offsets):
     headers = {
         "Authorization": f"Bearer {id_token}",
         "Content-Type": "application/json"
@@ -529,6 +529,7 @@ def floorplan_to_structured_2d(credentials, id_token, project_id, plan_id, user_
             user_id=user_id,
             page_number=page_number,
             mask=mask_factor,
+            bounding_box_offsets=bounding_box_offsets,
         )
     )
 
@@ -826,7 +827,8 @@ async def floorplan_to_2d(request: Request):
                         plan_id,
                         user_id,
                         index,
-                        plan_type["mask_factor"]
+                        plan_type["mask_factor"],
+                        plan_type["bounding_box_offsets"],
                     )
                 )
             for page_number, (plan_type, _, floorplan_page_source) in enumerate(zip(plan_types, floorplan_baseline_page_sources, floorplan_page_sources)):
