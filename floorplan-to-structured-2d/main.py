@@ -108,7 +108,7 @@ def page_to_structured_2d(
         floor_plan_modeller_2d.load_ceiling_choices(polygons)
         #if verbose.upper() == "TRUE":
         model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path)
-        model_2d_path = model_2d_path.parent.joinpath(f"{model_2d_path.stem}_sectioned_{page_section_number}").with_suffix(".png")
+        model_2d_path.rename(model_2d_path.parent.joinpath(f"{model_2d_path.stem}_sectioned_{page_section_number}").with_suffix(".png"))
         upload_floorplan(model_2d_path, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
         #model_2d_path_overlay_enabled = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path, overlay_enabled=True)
         #upload_floorplan(model_2d_path_overlay_enabled, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
