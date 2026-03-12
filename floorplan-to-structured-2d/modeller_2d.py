@@ -44,6 +44,10 @@ class FloorPlan2D(FloorPlan):
         self._walls_2d = list()
         self._polygons = list()
 
+    def reload(self):
+        self._walls_2d = list()
+        self._polygons = list()
+
     def _close_jagged_openings(
         self,
         wall_lines,
