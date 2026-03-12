@@ -177,7 +177,6 @@ async def floorplan_to_structured_2d(request: Request):
 
     hyperparameters = load_hyperparameters()
     vertex_ai_client, generation_config = load_vertex_ai_client(CREDENTIALS)
-    floor_plan_modeller_2d = FloorPlan2D(hyperparameters, (vertex_ai_client, generation_config, CREDENTIALS["VertexAI"]["llm"]["max_retry"]))
 
     futures = dict()
     with ThreadPoolExecutor(max_workers=5) as executor:
@@ -206,12 +205,13 @@ async def floorplan_to_structured_2d(request: Request):
 
     DRYWALL_TEMPLATES = load_templates(bigquery_client, CREDENTIALS)
     floorplan_baseline_page_source = None
-    if not floor_plan_modeller_2d.is_none(wall_segmented_path):
-        floorplan_baseline, floorplan_page_statistics = floor_plan_modeller_2d.scale_to(floor_plan_path=floor_plan_processed_path)
+    if not FloorPlan2D.is_none(wall_segmented_path):
+        floorplan_baseline, floorplan_page_statistics = FloorPlan2D.scale_to(floor_plan_path=floor_plan_processed_path)
         floorplan_baseline_page_source = upload_floorplan(floorplan_baseline, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
         futures = list()
         with ThreadPoolExecutor(max_workers=2) as executor:
             for index, bounding_box_offset in enumerate(bounding_box_offsets):
+                floor_plan_modeller_2d = FloorPlan2D(hyperparameters, (vertex_ai_client, generation_config, CREDENTIALS["VertexAI"]["llm"]["max_retry"]))
                 futures.append(
                     executor.submit(
                         page_to_structured_2d,
