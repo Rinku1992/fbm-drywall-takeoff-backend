@@ -24,7 +24,8 @@ class FloorPlan:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         return gray
 
-    def is_none(self, image_path):
+    @classmethod
+    def is_none(cls, image_path):
         return cv2.imread(image_path) is None
 
     @property
