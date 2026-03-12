@@ -7,6 +7,8 @@ from ruamel.yaml import YAML
 from time import sleep
 
 from random import uniform
+from PIL import Image
+import numpy as np
 
 import vertexai
 from vertexai.generative_models import GenerativeModel
@@ -107,6 +109,7 @@ def insert_model_2d(
     model_2d,
     scale,
     page_number,
+    page_section_number,
     plan_id,
     user_id,
     project_id,
@@ -122,11 +125,12 @@ def insert_model_2d(
             @project_id AS project_id,
             @user_id AS user_id,
             @page_number AS page_number,
+            @page_section_number AS page_section_number,
             @model_2d AS model_2d,
             @scale AS scale,
             @target_drywalls AS target_drywalls,
     ) s
-    ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id) AND t.page_number = s.page_number
+    ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id) AND t.page_number = s.page_number and t.page_section_number = s.page_section_number
     WHEN MATCHED THEN
     UPDATE SET
         model_2d = s.model_2d,
@@ -139,6 +143,7 @@ def insert_model_2d(
         project_id,
         user_id,
         page_number,
+        page_section_number,
         scale,
         model_2d,
         model_3d,
@@ -152,6 +157,7 @@ def insert_model_2d(
         s.project_id,
         s.user_id,
         s.page_number,
+        s.page_section_number,
         s.scale,
         s.model_2d,
         JSON '{}',
@@ -167,6 +173,7 @@ def insert_model_2d(
             bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
             bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
             bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
+            bigquery.ScalarQueryParameter("page_section_number", "STRING", page_section_number),
             bigquery.ScalarQueryParameter("scale", "STRING", scale),
             bigquery.ScalarQueryParameter("model_2d", "JSON", model_2d),
             bigquery.ScalarQueryParameter("target_drywalls", "STRING", target_drywalls),
@@ -226,3 +233,30 @@ def phoenix_call(generate_content_lambda, system_prompt, max_retry=5, base_delay
             temperature = min(0.5 * (n_iterations + 1) / max_retry, 0.5)
             logging.warning(f"SYSTEM: Response Generation/Parsing failed with ERROR: {e}")
             logging.warning(f"SYSTEM: RETRYING with TEMPERATURE: {temperature}")
+
+def load_section_from_page(wall_segmented_path, floor_plan_path, bounding_box_offset):
+    offset_top_left_X, offset_top_left_Y = bounding_box_offset["offset_top_left"]
+    offset_bottom_right_X, offset_bottom_right_Y = bounding_box_offset["offset_bottom_right"]
+    canvas = Image.open(wall_segmented_path)
+    width_in_pixels, height_in_pixels = canvas.size
+    canvas_original = Image.open(floor_plan_path)
+    width_in_pixels_original, height_in_pixels_original = canvas_original.size
+
+    canvas = canvas.resize((width_in_pixels_original, height_in_pixels_original), Image.Resampling.NEAREST)
+    image = np.array(canvas).copy()
+    LEFT = round(offset_top_left_X * width_in_pixels_original)
+    TOP = round(offset_top_left_Y * height_in_pixels_original)
+    BOTTOM = round(offset_bottom_right_Y * height_in_pixels_original)
+    RIGHT = round(offset_bottom_right_X * width_in_pixels_original)
+    margin_height = (BOTTOM - TOP) // 20
+    margin_width = (RIGHT - LEFT) // 20
+    image[:max(0, TOP - margin_height), ...] = 255
+    image[:, :max(0, LEFT - margin_width), ...] = 255
+    image[:, min(width_in_pixels_original, RIGHT + margin_width):, ...] = 255
+    image[min(height_in_pixels_original, BOTTOM + margin_height):, ...] = 255
+    canvas = Image.fromarray(image)
+    canvas = canvas.resize((width_in_pixels, height_in_pixels), Image.Resampling.NEAREST)
+    wall_segmented_path_sectioned = wall_segmented_path.parent.joinpath(f"{wall_segmented_path.stem}_sectioned").with_suffix(".png")
+    canvas.save(wall_segmented_path_sectioned, format="png")
+
+    return wall_segmented_path_sectioned
