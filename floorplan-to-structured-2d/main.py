@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 import json
+from roman import toRoman
 import requests
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -23,6 +24,7 @@ from helper import (
     insert_model_2d,
     load_bigquery_client,
     load_templates,
+    load_section_from_page,
 )
 
 
@@ -67,6 +69,73 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, m
     return Path(output_path)
 
 
+def page_to_structured_2d(
+    credentials,
+    floor_plan_modeller_2d,
+    project_id,
+    plan_id,
+    user_id,
+    page_number,
+    page_section_number,
+    wall_segmented_path,
+    floor_plan_processed_path,
+    bounding_box_offset,
+    transcription_block_with_centroids,
+    transcription_headers_and_footers,
+    DRYWALL_TEMPLATES,
+    floorplan_page_statistics,
+    floorplan_baseline_page_source,
+    verbose="False"
+    ):
+    floor_plan_modeller_2d.reload()
+    wall_segmented_sectioned_path = load_section_from_page(wall_segmented_path, floor_plan_processed_path, bounding_box_offset)
+    walls_2d, polygons, walls_2d_path, external_contour = floor_plan_modeller_2d.model(
+        image_path=wall_segmented_sectioned_path,
+        model_2d_path=f"/tmp/{project_id}/{plan_id}/{user_id}/walls_2d_{str(page_number).zfill(2)}.json",
+        floor_plan_path=floor_plan_processed_path,
+        transcription_block_with_centroids=transcription_block_with_centroids,
+        transcription_headers_and_footers=transcription_headers_and_footers,
+        drywall_templates=DRYWALL_TEMPLATES,
+    )
+    metadata = None
+    if walls_2d and polygons:
+        floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons, DRYWALL_TEMPLATES)
+        floor_plan_modeller_2d.load_ceiling_choices(polygons)
+        #if verbose.upper() == "TRUE":
+        model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path)
+        upload_floorplan(model_2d_path, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
+        #model_2d_path_overlay_enabled = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path, overlay_enabled=True)
+        #upload_floorplan(model_2d_path_overlay_enabled, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
+
+        drywall_choices_color_codes={drywall_template["sku_variant"]: drywall_template["color_code"][::-1] for drywall_template in DRYWALL_TEMPLATES}
+        drywall_choices_color_codes.update(dict(DISABLED=[255, 0, 0]))
+        metadata = dict(
+            size_in_bytes=floorplan_page_statistics["size"],
+            height_in_pixels=floorplan_page_statistics["height_in_pixels"],
+            width_in_pixels=floorplan_page_statistics["width_in_pixels"],
+            height_in_points=floorplan_page_statistics["height_in_points"],
+            width_in_points=floorplan_page_statistics["width_in_points"],
+            origin=["LEFT", "TOP"],
+            offset=(0, 0),
+            contour_root_vertices=external_contour,
+            scales_architectural=floor_plan_modeller_2d.scales_architectural,
+            drywall_choices_color_codes=drywall_choices_color_codes,
+        )
+    insert_model_2d(
+        dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
+        floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale),
+        page_number,
+        page_section_number,
+        plan_id,
+        user_id,
+        project_id,
+        floorplan_baseline_page_source,
+        bigquery_client,
+        credentials,
+    )
+    logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} and SECTION: {page_section_number} Generated Successfully")
+
+
 app = FastAPI(title="Floorplan-to-Structured-2D (Cloud Run)")
 
 CREDENTIALS = load_gcp_credentials()
@@ -92,6 +161,7 @@ async def floorplan_to_structured_2d(request: Request):
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     page_number = parameters.get("page_number") or body.get("page_number")
     mask = parameters.get("mask") or body.get("mask")
+    bounding_box_offsets = parameters.get("bounding_box_offsets") or body.get("bounding_box_offsets")
     verbose = parameters.get("verbose") or body.get("verbose")
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
 
@@ -128,50 +198,32 @@ async def floorplan_to_structured_2d(request: Request):
     logging.info(f"SYSTEM: Transcription Completed from PAGE: {page_number}")
 
     DRYWALL_TEMPLATES = load_templates(bigquery_client, CREDENTIALS)
-    walls_2d, polygons, metadata, floorplan_baseline_page_source = None, None, None, None
+    floorplan_baseline_page_source = None
     if not floor_plan_modeller_2d.is_none(wall_segmented_path):
-        walls_2d, polygons, walls_2d_path, external_contour = floor_plan_modeller_2d.model(
-            image_path=wall_segmented_path,
-            model_2d_path=f"/tmp/{project_id}/{plan_id}/{user_id}/walls_2d_{str(page_number).zfill(2)}.json",
-            floor_plan_path=floor_plan_processed_path,
-            transcription_block_with_centroids=transcription_block_with_centroids,
-            transcription_headers_and_footers=transcription_headers_and_footers,
-            drywall_templates=DRYWALL_TEMPLATES,
-        )
-        if walls_2d and polygons:
-            floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons, DRYWALL_TEMPLATES)
-            floor_plan_modeller_2d.load_ceiling_choices(polygons)
-            #if verbose.upper() == "TRUE":
-            model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path)
-            upload_floorplan(model_2d_path, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
-            #model_2d_path_overlay_enabled = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path, overlay_enabled=True)
-            #upload_floorplan(model_2d_path_overlay_enabled, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
-            floorplan_baseline, floorplan_page_statistics = floor_plan_modeller_2d.scale_to(floor_plan_path=floor_plan_processed_path)
-            floorplan_baseline_page_source = upload_floorplan(floorplan_baseline, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
-
-            drywall_choices_color_codes={drywall_template["sku_variant"]: drywall_template["color_code"][::-1] for drywall_template in DRYWALL_TEMPLATES}
-            drywall_choices_color_codes.update(dict(DISABLED=[255, 0, 0]))
-            metadata = dict(
-                size_in_bytes=floorplan_page_statistics["size"],
-                height_in_pixels=floorplan_page_statistics["height_in_pixels"],
-                width_in_pixels=floorplan_page_statistics["width_in_pixels"],
-                height_in_points=floorplan_page_statistics["height_in_points"],
-                width_in_points=floorplan_page_statistics["width_in_points"],
-                origin=["LEFT", "TOP"],
-                offset=(0, 0),
-                contour_root_vertices=external_contour,
-                scales_architectural=floor_plan_modeller_2d.scales_architectural,
-                drywall_choices_color_codes=drywall_choices_color_codes,
-            )
-    insert_model_2d(
-        dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
-        floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale),
-        page_number,
-        plan_id,
-        user_id,
-        project_id,
-        floorplan_baseline_page_source,
-        bigquery_client,
-        CREDENTIALS
-    )
-    logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} Generated Successfully")
+        floorplan_baseline, floorplan_page_statistics = floor_plan_modeller_2d.scale_to(floor_plan_path=floor_plan_processed_path)
+        floorplan_baseline_page_source = upload_floorplan(floorplan_baseline, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
+        futures = list()
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            for index, bounding_box_offset in enumerate(bounding_box_offsets):
+                futures.append(
+                    executor.submit(
+                        page_to_structured_2d,
+                        CREDENTIALS,
+                        floor_plan_modeller_2d,
+                        project_id,
+                        plan_id,
+                        user_id,
+                        page_number,
+                        toRoman(index + 1),
+                        wall_segmented_path,
+                        floor_plan_processed_path,
+                        bounding_box_offset,
+                        transcription_block_with_centroids,
+                        transcription_headers_and_footers,
+                        DRYWALL_TEMPLATES,
+                        floorplan_page_statistics,
+                        floorplan_baseline_page_source,
+                        verbose,
+                    )
+                )
+            [future.result() for future in futures]
