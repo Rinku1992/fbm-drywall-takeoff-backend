@@ -1890,8 +1890,9 @@ class FloorPlan2D(FloorPlan):
             polygons_valid.append(polygon)
         return polygons_valid
 
+    @classmethod
     def scale_to(
-        self,
+        cls,
         floor_plan_path="/tmp/floor_plan.png",
         resolution=None
     ):
