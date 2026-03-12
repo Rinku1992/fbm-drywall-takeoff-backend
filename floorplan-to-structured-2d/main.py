@@ -88,7 +88,12 @@ def page_to_structured_2d(
     verbose="False"
     ):
     floor_plan_modeller_2d.reload()
-    wall_segmented_sectioned_path = load_section_from_page(wall_segmented_path, floor_plan_processed_path, bounding_box_offset)
+    wall_segmented_sectioned_path = load_section_from_page(
+        wall_segmented_path,
+        floor_plan_processed_path,
+        bounding_box_offset,
+        page_section_number
+    )
     walls_2d, polygons, walls_2d_path, external_contour = floor_plan_modeller_2d.model(
         image_path=wall_segmented_sectioned_path,
         model_2d_path=f"/tmp/{project_id}/{plan_id}/{user_id}/walls_2d_{str(page_number).zfill(2)}.json",
