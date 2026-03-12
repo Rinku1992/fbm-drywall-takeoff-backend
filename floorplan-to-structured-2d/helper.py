@@ -234,12 +234,19 @@ def phoenix_call(generate_content_lambda, system_prompt, max_retry=5, base_delay
             logging.warning(f"SYSTEM: Response Generation/Parsing failed with ERROR: {e}")
             logging.warning(f"SYSTEM: RETRYING with TEMPERATURE: {temperature}")
 
-def load_section_from_page(wall_segmented_path, floor_plan_path, bounding_box_offset):
+def load_section_from_page(wall_segmented_path, floor_plan_path, bounding_box_offset, section_name):
+    print(bounding_box_offset)
     offset_top_left_X, offset_top_left_Y = bounding_box_offset["offset_top_left"]
     offset_bottom_right_X, offset_bottom_right_Y = bounding_box_offset["offset_bottom_right"]
+    offset_top_left_X += 0.01
+    offset_top_left_Y += 0.01
+    offset_bottom_right_X += 0.01
+    offset_bottom_right_Y += 0.01
     canvas = Image.open(wall_segmented_path)
+    canvas = canvas.convert("RGB")
     width_in_pixels, height_in_pixels = canvas.size
     canvas_original = Image.open(floor_plan_path)
+    canvas_original = canvas_original.convert("RGB")
     width_in_pixels_original, height_in_pixels_original = canvas_original.size
 
     canvas = canvas.resize((width_in_pixels_original, height_in_pixels_original), Image.Resampling.NEAREST)
@@ -248,15 +255,13 @@ def load_section_from_page(wall_segmented_path, floor_plan_path, bounding_box_of
     TOP = round(offset_top_left_Y * height_in_pixels_original)
     BOTTOM = round(offset_bottom_right_Y * height_in_pixels_original)
     RIGHT = round(offset_bottom_right_X * width_in_pixels_original)
-    margin_height = (BOTTOM - TOP) // 10
-    margin_width = (RIGHT - LEFT) // 10
-    image[:max(0, TOP - margin_height) :] = 255
-    image[:, :max(0, LEFT - margin_width)] = 255
-    image[:, min(width_in_pixels_original, RIGHT + margin_width):] = 255
-    image[min(height_in_pixels_original, BOTTOM + margin_height):, :] = 255
+    image[:TOP, :] = 255
+    image[:, :LEFT] = 255
+    image[:, RIGHT:] = 255
+    image[BOTTOM:, :] = 255
     canvas = Image.fromarray(image)
     canvas = canvas.resize((width_in_pixels, height_in_pixels), Image.Resampling.NEAREST)
-    wall_segmented_path_sectioned = wall_segmented_path.parent.joinpath(f"{wall_segmented_path.stem}_sectioned").with_suffix(".png")
+    wall_segmented_path_sectioned = wall_segmented_path.parent.joinpath(f"{wall_segmented_path.stem}_sectioned_{section_name}").with_suffix(".png")
     canvas.save(wall_segmented_path_sectioned, format="png")
 
-    return wall_segmented_path_sectioned
+    return str(wall_segmented_path_sectioned)
