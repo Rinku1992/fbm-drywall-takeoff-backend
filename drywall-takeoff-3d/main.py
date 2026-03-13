@@ -860,7 +860,7 @@ async def floorplan_to_2d(request: Request):
                 )
                 walls_2d_all["pages"].append(page)
     except Exception as e:
-        logging.info(f"SYSTEM: Floorplan extraction failed with error: {e}")
+        logging.error(f"SYSTEM: Floorplan extraction failed with error: {e}")
         status = "FAILED"
     insert_plan(
         project_id,
