@@ -848,7 +848,7 @@ async def floorplan_to_2d(request: Request):
                 for page_section_index in range(page_sections):
                     walls_2d = json.loads(query_output[page_section_index].model_2d) if isinstance(query_output[page_section_index].model_2d, str) else query_output[page_section_index].model_2d
                     if not walls_2d["polygons"] or not walls_2d["walls_2d"]:
-                        GBQ_query = f"DELETE FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+                        GBQ_query = f"DELETE FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number} AND page_section_number = {toRoman(page_section_index)};"
                         bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()
                         continue
                     GBQ_query = f"UPDATE `{CREDENTIALS["GBQServer"]["table_name_models"]}` SET source = '{floorplan_page_source}' WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number} AND page_section_number = {toRoman(page_section_index)};"
