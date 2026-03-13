@@ -15,6 +15,7 @@ pypdf
 pdf2image
 pydantic
 python-multipart
+roman
 pandas
 openpyxl
 scikit-image
