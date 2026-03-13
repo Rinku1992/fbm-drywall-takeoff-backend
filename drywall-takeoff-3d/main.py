@@ -835,10 +835,11 @@ async def floorplan_to_2d(request: Request):
                 if plan_type["plan_type"].upper().find("FLOOR") == -1:
                     continue
                 timeout = from_unix_epoch() + 3600
+                page_sections = len(plan_type["bounding_box_offsets"])
                 while from_unix_epoch() < timeout:
-                    GBQ_query = f"SELECT scale, model_2d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
-                    query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())
-                    if query_output:
+                    GBQ_query = f"SELECT COUNT(*) AS n_counts FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+                    query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
+                    if query_output.n_counts == page_sections:
                         break
                     sleep(2)
                 walls_2d = json.loads(query_output[0].model_2d) if isinstance(query_output[0].model_2d, str) else query_output[0].model_2d
