@@ -9,6 +9,7 @@ from base64 import b64encode
 from ruamel.yaml import YAML
 from pathlib import Path
 import json
+from roman import toRoman
 from time import time as from_unix_epoch
 from time import sleep
 from collections import defaultdict
@@ -842,23 +843,26 @@ async def floorplan_to_2d(request: Request):
                     if query_output.n_counts == page_sections:
                         break
                     sleep(2)
-                walls_2d = json.loads(query_output[0].model_2d) if isinstance(query_output[0].model_2d, str) else query_output[0].model_2d
-                if not walls_2d["polygons"] or not walls_2d["walls_2d"]:
-                    GBQ_query = f"DELETE FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+                GBQ_query = f"SELECT model_2d, scale FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+                query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())
+                for page_section_index in range(page_sections):
+                    walls_2d = json.loads(query_output[page_section_index].model_2d) if isinstance(query_output[page_section_index].model_2d, str) else query_output[page_section_index].model_2d
+                    if not walls_2d["polygons"] or not walls_2d["walls_2d"]:
+                        GBQ_query = f"DELETE FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+                        bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()
+                        continue
+                    GBQ_query = f"UPDATE `{CREDENTIALS["GBQServer"]["table_name_models"]}` SET source = '{floorplan_page_source}' WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number} AND page_section_number = {toRoman(page_section_index)};"
                     bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()
-                    continue
-                GBQ_query = f"UPDATE `{CREDENTIALS["GBQServer"]["table_name_models"]}` SET source = '{floorplan_page_source}' WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
-                bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()
-                page = dict(
-                    plan_id=plan_id,
-                    page_number=page_number,
-                    page_type=plan_type["plan_type"].upper(),
-                    scale=query_output[0].scale,
-                    walls_2d=walls_2d["walls_2d"],
-                    polygons=walls_2d["polygons"],
-                    **walls_2d["metadata"]
-                )
-                walls_2d_all["pages"].append(page)
+                    page = dict(
+                        plan_id=plan_id,
+                        page_number=page_number,
+                        page_type=plan_type["plan_type"].upper(),
+                        scale=query_output[page_section_index].scale,
+                        walls_2d=walls_2d["walls_2d"],
+                        polygons=walls_2d["polygons"],
+                        **walls_2d["metadata"]
+                    )
+                    walls_2d_all["pages"].append(page)
     except Exception as e:
         logging.error(f"SYSTEM: Floorplan extraction failed with error: {e}")
         status = "FAILED"
