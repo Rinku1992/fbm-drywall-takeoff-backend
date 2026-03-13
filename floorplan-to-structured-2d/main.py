@@ -211,6 +211,7 @@ async def floorplan_to_structured_2d(request: Request):
         futures = list()
         with ThreadPoolExecutor(max_workers=2) as executor:
             for index, bounding_box_offset in enumerate(bounding_box_offsets):
+                logging.info(f"SYSTEM: Extracting structured model from SECTION: {toRoman(index + 1)} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
                 floor_plan_modeller_2d = FloorPlan2D(hyperparameters, (vertex_ai_client, generation_config, CREDENTIALS["VertexAI"]["llm"]["max_retry"]))
                 futures.append(
                     executor.submit(
