@@ -102,7 +102,7 @@ def page_to_structured_2d(
         transcription_headers_and_footers=transcription_headers_and_footers,
         drywall_templates=DRYWALL_TEMPLATES,
     )
-    metadata = None
+    metadata = dict()
     if walls_2d and polygons:
         floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons, DRYWALL_TEMPLATES)
         floor_plan_modeller_2d.load_ceiling_choices(polygons)
