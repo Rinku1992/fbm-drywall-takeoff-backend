@@ -78,7 +78,7 @@ def insert_model_2d_revision(
     if not page_section_number:
         page_section_number = 'I'
     if not model_2d.get("metadata", None):
-        GBQ_query = f"SELECT model_2d.metadata FROM `drywall_takeoff.models` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number} AND page_section_number = {page_section_number};"
+        GBQ_query = f"SELECT model_2d.metadata FROM `drywall_takeoff.models` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number} AND page_section_number = '{page_section_number}';"
         query_output = bigquery_run(credentials, bigquery_client, GBQ_query).result()
         metadata = list(query_output)[0].metadata
         metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
