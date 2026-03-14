@@ -16,6 +16,7 @@ from fractions import Fraction
 import numpy as np
 from skimage.morphology import skeletonize
 from vertexai.generative_models import Part, Content
+from shapely.geometry import Polygon
 
 from floor_plan import FloorPlan
 from prompt import (
@@ -1945,7 +1946,7 @@ class FloorPlan2D(FloorPlan):
         for polygon in polygons_2d_JSON:
             polygon["type_choices"] = CEILING_CHOICES
 
-    def _load_missing_polygons(self, walls_2d, scale):
+    def _load_missing_polygons(self, walls_2d, scale, polygons_neighbor):
         def load_wall_payload(wall_line):
             X1, Y1, X2, Y2 = wall_line[0]
             wall_line_structured = [
@@ -1992,6 +1993,21 @@ class FloorPlan2D(FloorPlan):
                     vertices_sorted.insert(index + 2, sorted_vertex_a)
             return vertices_sorted
 
+        def is_valid(polygon_vertices, iou_threshold=0.25):
+            polygon_target = Polygon(polygon_vertices)
+            if not polygon_target.is_valid:
+                return False
+            for polygon in polygons_neighbor:
+                polygon_neighbor = Polygon(polygon)
+                intersection = polygon_target.intersection(polygon_neighbor).area
+                union = polygon_target.union(polygon_neighbor).area
+                if union == 0:
+                    return False
+                iou = intersection / union
+                if iou > iou_threshold:
+                    return False
+            return True
+
         walls_null_room, walls_null_id = list(), list()
         for wall in walls_2d:
             if wall["polygons_drywall"][0]["type"] == wall["polygons_drywall"][1]["type"] == "DISABLED":
@@ -2017,6 +2033,8 @@ class FloorPlan2D(FloorPlan):
                 if X1_in_bound and X2_in_bound and Y1_in_bound and Y2_in_bound:
                     lines_isolated_included.append(line_isolated)
             polygon_vertices = load_polygon(shape, lines_isolated_included)
+            if not is_valid(polygon_vertices):
+                continue
             perimeter_lines_contour_all = self.load_perimeter(polygon_vertices, [[[wall["wall_line"][0]['x'], wall["wall_line"][0]['y'], wall["wall_line"][1]['x'], wall["wall_line"][1]['y']]] for wall in walls_2d], scale=scale)
             polygon_area = cv2.contourArea(np.array(polygon_vertices, np.int32)) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["area"]
             for wall_line in perimeter_lines_contour_all:
@@ -2168,11 +2186,13 @@ class FloorPlan2D(FloorPlan):
             return None, None, None, None
         external_contour_normalized = [(round(scale_x * coordinate[0]), round(scale_y * coordinate[1])) for coordinate in external_contour]
         perimeter_lines, outer_drywall_surfaces = self.perimeter_lines(wall_lines)
+        polygon_vertices_normalized_all = list()
         futures = list()
         with ThreadPoolExecutor(max_workers=8) as executor:
             for index, ((polygon_area, polygon_vertices), polygon_perimeter_walls) in enumerate(zip(polygons, polygons_perimeter_walls)):
                 index += 1
                 polygon_vertices_normalized = [(round(scale_x * vertex[0]), round(scale_y * vertex[1])) for vertex in polygon_vertices]
+                polygon_vertices_normalized_all.append(polygon_vertices_normalized)
                 polygon_perimeter_walls_normalized = list()
                 for polygon_perimeter_wall in polygon_perimeter_walls:
                     X1, Y1, X2, Y2 = polygon_perimeter_wall[0]
@@ -2215,7 +2235,7 @@ class FloorPlan2D(FloorPlan):
             [future.result() for future in futures]
 
         self._walls_2d = self._normalize_walls_2d(self._walls_2d, (scale_x, scale_y))
-        missing_polygons, missing_polygons_perimeter_walls = self._load_missing_polygons(self._walls_2d, (scale_x, scale_y))
+        missing_polygons, missing_polygons_perimeter_walls = self._load_missing_polygons(self._walls_2d, (scale_x, scale_y), polygon_vertices_normalized_all)
         external_contour_normalized = self.merge_polygons(external_contour_normalized, [polygon[1] for polygon in missing_polygons])
         futures = list()
         with ThreadPoolExecutor(max_workers=8) as executor:
