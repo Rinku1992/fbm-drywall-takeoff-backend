@@ -71,10 +71,13 @@ def insert_model_2d(
     GCS_URL_floorplan_page,
     GCS_URL_target_drywalls_page,
     bigquery_client,
-    credentials
+    credentials,
+    page_section_number=None,
     ):
+    if not page_section_number:
+        page_section_number = 'I'
     if not model_2d.get("metadata", None):
-        GBQ_query = f"SELECT model_2d.metadata FROM `drywall_takeoff.models` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+        GBQ_query = f"SELECT model_2d.metadata FROM `drywall_takeoff.models` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number} AND page_section_number = {page_section_number};"
         query_output = bigquery_run(credentials, bigquery_client, GBQ_query).result()
         metadata = list(query_output)[0].metadata
         metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
@@ -87,12 +90,13 @@ def insert_model_2d(
             @project_id AS project_id,
             @user_id AS user_id,
             @page_number AS page_number,
+            @page_section_number AS page_section_number,
             @model_2d AS model_2d,
             @source AS source,
             @target_drywalls AS target_drywalls,
             @scale AS scale,
     ) s
-    ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id) AND t.page_number = s.page_number
+    ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id) AND t.page_number = s.page_number AND t.page_section_number = s.page_section_number
     WHEN MATCHED THEN
     UPDATE SET
         model_2d = s.model_2d,
@@ -105,6 +109,7 @@ def insert_model_2d(
         project_id,
         user_id,
         page_number,
+        page_section_number,
         scale,
         model_2d,
         model_3d,
@@ -119,6 +124,7 @@ def insert_model_2d(
         s.project_id,
         s.user_id,
         s.page_number,
+        s.page_section_number,
         s.scale,
         s.model_2d,
         JSON '{}',
@@ -135,6 +141,7 @@ def insert_model_2d(
             bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
             bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
             bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
+            bigquery.ScalarQueryParameter("page_section_number", "STRING", page_section_number),
             bigquery.ScalarQueryParameter("scale", "STRING", scale),
             bigquery.ScalarQueryParameter("model_2d", "JSON", model_2d),
             bigquery.ScalarQueryParameter("source", "STRING", GCS_URL_floorplan_page),
