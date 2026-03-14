@@ -215,6 +215,7 @@ def insert_model_3d(
     model_3d,
     scale,
     page_number,
+    page_section_number,
     plan_id,
     user_id,
     project_id,
@@ -232,6 +233,7 @@ def insert_model_3d(
         LOWER(project_id) = LOWER(@project_id)
         AND LOWER(plan_id) = LOWER(@plan_id)
         AND page_number = @page_number
+        AND page_section_number = @page_section_number
     """
     job_config = dict(
         query_parameters=[
@@ -239,6 +241,7 @@ def insert_model_3d(
             bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
             bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
             bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
+            bigquery.ScalarQueryParameter("page_section_number", "STRING", page_section_number),
             bigquery.ScalarQueryParameter("scale", "STRING", scale),
             bigquery.ScalarQueryParameter("model_3d", "JSON", model_3d)
         ]
@@ -1139,7 +1142,7 @@ async def floorplan_to_3d(request: Request):
     upload_floorplan(model_3d_path_sectioned, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
     #for gltf_path in gltf_paths:
     #    upload_floorplan(gltf_path, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2), directory="gltf")
-    insert_model_3d(dict(walls_3d=walls_3d, polygons=polygons_3d), scale, index, plan_id, user_id, project_id, bigquery_client, CREDENTIALS, page_section_number=page_section_number)
+    insert_model_3d(dict(walls_3d=walls_3d, polygons=polygons_3d), scale, index, page_section_number, plan_id, user_id, project_id, bigquery_client, CREDENTIALS)
     logging.info("SYSTEM: A 3D Model of the Floorplan Generated Successfully")
 
     return respond_with_UI_payload(dict(walls_3d=walls_3d, polygons=polygons_3d, metadata=metadata))
