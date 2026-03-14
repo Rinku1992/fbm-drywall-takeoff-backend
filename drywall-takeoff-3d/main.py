@@ -72,23 +72,27 @@ def insert_model_2d_revision(
     user_id,
     project_id,
     bigquery_client,
-    credentials
+    credentials,
+    page_section_number=None,
     ):
+    if not page_section_number:
+        page_section_number = 'I'
     if not model_2d.get("metadata", None):
-        GBQ_query = f"SELECT model_2d.metadata FROM `drywall_takeoff.models` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+        GBQ_query = f"SELECT model_2d.metadata FROM `drywall_takeoff.models` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number} AND page_section_number = {page_section_number};"
         query_output = bigquery_run(credentials, bigquery_client, GBQ_query).result()
         metadata = list(query_output)[0].metadata
         metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
         model_2d["metadata"] = metadata
     GBQ_query = """
     SELECT MAX(revision_number) AS revision_number FROM `drywall_takeoff.model_revisions_2d` WHERE 
-    LOWER(project_id) = LOWER(@project_id) AND LOWER(plan_id) = LOWER(@plan_id) AND page_number = @page_number;
+    LOWER(project_id) = LOWER(@project_id) AND LOWER(plan_id) = LOWER(@plan_id) AND page_number = @page_number AND page_section_number = @page_section_number;
     """
     job_config = dict(
         query_parameters=[
             bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
             bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
-            bigquery.ScalarQueryParameter("page_number", "INT64", page_number)
+            bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
+            bigquery.ScalarQueryParameter("page_section_number", "STRING", page_section_number)
         ]
     )
     query_output = list(bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result())
@@ -104,6 +108,7 @@ def insert_model_2d_revision(
         project_id,
         user_id,
         page_number,
+        page_section_number,
         scale,
         model,
         created_at,
@@ -114,6 +119,7 @@ def insert_model_2d_revision(
         @project_id,
         @user_id,
         @page_number,
+        @page_section_number,
         @scale,
         @model_2d,
         CURRENT_TIMESTAMP(),
@@ -126,6 +132,7 @@ def insert_model_2d_revision(
             bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
             bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
             bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
+            bigquery.ScalarQueryParameter("page_section_number", "STRING", page_section_number),
             bigquery.ScalarQueryParameter("scale", "STRING", scale),
             bigquery.ScalarQueryParameter("model_2d", "JSON", model_2d),
             bigquery.ScalarQueryParameter("revision_number", "INT64", revision_number)
