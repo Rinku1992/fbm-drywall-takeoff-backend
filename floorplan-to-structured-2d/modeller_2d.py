@@ -1978,7 +1978,19 @@ class FloorPlan2D(FloorPlan):
             distances = np.sum(vectors**2, axis=1)
 
             order = np.lexsort((distances, angles))
-            return polygon_vertices_array[order].tolist()
+            polygon_vertices = polygon_vertices_array[order].tolist()
+
+            vertices_sorted = deepcopy(polygon_vertices)
+            for index in range(len(polygon_vertices)-2):
+                reference = vertices_sorted[index]
+                if math.hypot(vertices_sorted[index + 1][0] - reference[0], vertices_sorted[index + 1][1] - reference[1]) > math.hypot(vertices_sorted[index + 2][0] - reference[0], vertices_sorted[index + 2][1] - reference[1]):
+                    sorted_vertex_a = vertices_sorted[index + 1]
+                    sorted_vertex_b = vertices_sorted[index + 2]
+                    vertices_sorted.remove(sorted_vertex_a)
+                    vertices_sorted.remove(sorted_vertex_b)
+                    vertices_sorted.insert(index + 1, sorted_vertex_b)
+                    vertices_sorted.insert(index + 2, sorted_vertex_a)
+            return vertices_sorted
 
         walls_null_room, walls_null_id = list(), list()
         for wall in walls_2d:
