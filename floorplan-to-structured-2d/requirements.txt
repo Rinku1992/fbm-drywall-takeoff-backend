@@ -18,6 +18,7 @@ python-multipart
 scikit-image
 opencv-python
 numpy
+roman
 shapely
 ruamel-yaml
 matplotlib
