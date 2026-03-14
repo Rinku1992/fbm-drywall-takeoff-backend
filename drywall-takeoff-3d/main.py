@@ -976,6 +976,7 @@ async def load_2d_all(request: Request):
         query = f"""
             SELECT
                 page_number,
+                page_section_number,
                 scale,
                 model_2d
             FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}`
@@ -996,6 +997,7 @@ async def load_2d_all(request: Request):
         query = f"""
             SELECT
                 page_number,
+                page_section_number,
                 scale,
                 model_2d
             FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}`
@@ -1020,6 +1022,7 @@ async def load_2d_all(request: Request):
         page = {
             "plan_id": plan_id,
             "page_number": row.page_number,
+            "page_section_number": row.page_section_number,
             "scale": row.scale,
             "walls_2d": walls_2d.get("walls_2d", list()),
             "polygons": walls_2d.get("polygons", list()),
