@@ -866,7 +866,7 @@ async def floorplan_to_2d(request: Request):
                     page = dict(
                         plan_id=plan_id,
                         page_number=page_number,
-                        page_type=plan_type["plan_type"].upper(),
+                        page_section_number=toRoman(page_section_index),
                         scale=query_output[page_section_index].scale,
                         walls_2d=walls_2d["walls_2d"],
                         polygons=walls_2d["polygons"],
