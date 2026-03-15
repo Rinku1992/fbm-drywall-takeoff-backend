@@ -237,10 +237,14 @@ def phoenix_call(generate_content_lambda, system_prompt, max_retry=5, base_delay
 def load_section_from_page(wall_segmented_path, floor_plan_path, bounding_box_offset, section_name):
     offset_top_left_X, offset_top_left_Y = bounding_box_offset["offset_top_left"]
     offset_bottom_right_X, offset_bottom_right_Y = bounding_box_offset["offset_bottom_right"]
-    offset_top_left_X -= 0.01
-    offset_top_left_Y -= 0.01
-    offset_bottom_right_X += 0.01
-    offset_bottom_right_Y += 0.01
+    if offset_top_left_X > 0.01:
+        offset_top_left_X -= 0.01
+    if offset_top_left_Y > 0.01:
+        offset_top_left_Y -= 0.01
+    if offset_bottom_right_X > 0.01:
+        offset_bottom_right_X += 0.01
+    if offset_bottom_right_Y > 0.01:
+        offset_bottom_right_Y += 0.01
     canvas = Image.open(wall_segmented_path)
     canvas = canvas.convert("RGB")
     width_in_pixels, height_in_pixels = canvas.size
