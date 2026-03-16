@@ -17,6 +17,7 @@ pydantic
 python-multipart
 scikit-image
 opencv-python
+geoip2
 numpy
 roman
 shapely
