@@ -5,7 +5,9 @@ from pathlib import Path
 import cv2
 from time import sleep
 from random import uniform
+import math
 
+import geoip2.database as geoip2_database
 from google.cloud import bigquery
 from google.cloud.storage import Client as CloudStorageClient
 import google.auth.transport.requests
@@ -179,13 +181,47 @@ def load_floorplan_to_structured_2d_ID_token(credentials):
     id_token = service_account_credentials.token
     return id_token
 
-def load_vertex_ai_client(credentials, region="us-central1"):
+def load_vertex_ai_client(credentials, request, default_region="us-central1"):
     with open(credentials["VertexAI"]["service_account_key"], 'r') as f:
         project_id = json.load(f)["project_id"]
+    region = load_nearest_region(
+        request,
+        credentials["geolite_database"],
+        credentials["VertexAI"]["llm"]["available_regions"],
+        default_region=default_region
+    )
     vertexai.init(project=project_id, location=region)
     vertex_ai_client = GenerativeModel(credentials["VertexAI"]["llm"]["model_name"])
     generation_config = credentials["VertexAI"]["llm"]["parameters"]
     return vertex_ai_client, generation_config
+
+def load_nearest_region(request, geolite_database, available_regions, default_region="us-central1"):
+    def _compute_haversine_distance(latitude_1, longitude_1, latitude_2, longitude_2):
+        R = 6371
+        d_latitude = math.radians(latitude_2-latitude_1)
+        d_longitude = math.radians(longitude_2-longitude_1)
+        a = math.sin(d_latitude/2)**2 + math.cos(math.radians(latitude_1)) * math.cos(math.radians(latitude_2)) * math.sin(d_longitude/2)**2
+        return 2*R*math.asin(math.sqrt(a))
+
+    ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
+    if not ip_address or "," not in ip_address:
+        return default_region
+    if ip_address and "," in ip_address:
+        ip_address = ip_address.split(",")[0].strip()
+    geoip2_reader = geoip2_database.Reader(geolite_database)
+    try:
+        response = geoip2_reader.city(ip_address)
+        (response.location.latitude, response.location.longitude, response.country.iso_code)
+        nearest_region = None
+        minimum_distance = float("inf")
+        for region, (latitude, longitude) in available_regions.items():
+            distance = _compute_haversine_distance(response.location.latitude, response.location.longitude, latitude, longitude)
+            if distance < minimum_distance:
+                minimum_distance = distance
+                nearest_region = region
+        return nearest_region
+    except Exception:
+        return default_region
 
 def classify_plan(plan_path, vertex_ai_client_parameters):
     vertex_ai_client, vertex_ai_generation_config, vertex_ai_max_retry = vertex_ai_client_parameters
