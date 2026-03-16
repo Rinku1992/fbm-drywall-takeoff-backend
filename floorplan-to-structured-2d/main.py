@@ -176,7 +176,7 @@ async def floorplan_to_structured_2d(request: Request):
     logging.info(f"SYSTEM: Processed Floorplan Downloaded: Page Number: {page_number}")
 
     hyperparameters = load_hyperparameters()
-    vertex_ai_client, generation_config = load_vertex_ai_client(CREDENTIALS)
+    vertex_ai_client, generation_config = load_vertex_ai_client(CREDENTIALS, request)
 
     futures = dict()
     with ThreadPoolExecutor(max_workers=5) as executor:
