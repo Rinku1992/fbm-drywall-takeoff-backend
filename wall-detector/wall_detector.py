@@ -54,8 +54,10 @@ class WallDetector:
                 mask_height_factor -= 0.01
             if mask_width_factor > 0.01:
                 mask_width_factor -= 0.01
-            image[:, -round(width_original * mask_width_factor):] = 255
-            image[-round(height_original * mask_height_factor):, :] = 255
+            if mask_width_factor > 0:
+                image[:, -round(width_original * mask_width_factor):] = 255
+            if mask_height_factor > 0:
+                image[-round(height_original * mask_height_factor):, :] = 255
             image_detected = Image.fromarray(image)
             image_detected = image_detected.resize((width, height))
         return image_detected
