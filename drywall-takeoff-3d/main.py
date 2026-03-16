@@ -811,7 +811,7 @@ async def floorplan_to_2d(request: Request):
 
     walls_2d_all = dict(pages=list())
     status = "COMPLETED"
-    vertex_ai_client, generation_config = load_vertex_ai_client(CREDENTIALS)
+    vertex_ai_client, generation_config = load_vertex_ai_client(CREDENTIALS, request)
     vertex_ai_client_parameters = (vertex_ai_client, generation_config, CREDENTIALS["VertexAI"]["llm"]["max_retry"])
     try:
         id_token = load_floorplan_to_structured_2d_ID_token(CREDENTIALS)
