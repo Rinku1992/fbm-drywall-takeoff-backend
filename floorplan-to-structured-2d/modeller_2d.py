@@ -960,7 +960,7 @@ class FloorPlan2D(FloorPlan):
         for drywall_polygon in drywall_polygons:
             canvas_to_overlay = canvas.copy()
             cv2.fillPoly(canvas_to_overlay, pts=[drywall_polygon], color=(0, 0, 255))
-            canvas = cv2.addWeighted(canvas_to_overlay, 0.3, canvas, 0.7, 0)
+            canvas = cv2.addWeighted(canvas_to_overlay, 0.7, canvas, 0.3, 0)
         X1, Y1, X2, Y2 = wall_line[0]
         cv2.line(canvas, (X1, Y1), (X2, Y2), (0, 0, 255), 2)
         system = Content(role="model", parts=[Part.from_text(WALL_RECTIFIER)])
