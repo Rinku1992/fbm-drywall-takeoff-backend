@@ -6,7 +6,6 @@ import json
 import logging
 import xml.etree.ElementTree as ET
 from PIL import Image
-from json.decoder import JSONDecodeError
 from pathlib import Path
 from collections import defaultdict
 import subprocess
@@ -26,6 +25,7 @@ from prompt import (
     CEILING_CHOICES,
     DrywallPredictorCaliforniaResponse,
     ScaleAndCeilingHeightDetectorResponse,
+    WallRectifierResponse,
 )
 from helper import phoenix_call
 
@@ -950,64 +950,41 @@ class FloorPlan2D(FloorPlan):
         self._hyperparameters["modelling"]["height_in_feet"] = ceiling_height_and_scale["ceiling_height"]
         return ceiling_height_and_scale
 
-    def _wall_rectifier(
+    def _is_wall_valid(
         self,
-        vertices,
-        perimeter_walls,
-        scale,
+        wall_line,
+        drywall_polygons,
         floor_plan_path,
-        threshold=1000,
     ):
-        scale_x, scale_y = scale
-        vertices_normalized = [(round(scale_x * vertex[0]), round(scale_y * vertex[1])) for vertex in vertices]
-        perimeter_walls_normalized = list()
-        for perimeter_wall in perimeter_walls:
-            X1, Y1, X2, Y2 = perimeter_wall[0]
-            perimeter_wall_normalized = [[round(scale_x * X1), round(scale_y * Y1), round(scale_x * X2), round(scale_y * Y2)]]
-            perimeter_walls_normalized.append(perimeter_wall_normalized)
         canvas = cv2.imread(floor_plan_path)
-        vertices_normalized = np.array(vertices_normalized)
-        canvas_to_overlay = canvas.copy()
-        cv2.fillPoly(canvas_to_overlay, pts=[vertices_normalized], color=(0, 0, 255))
-        canvas = cv2.addWeighted(canvas_to_overlay, 0.3, canvas, 0.7, 0)
-        for perimeter_wall in perimeter_walls_normalized:
-            X1, Y1, X2, Y2 = perimeter_wall[0]
-            bounding_box_top_left = (X1 - 10, Y1 - 10)
-            bounding_box_bottom_right = (X2 + 10, Y2 + 10)
-            canvas = cv2.rectangle(canvas, bounding_box_top_left, bounding_box_bottom_right, (255, 0, 0), 3)
-        polygon_bounding_box_X1 = min(vertex[0] for vertex in vertices_normalized.tolist())
-        polygon_bounding_box_Y1 = min(vertex[1] for vertex in vertices_normalized.tolist())
-        polygon_bounding_box_X2 = max(vertex[0] for vertex in vertices_normalized.tolist())
-        polygon_bounding_box_Y2 = max(vertex[1] for vertex in vertices_normalized.tolist())
-        canvas_cropped = canvas[max(0, polygon_bounding_box_Y1 - threshold): polygon_bounding_box_Y2 + threshold, max(0, polygon_bounding_box_X1 - threshold): polygon_bounding_box_X2 + threshold]
+        for drywall_polygon in drywall_polygons:
+            canvas_to_overlay = canvas.copy()
+            cv2.fillPoly(canvas_to_overlay, pts=[drywall_polygon], color=(0, 0, 255))
+            canvas = cv2.addWeighted(canvas_to_overlay, 0.3, canvas, 0.7, 0)
+        X1, Y1, X2, Y2 = wall_line[0]
+        cv2.line(canvas, (X1, Y1), (X2, Y2), (0, 0, 255), 2)
         system = Content(role="model", parts=[Part.from_text(WALL_RECTIFIER)])
-        _, canvas_buffer_array = cv2.imencode(".png", canvas_cropped)
+        _, canvas_buffer_array = cv2.imencode(".png", canvas)
         bytes_canvas = canvas_buffer_array.tobytes()
-        perimeter_wall_lines = list()
-        for perimeter_wall in perimeter_walls_normalized:
-            X1, Y1, X2, Y2 = perimeter_wall[0]
-            perimeter_wall_lines.append(
-                dict(wall=dict(X1=int(X1), Y1=int(Y1), X2=int(X2), Y2=int(Y2)))
-            )
-        polygon = dict(
-            vertices=vertices_normalized.tolist(),
-            perimeter_wall_lines=perimeter_wall_lines,
-            offset=(max(0, polygon_bounding_box_X1 - threshold), max(0, polygon_bounding_box_Y1 - threshold))
-        )
+        wall_line_structured = dict(wall=dict(X1=int(X1), Y1=int(Y1), X2=int(X2), Y2=int(Y2)))
         query = Content(role="user", parts=[
-            Part.from_text(json.dumps(polygon)),
+            Part.from_text(json.dumps(wall_line_structured)),
             Part.from_data(data=bytes_canvas, mime_type="image/png")
         ])
-        response = self._vertex_ai_client(contents=[system, query])
         try:
-            polygon_rectified = json.loads(response.text.strip("`json").replace("{{", '{').replace("}}", '}'))
-            perimeter_walls_rectified = list()
-            for perimeter_wall_rectified in polygon_rectified:
-                perimeter_wall_rectified = [[perimeter_wall_rectified["X1"], perimeter_wall_rectified["Y1"], perimeter_wall_rectified["X2"], perimeter_wall_rectified["Y2"]]]
-                perimeter_walls_rectified.append(perimeter_wall_rectified)
-            return vertices_normalized.tolist(), perimeter_walls_rectified
-        except (JSONDecodeError, ValueError):
-            return vertices_normalized.tolist(), perimeter_walls
+            _, is_valid = phoenix_call(
+                lambda system_prompt, temperature: self._vertex_ai_client.generate_content(
+                    contents=[system_prompt, query],
+                    generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
+                ),
+                system,
+                max_retry=self._vertex_ai_max_retry,
+                pydantic_model=WallRectifierResponse,
+            )
+            return is_valid["is_valid"]
+        except Exception as e:
+            logging.warning(f"SYSTEM: Wall validator failed with error: {e}")
+            return True
 
     def _model_polygon(
         self,
@@ -1946,7 +1923,7 @@ class FloorPlan2D(FloorPlan):
         for polygon in polygons_2d_JSON:
             polygon["type_choices"] = CEILING_CHOICES
 
-    def _load_missing_polygons(self, walls_2d, scale, polygons_neighbor):
+    def _load_missing_polygons(self, walls_2d, scale, polygons_neighbor, floor_plan_path):
         def load_wall_payload(wall_line):
             X1, Y1, X2, Y2 = wall_line[0]
             wall_line_structured = [
@@ -2008,11 +1985,39 @@ class FloorPlan2D(FloorPlan):
                     return False
             return True
 
-        walls_null_room, walls_null_id = list(), list()
-        for wall in walls_2d:
+        walls_null_room, walls_null_id, is_valid_futures = list(), list(), list()
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            for wall in walls_2d:
+                if wall["polygons_drywall"][0]["type"] == wall["polygons_drywall"][1]["type"] == "DISABLED":
+                    wall_line = [[wall["wall_line"][0]['x'], wall["wall_line"][0]['y'], wall["wall_line"][1]['x'], wall["wall_line"][1]['y']]]
+                    drywall_polygons = list()
+                    for drywall in wall["polygons_drywall"]:
+                        pts = np.array([
+                            [drywall["polygon"][0]['x'], drywall["polygon"][0]['y']],
+                            [drywall["polygon"][1]['x'], drywall["polygon"][1]['y']],
+                            [drywall["polygon"][2]['x'], drywall["polygon"][2]['y']],
+                            [drywall["polygon"][3]['x'], drywall["polygon"][3]['y']]
+                        ], np.int32)
+                        pts = pts.reshape((-1, 1, 2))
+                        drywall_polygons.append(pts)
+                    is_valid_futures.append(executor.submit(
+                        self._is_wall_valid,
+                        wall_line,
+                        drywall_polygons,
+                        floor_plan_path,
+                    ))
+        is_wall_valid = [future.result() for future in is_valid_futures]
+        is_valid_index = 0
+        for wall in walls_2d[:]:
             if wall["polygons_drywall"][0]["type"] == wall["polygons_drywall"][1]["type"] == "DISABLED":
-                walls_null_room.append([[wall["wall_line"][0]['x'], wall["wall_line"][0]['y'], wall["wall_line"][1]['x'], wall["wall_line"][1]['y']]])
+                wall_line = [[wall["wall_line"][0]['x'], wall["wall_line"][0]['y'], wall["wall_line"][1]['x'], wall["wall_line"][1]['y']]]
+                if not is_wall_valid[is_valid_index]:
+                    walls_2d.remove(wall)
+                    is_valid_index += 1
+                    continue
+                walls_null_room.append(wall_line)
                 walls_null_id.append(wall["id"])
+                is_valid_index += 1
         shapes = self.disconnected_shapes(walls_null_room)
         shapes_isolated = list(filter(lambda shape: len(shape) <= 2, shapes))
         lines_isolated = [shape[0] for shape in shapes_isolated]
@@ -2051,7 +2056,7 @@ class FloorPlan2D(FloorPlan):
             perimeter_lines_contours.append(perimeter_lines_contour_all)
             polygonized.append((polygon_area, polygon_vertices))
 
-        return polygonized, perimeter_lines_contours
+        return polygonized, perimeter_lines_contours, walls_2d
 
     def save_plot_2d(
         self,
@@ -2235,7 +2240,7 @@ class FloorPlan2D(FloorPlan):
             [future.result() for future in futures]
 
         self._walls_2d = self._normalize_walls_2d(self._walls_2d, (scale_x, scale_y))
-        missing_polygons, missing_polygons_perimeter_walls = self._load_missing_polygons(self._walls_2d, (scale_x, scale_y), polygon_vertices_normalized_all)
+        missing_polygons, missing_polygons_perimeter_walls, self._walls_2d = self._load_missing_polygons(self._walls_2d, (scale_x, scale_y), polygon_vertices_normalized_all, floor_plan_path)
         external_contour_normalized = self.merge_polygons(external_contour_normalized, [polygon[1] for polygon in missing_polygons])
         futures = list()
         with ThreadPoolExecutor(max_workers=8) as executor:
