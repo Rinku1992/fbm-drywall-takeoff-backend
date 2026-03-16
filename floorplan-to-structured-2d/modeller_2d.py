@@ -2240,7 +2240,12 @@ class FloorPlan2D(FloorPlan):
             [future.result() for future in futures]
 
         self._walls_2d = self._normalize_walls_2d(self._walls_2d, (scale_x, scale_y))
-        missing_polygons, missing_polygons_perimeter_walls, self._walls_2d = self._load_missing_polygons(self._walls_2d, (scale_x, scale_y), polygon_vertices_normalized_all, floor_plan_path)
+        missing_polygons, missing_polygons_perimeter_walls, self._walls_2d = self._load_missing_polygons(
+            self._walls_2d,
+            (scale_x, scale_y),
+            polygon_vertices_normalized_all,
+            floor_plan_path
+        )
         external_contour_normalized = self.merge_polygons(external_contour_normalized, [polygon[1] for polygon in missing_polygons])
         futures = list()
         with ThreadPoolExecutor(max_workers=8) as executor:
