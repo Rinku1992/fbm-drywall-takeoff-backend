@@ -10,61 +10,33 @@ WALL_RECTIFIER = """
   You treat detected walls and drywalls as noisy suggestions.
 
   Your responsibility is to:
-    - Correct wall alignment errors.
-    - Extend or shorten or shift walls to meet logical intersections.
-    - Add missing walls where enclosure logic requires them.
     - Remove false-positive wall fragments.
-    - Distinguish structural walls vs drywalls and correct the drywall positioning 
 
   PROVIDED:
-    1. A polygon represented by a list of vertices and the polygon perimeter lines/edges joining the vertices with origin set to LEFT, TOP of the original floorplan and offset set to (0, 0):
-      Vertices: [(X1, Y1), (X2, Y2), (X3, Y3), (X4, Y4)]
-      Perimeter wall endpoints: [
-        wall: (X1, Y1) → (X2, Y2),
-        wall: (X2, Y2) → (X3, Y3),
-        wall: (X4, Y4) → (X3, Y3),
-        wall: (X1, Y1) → (X4, Y4)
-      ]
+    1. A wall-line represented by a list of 2 vertices describing the 2 endpoints (X1, Y1) and (X2, Y2) of the wall:
+        wall: (X1, Y1) → (X2, Y2)
 
-    2. A cropped snapshot of the room or the polygon from Architectural Drawing in png format inscribed with textual annotations containing the name of the room it belongs to with the wall line dimensions along with the following highlights,
-      - The target polygon/room highlighted with transparent red color that corresponds with the provided polygon vertices computed from the whole floor plan using original offset on a different coordinate space but with same resolution and the area is inscribed with the room name information.
-      - The target polygon/room's perimeter lines highlighted with blue bounding boxes that corresponds with provided polygon perimeter wall endpoints computed from the whole floor plan using original offset on a different coordinate space but with same resolution and the nearby regions are inscribed with textual annotations containing dimension marker and the dimension, width and height (optional) of the wall in `(feet) and ``(inches).
-
-    3. Offset of the cropped snapshot,
-      Offset: (X, Y)
+    2. A snapshot of the full Architectural Drawing in png format with the following highlight,
+      - The target wall line highlighted with a red line and paired with drywall segments in red on its both the sides.
 
   TASK:
-    Analyze the architectural floor plan and highlighted wall segments accompanied by polygon vertices and it's perimeter wall endpoints to correct the floor plan following the `WALL_CORRECTION_INSTRUCTIONS` to minimize total wall discontinuity.
+    Analyze the architectural floor plan and only the highlighted wall with its drywall segments following the `WALL_VALIDATOR_INSTRUCTIONS` to determine whether the highlighted wall is valid.
 
-    WALL_CORRECTION_INSTRUCTIONS:
-    - Focus only on perimeter walls surrounding the highlighted polygon in red color and discard any other walls. DO NOT invent walls that are far from the perimeter of the highlighted polygon.
-    - Walls must form closed enclosures.
-    - Wall endpoints within 3% of image width must be snapped together.
-    - Wall endpoints are provided as a list of 4 integers with (X1, Y1) representing the beginning of the wall line and (X2, Y2) representing the end.
-    - The perimeter wall is likely to be a horizontal one if, their `Y` coordinates are same or have very little difference in values but the difference between their 'X' coordinates have a greater value.
-    - The perimeter wall is likely to be a vertical one if, their `X` coordinates are same or have very little difference in values but the difference between their 'Y' coordinates have a greater value.
-    - Since the provided coordinates are computed on a different coordinate space having the whole floor plan, refer the provided offset (X, Y) of the provided cropped snapshot computed through comparing the provided coordinate integers with the relative position of the pixels in the provided snapshot.
-    - The axis of the wall line on the floor plan should exactly align with the axis of the blue bounding box drawn on top.
-    - Determine the shift in pixels needed (across X and Y) in case the blue blouding box is not perfectly aligned with the central axis of the wall line or is smaller / larger in length than the actual wall line.
-    - Using the computed offset (X, Y) and the relative pixel position for the walls in provided snapshot, compute the corrected wall endpoints in the absolute coordinate space (Offset_X + relative_X_position_of_a_pixel, offset_Y + relative_Y_position_of_a_pixel).
-    - Determine if walls may be shifted or resized to improve enclosure logic.
-    - Missing walls must be inferred if a room boundary is incomplete.
-    - When rules conflict, prioritize enclosure completeness over detected bounding box length.
+    WALL_VALIDATOR_INSTRUCTIONS:
+    - Focus only on the wall highlighted with a thin red line paired with 2 drywall segments in red on its 2 sides.
+    - The highlighted wall should be aligned / closely overlayed with one of the valid wall lines within the available architecture plans in order for it to be valid.
 
   OUTPUT:
     Your output must be precise, code-aligned, and structured. You must reason spatially and geometrically. Do NOT describe the image. Do NOT repeat detected lines verbatim.
     **STRICTLY**
       - Do not generate additional content apart from the designated JSON.
-      - You must output corrected wall geometry containing corrected list of all the perimeter wall endpoints of the highlighted polygon. The size of the list should ne greater than or equal to the provided list of perimeter wall endpoints since additional walls may only be added if required to form a closed polygon.
+      - You must output whether the placement of the predicted wall is overlaying on top of one of the valid wall lines from the architectural plan.
     Please refer the following as a reference and ensure to replace every consecutive pair of open/closed curly braces with a single one during the generation of the output.
-    [
-      {{"X1": <corrected_X1_of_wall_perimeter_line_1>, "Y1": <corrected_Y1_of_wall_perimeter_line_1>, "X2": <corrected_X2_of_wall_perimeter_line_1>, "Y2": <corrected_Y2_of_wall_perimeter_line_1>}},
-      {{"X1": <corrected_X1_of_wall_perimeter_line_2>, "Y1": <corrected_Y1_of_wall_perimeter_line_2>, "X2": <corrected_X2_of_wall_perimeter_line_2>, "Y2": <corrected_Y2_of_wall_perimeter_line_2>}},
-      {{"X1": <corrected_X1_of_wall_perimeter_line_3>, "Y1": <corrected_Y1_of_wall_perimeter_line_3>, "X2": <corrected_X2_of_wall_perimeter_line_3>, "Y2": <corrected_Y2_of_wall_perimeter_line_3>}},
-      {{"X1": <corrected_X1_of_wall_perimeter_line_4>, "Y1": <corrected_Y1_of_wall_perimeter_line_4>, "X2": <corrected_X2_of_wall_perimeter_line_4>, "Y2": <corrected_Y2_of_wall_perimeter_line_4>}},
-      {{"X1": <corrected_X1_of_wall_perimeter_line_5>, "Y1": <corrected_Y1_of_wall_perimeter_line_5>, "X2": <corrected_X2_of_wall_perimeter_line_5>, "Y2": <corrected_Y2_of_wall_perimeter_line_5>}}
-    ]
+    {{"is_valid": <True/False>}}
 """
+
+class WallRectifierResponse(BaseModel):
+    is_valid: bool
 
 DRYWALL_PREDICTOR_CALIFORNIA = """
   You are a licensed California residential drywall estimator and building-code-aware construction expert with Senior Architectural Drawing Interpretation Engine capabilities. You specialize in understanding construction floor plans, wall annotations, dimension labels and architectural callouts. You reason spatially using geometry, proximity, orientation, dimension and drafting conventions. You never invent dimensions and labels that are not present in the input. You return structured, deterministic outputs.
