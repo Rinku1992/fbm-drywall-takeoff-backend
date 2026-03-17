@@ -2,9 +2,11 @@ import logging
 import json
 import sys
 import os
+import requests
 from pathlib import Path
 from ruamel.yaml import YAML
 from time import sleep
+import datetime
 
 from random import uniform
 from PIL import Image
@@ -17,28 +19,44 @@ from vertexai.generative_models import GenerativeModel
 from google.cloud.storage import Client as CloudStorageClient
 from google.cloud import bigquery
 from fastapi.encoders import jsonable_encoder
+import google.auth.transport.requests
+from google.oauth2.service_account import IDTokenCredentials
 from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, DeadlineExceeded
 from vertexai.generative_models import Content, Part
+from vertexai.caching import CachedContent
 
 from transcriber import Transcriber
 from prompt import FEEDBACK_GENERATOR
 
 
-def load_vertex_ai_client(credentials, request, default_region="us-central1"):
+def load_vertex_ai_client(credentials, ip_address, cached_contents=None, default_region="us-central1"):
     with open(credentials["VertexAI"]["service_account_key"], 'r') as f:
         project_id = json.load(f)["project_id"]
     region = load_nearest_region(
-        request,
+        ip_address,
         credentials["geolite_database"],
         credentials["VertexAI"]["llm"]["available_regions"],
         default_region=default_region
     )
     vertexai.init(project=project_id, location=region)
-    vertex_ai_client = GenerativeModel(credentials["VertexAI"]["llm"]["model_name"])
+    vertex_ai_client = lambda system_instruction: GenerativeModel(
+        credentials["VertexAI"]["llm"]["model_name"],
+        system_instruction=system_instruction
+    )
+    is_cached = False
+    if cached_contents and GenerativeModel(credentials["VertexAI"]["llm"]["model_name"]).count_tokens(cached_contents).total_tokens >= 1024:
+        is_cached = True
+        cached_content = CachedContent.create(
+            model_name=credentials["VertexAI"]["llm"]["model_name"],
+            contents=cached_contents,
+            ttl=datetime.timedelta(minutes=60),
+            display_name="drywall_predictor_cache"
+        )
+        vertex_ai_client = GenerativeModel.from_cached_content(cached_content)
     generation_config = credentials["VertexAI"]["llm"]["parameters"]
-    return vertex_ai_client, generation_config
+    return vertex_ai_client, generation_config, is_cached
 
-def load_nearest_region(request, geolite_database, available_regions, default_region="us-central1"):
+def load_nearest_region(ip_address, geolite_database, available_regions, default_region="us-central1"):
     def _compute_haversine_distance(latitude_1, longitude_1, latitude_2, longitude_2):
         R = 6371
         d_latitude = math.radians(latitude_2-latitude_1)
@@ -46,7 +64,6 @@ def load_nearest_region(request, geolite_database, available_regions, default_re
         a = math.sin(d_latitude/2)**2 + math.cos(math.radians(latitude_1)) * math.cos(math.radians(latitude_2)) * math.sin(d_longitude/2)**2
         return 2*R*math.asin(math.sqrt(a))
 
-    ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
     if not ip_address or "," not in ip_address:
         return default_region
     if ip_address and "," in ip_address:
@@ -236,13 +253,14 @@ def load_templates(bigquery_client, credentials):
         product_templates_target.append(product_template)
     return jsonable_encoder(product_templates_target)
 
-def phoenix_call(generate_content_lambda, system_prompt, max_retry=5, base_delay=1.0, pydantic_model=None, verify_field_counts=None):
+def phoenix_call(generate_content_lambda, max_retry=5, base_delay=1.0, pydantic_model=None, verify_field_counts=None):
     n_iterations = 0
     temperature = 0
     exceptions = list()
+    feedback_prompt = ''
     while n_iterations < max_retry:
         try:
-            response = generate_content_lambda(system_prompt, temperature)
+            response = generate_content_lambda(feedback_prompt, temperature)
             if pydantic_model:
                 json_response = json.loads(response.text.strip("`json").replace("{{", '{').replace("}}", '}'))
                 if verify_field_counts:
@@ -265,7 +283,7 @@ def phoenix_call(generate_content_lambda, system_prompt, max_retry=5, base_delay
                 raise e
             exceptions.append(e)
             system_feedback = [Part.from_text(FEEDBACK_GENERATOR.format(max_retry=max_retry, exceptions=exceptions))]
-            system_prompt = Content(role=system_prompt.role, parts=system_prompt.parts+system_feedback)
+            feedback_prompt = Content(role="model", parts=system_feedback)
             temperature = min(0.5 * (n_iterations + 1) / max_retry, 0.5)
             logging.warning(f"SYSTEM: Response Generation/Parsing failed with ERROR: {e}")
             logging.warning(f"SYSTEM: RETRYING with TEMPERATURE: {temperature}")
@@ -304,3 +322,24 @@ def load_section_from_page(wall_segmented_path, floor_plan_path, bounding_box_of
     canvas.save(wall_segmented_path_sectioned, format="png")
 
     return str(wall_segmented_path_sectioned)
+
+def polygon_to_structured_2d(credentials, query_json):
+    auth_req = google.auth.transport.requests.Request()
+    service_account_credentials = IDTokenCredentials.from_service_account_file(
+        credentials["service_drywall_account_key"],
+        target_audience=credentials["CloudRun"]["APIs"]["polygon_to_structured_2d"]
+    )
+    service_account_credentials.refresh(auth_req)
+    id_token = service_account_credentials.token
+
+    headers = {
+        "Authorization": f"Bearer {id_token}",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post(
+        f"{credentials["CloudRun"]["APIs"]["polygon_to_structured_2d"]}/polygon_to_structured_2d",
+        headers=headers,
+        json=query_json
+    )
+    return response.status_code, response.content
