@@ -457,10 +457,10 @@ class FloorPlan2D(FloorPlan):
             lines = self._deduplicate_lines(lines)
             lines = self._remove_invalid(lines)
             shapes = self.disconnected_shapes(lines)
-            shape_lengths = list(map(lambda shape: len(shape), shapes))
-            shape_primary_index = list(shape_lengths).index(max(shape_lengths))
-            lines = shapes[shape_primary_index]
-            lines = self._merge_nearest_neighbor(lines)
+            lines = list()
+            for shape in shapes:
+                if len(shape) > 4:
+                    lines.extend(self._merge_nearest_neighbor(shape))
 
         if output_path:
             canvas = np.ones(image_BGR.shape, dtype=np.uint8) * 255
