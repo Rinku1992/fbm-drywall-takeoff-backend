@@ -15,7 +15,6 @@ from google.cloud import secretmanager
 from modeller_2d import FloorPlan2D
 from helper import (
     enable_logging_on_stdout,
-    load_vertex_ai_client,
     load_gcp_credentials,
     load_hyperparameters,
     transcribe,
@@ -82,7 +81,6 @@ def page_to_structured_2d(
     bounding_box_offset,
     transcription_block_with_centroids,
     transcription_headers_and_footers,
-    DRYWALL_TEMPLATES,
     floorplan_page_statistics,
     floorplan_baseline_page_source,
     verbose="False"
@@ -100,11 +98,10 @@ def page_to_structured_2d(
         floor_plan_path=floor_plan_processed_path,
         transcription_block_with_centroids=transcription_block_with_centroids,
         transcription_headers_and_footers=transcription_headers_and_footers,
-        drywall_templates=DRYWALL_TEMPLATES,
     )
     metadata = dict()
     if walls_2d and polygons:
-        floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons, DRYWALL_TEMPLATES)
+        floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons)
         floor_plan_modeller_2d.load_ceiling_choices(polygons)
         #if verbose.upper() == "TRUE":
         model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path)
@@ -114,8 +111,6 @@ def page_to_structured_2d(
         #model_2d_path_overlay_enabled = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path, overlay_enabled=True)
         #upload_floorplan(model_2d_path_overlay_enabled, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
 
-        drywall_choices_color_codes={drywall_template["sku_variant"]: drywall_template["color_code"][::-1] for drywall_template in DRYWALL_TEMPLATES}
-        drywall_choices_color_codes.update(dict(DISABLED=[255, 0, 0]))
         metadata = dict(
             size_in_bytes=floorplan_page_statistics["size"],
             height_in_pixels=floorplan_page_statistics["height_in_pixels"],
@@ -126,7 +121,7 @@ def page_to_structured_2d(
             offset=(0, 0),
             contour_root_vertices=external_contour,
             scales_architectural=floor_plan_modeller_2d.scales_architectural,
-            drywall_choices_color_codes=drywall_choices_color_codes,
+            drywall_choices_color_codes=floor_plan_modeller_2d.drywall_choices_color_codes,
         )
     insert_model_2d(
         dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
@@ -154,6 +149,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 bigquery_client = load_bigquery_client(CREDENTIALS)
+DRYWALL_TEMPLATES = load_templates(bigquery_client, CREDENTIALS)
 
 @app.post("/floorplan_to_structured_2d")
 async def floorplan_to_structured_2d(request: Request):
@@ -176,7 +172,6 @@ async def floorplan_to_structured_2d(request: Request):
     logging.info(f"SYSTEM: Processed Floorplan Downloaded: Page Number: {page_number}")
 
     hyperparameters = load_hyperparameters()
-    vertex_ai_client, generation_config = load_vertex_ai_client(CREDENTIALS, request)
 
     futures = dict()
     with ThreadPoolExecutor(max_workers=5) as executor:
@@ -203,16 +198,16 @@ async def floorplan_to_structured_2d(request: Request):
     transcription_block_with_centroids, transcription_headers_and_footers = futures["transcriber"].result()
     logging.info(f"SYSTEM: Transcription Completed from PAGE: {page_number}")
 
-    DRYWALL_TEMPLATES = load_templates(bigquery_client, CREDENTIALS)
     floorplan_baseline_page_source = None
     if not FloorPlan2D.is_none(wall_segmented_path):
         floorplan_baseline, floorplan_page_statistics = FloorPlan2D.scale_to(floor_plan_path=floor_plan_processed_path)
         floorplan_baseline_page_source = upload_floorplan(floorplan_baseline, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
         futures = list()
+        ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
         with ThreadPoolExecutor(max_workers=2) as executor:
             for index, bounding_box_offset in enumerate(bounding_box_offsets):
                 logging.info(f"SYSTEM: Extracting structured model from SECTION: {toRoman(index + 1)} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
-                floor_plan_modeller_2d = FloorPlan2D(hyperparameters, (vertex_ai_client, generation_config, CREDENTIALS["VertexAI"]["llm"]["max_retry"]))
+                floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, ip_address, DRYWALL_TEMPLATES)
                 futures.append(
                     executor.submit(
                         page_to_structured_2d,
@@ -228,7 +223,6 @@ async def floorplan_to_structured_2d(request: Request):
                         bounding_box_offset,
                         transcription_block_with_centroids,
                         transcription_headers_and_footers,
-                        DRYWALL_TEMPLATES,
                         floorplan_page_statistics,
                         floorplan_baseline_page_source,
                         verbose,
