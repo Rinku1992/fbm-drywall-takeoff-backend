@@ -2088,7 +2088,7 @@ class FloorPlan2D(FloorPlan):
                 walls_null_room.append(wall_line)
                 walls_null_id.append(wall["id"])
                 is_valid_index += 1
-        shapes = self.disconnected_shapes(walls_null_room)
+        shapes = self.disconnected_shapes(walls_null_room, tolerance=10*(sum(scale)//2))
         shapes_isolated = list(filter(lambda shape: len(shape) <= 2, shapes))
         lines_isolated = [shape[0] for shape in shapes_isolated]
         shapes_null = list(filter(lambda shape: len(shape) > 2, shapes))
