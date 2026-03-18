@@ -5,6 +5,7 @@ import math
 import json
 import logging
 import xml.etree.ElementTree as ET
+from base64 import b64encode
 from PIL import Image
 from pathlib import Path
 from collections import defaultdict
@@ -27,20 +28,26 @@ from prompt import (
     ScaleAndCeilingHeightDetectorResponse,
     WallRectifierResponse,
 )
-from helper import phoenix_call
+from helper import (
+    load_vertex_ai_client,
+    phoenix_call,
+    polygon_to_structured_2d
+)
 
 __all__ = ["FloorPlan2D"]
 
 
 class FloorPlan2D(FloorPlan):
 
-    def __init__(self, hyperparameters, vertex_ai_client_parameters):
+    def __init__(self, credentials, hyperparameters, client_ip_address, drywall_templates):
         super().__init__(hyperparameters)
 
+        self._credentials = credentials
         self._hyperparameters = hyperparameters
+        self._drywall_templates = drywall_templates
         self._width_in_feet = self._hyperparameters["modelling"]["width_in_feet"]
         self._height_in_feet = self._hyperparameters["modelling"]["height_in_feet"]
-        self._vertex_ai_client, self._vertex_ai_generation_config, self._vertex_ai_max_retry = vertex_ai_client_parameters
+        self._vertex_ai_generation_config = self._load_vertex_ai_clients(client_ip_address)
         self._scale = self._hyperparameters["modelling"]["scale"]
         self._walls_2d = list()
         self._polygons = list()
@@ -48,6 +55,44 @@ class FloorPlan2D(FloorPlan):
     def reload(self):
         self._walls_2d = list()
         self._polygons = list()
+
+    def _load_vertex_ai_clients(self, client_ip_address):
+        self._is_cached = dict()
+        vertex_ai_client_not_cached = None
+        self._vertex_ai_client_drywall_prediction, generation_config, is_cached = load_vertex_ai_client(
+            self._credentials,
+            client_ip_address,
+            cached_contents=[DRYWALL_PREDICTOR_CALIFORNIA.format(drywall_templates=self._drywall_templates)]
+        )
+        self._is_cached["DRYWALL_PREDICTOR_CALIFORNIA"] = is_cached
+        if not is_cached:
+            if not vertex_ai_client_not_cached:
+                vertex_ai_client_not_cached = self._vertex_ai_client_drywall_prediction
+            else:
+               self._vertex_ai_client_drywall_prediction = vertex_ai_client_not_cached
+        self._vertex_ai_client_metadata_extraction, _, is_cached = load_vertex_ai_client(
+            self._credentials,
+            client_ip_address,
+            cached_contents=[SCALE_AND_CEILING_HEIGHT_DETECTOR]
+        )
+        self._is_cached["SCALE_AND_CEILING_HEIGHT_DETECTOR"] = is_cached
+        if not is_cached:
+            if not vertex_ai_client_not_cached:
+                vertex_ai_client_not_cached = self._vertex_ai_client_metadata_extraction
+            else:
+               self._vertex_ai_client_metadata_extraction = vertex_ai_client_not_cached
+        self._vertex_ai_client_wall_rectification, _, is_cached = load_vertex_ai_client(
+            self._credentials,
+            client_ip_address,
+            cached_contents=[WALL_RECTIFIER]
+        )
+        self._is_cached["WALL_RECTIFIER"] = is_cached
+        if not is_cached:
+            if not vertex_ai_client_not_cached:
+                vertex_ai_client_not_cached = self._vertex_ai_client_wall_rectification
+            else:
+               self._vertex_ai_client_wall_rectification = vertex_ai_client_not_cached
+        return generation_config
 
     def _close_jagged_openings(
         self,
@@ -915,7 +960,6 @@ class FloorPlan2D(FloorPlan):
             if scale.find('=') != -1:
                 on_paper, real_world = scale.split('=')
             return f"{round(float(Fraction(on_paper.strip('`'))), 2)}``:{real_world}"
-        system = Content(role="model", parts=[Part.from_text(SCALE_AND_CEILING_HEIGHT_DETECTOR)])
         parts = list()
         for cropped_plan_BGR in cropped_plans_BGR:
             _, canvas_buffer_array = cv2.imencode(".png", cropped_plan_BGR)
@@ -923,15 +967,24 @@ class FloorPlan2D(FloorPlan):
             parts.append(Part.from_data(data=bytes_canvas, mime_type="image/png"))
         query = Content(role="user", parts=parts)
         try:
-            response, ceiling_height_and_scale = phoenix_call(
-                lambda system_prompt, temperature: self._vertex_ai_client.generate_content(
-                    contents=[system_prompt, query],
-                    generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
-                ),
-                system,
-                max_retry=self._vertex_ai_max_retry,
-                pydantic_model=ScaleAndCeilingHeightDetectorResponse,
-            )
+            if self._is_cached["SCALE_AND_CEILING_HEIGHT_DETECTOR"]:
+                response, ceiling_height_and_scale = phoenix_call(
+                    lambda feedback_prompt, temperature: self._vertex_ai_client_metadata_extraction.generate_content(
+                        contents=[feedback_prompt, query] if feedback_prompt else [query],
+                        generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
+                    ),
+                    max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
+                    pydantic_model=ScaleAndCeilingHeightDetectorResponse,
+                )
+            else:
+                response, ceiling_height_and_scale = phoenix_call(
+                    lambda feedback_prompt, temperature: self._vertex_ai_client_metadata_extraction(SCALE_AND_CEILING_HEIGHT_DETECTOR).generate_content(
+                        contents=[feedback_prompt, query] if feedback_prompt else [query],
+                        generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
+                    ),
+                    max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
+                    pydantic_model=ScaleAndCeilingHeightDetectorResponse,
+                )
             scale, ceiling_height = normalize_scale(response.scale), response.ceiling_height
             if scale:
                 self._scale = scale
@@ -963,7 +1016,6 @@ class FloorPlan2D(FloorPlan):
             canvas = cv2.addWeighted(canvas_to_overlay, 0.7, canvas, 0.3, 0)
         X1, Y1, X2, Y2 = wall_line[0]
         cv2.line(canvas, (X1, Y1), (X2, Y2), (0, 0, 255), 2)
-        system = Content(role="model", parts=[Part.from_text(WALL_RECTIFIER)])
         _, canvas_buffer_array = cv2.imencode(".png", canvas)
         bytes_canvas = canvas_buffer_array.tobytes()
         wall_line_structured = dict(wall=dict(X1=int(X1), Y1=int(Y1), X2=int(X2), Y2=int(Y2)))
@@ -972,15 +1024,24 @@ class FloorPlan2D(FloorPlan):
             Part.from_data(data=bytes_canvas, mime_type="image/png")
         ])
         try:
-            _, is_valid = phoenix_call(
-                lambda system_prompt, temperature: self._vertex_ai_client.generate_content(
-                    contents=[system_prompt, query],
-                    generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
-                ),
-                system,
-                max_retry=self._vertex_ai_max_retry,
-                pydantic_model=WallRectifierResponse,
-            )
+            if self._is_cached["WALL_RECTIFIER"]:
+                _, is_valid = phoenix_call(
+                    lambda feedback_prompt, temperature: self._vertex_ai_client_wall_rectification.generate_content(
+                        contents=[feedback_prompt, query] if feedback_prompt else [query],
+                        generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
+                    ),
+                    max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
+                    pydantic_model=WallRectifierResponse,
+                )
+            else:
+                _, is_valid = phoenix_call(
+                    lambda feedback_prompt, temperature: self._vertex_ai_client_wall_rectification(WALL_RECTIFIER).generate_content(
+                        contents=[feedback_prompt, query] if feedback_prompt else [query],
+                        generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
+                    ),
+                    max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
+                    pydantic_model=WallRectifierResponse,
+                )
             return is_valid["is_valid"]
         except Exception as e:
             logging.warning(f"SYSTEM: Wall validator failed with error: {e}")
@@ -992,7 +1053,6 @@ class FloorPlan2D(FloorPlan):
         walls,
         area_target,
         polygons_pts,
-        drywall_templates,
         floor_plan_path,
         transcription_block_with_centroids,
         walls_unnormalized,
@@ -1059,7 +1119,6 @@ class FloorPlan2D(FloorPlan):
         transcription_entries = list()
         for transcription, centroid in nearest_transcription_blocks.items():
             transcription_entries.append(dict(text=transcription, centroid=dict(X=centroid[0], Y=centroid[1])))
-        system = Content(role="model", parts=[Part.from_text(DRYWALL_PREDICTOR_CALIFORNIA.format(drywall_templates=drywall_templates))])
         _, canvas_buffer_array = cv2.imencode(".png", canvas_cropped)
         bytes_canvas = canvas_buffer_array.tobytes()
         perimeter_lines = list()
@@ -1074,16 +1133,26 @@ class FloorPlan2D(FloorPlan):
             Part.from_data(data=bytes_canvas, mime_type="image/png")
         ])
         try:
-            _, model_polygon = phoenix_call(
-                lambda system_prompt, temperature: self._vertex_ai_client.generate_content(
-                    contents=[system_prompt, query],
-                    generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
-                ),
-                system,
-                max_retry=self._vertex_ai_max_retry,
-                pydantic_model=DrywallPredictorCaliforniaResponse,
-                verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
-            )
+            if self._is_cached["DRYWALL_PREDICTOR_CALIFORNIA"]:
+                _, model_polygon = phoenix_call(
+                    lambda feedback_prompt, temperature: self._vertex_ai_client_drywall_prediction.generate_content(
+                        contents=[feedback_prompt, query] if feedback_prompt else [query],
+                        generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
+                    ),
+                    max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
+                    pydantic_model=DrywallPredictorCaliforniaResponse,
+                    verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
+                )
+            else:
+                _, model_polygon = phoenix_call(
+                    lambda feedback_prompt, temperature: self._vertex_ai_client_drywall_prediction(DRYWALL_PREDICTOR_CALIFORNIA).generate_content(
+                        contents=[feedback_prompt, query] if feedback_prompt else [query],
+                        generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
+                    ),
+                    max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
+                    pydantic_model=DrywallPredictorCaliforniaResponse,
+                    verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
+                )
             model_polygon["ceiling"]["area"] = verify_tolerance_area(model_polygon["ceiling"]["area"], area_target, model_polygon["ceiling"]["confidence"])
             for index, (dimension_wall_predicted, wall_unnormalized )in enumerate(zip(model_polygon["wall_parameters"], walls_unnormalized)):
                 dimension_wall_rectified = verify_tolerance_distance(dimension_wall_predicted, wall_unnormalized, dimension_wall_predicted["confidence"])
@@ -1147,7 +1216,6 @@ class FloorPlan2D(FloorPlan):
         area,
         perimeter_walls,
         polygons,
-        drywall_templates,
         scale,
         height_default,
         floor_plan_path,
@@ -1186,7 +1254,6 @@ class FloorPlan2D(FloorPlan):
             perimeter_walls,
             area,
             polygons_pts_normalized,
-            drywall_templates,
             floor_plan_path,
             transcription_block_with_centroids,
             perimeter_walls_unnormalized,
@@ -1909,8 +1976,8 @@ class FloorPlan2D(FloorPlan):
             size=Path(svg_path).stat().st_size
         )
 
-    def load_drywall_choices(self, walls_2d_JSON, polygons_2d_JSON, drywall_templates):
-        drywall_choices = ["DISABLED"] + [drywall_template["sku_variant"] for drywall_template in drywall_templates]
+    def load_drywall_choices(self, walls_2d_JSON, polygons_2d_JSON):
+        drywall_choices = ["DISABLED"] + [drywall_template["sku_variant"] for drywall_template in self._drywall_templates]
         for wall in walls_2d_JSON:
             wall["drywall_choices"] = drywall_choices
             for polygon_drywall in wall["polygons_drywall"]:
@@ -1918,6 +1985,12 @@ class FloorPlan2D(FloorPlan):
         for polygon in polygons_2d_JSON:
             polygon["drywall_choices"] = drywall_choices
             polygon["polygon_drywall"]["color"] = polygon["polygon_drywall"]["color"][::-1]
+
+    @property
+    def drywall_choices_color_codes(self):
+        drywall_choices_color_codes={drywall_template["sku_variant"]: drywall_template["color_code"][::-1] for drywall_template in self._drywall_templates}
+        drywall_choices_color_codes.update(dict(DISABLED=[255, 0, 0]))
+        return drywall_choices_color_codes
 
     def load_ceiling_choices(self, polygons_2d_JSON):
         for polygon in polygons_2d_JSON:
@@ -2168,7 +2241,6 @@ class FloorPlan2D(FloorPlan):
         output_path="/tmp/blueprint_model_2d.png",
         transcription_block_with_centroids=dict(),
         transcription_headers_and_footers=dict(),
-        drywall_templates=None,
     ):
         image_GRAY = self.read_floor_plan(image_path)
         output_path = Path(output_path)
@@ -2215,7 +2287,6 @@ class FloorPlan2D(FloorPlan):
                     polygon_area_normalized,
                     polygon_perimeter_walls_normalized,
                     drywall_polygons,
-                    drywall_templates,
                     (scale_x, scale_y),
                     height_default,
                     floor_plan_path,
@@ -2258,7 +2329,6 @@ class FloorPlan2D(FloorPlan):
                     polygon_area,
                     polygon_perimeter_walls,
                     drywall_polygons,
-                    drywall_templates,
                     (scale_x, scale_y),
                     height_default,
                     floor_plan_path,
