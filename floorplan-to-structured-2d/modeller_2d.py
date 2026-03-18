@@ -2042,7 +2042,10 @@ class FloorPlan2D(FloorPlan):
             if not polygon_target.is_valid:
                 return False
             for polygon in polygons_neighbor:
-                polygon_neighbor = Polygon(polygon)
+                try:
+                    polygon_neighbor = Polygon(polygon)
+                except ValueError:
+                    continue
                 intersection = polygon_target.intersection(polygon_neighbor).area
                 union = polygon_target.union(polygon_neighbor).area
                 if union == 0:
