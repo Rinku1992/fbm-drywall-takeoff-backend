@@ -27,7 +27,7 @@ WALL_RECTIFIER = """
     - The highlighted should be aligned / closely overlayed with one of the valid wall lines within the available architecture plans in order for it to be valid.
     - If the highlight is aligned with anything other than a valid wall line from the available architectures, such as any arbitrary dimension line (not wall line) from the architectures or an arbitrary artifact line from the stray setion of the page containing plan metadata, designate the highlight as invalid.
     - REMEMBER, if the highlight is partially aligned with the base wall line (e.g., the length of the highlight is larger or smaller than its base wall line it is overlaying with) then apply the following,
-      | The highlight must be valid only if the inclination of the base wall line is similar/closer to that of the highlight (e.g., the base wall line and the highlight are both horizontal or both inclined at a same angle).
+      | The highlight must be valid only if the inclination of the base wall line is similar/closer to that of the highlight (e.g., the base wall line and the highlight are both horizontal or both inclined at a similar angle).
       | The highlight would be invalid if the inclination of the base wall line is way different from the inclination of the highlight (e.g., the base wall line is horizontal but the highlight is inclined at an angle).
 
   OUTPUT:
