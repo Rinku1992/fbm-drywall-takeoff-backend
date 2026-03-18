@@ -953,7 +953,7 @@ class FloorPlan2D(FloorPlan):
                 on_paper, real_world = scale.split(':')
             if scale.find('=') != -1:
                 on_paper, real_world = scale.split('=')
-            return f"{round(float(Fraction(on_paper.strip('`'))), 2)}``:{real_world}"
+            return f"{round(float(Fraction(on_paper.strip('`"'))), 2)}``:{real_world}"
         parts = list()
         for cropped_plan_BGR in cropped_plans_BGR:
             _, canvas_buffer_array = cv2.imencode(".png", cropped_plan_BGR)
