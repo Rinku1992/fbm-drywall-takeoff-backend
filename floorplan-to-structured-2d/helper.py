@@ -114,7 +114,8 @@ def enable_logging_on_stdout():
     logging.basicConfig(
         level=logging.INFO,
         format='{"severity": "%(levelname)s", "message": "%(message)s"}',
-        stream=sys.stdout
+        handlers=[logging.StreamHandler(sys.stdout)],
+        force=True
     )
 
 def load_gcp_credentials() -> dict:
