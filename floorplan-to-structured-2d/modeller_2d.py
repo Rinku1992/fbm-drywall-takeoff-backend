@@ -61,19 +61,19 @@ class FloorPlan2D(FloorPlan):
         vertex_ai_client_drywall_prediction, generation_config, cache_enabled = load_vertex_ai_client(
             credentials,
             client_ip_address,
-            cached_contents=[DRYWALL_PREDICTOR_CALIFORNIA.format(drywall_templates=drywall_templates)]
+            prompts=[DRYWALL_PREDICTOR_CALIFORNIA.format(drywall_templates=drywall_templates)]
         )
         is_cached["DRYWALL_PREDICTOR_CALIFORNIA"] = cache_enabled
         vertex_ai_client_metadata_extraction, _, cache_enabled = load_vertex_ai_client(
             credentials,
             client_ip_address,
-            cached_contents=[SCALE_AND_CEILING_HEIGHT_DETECTOR]
+            prompts=[SCALE_AND_CEILING_HEIGHT_DETECTOR]
         )
         is_cached["SCALE_AND_CEILING_HEIGHT_DETECTOR"] = cache_enabled
         vertex_ai_client_wall_rectification, _, cache_enabled = load_vertex_ai_client(
             credentials,
             client_ip_address,
-            cached_contents=[WALL_RECTIFIER]
+            prompts=[WALL_RECTIFIER]
         )
         is_cached["WALL_RECTIFIER"] = cache_enabled
         vertex_ai_clients = (
