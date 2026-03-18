@@ -29,7 +29,7 @@ from transcriber import Transcriber
 from prompt import FEEDBACK_GENERATOR
 
 
-def load_vertex_ai_client(credentials, ip_address, cached_contents=None, default_region="us-central1"):
+def load_vertex_ai_client(credentials, ip_address, prompts=None, default_region="us-central1"):
     with open(credentials["VertexAI"]["service_account_key"], 'r') as f:
         project_id = json.load(f)["project_id"]
     region = load_nearest_region(
@@ -44,11 +44,11 @@ def load_vertex_ai_client(credentials, ip_address, cached_contents=None, default
         system_instruction=system_instruction
     )
     is_cached = False
-    if cached_contents and GenerativeModel(credentials["VertexAI"]["llm"]["model_name"]).count_tokens(cached_contents).total_tokens >= 1024:
+    if prompts and GenerativeModel(credentials["VertexAI"]["llm"]["model_name"]).count_tokens(prompts).total_tokens >= 1024:
         is_cached = True
         cached_content = CachedContent.create(
             model_name=credentials["VertexAI"]["llm"]["model_name"],
-            contents=cached_contents,
+            contents=prompts,
             ttl=datetime.timedelta(minutes=60),
             display_name="drywall_predictor_cache"
         )
