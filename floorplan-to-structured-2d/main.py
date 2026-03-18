@@ -204,10 +204,12 @@ async def floorplan_to_structured_2d(request: Request):
         floorplan_baseline_page_source = upload_floorplan(floorplan_baseline, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
         futures = list()
         ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
+        vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES)
         with ThreadPoolExecutor(max_workers=2) as executor:
             for index, bounding_box_offset in enumerate(bounding_box_offsets):
                 logging.info(f"SYSTEM: Extracting structured model from SECTION: {toRoman(index + 1)} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
-                floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, ip_address, DRYWALL_TEMPLATES)
+                floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES)
+                floor_plan_modeller_2d.from_vertex_ai_clients(*vertex_ai_clients)
                 futures.append(
                     executor.submit(
                         page_to_structured_2d,
