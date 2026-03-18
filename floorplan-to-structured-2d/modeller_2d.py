@@ -39,7 +39,7 @@ __all__ = ["FloorPlan2D"]
 
 class FloorPlan2D(FloorPlan):
 
-    def __init__(self, credentials, hyperparameters, client_ip_address, drywall_templates):
+    def __init__(self, credentials, hyperparameters, drywall_templates):
         super().__init__(hyperparameters)
 
         self._credentials = credentials
@@ -47,7 +47,6 @@ class FloorPlan2D(FloorPlan):
         self._drywall_templates = drywall_templates
         self._width_in_feet = self._hyperparameters["modelling"]["width_in_feet"]
         self._height_in_feet = self._hyperparameters["modelling"]["height_in_feet"]
-        self._vertex_ai_generation_config = self._load_vertex_ai_clients(client_ip_address)
         self._scale = self._hyperparameters["modelling"]["scale"]
         self._walls_2d = list()
         self._polygons = list()
@@ -56,43 +55,38 @@ class FloorPlan2D(FloorPlan):
         self._walls_2d = list()
         self._polygons = list()
 
-    def _load_vertex_ai_clients(self, client_ip_address):
-        self._is_cached = dict()
-        vertex_ai_client_not_cached = None
-        self._vertex_ai_client_drywall_prediction, generation_config, is_cached = load_vertex_ai_client(
-            self._credentials,
+    @classmethod
+    def load_vertex_ai_clients(cls, credentials, client_ip_address, drywall_templates):
+        is_cached = dict()
+        vertex_ai_client_drywall_prediction, generation_config, cache_enabled = load_vertex_ai_client(
+            credentials,
             client_ip_address,
-            cached_contents=[DRYWALL_PREDICTOR_CALIFORNIA.format(drywall_templates=self._drywall_templates)]
+            cached_contents=[DRYWALL_PREDICTOR_CALIFORNIA.format(drywall_templates=drywall_templates)]
         )
-        self._is_cached["DRYWALL_PREDICTOR_CALIFORNIA"] = is_cached
-        if not is_cached:
-            if not vertex_ai_client_not_cached:
-                vertex_ai_client_not_cached = self._vertex_ai_client_drywall_prediction
-            else:
-               self._vertex_ai_client_drywall_prediction = vertex_ai_client_not_cached
-        self._vertex_ai_client_metadata_extraction, _, is_cached = load_vertex_ai_client(
-            self._credentials,
+        is_cached["DRYWALL_PREDICTOR_CALIFORNIA"] = cache_enabled
+        vertex_ai_client_metadata_extraction, _, cache_enabled = load_vertex_ai_client(
+            credentials,
             client_ip_address,
             cached_contents=[SCALE_AND_CEILING_HEIGHT_DETECTOR]
         )
-        self._is_cached["SCALE_AND_CEILING_HEIGHT_DETECTOR"] = is_cached
-        if not is_cached:
-            if not vertex_ai_client_not_cached:
-                vertex_ai_client_not_cached = self._vertex_ai_client_metadata_extraction
-            else:
-               self._vertex_ai_client_metadata_extraction = vertex_ai_client_not_cached
-        self._vertex_ai_client_wall_rectification, _, is_cached = load_vertex_ai_client(
-            self._credentials,
+        is_cached["SCALE_AND_CEILING_HEIGHT_DETECTOR"] = cache_enabled
+        vertex_ai_client_wall_rectification, _, cache_enabled = load_vertex_ai_client(
+            credentials,
             client_ip_address,
             cached_contents=[WALL_RECTIFIER]
         )
-        self._is_cached["WALL_RECTIFIER"] = is_cached
-        if not is_cached:
-            if not vertex_ai_client_not_cached:
-                vertex_ai_client_not_cached = self._vertex_ai_client_wall_rectification
-            else:
-               self._vertex_ai_client_wall_rectification = vertex_ai_client_not_cached
-        return generation_config
+        is_cached["WALL_RECTIFIER"] = cache_enabled
+        vertex_ai_clients = (
+            vertex_ai_client_drywall_prediction,
+            vertex_ai_client_metadata_extraction,
+            vertex_ai_client_wall_rectification
+        )
+        return is_cached, vertex_ai_clients, generation_config
+
+    def from_vertex_ai_clients(self, is_cached, vertex_ai_clients, generation_config):
+        self._vertex_ai_generation_config = generation_config
+        self._is_cached = is_cached
+        self._vertex_ai_client_drywall_prediction, self._vertex_ai_client_metadata_extraction, self._vertex_ai_client_wall_rectification = vertex_ai_clients
 
     def _close_jagged_openings(
         self,
