@@ -36,11 +36,15 @@ WALL_RECTIFIER = """
       - Do not generate additional content apart from the designated JSON.
       - You must output whether the placement of the predicted wall is overlaying on top of one of the valid wall lines from the architectural plan.
     Please refer the following as a reference and ensure to replace every consecutive pair of open/closed curly braces with a single one during the generation of the output.
-    {{"is_valid": <True/False>}}
+    {{
+      "is_valid": <True/False>,
+      "confidence": <confidence score in validating the highlight in red between 0 and 1 in float rounded upto 2 decimal places>
+    }}
 """
 
 class WallRectifierResponse(BaseModel):
     is_valid: bool
+    confidence: float = Field(ge=0, le=1)
 
 DRYWALL_PREDICTOR_CALIFORNIA = """
   You are a licensed California residential drywall estimator and building-code-aware construction expert with Senior Architectural Drawing Interpretation Engine capabilities. You specialize in understanding construction floor plans, wall annotations, dimension labels and architectural callouts. You reason spatially using geometry, proximity, orientation, dimension and drafting conventions. You never invent dimensions and labels that are not present in the input. You return structured, deterministic outputs.
