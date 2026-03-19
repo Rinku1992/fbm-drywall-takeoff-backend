@@ -1,7 +1,6 @@
 import logging
 from pathlib import Path
 import json
-from roman import toRoman
 import requests
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -206,8 +205,8 @@ async def floorplan_to_structured_2d(request: Request):
         ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
         vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES)
         with ThreadPoolExecutor(max_workers=2) as executor:
-            for index, bounding_box_offset in enumerate(bounding_box_offsets):
-                logging.info(f"SYSTEM: Extracting structured model from SECTION: {toRoman(index + 1)} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
+            for bounding_box_offset in bounding_box_offsets:
+                logging.info(f"SYSTEM: Extracting structured model from SECTION: {bounding_box_offset["title"]} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
                 floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES)
                 floor_plan_modeller_2d.from_vertex_ai_clients(*vertex_ai_clients)
                 futures.append(
@@ -219,7 +218,7 @@ async def floorplan_to_structured_2d(request: Request):
                         plan_id,
                         user_id,
                         page_number,
-                        toRoman(index + 1),
+                        bounding_box_offset["title"],
                         wall_segmented_path,
                         floor_plan_processed_path,
                         bounding_box_offset,
