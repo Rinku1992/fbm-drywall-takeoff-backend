@@ -1036,7 +1036,9 @@ class FloorPlan2D(FloorPlan):
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
                     pydantic_model=WallRectifierResponse,
                 )
-            return is_valid["is_valid"]
+            if is_valid["confidence"] > 0.95:
+                return is_valid["is_valid"]
+            return True
         except Exception as e:
             logging.warning(f"SYSTEM: Wall validator failed with error: {e}")
             return True
