@@ -1036,7 +1036,7 @@ class FloorPlan2D(FloorPlan):
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
                     pydantic_model=WallRectifierResponse,
                 )
-            if is_valid["confidence"] > 0.95:
+            if is_valid["confidence"] > 0.9:
                 return is_valid["is_valid"]
             return True
         except Exception as e:
