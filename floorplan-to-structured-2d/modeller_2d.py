@@ -1923,12 +1923,18 @@ class FloorPlan2D(FloorPlan):
 
         return walls_2d
 
-    def _normalize_polygons(self, polygons):
+    def _normalize_polygons(self, polygons, walls_2d):
         polygons_valid = list()
+        walls_2d_ids = [wall["id"] for wall in walls_2d]
         for polygon in polygons:
-            if polygon["room_name"] and polygon["room_name"].upper() == "NULL":
-                continue
-            polygons_valid.append(polygon)
+            perimeter_wall_missing = False
+            for drywall_id in polygon["polygon_ids_drywall_interior"]:
+                wall_id = int(drywall_id.split('.')[0])
+                if wall_id not in walls_2d_ids:
+                    perimeter_wall_missing = True
+                    break
+            if not perimeter_wall_missing:
+                polygons_valid.append(polygon)
         return polygons_valid
 
     @classmethod
@@ -2336,7 +2342,7 @@ class FloorPlan2D(FloorPlan):
                 ))
             [future.result() for future in futures]
         self._walls_2d = self._normalize_walls_2d(self._walls_2d, (scale_x, scale_y))
-        #self._polygons = self._normalize_polygons(self._polygons)
+        self._polygons = self._normalize_polygons(self._polygons, self._walls_2d)
         if model_2d_path:
             with open(model_2d_path, 'w') as f:
                 json.dump([self._walls_2d, self._polygons], f, indent=2)
