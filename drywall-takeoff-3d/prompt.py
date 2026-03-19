@@ -28,7 +28,7 @@ ARCHITECTURAL_DRAWING_CLASSIFIER = """
         - A page may contain one or more architecture drawings. Compute bounding box or visual grounding offset for each of the available drawings with offset containing `TOP-LEFT` and `BOTTOM-RIGHT` corner of the bounding box) and produce a list of bounding box offsets.
             - REMEMBER, `TOPMOST-LEFTMOST` of the page is considered as the origin to compute the bounding box offset from.
             - The offsets should be computed in fraction [0, 1] to represent the bounding box. If a `TOP-LEFT` of a bounding box lies in a point which is at a distance of 0.5 of the total width of the page from the origin in X-direction (towards `RIGHT`) and at a distance of 0.25 of the total height of the page from the origin in Y-direction (towards `DOWN`), then the `TOP-LEFT` offset of the bounding box should be (0.5, 0.25). Apply same rule to compute `BOTTOM-RIGHT` offset of a bounding box.
-        - Identify the title of each of the available/identified architecture drawings, typically found at the bottom of each of the drawings and associate it to the respective visual-grounding/bounding-box offsets.
+        - Identify the title of each of the available/identified architecture drawings, typically found at the bottom of each of the drawings and associate it to the respective visual-grounding/bounding-box offsets. If respective drawing titles cannot be identified, use the title as `FLOOR_PLAN_<unique_identification_number>` with unique identification number for each of the identified architecture drawings.
 
         Base your decision only on visual and textual evidence present in the drawing.
 
