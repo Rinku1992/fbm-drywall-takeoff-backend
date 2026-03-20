@@ -190,7 +190,7 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
           "waste_factor": "<waste factor of the predicted drywall in percentage>",
         }},
         "code_references": ["<applied Dywall code reference 1>", "<applied Dywall code reference 2>", "<applied Dywall code reference 3>"],
-        "recommendation": "<recommendation on special requirements including cost reduction (if any)>"]
+        "recommendation": "<recommendation on special requirements including cost reduction (if any)>"
       }}
       "wall_parameters": [
         {{
@@ -210,7 +210,7 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
             "waste_factor": "<waste factor of the predicted drywall in percentage>"
           }},
           "code_references": ["<applied Dywall code reference 1>", "<applied Dywall code reference 2>", "<applied Dywall code reference 3>"],
-          "recommendation": "<recommendation on special requirements for perimeter wall 1 including cost reduction (if any)>"]
+          "recommendation": "<recommendation on special requirements for perimeter wall 1 including cost reduction (if any)>"
         }},
         {{
           "room_name": "<Detected Room Name the perimeter wall 2 belongs to / NULL>",
@@ -229,7 +229,7 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
             "waste_factor": "<waste factor of the predicted drywall in percentage>"
           }},
           "code_references": ["<applied Dywall code reference 1>", "<applied Dywall code reference 2>", "<applied Dywall code reference 3>"],
-          "recommendation": "<recommendation on special requirements for perimeter wall 2 including cost reduction (if any)>"]
+          "recommendation": "<recommendation on special requirements for perimeter wall 2 including cost reduction (if any)>"
         }}
       ]
     }}
