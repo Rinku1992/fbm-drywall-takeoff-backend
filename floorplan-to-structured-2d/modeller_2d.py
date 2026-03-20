@@ -110,8 +110,10 @@ class FloorPlan2D(FloorPlan):
             ...
 
         wall_line_indices_prior = list()
-        for _ in range(n_steps):
+        for n_step in range(n_steps):
             wall_lines_new = deepcopy(wall_lines)
+            if n_step >= len(wall_lines):
+                wall_line_indices_prior = list()
             wall_line_index = load_wall_line_index_random(len(wall_lines), wall_line_indices_prior)
             wall_line_indices_prior.append(wall_line_index)
             reference_line = wall_lines[wall_line_index]
@@ -428,8 +430,10 @@ class FloorPlan2D(FloorPlan):
         if wall_lines is None:
             return wall_lines
         wall_line_indices_prior = list()
-        for _ in range(n_steps):
+        for n_step in range(n_steps):
             wall_lines_new = deepcopy(wall_lines)
+            if n_step >= len(wall_lines):
+                wall_line_indices_prior = list()
             wall_line_index = load_wall_line_index_random(len(wall_lines), wall_line_indices_prior)
             wall_line_indices_prior.append(wall_line_index)
             reference_wall_line = wall_lines[wall_line_index]
