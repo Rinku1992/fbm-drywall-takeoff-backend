@@ -1,6 +1,7 @@
 from copy import deepcopy
 import cv2
 import numpy as np
+np.random.seed(0)
 import math
 import json
 import logging
@@ -13,7 +14,6 @@ import subprocess
 from concurrent.futures import ThreadPoolExecutor
 
 from fractions import Fraction
-import numpy as np
 from skimage.morphology import skeletonize
 from vertexai.generative_models import Part, Content
 from shapely.geometry import Polygon
