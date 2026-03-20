@@ -271,9 +271,10 @@ class Ceiling(BaseModel):
 
     room_name: Optional[str]
     area: float
-    confidence: float = Field(ge=0, le=1)
+    confidence_area: float = Field(ge=0, le=1)
     ceiling_type: str
     height: float
+    confidence_height: float = Field(ge=0, le=1)
     slope: float
     slope_enabled: bool
     tilt_axis: Optional[Literal["horizontal", "vertical", "NULL"]]
@@ -291,9 +292,10 @@ class WallParameter(BaseModel):
 
     room_name: Optional[str]
     length: float
-    confidence: float = Field(ge=0, le=1)
+    confidence_length: float = Field(ge=0, le=1)
     width: Optional[float]
     height: float
+    confidence_height: float = Field(ge=0, le=1)
     wall_type: str
     drywall_assembly: DrywallAssembly
     code_references: List[str]
