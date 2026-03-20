@@ -111,9 +111,10 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
         - If the dimension line joining the dimension markers denoted by diagonal slash, does not align with the length of the highlighted wall, use one of the 2 following approaches to obtain the length of the wall,
             1. Find more than one shorter dimension lines joining the dimension markers denoted by diagonal slashes which adds up to the length of the highlighted wall. The length of the wall would be the sum of all the numerical dimension entities found against each dimension line that adds to the wall.
             2. Find more than one larger and shorter dimension lines joining the dimension markers denoted by diagonal slashes which when subtracted from each other (shorter line subtracted from the larger one), adds up to the length of the highlighted wall. The length of the wall would be the numerical dimension entities found against shorter dimension lines subtracted from the larger ones which adds to the wall.
+        - The numerical entity representing the height of the wall would ideally be placed adjacent to the wall with mention of the `height` keyword (optionally mentioned as ceiling height representing the ceiling height of the room that the wall belongs to). If no such mention is identified, mention the wall height as -1.
 
       CEILING_EXTRACTION_INSTRUCTIONS:
-        - There would be a mention of ceiling height within or in the neighborhood of polygon highlighted region only if the height of any given perimeter wall varies from the standard ceiling height. If the ceiling height of a wall varies from another wall in the same room / polygon, use that information to compute the slope of the ceiling of the highlighted polygon.
+        - There would be an optional mention of ceiling height within or in the neighborhood of polygon highlighted region with the `height` keyword only if the height of any given perimeter wall varies from the standard ceiling height. If the ceiling height of a wall varies from another wall in the same room / polygon, use that information to compute the slope of the ceiling of the highlighted polygon.
         - If ceiling / wall height is exclusively not mentioned, treat the ceiling type as flat with no slope or slope = 0.
         - Slope of the ceiling is computed using the differential wall height in any arbritrary direction or textual mention of the slope angle at the nearby regions of the ceiling.
         - The `tilt_axis` of a sloped ceiling is in the direction against the axial projection of the inclination. The `ceiling_axis` runs through the central axial line of the ceiling in the direction of the inclination. The `tile_axis` is one of the axial lines (x-> horizontal, y-> vertical). `tile_axis` can only have a value "horizontal" or "vertical" or "NULL" depending on the angular orientation of the ceiling plane against. Mention "NULL" only if slope angle is 0. The slope of the ceiling / `ceiling_axis` is measured against its axial line / `tile_axis` (x-> horizontal, y-> vertical).
@@ -173,9 +174,10 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
       "ceiling": {{
         "room_name": "<Detected Room Name the ceiling belongs to / NULL>",
         "area": <Area of the ceiling in SQFT (Square Feet)>,
-        "confidence": <confidence score in predicting the area of the ceiling between 0 and 1 in float rounded upto 2 decimal places>
+        "confidence_area": <confidence score in predicting the area of the ceiling between 0 and 1 in float rounded upto 2 decimal places>
         "ceiling_type": "<Type code of the ceiling>",
         "height": <height of the (lower end, if sloped) ceiling>,
+        "confidence_height": <confidence score in predicting the height of the ceiling between 0 and 1 in float rounded upto 2 decimal places>
         "slope": <slope of the ceiling in degrees>,
         "slope_enabled": <is sloping supported given the type of ceiling used (True/False)>
         "tilt_axis": <axial direction of the tilted slope / NULL>,
@@ -194,9 +196,10 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
         {{
           "room_name": "<Detected Room Name the perimeter wall 1 belongs to / NULL>",
           "length": <length of perimeter wall 1 in feet>,
-          "confidence": <confidence score in predicting the length of the perimeter wall 1 between 0 and 1 in float rounded upto 2 decimal places>
+          "confidence_length": <confidence score in predicting the length of the perimeter wall 1 between 0 and 1 in float rounded upto 2 decimal places>,
           "width": <width of the perimeter wall 1 in feet / None>,
           "height": <height of the perimeter wall 1 in feet>,
+          "confidence_height": <confidence score in predicting the height of the perimeter wall 1 between 0 and 1 in float rounded upto 2 decimal places>,
           "wall_type": "<type of the perimeter wall 1>",
           "drywall_assembly": {{
             "material": "<drywall material for the perimeter wall 1>",
@@ -212,9 +215,10 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
         {{
           "room_name": "<Detected Room Name the perimeter wall 2 belongs to / NULL>",
           "length": <length of perimeter wall 2 in feet>,
-          "confidence": <confidence score in predicting the length of the perimeter wall 2 between 0 and 1 in float rounded upto 2 decimal places>
+          "confidence_length": <confidence score in predicting the length of the perimeter wall 2 between 0 and 1 in float rounded upto 2 decimal places>,
           "width": <width of the perimeter wall 2 in feet / None>,
           "height": <height of the perimeter wall 2 in feet>,
+          "confidence_height": <confidence score in predicting the height of the perimeter wall 2 between 0 and 1 in float rounded upto 2 decimal places>,
           "wall_type": "<type of the perimeter wall 2>",
           "drywall_assembly": {{
             "material": "<drywall material for the perimeter wall 2>",
