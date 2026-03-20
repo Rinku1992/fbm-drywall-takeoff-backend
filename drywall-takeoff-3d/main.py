@@ -1412,7 +1412,7 @@ async def compute_takeoff(request: Request):
                 waste_factor = float(waste_factor)
             except ValueError:
                 waste_factor = 0
-        drywall_takeoff["per_drywall"]["roof"][polygon["surface_drywall"]["type"]] += surface_area * (1 + waste_factor)
+        drywall_takeoff["per_drywall"]["roof"][polygon["surface_drywall"]["type"]] += polygon["surface_drywall"]["layers"] * surface_area * (1 + waste_factor)
         drywall_takeoff["total"]["roof"] += surface_area
 
     drywall_takeoff["total"]["wall"] = round(drywall_takeoff["total"]["wall"], 2)
