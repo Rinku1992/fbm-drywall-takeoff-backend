@@ -191,7 +191,7 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
         }},
         "code_references": ["<applied Dywall code reference 1>", "<applied Dywall code reference 2>", "<applied Dywall code reference 3>"],
         "recommendation": "<recommendation on special requirements including cost reduction (if any)>"
-      }}
+      }},
       "wall_parameters": [
         {{
           "room_name": "<Detected Room Name the perimeter wall 1 belongs to / NULL>",
