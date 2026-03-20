@@ -347,6 +347,7 @@ class Extrapolate3D(FloorPlan):
             surface_drywall=dict(
                 polygon=self._extrude_roof_3d(polygon["vertices"], polygon["slope"], polygon["tilt_axis"], height_in_pixels, width_in_pixels),
                 type=polygon["polygon_drywall"]["type"],
+                layers=polygon["polygon_drywall"]["layers"],
                 color=polygon["polygon_drywall"]["color"],
                 waste_factor=polygon["polygon_drywall"]["waste_factor"],
             )
