@@ -94,6 +94,14 @@ class FloorPlan2D(FloorPlan):
         tolerance_distance=5,
         n_steps=2500,
     ):
+        def load_wall_line_index_random(n_wall_lines, wall_line_indices_prior):
+            while True:
+                wall_line_index = np.random.randint(n_wall_lines)
+                if wall_line_index in wall_line_indices_prior:
+                    continue
+                break
+            return wall_line_index
+
         if not wall_lines:
             return wall_lines
         try:
@@ -101,9 +109,12 @@ class FloorPlan2D(FloorPlan):
         except:
             ...
 
+        wall_line_indices_prior = list()
         for _ in range(n_steps):
             wall_lines_new = deepcopy(wall_lines)
-            reference_line = wall_lines[np.random.randint(len(wall_lines))]
+            wall_line_index = load_wall_line_index_random(len(wall_lines), wall_line_indices_prior)
+            wall_line_indices_prior.append(wall_line_index)
+            reference_line = wall_lines[wall_line_index]
             X1, Y1, X2, Y2 = reference_line[0]
             reference_line_type = self.classify_line(X1, Y1, X2, Y2)
             if reference_line_type not in ["vertical", "horizontal"]:
