@@ -174,12 +174,12 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
       "ceiling": {{
         "room_name": "<Detected Room Name the ceiling belongs to / NULL>",
         "area": <Area of the ceiling in SQFT (Square Feet)>,
-        "confidence_area": <confidence score in predicting the area of the ceiling between 0 and 1 in float rounded upto 2 decimal places>
+        "confidence_area": <confidence score in predicting the area of the ceiling between 0 and 1 in float rounded upto 2 decimal places>,
         "ceiling_type": "<Type code of the ceiling>",
-        "height": <height of the (lower end, if sloped) ceiling>,
-        "confidence_height": <confidence score in predicting the height of the ceiling between 0 and 1 in float rounded upto 2 decimal places>
+        "height": <height of the ceiling (centroid of the ceiling axis, if sloped)>,
+        "confidence_height": <confidence score in predicting the height of the ceiling between 0 and 1 in float rounded upto 2 decimal places>,
         "slope": <slope of the ceiling in degrees>,
-        "slope_enabled": <is sloping supported given the type of ceiling used (True/False)>
+        "slope_enabled": <is sloping supported given the type of ceiling used (True/False)>,
         "tilt_axis": <axial direction of the tilted slope / NULL>,
         "drywall_assembly": {{
           "material": "<drywall material for the ceiling>",
