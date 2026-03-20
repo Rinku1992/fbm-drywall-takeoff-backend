@@ -417,11 +417,22 @@ class FloorPlan2D(FloorPlan):
         tolerance_disance=100,
         n_steps=5000
     ):
+        def load_wall_line_index_random(n_wall_lines, wall_line_indices_prior):
+            while True:
+                wall_line_index = np.random.randint(n_wall_lines)
+                if wall_line_index in wall_line_indices_prior:
+                    continue
+                break
+            return wall_line_index
+
         if wall_lines is None:
             return wall_lines
+        wall_line_indices_prior = list()
         for _ in range(n_steps):
             wall_lines_new = deepcopy(wall_lines)
-            reference_wall_line = wall_lines[np.random.randint(len(wall_lines))]
+            wall_line_index = load_wall_line_index_random(len(wall_lines), wall_line_indices_prior)
+            wall_line_indices_prior.append(wall_line_index)
+            reference_wall_line = wall_lines[wall_line_index]
             x1_reference, y1_reference, x2_reference, y2_reference = reference_wall_line[0]
             reference_line_type = self.classify_line(x1_reference, y1_reference, x2_reference, y2_reference)
             if reference_line_type not in ["vertical", "horizontal"]:
