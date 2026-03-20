@@ -158,7 +158,7 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
         You must only support the drywall types from the provided templates,
         DRYWALL TEMPLATES: {drywall_templates}
 
-        **STRICTLY** use the field `sku_variant` which contains both `sku_id` and `sku_description` as the target drywall material and the field `color_code` to map to it's target color code accompanied by the fields `fire_rating` aand `thickness` to derive it's fire rating and thickness respectively and mention the confidence score associated with each of the drywall material prediction.
+        **STRICTLY** use the field `sku_variant` which contains both `sku_id` and `sku_description` as the target drywall material and the field `color_code` to map to it's target color code accompanied by the fields `fire_rating` aand `thickness` to derive it's fire rating and thickness respectively.
         Do not invent other drywall materials or color codes which are not included into the template list. All of the provided drywall types are associated with a definite color code presented in BGR (blue, green, red) format.
         If an appropriate/optimal drywall material for a given wall or polygon is not provided with the `DRYWALL_TEMPLATES` mention the target drywall material as `DISABLED` with [0, 0, 255] in BGR tuple as its target color code.
 
