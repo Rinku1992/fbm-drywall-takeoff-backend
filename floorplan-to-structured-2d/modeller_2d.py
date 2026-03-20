@@ -110,7 +110,7 @@ class FloorPlan2D(FloorPlan):
             ...
 
         wall_line_indices_prior = list()
-        for n_step in range(n_steps):
+        for n_step in range(len(wall_lines)):
             wall_lines_new = deepcopy(wall_lines)
             if n_step >= len(wall_lines):
                 wall_line_indices_prior = list()
@@ -430,7 +430,7 @@ class FloorPlan2D(FloorPlan):
         if wall_lines is None:
             return wall_lines
         wall_line_indices_prior = list()
-        for n_step in range(n_steps):
+        for n_step in range(len(wall_lines)):
             wall_lines_new = deepcopy(wall_lines)
             if n_step >= len(wall_lines):
                 wall_line_indices_prior = list()
@@ -517,7 +517,7 @@ class FloorPlan2D(FloorPlan):
                 lines = self._deduplicate_lines(lines)
             lines = self._remove_invalid(lines)
 
-            lines = self._topology_guided_closure_open_lines_dead_end(lines, maximum_length=250)
+            lines = self._topology_guided_closure_open_lines_dead_end(lines, maximum_length=150)
             lines = self._sniff_and_split_orthogonal(lines)
             lines = self._deduplicate_lines(lines)
             lines = self._remove_invalid(lines)
