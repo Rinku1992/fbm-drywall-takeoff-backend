@@ -1389,8 +1389,8 @@ async def compute_takeoff(request: Request):
                         waste_factor = float(waste_factor)
                     except ValueError:
                         waste_factor = 0
-                drywall_takeoff["per_drywall"]["wall"][drywall["type"]] += surface_area * (1 + waste_factor)
-                drywall_count += 1
+                drywall_takeoff["per_drywall"]["wall"][drywall["type"]] += drywall["layers"] * surface_area * (1 + waste_factor)
+                drywall_count += drywall["layers"]
         drywall_takeoff["total"]["wall"] += drywall_count * surface_area
     for polygon in polygons_JSON:
         surface_area = floor_plan_modeller_3d.compute_updated_area_polygon(
