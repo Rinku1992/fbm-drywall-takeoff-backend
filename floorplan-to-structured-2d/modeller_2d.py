@@ -1114,6 +1114,12 @@ class FloorPlan2D(FloorPlan):
 
             return area_polygon_predicted
 
+        def verify_tolerance_height(height_predicted, confidence_score):
+            if height_predicted and height_predicted != -1 and confidence_score >= 0.9:
+                return height_predicted
+
+            return height_default
+
         canvas = cv2.imread(floor_plan_path)
         vertices = np.array(vertices)
         canvas_to_overlay = canvas.copy()
@@ -1175,9 +1181,11 @@ class FloorPlan2D(FloorPlan):
                     pydantic_model=DrywallPredictorCaliforniaResponse,
                     verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
                 )
-            model_polygon["ceiling"]["area"] = verify_tolerance_area(model_polygon["ceiling"]["area"], area_target, model_polygon["ceiling"]["confidence"])
+            model_polygon["ceiling"]["area"] = verify_tolerance_area(model_polygon["ceiling"]["area"], area_target, model_polygon["ceiling"]["confidence_area"])
+            model_polygon["ceiling"]["height"] = verify_tolerance_height(model_polygon["ceiling"]["height"], model_polygon["ceiling"]["confidence_height"])
             for index, (dimension_wall_predicted, wall_unnormalized )in enumerate(zip(model_polygon["wall_parameters"], walls_unnormalized)):
-                dimension_wall_rectified = verify_tolerance_distance(dimension_wall_predicted, wall_unnormalized, dimension_wall_predicted["confidence"])
+                dimension_wall_rectified = verify_tolerance_distance(dimension_wall_predicted, wall_unnormalized, dimension_wall_predicted["confidence_length"])
+                dimension_wall_rectified["height"] = verify_tolerance_height(dimension_wall_predicted["height"], dimension_wall_predicted["confidence_height"])
                 model_polygon["wall_parameters"][index] = dimension_wall_rectified
         except Exception as e:
             logging.warning(f"SYSTEM: Drywall prediction for polygon: {json.dumps(polygon)} failed with error: {e}")
