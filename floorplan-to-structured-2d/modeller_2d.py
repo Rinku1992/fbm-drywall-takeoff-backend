@@ -23,10 +23,12 @@ from prompt import (
     DRYWALL_PREDICTOR_CALIFORNIA,
     SCALE_AND_CEILING_HEIGHT_DETECTOR,
     WALL_RECTIFIER,
+    SHAPE_RECTIFIER,
     CEILING_CHOICES,
     DrywallPredictorCaliforniaResponse,
     ScaleAndCeilingHeightDetectorResponse,
     WallRectifierResponse,
+    ShapeRectifierResponse,
 )
 from helper import (
     load_vertex_ai_client,
@@ -76,17 +78,27 @@ class FloorPlan2D(FloorPlan):
             prompts=[WALL_RECTIFIER]
         )
         is_cached["WALL_RECTIFIER"] = cache_enabled
+        vertex_ai_client_shape_rectification, _, cache_enabled = load_vertex_ai_client(
+            credentials,
+            client_ip_address,
+            prompts=[SHAPE_RECTIFIER]
+        )
+        is_cached["SHAPE_RECTIFIER"] = cache_enabled
         vertex_ai_clients = (
             vertex_ai_client_drywall_prediction,
             vertex_ai_client_metadata_extraction,
-            vertex_ai_client_wall_rectification
+            vertex_ai_client_wall_rectification,
+            vertex_ai_client_shape_rectification
         )
         return is_cached, vertex_ai_clients, generation_config
 
     def from_vertex_ai_clients(self, is_cached, vertex_ai_clients, generation_config):
         self._vertex_ai_generation_config = generation_config
         self._is_cached = is_cached
-        self._vertex_ai_client_drywall_prediction, self._vertex_ai_client_metadata_extraction, self._vertex_ai_client_wall_rectification = vertex_ai_clients
+        self._vertex_ai_client_drywall_prediction = vertex_ai_clients[0]
+        self._vertex_ai_client_metadata_extraction = vertex_ai_clients[1]
+        self._vertex_ai_client_wall_rectification = vertex_ai_clients[2]
+        self._vertex_ai_client_shape_rectification = vertex_ai_clients[3]
 
     def _close_jagged_openings(
         self,
@@ -492,7 +504,7 @@ class FloorPlan2D(FloorPlan):
 
         return floor_plan_topology_binary
 
-    def _preprocessing(self, image_BGR, max_split=5, output_path=None):
+    def _preprocessing(self, image_BGR, floor_plan_path, scale, max_split=5):
         _, thresh = cv2.threshold(image_BGR, 50, 255, cv2.THRESH_BINARY_INV)
 
         edges_thinned = self._thin_edges(thresh)
@@ -522,20 +534,75 @@ class FloorPlan2D(FloorPlan):
             lines = self._deduplicate_lines(lines)
             lines = self._remove_invalid(lines)
             shapes = self.disconnected_shapes(lines)
+
+            is_valid_futures = list()
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                for shape in shapes:
+                    is_valid_futures.append(executor.submit(
+                        self._is_shape_valid,
+                        shape,
+                        scale,
+                        floor_plan_path,
+                    ))
+                is_shape_valid = [future.result() for future in is_valid_futures]
             lines = list()
-            for shape in shapes:
-                if len(shape) > 4:
+            for shape, is_valid in zip(shapes, is_shape_valid):
+                if is_valid and len(shape) > 4:
                     lines.extend(self._merge_nearest_neighbor(shape))
 
-        if output_path:
-            canvas = np.ones(image_BGR.shape, dtype=np.uint8) * 255
-            if lines is not None:
-                for line in lines:
-                    x1, y1, x2, y2 = line[0]
-                    cv2.line(canvas, (x1, y1), (x2, y2), (0, 0, 0), 1)
-            cv2.imwrite(output_path, canvas)
-
         return lines
+
+    def _is_shape_valid(self, lines, scale, floor_plan_path):
+        scale_x, scale_y = scale
+        wall_lines_structured = list()
+        canvas = cv2.imread(floor_plan_path)
+        for line in lines:
+            X1, Y1, X2, Y2 = line[0]
+            polygons_drywall = self._extrude_polygon_perimeter(line, scale, outer_drywall_surface="INVALID")
+            for drywall in polygons_drywall:
+                pts = np.array([
+                    [drywall["coordinates"][0]['x'], drywall["coordinates"][0]['y']],
+                    [drywall["coordinates"][1]['x'], drywall["coordinates"][1]['y']],
+                    [drywall["coordinates"][2]['x'], drywall["coordinates"][2]['y']],
+                    [drywall["coordinates"][3]['x'], drywall["coordinates"][3]['y']]
+                ], np.int32)
+                pts = pts.reshape((-1, 1, 2))
+                canvas_to_overlay = canvas.copy()
+                cv2.fillPoly(canvas_to_overlay, pts=[pts], color=(0, 0, 255))
+                canvas = cv2.addWeighted(canvas_to_overlay, 0.7, canvas, 0.3, 0)
+            cv2.line(canvas, (round(scale_x * X1), round(scale_y * Y1)), (round(scale_x * X2), round(scale_y * Y2)), (0, 0, 255), 2)
+            wall_lines_structured.append(dict(wall=[{'x': round(scale_x * X1), 'y': round(scale_y * Y1)}, {'x': round(scale_x * X2), 'y': round(scale_y * Y2)}]))
+        _, canvas_buffer_array = cv2.imencode(".png", canvas)
+        bytes_canvas = canvas_buffer_array.tobytes()
+        query = Content(role="user", parts=[
+            Part.from_text(json.dumps(wall_lines_structured)),
+            Part.from_data(data=bytes_canvas, mime_type="image/png")
+        ])
+        try:
+            if self._is_cached["SHAPE_RECTIFIER"]:
+                _, is_valid = phoenix_call(
+                    lambda feedback_prompt, temperature: self._vertex_ai_client_shape_rectification.generate_content(
+                        contents=[feedback_prompt, query] if feedback_prompt else [query],
+                        generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
+                    ),
+                    max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
+                    pydantic_model=ShapeRectifierResponse,
+                )
+            else:
+                _, is_valid = phoenix_call(
+                    lambda feedback_prompt, temperature: self._vertex_ai_client_shape_rectification(SHAPE_RECTIFIER).generate_content(
+                        contents=[feedback_prompt, query] if feedback_prompt else [query],
+                        generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
+                    ),
+                    max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
+                    pydantic_model=ShapeRectifierResponse,
+                )
+            if is_valid["confidence"] > 0.9:
+                return is_valid["is_valid"]
+            return True
+        except Exception as e:
+            logging.warning(f"SYSTEM: Wall validator failed with error: {e}")
+            return True
 
     def _merge_nearest_neighbor(self, wall_lines, tolerance=500):
         wall_lines_closed_dead_end = deepcopy(wall_lines)
@@ -957,10 +1024,11 @@ class FloorPlan2D(FloorPlan):
 
         return canvas
 
-    def _patch_to_line(self, patch_GRAY, output_path):
+    def _patch_to_line(self, patch_GRAY, floor_plan_path, scale):
         lines = self._preprocessing(
             patch_GRAY,
-            output_path=Path(output_path).with_suffix(".tmp" + Path(output_path).suffix)
+            floor_plan_path,
+            scale,
         )
         if lines is None:
             return
@@ -1227,6 +1295,8 @@ class FloorPlan2D(FloorPlan):
                         "drywall_assembly": {
                             "material": "D12L - 1/2\" DW LITE-WEIGHT",
                             "color_code": [71, 239, 143],
+                            "materials_vertically_stacked": [],
+                            "color_codes_stacked": [],
                             "thickness": 0.04,
                             "layers": 1,
                             "fire_rating": 0,
@@ -1302,6 +1372,8 @@ class FloorPlan2D(FloorPlan):
                     wall_parameter["drywall_assembly"] = dict(
                         material="DISABLED",
                         color_code=[0, 0, 255],
+                        materials_vertically_stacked=[],
+                        color_codes_stacked=[],
                         thickness=-1,
                         layers=0,
                         fire_rating=0,
@@ -1319,6 +1391,8 @@ class FloorPlan2D(FloorPlan):
                         polygon=polygon["coordinates"] if isinstance(polygon, dict) else polygon[0]["coordinates"],
                         type=wall_parameter["drywall_assembly"]["material"],
                         color=list(wall_parameter["drywall_assembly"]["color_code"]),
+                        type_stacked=wall_parameter["drywall_assembly"]["materials_vertically_stacked"],
+                        color_stacked=list(wall_parameter["drywall_assembly"]["color_codes_stacked"]),
                         thickness=thickness,
                         layers=wall_parameter["drywall_assembly"]["layers"],
                         fire_rating=wall_parameter["drywall_assembly"]["fire_rating"],
@@ -1350,6 +1424,8 @@ class FloorPlan2D(FloorPlan):
                     wall_parameter["drywall_assembly"] = dict(
                         material="DISABLED",
                         color_code=[0, 0, 255],
+                        materials_vertically_stacked=[],
+                        color_codes_stacked=[],
                         thickness=-1,
                         layers=0,
                         fire_rating=0,
@@ -1365,6 +1441,8 @@ class FloorPlan2D(FloorPlan):
                         polygon=polygon["coordinates"] if isinstance(polygon, dict) else polygon[0]["coordinates"],
                         type=wall_parameter["drywall_assembly"]["material"],
                         color=list(wall_parameter["drywall_assembly"]["color_code"]),
+                        type_stacked=wall_parameter["drywall_assembly"]["materials_vertically_stacked"],
+                        color_stacked=list(wall_parameter["drywall_assembly"]["color_codes_stacked"]),
                         thickness=thickness,
                         layers=wall_parameter["drywall_assembly"]["layers"],
                         fire_rating=wall_parameter["drywall_assembly"]["fire_rating"],
@@ -1382,6 +1460,8 @@ class FloorPlan2D(FloorPlan):
                             polygon=polygon[1]["coordinates"],
                             type=wall_parameter["drywall_assembly"]["material"],
                             color=list(wall_parameter["drywall_assembly"]["color_code"]),
+                            type_stacked=wall_parameter["drywall_assembly"]["materials_vertically_stacked"],
+                            color_stacked=list(wall_parameter["drywall_assembly"]["color_codes_stacked"]),
                             thickness=thickness,
                             layers=wall_parameter["drywall_assembly"]["layers"],
                             fire_rating=wall_parameter["drywall_assembly"]["fire_rating"],
@@ -2120,7 +2200,7 @@ class FloorPlan2D(FloorPlan):
                         drywall_polygons,
                         floor_plan_path,
                     ))
-        is_wall_valid = [future.result() for future in is_valid_futures]
+            is_wall_valid = [future.result() for future in is_valid_futures]
         is_valid_index = 0
         for wall in walls_2d[:]:
             if wall["polygons_drywall"][0]["type"] == wall["polygons_drywall"][1]["type"] == "DISABLED":
@@ -2285,7 +2365,6 @@ class FloorPlan2D(FloorPlan):
     ):
         image_GRAY = self.read_floor_plan(image_path)
         output_path = Path(output_path)
-        wall_lines = self._patch_to_line(image_GRAY, output_path=output_path)
 
         canvas = cv2.imread(floor_plan_path)
         height, width, _ = canvas.shape
@@ -2297,6 +2376,7 @@ class FloorPlan2D(FloorPlan):
                 canvas.copy()[:, -round(width / 3):],
             ]
         )["ceiling_height"]
+        wall_lines = self._patch_to_line(image_GRAY, floor_plan_path, (scale_x, scale_y))
         if not wall_lines:
             return None, None, None, None
         polygons, polygons_perimeter_walls, external_contour = self.polygonize(wall_lines)
