@@ -42,13 +42,15 @@ WALL_RECTIFIER = """
     Please refer the following as a reference and ensure to replace every consecutive pair of open/closed curly braces with a single one during the generation of the output.
     {{
       "is_valid": <True/False>,
-      "confidence": <confidence score in validating the highlight in red between 0 and 1 in float rounded upto 2 decimal places>
+      "confidence": <confidence score in validating the highlight in red between 0 and 1 in float rounded upto 2 decimal places>,
+      "reasoning": "<a brief reasoning behind the highlighted wall being marked as valid/invalid>"
     }}
 """
 
 class WallRectifierResponse(BaseModel):
     is_valid: bool
     confidence: float = Field(ge=0, le=1)
+    reasoning: str
 
 SHAPE_RECTIFIER = """
   You are a senior architectural plan-correction specialist with 20+ years of experience in residential and commercial floor plans.
@@ -85,13 +87,15 @@ SHAPE_RECTIFIER = """
     Please refer the following as a reference and ensure to replace every consecutive pair of open/closed curly braces with a single one during the generation of the output.
     {{
       "is_valid": <True/False>,
-      "confidence": <confidence score in validating the boundary mask in red between 0 and 1 in float rounded upto 2 decimal places>
+      "confidence": <confidence score in validating the boundary mask in red between 0 and 1 in float rounded upto 2 decimal places>,
+      "reasoning": "<a brief reasoning behind the the boundary mask being marked as valid/invalid>"
     }}
 """
 
 class ShapeRectifierResponse(BaseModel):
     is_valid: bool
     confidence: float = Field(ge=0, le=1)
+    reasoning: str
 
 DRYWALL_PREDICTOR_CALIFORNIA = """
   You are a licensed California residential drywall estimator and building-code-aware construction expert with Senior Architectural Drawing Interpretation Engine capabilities. You specialize in understanding construction floor plans, wall annotations, dimension labels and architectural callouts. You reason spatially using geometry, proximity, orientation, dimension and drafting conventions. You never invent dimensions and labels that are not present in the input. You return structured, deterministic outputs.
