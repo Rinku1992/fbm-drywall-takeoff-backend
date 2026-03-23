@@ -9,7 +9,6 @@ from base64 import b64encode
 from ruamel.yaml import YAML
 from pathlib import Path
 import json
-from roman import toRoman
 from time import time as from_unix_epoch
 from time import sleep
 from collections import defaultdict
