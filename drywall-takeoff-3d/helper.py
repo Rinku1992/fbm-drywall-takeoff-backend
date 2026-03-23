@@ -273,3 +273,25 @@ def phoenix_call(generate_content_lambda, max_retry=5, base_delay=1.0, pydantic_
             temperature = min(0.5 * (n_iterations + 1) / max_retry, 0.5)
             logging.warning(f"SYSTEM: Response Generation/Parsing failed with ERROR: {e}")
             logging.warning(f"SYSTEM: RETRYING with TEMPERATURE: {temperature}")
+
+def load_templates(bigquery_client, credentials):
+    GBQ_query = f"SELECT * FROM `{credentials["GBQServer"]["table_name_sku"]}`"
+    product_templates = list(bigquery_run(credentials, bigquery_client, GBQ_query).result())
+
+    logging.info("SYSTEM: Product Templates retrieved successfully")
+    product_templates_target = list()
+    cached_templates_sku = list()
+    for product_template in product_templates:
+        product_template = dict(product_template)
+        if product_template["sku_id"] in cached_templates_sku:
+            continue
+        cached_templates_sku.append(product_template["sku_id"])
+        product_template["sku_variant"] = f"{product_template["sku_id"]} - {product_template["sku_description"]}"
+        product_template["color_code"] = [product_template["color_code"]['b'], product_template["color_code"]['g'], product_template["color_code"]['r']]
+        product_templates_target.append(product_template)
+    return product_templates_target
+
+def query_drywall(query_sku_variant, drywall_templates):
+    for drywall_template in drywall_templates:
+        if drywall_template["sku_variant"] == query_sku_variant:
+            return drywall_template
