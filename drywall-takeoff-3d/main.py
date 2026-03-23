@@ -1376,18 +1376,8 @@ async def compute_takeoff(request: Request):
     drywall_takeoff = dict(
         total=dict(roof=0, wall=0),
         per_drywall=dict(
-            roof=defaultdict(lambda: dict(
-                net_sqft=defaultdict(lambda: 0),
-                total_sqft=defaultdict(lambda: 0),
-                sheets_required_total=defaultdict(lambda: 0),
-                sheets_required_no_waste=defaultdict(lambda: 0),
-            )),
-            wall=defaultdict(lambda: dict(
-                net_sqft=defaultdict(lambda: 0),
-                total_sqft=defaultdict(lambda: 0),
-                sheets_required_total=defaultdict(lambda: 0),
-                sheets_required_no_waste=defaultdict(lambda: 0),
-            ))
+            roof=defaultdict(lambda: defaultdict(lambda: 0)),
+            wall=defaultdict(lambda: defaultdict(lambda: 0))
         )
     )
     for wall in walls_3d_JSON:
