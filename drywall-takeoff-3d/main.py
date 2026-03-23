@@ -1384,46 +1384,49 @@ async def compute_takeoff(request: Request):
         surface_area = wall["height"] * wall["length"]
         drywall_count = 0
         for drywall in wall["surfaces_drywall"]:
-            if drywall["enabled"]:
-                if drywall["type_stacked"]:
-                    stack_length = len(drywall["type_stacked"])
-                    for drywall_type in drywall["type_stacked"]:
-                        drywall_template = query_drywall(drywall_type, DRYWALL_TEMPLATES)
-                        waste_factor = int(drywall_template["waste"]) / 100
-                        net_sqft = drywall["layers"] * (surface_area / stack_length)
-                        total_sqft = net_sqft * (1 + waste_factor)
-                        sheet_size = drywall_template["sheet_size"]
-                        sheet_area_sqft = int(sheet_size.split('x')[0]) * int(sheet_size.split('x')[1])
-                        sheets_required_total = math.ceil(total_sqft / sheet_area_sqft)
-                        sheets_required_no_waste = math.ceil(net_sqft / sheet_area_sqft)
-                        drywall_takeoff["per_drywall"]["wall"][drywall_type] = dict(
-                            total_sqft=round(drywall_takeoff["per_drywall"]["wall"][drywall_type]["total_sqft"]+total_sqft, 2),
-                            net_sqft=round(drywall_takeoff["per_drywall"]["wall"][drywall_type]["net_sqft"]+net_sqft, 2),
-                            waste_percentage=drywall_template["waste"],
-                            sheet_size=sheet_size,
-                            sheets_required_total=drywall_takeoff["per_drywall"]["wall"][drywall_type]["sheets_required_total"]+sheets_required_total,
-                            sheets_required_no_waste=drywall_takeoff["per_drywall"]["wall"][drywall_type]["sheets_required_no_waste"]+sheets_required_no_waste
-                        )
-                else:
-                    drywall_template = query_drywall(drywall["type"], DRYWALL_TEMPLATES)
+            if not drywall["enabled"]:
+                continue
+            if drywall["type_stacked"]:
+                stack_length = len(drywall["type_stacked"])
+                for drywall_type in drywall["type_stacked"]:
+                    drywall_template = query_drywall(drywall_type, DRYWALL_TEMPLATES)
                     waste_factor = int(drywall_template["waste"]) / 100
-                    net_sqft = drywall["layers"] * surface_area
+                    net_sqft = drywall["layers"] * (surface_area / stack_length)
                     total_sqft = net_sqft * (1 + waste_factor)
                     sheet_size = drywall_template["sheet_size"]
                     sheet_area_sqft = int(sheet_size.split('x')[0]) * int(sheet_size.split('x')[1])
                     sheets_required_total = math.ceil(total_sqft / sheet_area_sqft)
                     sheets_required_no_waste = math.ceil(net_sqft / sheet_area_sqft)
-                    drywall_takeoff["per_drywall"]["wall"][drywall["type"]] = dict(
-                        total_sqft=round(drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["total_sqft"]+total_sqft, 2),
-                        net_sqft=round(drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["net_sqft"]+net_sqft, 2),
+                    drywall_takeoff["per_drywall"]["wall"][drywall_type] = dict(
+                        total_sqft=round(drywall_takeoff["per_drywall"]["wall"][drywall_type]["total_sqft"]+total_sqft, 2),
+                        net_sqft=round(drywall_takeoff["per_drywall"]["wall"][drywall_type]["net_sqft"]+net_sqft, 2),
                         waste_percentage=drywall_template["waste"],
                         sheet_size=sheet_size,
-                        sheets_required_total=drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["sheets_required_total"]+sheets_required_total,
-                        sheets_required_no_waste=drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["sheets_required_no_waste"]+sheets_required_no_waste
+                        sheets_required_total=drywall_takeoff["per_drywall"]["wall"][drywall_type]["sheets_required_total"]+sheets_required_total,
+                        sheets_required_no_waste=drywall_takeoff["per_drywall"]["wall"][drywall_type]["sheets_required_no_waste"]+sheets_required_no_waste
                     )
-                drywall_count += drywall["layers"]
+            else:
+                drywall_template = query_drywall(drywall["type"], DRYWALL_TEMPLATES)
+                waste_factor = int(drywall_template["waste"]) / 100
+                net_sqft = drywall["layers"] * surface_area
+                total_sqft = net_sqft * (1 + waste_factor)
+                sheet_size = drywall_template["sheet_size"]
+                sheet_area_sqft = int(sheet_size.split('x')[0]) * int(sheet_size.split('x')[1])
+                sheets_required_total = math.ceil(total_sqft / sheet_area_sqft)
+                sheets_required_no_waste = math.ceil(net_sqft / sheet_area_sqft)
+                drywall_takeoff["per_drywall"]["wall"][drywall["type"]] = dict(
+                    total_sqft=round(drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["total_sqft"]+total_sqft, 2),
+                    net_sqft=round(drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["net_sqft"]+net_sqft, 2),
+                    waste_percentage=drywall_template["waste"],
+                    sheet_size=sheet_size,
+                    sheets_required_total=drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["sheets_required_total"]+sheets_required_total,
+                    sheets_required_no_waste=drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["sheets_required_no_waste"]+sheets_required_no_waste
+                )
+            drywall_count += drywall["layers"]
         drywall_takeoff["total"]["wall"] += drywall_count * surface_area
     for polygon in polygons_JSON:
+        if not polygon["surface_drywall"]["enabled"]:
+            continue
         surface_area = floor_plan_modeller_3d.compute_updated_area_polygon(
             polygon["vertices"],
             polygon["area"],
