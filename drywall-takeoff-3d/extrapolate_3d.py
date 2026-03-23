@@ -285,12 +285,14 @@ class Extrapolate3D(FloorPlan):
                     room_name=polygon_type["room_name"],
                     polygon=polygon,
                     type=polygon_type["type"],
+                    type_stacked=polygon_type["type_stacked"],
                     enabled=polygon_type["enabled"],
                     thickness=polygon_type["thickness"],
                     layers=polygon_type["layers"],
                     fire_rating=polygon_type["fire_rating"],
                     recommendation=polygon_type["recommendation"],
                     color=polygon_type["color"],
+                    color_stacked=polygon_type["color_stacked"],
                     waste_factor=polygon_type["waste_factor"],
                 )
             )
