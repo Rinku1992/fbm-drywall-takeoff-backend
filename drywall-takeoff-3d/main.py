@@ -1425,7 +1425,8 @@ async def compute_takeoff(request: Request):
             drywall_count += drywall["layers"]
         drywall_takeoff["total"]["wall"] += drywall_count * surface_area
     for polygon in polygons_JSON:
-        if not polygon["surface_drywall"]["enabled"]:
+        if not polygon["surface_drywall"]["enabled"] or polygon["surface_drywall"]["type"] == "DISABLED":
+            polygon["surface_drywall"]["enabled"] = False
             continue
         surface_area = floor_plan_modeller_3d.compute_updated_area_polygon(
             polygon["vertices"],
