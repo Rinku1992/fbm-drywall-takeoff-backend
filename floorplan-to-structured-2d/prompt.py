@@ -18,6 +18,7 @@ WALL_RECTIFIER = """
 
     2. A snapshot of the full Architectural Drawing in png format with the following highlight,
       - The target wall line highlighted with a red line and paired with drywall segments in red on its both the sides.
+      - The target area of interest is highlighted with a green bounding box that encloses architectural plan(s) with a very tight aproximation.
 
   TASK:
     Analyze the architectural floor plan and only the highlighted wall with its drywall segments following the `WALL_VALIDATOR_INSTRUCTIONS` to determine whether the red highlighted wall is valid.
@@ -25,24 +26,27 @@ WALL_RECTIFIER = """
     WALL_VALIDATOR_INSTRUCTIONS:
     - Focus only on the wall highlighted with a thin red line paired with 2 drywall segments in red on its 2 sides.
     - Use the coordinates to reason about alignment and angle. Do not rely only on visual appearance.
-    - If there are presence of more than one architectural drawings on the page, figure out the one which is complete and ignore the ones that are truncated.
-    - STRICTLY REMEMBER, dotted (dashed) lines in any architectural floor plan blueprint usually represent elements that are not physically cut in the current view but are still relevant for reference.
-    - The highlight should be aligned / closely overlayed with one of the valid wall lines within the available complete architecture plans in order for it to be `VALID`.
-    - REMEMBER if, the highlight is aligned / closely overlayed with one of the valid wall lines within one of the truncated / incomplete architectural drawings, the highlight MUST be `INVALID`.
-    - If the highlight is `INVALID` if not aligned with a valid wall line from the available architectures such as the following artifacts,
-      | Any arbitrary dimension line (not wall line) from the architectures.
-      | An arbitrary dashed / dotted line which is not a valid wall line (not physically cut in the current view).
-      | An arbitrary artifact line from the stray section of the page containing plan metadata.
-      | Any other non-wall line.
-    - REMEMBER, if the highlight is partially aligned with a valid base wall line (e.g., the length of the highlight is larger or smaller than its base wall line it is overlaying with) then apply the following,
-      | The highlight must be `VALID` only if the inclination of the base wall line is similar/closer to that of the highlight (e.g., the base wall line and the highlight are both horizontal or both inclined at a similar angle with angle difference of less than 10 degrees).
-      | The highlight would be `INVALID` if the difference between the inclination of the base wall line and the highlight is more than 10 degrees (e.g., the base wall line is horizontal but the highlight is inclined at an angle of more than 10 degrees).
+    - If there are presence of more than one architectural drawings on the page, target the drawing enclosed within a green bounding box which is complete and ignore the ones that are truncated or outside the bounding box.
+    - STRICTLY REMEMBER, dotted (dashed) lines in any architectural floor plan blueprint usually represent elements that are not physically cut in the current view but are still relevant for reference and are `INVALID` walls.
+    - A valid wall line MUST:
+      -> Be part of a pair of parallel lines representing wall thickness.
+      -> Be one edge of a clearly enclosed room boundary.
+    - The highlight should be aligned / closely overlayed with one of the valid wall lines within the available complete architecture plans enclosed by the green bounding box in order for it to be `VALID`.
+    - REMEMBER if, the highlight is aligned / closely overlayed with one of the wall lines within one of the truncated / incomplete / other architectural drawings that are not in the target of the green bounding box, the highlight MUST be `INVALID`.
+    - The highlight is `INVALID` if aligned with an invalid wall line from the available architectures such as the following artifact lines,
+      -> Any arbitrary dimension line (not wall line) from the architectures.
+      -> An arbitrary dashed / dotted line which is not a valid wall line (not physically cut in the current view).
+      -> An arbitrary artifact line from the stray section of the page containing plan metadata.
+      -> Any other non-wall line.
+    - REMEMBER, if the highlight is partially aligned with a valid base blueprint wall line within the bounding box (e.g., the length of the highlight is larger or smaller than its base wall line it is overlaying with) then apply the following,
+      -> The highlight must be `VALID` only if the inclination of the base wall line is similar/closer to that of the highlight (e.g., the base wall line and the highlight are both horizontal or both inclined at a similar angle with angle difference of less than 10 degrees).
+      -> The highlight would be `INVALID` if the difference between the inclination of the base wall line and the highlight is more than 10 degrees (e.g., the base wall line is horizontal but the highlight is inclined at an angle of more than 10 degrees).
 
   OUTPUT:
-    Your output must be precise, code-aligned, and structured. You must reason spatially and geometrically. Do NOT describe the image. Do NOT repeat detected lines verbatim.
+    Your output must be precise, code-aligned, and structured. You must reason spatially and geometrically. Do NOT describe the image.
     **STRICTLY**
       - Do not generate additional content apart from the designated JSON.
-      - You must output whether the placement of the predicted wall is overlaying on top of one of the valid wall lines from the architectural plan.
+      - You must output whether the placement of the highlight is overlaying on top of one of the valid wall lines from the architectural plan as per the instrutions provided above.
     Please refer the following as a reference and ensure to replace every consecutive pair of open/closed curly braces with a single one during the generation of the output.
     {{
       "is_valid": <True/False>,
@@ -73,10 +77,14 @@ SHAPE_RECTIFIER = """
       - The target boundary mask is highlighted with red lines each overlayed on a blueprint wall-line and and paired with drywall segments in red on its both the sides.
 
   TASK:
-    Analyze the architectural floor plan and only the highlighted wall with its drywall segments following the `BOUNDARY_MASK_VALIDATOR_INSTRUCTIONS` to determine whether the mask is valid.
+    Analyze the architectural floor plan and only the highlighted walls with its drywall segments following the `BOUNDARY_MASK_VALIDATOR_INSTRUCTIONS` to determine whether the mask is valid.
 
     BOUNDARY_MASK_VALIDATOR_INSTRUCTIONS:
-    - STRICTLY REMEMBER, dotted (dashed) lines in any architectural floor plan blueprint usually represent elements that are not physically cut in the current view but are still relevant for reference.
+    - STRICTLY REMEMBER,
+      -> Lines representing fixtures, cabinetry, annotations, or text baselines are `INVALID`.
+      -> Dotted (dashed) lines in any architectural floor plan blueprint usually represent elements that are not physically cut in the current view but are still relevant for reference and are `INVALID`.
+      -> A `VALID` wall MUST be part of a pair of parallel lines representing wall thickness.
+      -> A `VALID` wall MUSt be one edge of a clearly enclosed room boundary.
     - Focus only on the walls highlighted with thin red lines each paired with 2 drywall segments in red on its 2 sides.
     - Use the coordinates to reason about alignment and angle. Do not rely only on visual appearance.
     - The highlighted walls sould represent a valid boundary mask representing a layout of valid walls on the architectural plan.
@@ -84,10 +92,10 @@ SHAPE_RECTIFIER = """
     - If more than 50 percent of the highlighted walls present in the highlighted boundary mask are overlayed on dotted (dashed) walls from the blueprint or represent the walls that are not physically cut in the current view, the boundary mask should be `INVALID`.
 
   OUTPUT:
-    Your output must be precise, code-aligned, and structured. You must reason spatially and geometrically. Do NOT describe the image. Do NOT repeat detected lines verbatim.
+    Your output must be precise, code-aligned, and structured. You must reason spatially and geometrically. Do NOT describe the image.
     **STRICTLY**
       - Do not generate additional content apart from the designated JSON.
-      - You must output whether the placement of the predicted wall is overlaying on top of one of the valid wall lines from the architectural plan.
+      - You must output whether the placement of the boundary mask mostly overlays with the valid wall lines from the architectural plan.
     Please refer the following as a reference and ensure to replace every consecutive pair of open/closed curly braces with a single one during the generation of the output.
     {{
       "is_valid": <True/False>,
@@ -156,6 +164,7 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
       - The correct drywall assemblies based on `DRYWALL_PREDICTION_INSTRUCTIONS`.
 
       WALL_EXTRACTION_INSTRUCTIONS:
+        - Target walls are marked with blue bounding boxes representing the perimeter walls of the target polygon / room. 
         - Identify the dimension markers denoted by diagonal slash specifying the beginning and end of the highlighted wall.
         - Identify the dimension markers denoted by diagonal slash specifying the width of the highlighted wall.
         - The orientation of the diagonal marker would be '/' for the horizontal walls and '\' for the vertical walls.
@@ -181,6 +190,7 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
             11. HALLWAY_WALL
 
       CEILING_EXTRACTION_INSTRUCTIONS:
+        - The polygon marked in transparent red color marks the target ceiling in the input image.
         - There would be an optional mention of ceiling height within or in the neighborhood of polygon highlighted region (ideally in the middle of the polygon highlight on the blueprint) with the `ceiling` / `CLG.` or `height` / `HGT.` keyword only if the height of any given perimeter wall varies from the standard ceiling height. If the ceiling height of a wall varies from another wall in the same room / polygon, use that information to compute the slope of the ceiling of the highlighted polygon.
         - If ceiling / wall height is exclusively not mentioned, treat the ceiling type as flat with no slope or slope = 0.
         - Slope of the ceiling is computed using the differential wall height in any arbritrary direction or textual mention of the slope angle at the nearby regions of the ceiling.
@@ -215,11 +225,13 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
         - If no text entity representing a `Room Name` is observed, identify the room_name as `NULL`.
 
       DRYWALL_PREDICTION_INSTUCTIONS:
-        - Wall location (interior, exterior, garage, wet area)
-        - Adjacent room usage
-        - Fire separation requirements (CBC, IRC R302)
-        - Moisture and mold resistance needs
-        - Typical residential drywall standards in California
+        - Drywalls are marked with green polygons adjacent to the surrounding walls of the target polygon marking the interiors of the polygon.
+        - Use the below factors to decide on the drywall material prediction,
+          -> Wall location (interior, exterior, garage, wet area)
+          -> Adjacent room usage
+          -> Fire separation requirements (CBC, IRC R302)
+          -> Moisture and mold resistance needs
+          -> Typical residential drywall standards in California
         - Enforce cost reduction
         - A single drywall material preference for each wall is MANDATORY.
         - Optionally predict an additional vertically stacked drywall preferences for each of the walls (only if stacked drywall preferences applicable else leave the list empty). The index of the list containing predicted vertically stacked drywall preferences should begin with the bottom-most drywall material preference with its immediate upper layer placed in the subsequent index and so on.
@@ -238,7 +250,7 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
       - `wall_parameters` field should contain predicted wall parameters and drywall assembly for all the perimeter walls provided in the input that also corresponds with the perimeter lines highlighted with blue bounding boxes of the highlighted polygon.
       - The number of predicted `wall_parameters` should exactly match with count of perimeter walls provided with the input (Do not skip).
       - The order of the walls provided in the `wall_parameters` list should follow the oder in which the perimeter walls are provided in the input.
-      - Do not generate additional content apart from the designated JSON and do not modify the order of the predicted Drywalls in the context of their colors provided in the input image. `BLUE` Drywall prediction should always appear before the `GREEN`.
+      - Do not generate additional content apart from the designated JSON and do not modify the order of the predicted Drywalls in the context of their colors provided in the input image.
     Please refer the following as a reference and ensure to replace every consecutive pair of open/closed curly braces with a single one during the generation of the output.
     {{
       "ceiling": {{
