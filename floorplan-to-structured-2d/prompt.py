@@ -32,7 +32,7 @@ WALL_RECTIFIER = """
       -> Be part of a pair of parallel lines representing wall thickness.
       -> Be one edge of a clearly enclosed room boundary.
     - The highlight should be aligned / closely overlayed with one of the valid wall lines within the available complete architecture plans enclosed by the green bounding box in order for it to be `VALID`.
-    - REMEMBER if, the highlight is aligned / closely overlayed with one of the wall lines within one of the truncated / incomplete / other architectural drawings that are not in the target of the green bounding box, the highlight MUST be `INVALID`.
+    - REMEMBER if, the highlight is aligned / closely overlayed with one of the wall lines within one of the truncated / incomplete / other architectural drawings that are not in the target area of the green bounding box, the highlight MUST be `INVALID`.
     - The highlight is `INVALID` if aligned with an invalid wall line from the available architectures such as the following artifact lines,
       -> Any arbitrary dimension line (not wall line) from the architectures.
       -> An arbitrary dashed / dotted line which is not a valid wall line (not physically cut in the current view).
