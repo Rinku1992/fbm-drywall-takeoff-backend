@@ -320,6 +320,15 @@ def load_section_from_page(wall_segmented_path, floor_plan_path, bounding_box_of
 
     return str(wall_segmented_path_sectioned)
 
+def apply_pixel_margin_to_bounding_box(bounding_box_offset):
+    offset_top_left_X, offset_top_left_Y = bounding_box_offset["offset_top_left"]
+    offset_bottom_right_X, offset_bottom_right_Y = bounding_box_offset["offset_bottom_right"]
+    offset_top_left_X = max(offset_top_left_X - 0.05, 0)
+    offset_top_left_Y = max(offset_top_left_Y - 0.05, 0)
+    offset_bottom_right_X = min(offset_bottom_right_X + 0.05, 1)
+    offset_bottom_right_Y = min(offset_bottom_right_Y + 0.05, 1)
+    return (offset_top_left_X, offset_top_left_Y), (offset_bottom_right_X, offset_bottom_right_Y)
+
 def polygon_to_structured_2d(credentials, query_json):
     auth_req = google.auth.transport.requests.Request()
     service_account_credentials = IDTokenCredentials.from_service_account_file(
