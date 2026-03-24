@@ -5,7 +5,8 @@ import cv2
 from concurrent.futures import ThreadPoolExecutor
 
 
-def process_page(pdf_page, vector_page, image_path_page, vector_pdf_page):
+def process_page(pdf_path, pdf_page, page_index, image_path_page, vector_pdf_page):
+    vector_page = PdfReader(pdf_path).pages[page_index]
     save(pdf_page, vector_page, image_path_page, vector_pdf_page)
     to_sharp(image_path_page)
 
@@ -36,20 +37,20 @@ def preprocess(pdf_path, image_path="/tmp/floor_plan.png"):
         pdf_path,
         dpi=400,
     )
-    reader = PdfReader(pdf_path)
     image_path_pages = list()
     vector_pdf_pages = list()
     image_path = Path(image_path)
     with ThreadPoolExecutor(max_workers=3) as executor:
         futures = list()
-        for index, (pdf_page, vector_page) in enumerate(zip(pages, reader.pages)):
+        for index, pdf_page in enumerate(pages):
             image_path_page = image_path.parent.joinpath(image_path.stem).with_suffix(f".{str(index).zfill(2)}{image_path.suffix}")
             vector_pdf_page = image_path.parent.joinpath(str(index).zfill(2)).joinpath(f"scaled_{image_path.stem}").with_suffix(".pdf")
             futures.append(
                 executor.submit(
                     process_page,
+                    pdf_path,
                     pdf_page,
-                    vector_page,
+                    index,
                     image_path_page,
                     vector_pdf_page,
                 )
