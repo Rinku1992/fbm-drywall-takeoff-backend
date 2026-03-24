@@ -25,11 +25,13 @@ WALL_RECTIFIER = """
     WALL_VALIDATOR_INSTRUCTIONS:
     - Focus only on the wall highlighted with a thin red line paired with 2 drywall segments in red on its 2 sides.
     - Use the coordinates to reason about alignment and angle. Do not rely only on visual appearance.
-    - If there are presence of more than one architectural drawings on the page, figure out the one which is complete and ignore the ones that are truncated. 
+    - If there are presence of more than one architectural drawings on the page, figure out the one which is complete and ignore the ones that are truncated.
+    - STRICTLY REMEMBER, dotted (dashed) lines in any architectural floor plan blueprint usually represent elements that are not physically cut in the current view but are still relevant for reference.
     - The highlight should be aligned / closely overlayed with one of the valid wall lines within the available complete architecture plans in order for it to be `VALID`.
     - REMEMBER if, the highlight is aligned / closely overlayed with one of the valid wall lines within one of the truncated / incomplete architectural drawings, the highlight MUST be `INVALID`.
-    - If the highlight is `INVALID` if not aligned with a valid wall line from the available architectures such as the followings,
+    - If the highlight is `INVALID` if not aligned with a valid wall line from the available architectures such as the following artifacts,
       | Any arbitrary dimension line (not wall line) from the architectures.
+      | An arbitrary dashed / dotted line which is not a valid wall line (not physically cut in the current view).
       | An arbitrary artifact line from the stray section of the page containing plan metadata.
       | Any other non-wall line.
     - REMEMBER, if the highlight is partially aligned with the base wall line (e.g., the length of the highlight is larger or smaller than its base wall line it is overlaying with) then apply the following,
