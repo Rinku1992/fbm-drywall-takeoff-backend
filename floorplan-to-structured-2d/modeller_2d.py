@@ -1096,8 +1096,19 @@ class FloorPlan2D(FloorPlan):
         wall_line,
         drywall_polygons,
         floor_plan_path,
+        offset,
     ):
         canvas = cv2.imread(floor_plan_path)
+        height_in_pixels, width_in_pixels, _ = canvas.shape
+        (offset_top_left_X, offset_top_left_Y), (offset_bottom_right_X, offset_bottom_right_Y) = offset
+        LEFT = round(offset_top_left_X * width_in_pixels)
+        TOP = round(offset_top_left_Y * height_in_pixels)
+        BOTTOM = round(offset_bottom_right_Y * height_in_pixels)
+        RIGHT = round(offset_bottom_right_X * width_in_pixels)
+        canvas[:TOP, :] = 255
+        canvas[:, :LEFT] = 255
+        canvas[:, RIGHT:] = 255
+        canvas[BOTTOM:, :] = 255
         for drywall_polygon in drywall_polygons:
             canvas_to_overlay = canvas.copy()
             cv2.fillPoly(canvas_to_overlay, pts=[drywall_polygon], color=(0, 0, 255))
@@ -2120,7 +2131,7 @@ class FloorPlan2D(FloorPlan):
         for polygon in polygons_2d_JSON:
             polygon["type_choices"] = CEILING_CHOICES
 
-    def _load_missing_polygons(self, walls_2d, scale, polygons_neighbor, floor_plan_path):
+    def _load_missing_polygons(self, walls_2d, scale, polygons_neighbor, floor_plan_path, offset):
         def load_wall_payload(wall_line):
             X1, Y1, X2, Y2 = wall_line[0]
             wall_line_structured = [
@@ -2207,6 +2218,7 @@ class FloorPlan2D(FloorPlan):
                         wall_line,
                         drywall_polygons,
                         floor_plan_path,
+                        offset,
                     ))
             is_wall_valid = [future.result() for future in is_valid_futures]
         is_valid_index = 0
@@ -2364,6 +2376,7 @@ class FloorPlan2D(FloorPlan):
 
     def model(
         self,
+        offset,
         image_path="/tmp/floor_plan_wall_segmented.png",
         model_2d_path="/tmp/walls_2d.json",
         floor_plan_path="/tmp/floor_plan.png",
@@ -2444,7 +2457,8 @@ class FloorPlan2D(FloorPlan):
             self._walls_2d,
             (scale_x, scale_y),
             polygon_vertices_normalized_all,
-            floor_plan_path
+            floor_plan_path,
+            offset,
         )
         external_contour_normalized = self.merge_polygons(external_contour_normalized, [polygon[1] for polygon in missing_polygons])
         futures = list()
