@@ -315,7 +315,7 @@ def load_section_from_page(wall_segmented_path, floor_plan_path, bounding_box_of
     image[BOTTOM:, :] = 255
     canvas = Image.fromarray(image)
     canvas = canvas.resize((width_in_pixels, height_in_pixels), Image.Resampling.NEAREST)
-    wall_segmented_path_sectioned = wall_segmented_path.parent.joinpath(f"{wall_segmented_path.stem}_sectioned_{section_name}").with_suffix(".png")
+    wall_segmented_path_sectioned = wall_segmented_path.parent.joinpath(f"{wall_segmented_path.stem}_sectioned_{section_name.replace('/', '_')}").with_suffix(".png")
     canvas.save(wall_segmented_path_sectioned, format="png")
 
     return str(wall_segmented_path_sectioned)
