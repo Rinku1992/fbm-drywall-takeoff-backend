@@ -25,14 +25,16 @@ WALL_RECTIFIER = """
     WALL_VALIDATOR_INSTRUCTIONS:
     - Focus only on the wall highlighted with a thin red line paired with 2 drywall segments in red on its 2 sides.
     - Use the coordinates to reason about alignment and angle. Do not rely only on visual appearance.
-    - The highlight should be aligned / closely overlayed  with one of the valid wall lines within the available architecture plans in order for it to be valid.
-    - If the highlight is invalid if not aligned with a valid wall line from the available architectures such as the followings,
+    - If there are presence of more than one architectural drawings on the page, figure out the one which is complete and ignore the ones that are truncated. 
+    - The highlight should be aligned / closely overlayed with one of the valid wall lines within the available complete architecture plans in order for it to be `VALID`.
+    - REMEMBER if, the highlight is aligned / closely overlayed with one of the valid wall lines within one of the truncated / incomplete architectural drawings, the highlight MUST be `INVALID`.
+    - If the highlight is `INVALID` if not aligned with a valid wall line from the available architectures such as the followings,
       | Any arbitrary dimension line (not wall line) from the architectures.
       | An arbitrary artifact line from the stray section of the page containing plan metadata.
       | Any other non-wall line.
     - REMEMBER, if the highlight is partially aligned with the base wall line (e.g., the length of the highlight is larger or smaller than its base wall line it is overlaying with) then apply the following,
-      | The highlight must be valid only if the inclination of the base wall line is similar/closer to that of the highlight (e.g., the base wall line and the highlight are both horizontal or both inclined at a similar angle with angle difference of less than 10 degrees).
-      | The highlight would be invalid if the difference between the inclination of the base wall line and the highlight is more than 10 degrees (e.g., the base wall line is horizontal but the highlight is inclined at an angle of more than 10 degrees).
+      | The highlight must be `VALID` only if the inclination of the base wall line is similar/closer to that of the highlight (e.g., the base wall line and the highlight are both horizontal or both inclined at a similar angle with angle difference of less than 10 degrees).
+      | The highlight would be `INVALID` if the difference between the inclination of the base wall line and the highlight is more than 10 degrees (e.g., the base wall line is horizontal but the highlight is inclined at an angle of more than 10 degrees).
 
   OUTPUT:
     Your output must be precise, code-aligned, and structured. You must reason spatially and geometrically. Do NOT describe the image. Do NOT repeat detected lines verbatim.
