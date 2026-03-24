@@ -1105,10 +1105,11 @@ class FloorPlan2D(FloorPlan):
         TOP = round(offset_top_left_Y * height_in_pixels)
         BOTTOM = round(offset_bottom_right_Y * height_in_pixels)
         RIGHT = round(offset_bottom_right_X * width_in_pixels)
-        canvas[:TOP, :] = 255
-        canvas[:, :LEFT] = 255
-        canvas[:, RIGHT:] = 255
-        canvas[BOTTOM:, :] = 255
+        canvas = cv2.rectangle(canvas, (LEFT, TOP), (RIGHT, BOTTOM), (0, 255, 0), 10)
+        canvas[:max(0, TOP - 20), :] = 255
+        canvas[:, :max(0, LEFT - 20)] = 255
+        canvas[:, min(width_in_pixels, RIGHT + 20):] = 255
+        canvas[min(height_in_pixels, BOTTOM + 20):, :] = 255
         for drywall_polygon in drywall_polygons:
             canvas_to_overlay = canvas.copy()
             cv2.fillPoly(canvas_to_overlay, pts=[drywall_polygon], color=(0, 0, 255))
