@@ -34,7 +34,7 @@ WALL_RECTIFIER = """
       | An arbitrary dashed / dotted line which is not a valid wall line (not physically cut in the current view).
       | An arbitrary artifact line from the stray section of the page containing plan metadata.
       | Any other non-wall line.
-    - REMEMBER, if the highlight is partially aligned with the base wall line (e.g., the length of the highlight is larger or smaller than its base wall line it is overlaying with) then apply the following,
+    - REMEMBER, if the highlight is partially aligned with a valid base wall line (e.g., the length of the highlight is larger or smaller than its base wall line it is overlaying with) then apply the following,
       | The highlight must be `VALID` only if the inclination of the base wall line is similar/closer to that of the highlight (e.g., the base wall line and the highlight are both horizontal or both inclined at a similar angle with angle difference of less than 10 degrees).
       | The highlight would be `INVALID` if the difference between the inclination of the base wall line and the highlight is more than 10 degrees (e.g., the base wall line is horizontal but the highlight is inclined at an angle of more than 10 degrees).
 
