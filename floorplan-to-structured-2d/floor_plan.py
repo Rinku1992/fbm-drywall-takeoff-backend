@@ -422,6 +422,9 @@ class FloorPlan:
             perimeter_lines_contours.append(perimeter_lines_contour)
             polygonized.append((area, coordinates))
 
+        if not polygonized:
+            return polygonized, perimeter_lines_contours, list()
+
         coordinates_all = np.vstack([polygon[1] for polygon in polygonized])
         hull_external = cv2.convexHull(coordinates_all)
         epsilon = max(2, 0.005 * cv2.arcLength(hull_external, True))
