@@ -27,8 +27,10 @@ WALL_RECTIFIER = """
     - Focus only on the wall highlighted with a thin red line paired with 2 drywall segments in red on its 2 sides.
     - Use the coordinates to reason about alignment and angle. Do not rely only on visual appearance.
     - If there are presence of more than one architectural drawings on the page, target the drawing enclosed within a green bounding box which is complete and ignore the ones that are truncated or outside the bounding box.
-    - STRICTLY REMEMBER, dotted (dashed) lines in any architectural floor plan blueprint usually represent elements that are not physically cut in the current view but are still relevant for reference and are `INVALID` walls.
-    - A valid wall line MUST:
+    - STRICTLY REMEMBER,
+      -> Dotted (dashed) lines in any architectural floor plan blueprint usually represent elements that are not physically cut in the current view but are still relevant for reference and are `INVALID` walls.
+      -> Lines representing fixtures, cabinetry, annotations, or text baselines are `INVALID`.
+    - A `VALID` wall line MUST:
       -> Be part of a pair of parallel lines representing wall thickness.
       -> Be one edge of a clearly enclosed room boundary.
     - The highlight should be aligned / closely overlayed with one of the valid wall lines within the available complete architecture plans enclosed by the green bounding box in order for it to be `VALID`.
