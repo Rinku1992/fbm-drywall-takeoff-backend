@@ -811,7 +811,7 @@ async def floorplan_to_2d(request: Request):
     walls_2d_all = dict(pages=list())
     status = "COMPLETED"
     try:
-        with ThreadPoolExecutor(max_workers=50) as executor:
+        with ThreadPoolExecutor(max_workers=20) as executor:
             for page_number in range(n_pages):
                 id_token = load_floorplan_to_structured_2d_ID_token(CREDENTIALS)
                 executor.submit(
