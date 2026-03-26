@@ -17,6 +17,7 @@ from fractions import Fraction
 from skimage.morphology import skeletonize
 from vertexai.generative_models import Part, Content
 from shapely.geometry import Polygon
+import Levenshtein
 
 from floor_plan import FloorPlan
 from prompt import (
@@ -1103,15 +1104,22 @@ class FloorPlan2D(FloorPlan):
         canvas = cv2.imread(floor_plan_path)
         height_in_pixels, width_in_pixels, _ = canvas.shape
         (offset_top_left_X, offset_top_left_Y), (offset_bottom_right_X, offset_bottom_right_Y) = offset
+        margin_X, margin_Y = 2 * round(width_in_pixels / 1920), 2 * round(height_in_pixels / 1080)
         LEFT = round(offset_top_left_X * width_in_pixels)
         TOP = round(offset_top_left_Y * height_in_pixels)
         BOTTOM = round(offset_bottom_right_Y * height_in_pixels)
         RIGHT = round(offset_bottom_right_X * width_in_pixels)
-        canvas = cv2.rectangle(canvas, (LEFT, TOP), (RIGHT, BOTTOM), (0, 255, 0), 10)
-        canvas[:max(0, TOP - 20), :] = 255
-        canvas[:, :max(0, LEFT - 20)] = 255
-        canvas[:, min(width_in_pixels, RIGHT + 20):] = 255
-        canvas[min(height_in_pixels, BOTTOM + 20):, :] = 255
+        canvas = cv2.rectangle(
+            canvas,
+            (max(0, LEFT - margin_X), max(0, TOP - margin_Y)),
+            (min(width_in_pixels, RIGHT + margin_X), min(height_in_pixels, BOTTOM + margin_Y)),
+            (0, 255, 0),
+            10
+        )
+        canvas[:max(0, TOP - margin_Y), :] = 255
+        canvas[:, :max(0, LEFT - margin_X)] = 255
+        canvas[:, min(width_in_pixels, RIGHT + margin_X):] = 255
+        canvas[min(height_in_pixels, BOTTOM + margin_Y):, :] = 255
         for drywall_polygon in drywall_polygons:
             canvas_to_overlay = canvas.copy()
             cv2.fillPoly(canvas_to_overlay, pts=[drywall_polygon], color=(0, 0, 255))
@@ -1797,6 +1805,7 @@ class FloorPlan2D(FloorPlan):
         polygon_vertices_external=None
     ):
         scale_x, scale_y = scale
+        drywall_skus = [drywall_template["sku_variant"] for drywall_template in self._drywall_templates]
         for wall in walls_2d[:]:
             if impute_drywall_disabled and len(wall["polygons_drywall"]) == 2:
                 if not wall["polygons_drywall"][0]["enabled"] or not wall["polygons_drywall"][1]["enabled"]:
@@ -1860,6 +1869,11 @@ class FloorPlan2D(FloorPlan):
                     continue
             if len(wall["polygons_drywall"]) == 2 and wall["polygons_drywall"][0]["polygon"] != wall["polygons_drywall"][1]["polygon"]:
                 continue
+            for polygon_drywall in wall["polygons_drywall"]:
+                if polygon_drywall["type"] != "DISABLED" and polygon_drywall["type"] not in drywall_skus:
+                    skus_levenshtein = list(map(lambda drywall_sku: Levenshtein.distance(polygon_drywall["type"], drywall_sku), drywall_skus))
+                    target_sku_index = skus_levenshtein.index(min(skus_levenshtein))
+                    polygon_drywall["type"] = drywall_skus[target_sku_index]
             wall_line_vertices = wall["wall_line"]
             X1, Y1, X2, Y2 = wall_line_vertices[0]['x'], wall_line_vertices[0]['y'], wall_line_vertices[1]['x'], wall_line_vertices[1]['y']
             orientation = self.classify_line(round(X1 / scale_x), round(Y1 / scale_y), round(X2 / scale_x), round(Y2 / scale_y))
