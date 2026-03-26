@@ -11,6 +11,7 @@ import google.auth.transport.requests
 from google.oauth2.service_account import IDTokenCredentials
 from google.cloud import secretmanager
 
+from preprocessing import preprocess
 from modeller_2d import FloorPlan2D
 from helper import (
     enable_logging_on_stdout,
@@ -24,6 +25,7 @@ from helper import (
     load_templates,
     load_section_from_page,
     apply_pixel_margin_to_bounding_box,
+    classify_plan,
 )
 
 
@@ -75,6 +77,7 @@ def page_to_structured_2d(
     plan_id,
     user_id,
     page_number,
+    page_sections,
     page_section_number,
     wall_segmented_path,
     floor_plan_processed_path,
@@ -129,6 +132,7 @@ def page_to_structured_2d(
         dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
         floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale),
         page_number,
+        page_sections,
         page_section_number,
         plan_id,
         user_id,
@@ -138,6 +142,13 @@ def page_to_structured_2d(
         credentials,
     )
     logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} and SECTION: {page_section_number} Generated Successfully")
+
+
+def floorplan_to_page(credentials, project_id, plan_id, client_ip_address, pdf_path, page_number):
+    floor_plan_path_preprocessed = preprocess(pdf_path, page_number)
+    plan_type = classify_plan(credentials, client_ip_address, floor_plan_path_preprocessed)
+    upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, credentials, index=str(page_number).zfill(2))
+    return floor_plan_path_preprocessed, plan_type
 
 
 app = FastAPI(title="Floorplan-to-Structured-2D (Cloud Run)")
@@ -165,13 +176,30 @@ async def floorplan_to_structured_2d(request: Request):
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     page_number = parameters.get("page_number") or body.get("page_number")
-    mask = parameters.get("mask") or body.get("mask")
-    bounding_box_offsets = parameters.get("bounding_box_offsets") or body.get("bounding_box_offsets")
     verbose = parameters.get("verbose") or body.get("verbose")
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
 
-    floor_plan_processed_path = download_floorplan(user_id, plan_id, project_id, CREDENTIALS, str(page_number).zfill(2))
-    logging.info(f"SYSTEM: Processed Floorplan Downloaded: Page Number: {page_number}")
+    pdf_path = download_floorplan(user_id, plan_id, project_id, CREDENTIALS)
+    logging.info("SYSTEM: Floorplan Downloaded for extraction")
+
+    ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
+    floor_plan_processed_path, plan_type = floorplan_to_page(CREDENTIALS, project_id, plan_id, ip_address, pdf_path, page_number)
+    if plan_type["plan_type"].upper().find("FLOOR") == -1:
+        insert_model_2d(
+            dict(walls_2d=list(), polygons=list(), metadata=dict()),
+            FloorPlan2D.normalize_scale("0.25``:1`0``"),
+            page_number,
+            0,
+            '',
+            plan_id,
+            user_id,
+            project_id,
+            '',
+            bigquery_client,
+            CREDENTIALS,
+        )
+        return respond_with_UI_payload(dict(status="FAILED", message="Not a Floor Plan"))
+    logging.info(f"SYSTEM: Floorplan Preprocessing Completed: Page Number: {page_number}")
 
     hyperparameters = load_hyperparameters()
 
@@ -184,7 +212,7 @@ async def floorplan_to_structured_2d(request: Request):
             plan_id,
             user_id,
             page_number,
-            mask,
+            plan_type["mask_factor"],
             output_path=f"/tmp/{project_id}/{plan_id}/{user_id}/floor_plan_wall_segmented_{str(page_number).zfill(2)}.png"
         )
         futures["transcriber"] = executor.submit(
@@ -205,10 +233,9 @@ async def floorplan_to_structured_2d(request: Request):
         floorplan_baseline, floorplan_page_statistics = FloorPlan2D.scale_to(floor_plan_path=floor_plan_processed_path)
         floorplan_baseline_page_source = upload_floorplan(floorplan_baseline, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
         futures = list()
-        ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
         vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES)
         with ThreadPoolExecutor(max_workers=2) as executor:
-            for bounding_box_offset in bounding_box_offsets:
+            for bounding_box_offset in plan_type["bounding_box_offsets"]:
                 logging.info(f"SYSTEM: Extracting structured model from SECTION: {bounding_box_offset["title"]} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
                 floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES)
                 floor_plan_modeller_2d.from_vertex_ai_clients(*vertex_ai_clients)
@@ -221,6 +248,7 @@ async def floorplan_to_structured_2d(request: Request):
                         plan_id,
                         user_id,
                         page_number,
+                        len(plan_type["bounding_box_offsets"]),
                         bounding_box_offset["title"],
                         wall_segmented_path,
                         floor_plan_processed_path,
@@ -233,3 +261,4 @@ async def floorplan_to_structured_2d(request: Request):
                     )
                 )
             [future.result() for future in futures]
+    return respond_with_UI_payload(dict(status="SUCCESS", message="Floor Plan extraction completed"))
