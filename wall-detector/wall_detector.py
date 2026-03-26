@@ -52,14 +52,10 @@ class WallDetector:
             image = np.array(image_detected)
             mask_height_factor = mask_offset["vertical"]
             mask_width_factor = mask_offset["horizontal"]
-            if mask_height_factor > 0.01:
-                mask_height_factor -= 0.01
-            if mask_width_factor > 0.01:
-                mask_width_factor -= 0.01
-            if mask_width_factor > 0:
-                image[:, -round(width_original * mask_width_factor):] = 255
-            if mask_height_factor > 0:
-                image[-round(height_original * mask_height_factor):, :] = 255
+            mask_height_factor = max(0, mask_height_factor - 0.01)
+            mask_width_factor = max(0, mask_width_factor - 0.01)
+            image[:, -round(width_original * mask_width_factor):] = 255
+            image[-round(height_original * mask_height_factor):, :] = 255
             image_detected = Image.fromarray(image)
             image_detected = image_detected.resize((width, height))
         return image_detected
