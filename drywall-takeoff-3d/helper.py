@@ -2,21 +2,11 @@ import json
 import logging
 import hashlib
 from pathlib import Path
-import cv2
-from time import sleep
-from random import uniform
-import math
 
-import geoip2.database as geoip2_database
 from google.cloud import bigquery
 from google.cloud.storage import Client as CloudStorageClient
 import google.auth.transport.requests
 from google.oauth2.service_account import IDTokenCredentials
-import vertexai
-from vertexai.generative_models import GenerativeModel, Part, Content
-from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, DeadlineExceeded
-
-from prompt import ARCHITECTURAL_DRAWING_CLASSIFIER, ArchitecturalDrawingClassifierResponse
 
 
 def load_bigquery_client(credentials):
