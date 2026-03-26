@@ -12,8 +12,11 @@ vertexai==1.43.0
 google-auth
 google-oauth
 pathlib
+pypdf
+pdf2image
 pdf2image
 pydantic
+python-Levenshtein
 python-multipart
 scikit-image
 opencv-python
