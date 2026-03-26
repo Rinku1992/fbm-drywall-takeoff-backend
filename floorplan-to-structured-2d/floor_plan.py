@@ -10,6 +10,20 @@ __all__ = ["FloorPlan"]
 
 class FloorPlan:
 
+    scales_architectural = [
+        "3/64``=1`0``",
+        "1/32``=1`0``",
+        "1/16``=1`0``",
+        "3/32``=1`0``",
+        "1/8``=1`0``",
+        "3/16``=1`0``",
+        "1/4``=1`0``",
+        "3/8``=1`0``",
+        "1/2``=1`0``",
+        "3/4``=1`0``",
+        "1``=1`0``"
+    ]
+
     def __init__(self, hyperparameters):
         self.hyperparameters = hyperparameters
         self.tolerance_angle = self.hyperparameters["modelling"]["tolerance_angle"]
@@ -28,25 +42,10 @@ class FloorPlan:
     def is_none(cls, image_path):
         return cv2.imread(image_path) is None
 
-    @property
-    def scales_architectural(self):
-        return [
-            "3/64``=1`0``",
-            "1/32``=1`0``",
-            "1/16``=1`0``",
-            "3/32``=1`0``",
-            "1/8``=1`0``",
-            "3/16``=1`0``",
-            "1/4``=1`0``",
-            "3/8``=1`0``",
-            "1/2``=1`0``",
-            "3/4``=1`0``",
-            "1``=1`0``"
-        ]
-
-    def normalize_scale(self, scale):
+    @classmethod
+    def normalize_scale(cls, scale):
         scale_on_paper_length = round(float(scale.split(':')[0].strip('`')), 2)
-        for scale_architecture in self.scales_architectural:
+        for scale_architecture in cls.scales_architectural:
             if round(float(Fraction(scale_architecture.split('=')[0].strip('`'))), 2) == scale_on_paper_length:
                 return scale_architecture
 
