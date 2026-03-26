@@ -28,8 +28,8 @@ from google.cloud import secretmanager
 import pandas as pd
 import numpy as np
 import math
+from pdf2image.pdf2image import pdfinfo_from_path
 
-from preprocessing import preprocess
 from extrapolate_3d import Extrapolate3D
 from helper import (
     load_bigquery_client,
@@ -40,8 +40,6 @@ from helper import (
     is_duplicate,
     delete_plan,
     load_floorplan_to_structured_2d_ID_token,
-    load_vertex_ai_client,
-    classify_plan,
     load_templates,
     query_drywall,
 )
@@ -527,12 +525,12 @@ def insert_project(payload_project, bigquery_client, credentials):
     return created_at
 
 
-def floorplan_to_structured_2d(credentials, id_token, project_id, plan_id, user_id, page_number, mask_factor, bounding_box_offsets):
+def floorplan_to_structured_2d(credentials, id_token, project_id, plan_id, user_id, page_number):
     headers = {
         "Authorization": f"Bearer {id_token}",
         "Content-Type": "application/json"
     }
-    requests.post(
+    response = requests.post(
         f"{credentials["CloudRun"]["APIs"]["floorplan_to_structured_2d"]}/floorplan_to_structured_2d",
         headers=headers,
         json=dict(
@@ -540,10 +538,9 @@ def floorplan_to_structured_2d(credentials, id_token, project_id, plan_id, user_
             plan_id=plan_id,
             user_id=user_id,
             page_number=page_number,
-            mask=mask_factor,
-            bounding_box_offsets=bounding_box_offsets,
-        )
+        ),
     )
+    return response.raise_for_status()
 
 
 def load_UI_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -797,7 +794,7 @@ async def floorplan_to_2d(request: Request):
         blob.delete()
 
     size_in_bytes = Path(pdf_path).stat().st_size
-    floor_plan_paths_vector, floor_plan_paths_preprocessed = preprocess(pdf_path)
+    n_pages = pdfinfo_from_path(pdf_path)["Pages"]
     insert_plan(
         project_id,
         user_id,
@@ -807,69 +804,56 @@ async def floorplan_to_2d(request: Request):
         plan_id=plan_id,
         size_in_bytes=size_in_bytes,
         GCS_URL_floorplan=GCS_URL_floorplan,
-        n_pages=len(floor_plan_paths_preprocessed),
+        n_pages=n_pages,
     )
-    logging.info("SYSTEM: Floorplan Preprocessing Completed")
 
     walls_2d_all = dict(pages=list())
     status = "COMPLETED"
-    vertex_ai_client, generation_config = load_vertex_ai_client(CREDENTIALS, request)
-    vertex_ai_client_parameters = (vertex_ai_client, generation_config, CREDENTIALS["VertexAI"]["llm"]["max_retry"])
     try:
-        id_token = load_floorplan_to_structured_2d_ID_token(CREDENTIALS)
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            futures = list()
-            floorplan_baseline_page_sources = list()
-            floorplan_page_sources = list()
-            plan_types = list()
-            for index, (floor_plan_vector, floor_plan_path) in enumerate(zip(floor_plan_paths_vector, floor_plan_paths_preprocessed)):
-                plan_type = classify_plan(floor_plan_path, vertex_ai_client_parameters)
-                plan_types.append(plan_type)
-                floorplan_baseline_page_source = upload_floorplan(floor_plan_vector, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
-                floorplan_baseline_page_sources.append(floorplan_baseline_page_source)
-                floorplan_page_source = upload_floorplan(floor_plan_path, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
-                floorplan_page_sources.append(floorplan_page_source)
-                if plan_type["plan_type"].upper().find("FLOOR") == -1:
-                    continue
-                futures.append(
-                    executor.submit(
-                        floorplan_to_structured_2d,
-                        CREDENTIALS,
-                        id_token,
-                        project_id,
-                        plan_id,
-                        user_id,
-                        index,
-                        plan_type["mask_factor"],
-                        plan_type["bounding_box_offsets"],
-                    )
+        with ThreadPoolExecutor(max_workers=50) as executor:
+            for page_number in range(n_pages):
+                id_token = load_floorplan_to_structured_2d_ID_token(CREDENTIALS)
+                executor.submit(
+                    floorplan_to_structured_2d,
+                    CREDENTIALS,
+                    id_token,
+                    project_id,
+                    plan_id,
+                    user_id,
+                    page_number,
                 )
-            for page_number, (plan_type, _, floorplan_page_source) in enumerate(zip(plan_types, floorplan_baseline_page_sources, floorplan_page_sources)):
-                if plan_type["plan_type"].upper().find("FLOOR") == -1:
-                    continue
+            for page_number in range(n_pages):
                 timeout = from_unix_epoch() + 3600
-                page_sections = len(plan_type["bounding_box_offsets"])
                 while from_unix_epoch() < timeout:
                     GBQ_query = f"SELECT COUNT(*) AS n_counts FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
                     query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
-                    if query_output.n_counts == page_sections:
+                    if query_output.n_counts:
                         break
                     sleep(2)
-                GBQ_query = f"SELECT model_2d, scale FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
-                query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())
-                for page_section_index in range(page_sections):
-                    walls_2d = json.loads(query_output[page_section_index].model_2d) if isinstance(query_output[page_section_index].model_2d, str) else query_output[page_section_index].model_2d
-                    if not walls_2d.get("polygons", None) or not walls_2d.get("walls_2d", None):
-                        GBQ_query = f"DELETE FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number} AND page_section_number = '{plan_type["bounding_box_offsets"][page_section_index]["title"]}';"
+                GBQ_query = f"SELECT DISTINCT(page_sections) FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+                query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
+                page_sections = query_output.page_sections
+                if page_sections:
+                    while from_unix_epoch() < timeout:
+                        GBQ_query = f"SELECT COUNT(*) AS n_counts FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+                        query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
+                        if query_output.n_counts == page_sections:
+                            break
+                        sleep(2)
+
+                GBQ_query = f"SELECT page_section_number, model_2d, scale FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+                query_output_sections = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())
+                for query_output in query_output_sections:
+                    walls_2d = json.loads(query_output.model_2d) if isinstance(query_output.model_2d, str) else query_output.model_2d
+                    if not walls_2d["polygons"] or not walls_2d["walls_2d"]:
+                        GBQ_query = f"DELETE FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number} AND page_section_number = '{query_output.page_section_number}';"
                         bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()
                         continue
-                    GBQ_query = f"UPDATE `{CREDENTIALS["GBQServer"]["table_name_models"]}` SET source = '{floorplan_page_source}' WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number} AND page_section_number = '{plan_type["bounding_box_offsets"][page_section_index]["title"]}';"
-                    bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()
                     page = dict(
                         plan_id=plan_id,
                         page_number=page_number,
-                        page_section_number=plan_type["bounding_box_offsets"][page_section_index]["title"],
-                        scale=query_output[page_section_index].scale,
+                        page_section_number=query_output.page_section_number,
+                        scale=query_output.scale,
                         walls_2d=walls_2d["walls_2d"],
                         polygons=walls_2d["polygons"],
                         **walls_2d["metadata"]
@@ -887,7 +871,7 @@ async def floorplan_to_2d(request: Request):
         plan_id=plan_id,
         size_in_bytes=size_in_bytes,
         GCS_URL_floorplan=GCS_URL_floorplan,
-        n_pages=len(floor_plan_paths_preprocessed),
+        n_pages=n_pages,
     )
 
     with open("/tmp/floorplan_structured_2d.json", 'w') as f:
@@ -1118,7 +1102,7 @@ async def floorplan_to_3d(request: Request):
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     scale = parameters.get("scale") or body.get("scale")
     index = parameters.get("page_number") or body.get("page_number")
-    page_section_number = parameters.get("page_section_number", 'I') or body.get("page_section_number", 'I')
+    page_section_number = parameters.get("page_section_number") or body.get("page_section_number")
     logging.info("SYSTEM: Received a Floorplan 3D Model Generation Request")
 
     model_2d_path = "/tmp/walls_2d.json"
