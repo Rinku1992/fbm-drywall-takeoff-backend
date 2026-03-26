@@ -1,3 +1,4 @@
+import logging
 from diffusers import StableDiffusionControlNetPipeline, ControlNetModel
 import torch
 from PIL import Image
@@ -46,6 +47,7 @@ class WallDetector:
         image_detected = Image.fromarray(np.uint8((I > 127) * 255))
 
         if mask_offset:
+            logging.info(f"SYSTEM: Masking segmented image with Offset: {mask_offset}")
             image_detected = image_detected.resize((width_original, height_original))
             image = np.array(image_detected)
             mask_height_factor = mask_offset["vertical"]
