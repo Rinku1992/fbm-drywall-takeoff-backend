@@ -517,7 +517,7 @@ class FloorPlan2D(FloorPlan):
         edges = cv2.erode(edges, kernel, iterations=1)
 
         floor_plan_topology_binary = self._load_topology(edges)
-        lines = self.detect_lines(edges, offset, scale, floor_plan_path)
+        lines = self.detect_lines(edges, offset=offset, scale=scale, floor_plan_path=floor_plan_path)
         if lines is not None:
             lines = self._jagged_to_smooth_lines_deterministic(lines)
             lines = self._close_jagged_openings(lines)
