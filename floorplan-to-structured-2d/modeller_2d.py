@@ -506,7 +506,7 @@ class FloorPlan2D(FloorPlan):
 
         return floor_plan_topology_binary
 
-    def _preprocessing(self, image_BGR, floor_plan_path, scale, max_split=5):
+    def _preprocessing(self, image_BGR, floor_plan_path, offset, scale, max_split=5):
         _, thresh = cv2.threshold(image_BGR, 50, 255, cv2.THRESH_BINARY_INV)
 
         edges_thinned = self._thin_edges(thresh)
@@ -517,8 +517,7 @@ class FloorPlan2D(FloorPlan):
         edges = cv2.erode(edges, kernel, iterations=1)
 
         floor_plan_topology_binary = self._load_topology(edges)
-        lines = self.detect_lines(edges)
-        lines = self.normalize(lines)
+        lines = self.detect_lines(edges, offset, scale, floor_plan_path)
         if lines is not None:
             lines = self._jagged_to_smooth_lines_deterministic(lines)
             lines = self._close_jagged_openings(lines)
@@ -1028,10 +1027,11 @@ class FloorPlan2D(FloorPlan):
 
         return canvas
 
-    def _patch_to_line(self, patch_GRAY, floor_plan_path, scale):
+    def _patch_to_line(self, patch_GRAY, floor_plan_path, offset, scale):
         lines = self._preprocessing(
             patch_GRAY,
             floor_plan_path,
+            offset,
             scale,
         )
         if lines is None:
@@ -1105,7 +1105,7 @@ class FloorPlan2D(FloorPlan):
         canvas = cv2.imread(floor_plan_path)
         height_in_pixels, width_in_pixels, _ = canvas.shape
         (offset_top_left_X, offset_top_left_Y), (offset_bottom_right_X, offset_bottom_right_Y) = offset
-        margin_X, margin_Y = 2 * round(width_in_pixels / 1920), 2 * round(height_in_pixels / 1080)
+        margin_X, margin_Y = 10 * round(width_in_pixels / 1920), 10 * round(height_in_pixels / 1080)
         LEFT = round(offset_top_left_X * width_in_pixels)
         TOP = round(offset_top_left_Y * height_in_pixels)
         BOTTOM = round(offset_bottom_right_Y * height_in_pixels)
@@ -2421,7 +2421,7 @@ class FloorPlan2D(FloorPlan):
                 canvas.copy()[:, -round(width / 3):],
             ]
         )["ceiling_height"]
-        wall_lines = self._patch_to_line(image_GRAY, floor_plan_path, (scale_x, scale_y))
+        wall_lines = self._patch_to_line(image_GRAY, floor_plan_path, offset, (scale_x, scale_y))
         if not wall_lines:
             return None, None, None, None
         polygons, polygons_perimeter_walls, external_contour = self.polygonize(wall_lines)
