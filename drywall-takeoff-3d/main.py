@@ -832,7 +832,7 @@ async def floorplan_to_2d(request: Request):
                     if query_output.n_counts:
                         page_extracted = True
                         break
-                    sleep(2)
+                    sleep(5)
                 if not page_extracted:
                     raise AssertionError(f"Extraction has failed for PAGE: {page_number}")
                 GBQ_query = f"SELECT DISTINCT(page_sections) FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
@@ -846,7 +846,7 @@ async def floorplan_to_2d(request: Request):
                         if query_output.n_counts == page_sections:
                             sections_extracted = True
                             break
-                        sleep(2)
+                        sleep(5)
                     if not sections_extracted:
                         raise AssertionError(f"Section extraction has failed for PAGE: {page_number}")
 
@@ -966,7 +966,7 @@ async def load_2d_all(request: Request):
                 break
         except IndexError:
             return respond_with_UI_payload(dict(error="Floor Plan does not exist"), status_code=500)
-        sleep(2)
+        sleep(5)
     if status != "COMPLETED":
         return respond_with_UI_payload(dict(error="Floor Plan extraction not completed within 15 minutes"), status_code=500)
 
@@ -1283,7 +1283,7 @@ async def generate_drywall_overlaid_floorplan_download_signed_URL(request: Reque
                 break
         except IndexError:
             return respond_with_UI_payload(dict(error="Floor Plan does not exist"), status_code=500)
-        sleep(2)
+        sleep(5)
     if status != "COMPLETED":
         return respond_with_UI_payload(dict(error="Floor Plan extraction not completed within 15 minutes"), status_code=500)
 
