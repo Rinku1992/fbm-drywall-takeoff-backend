@@ -108,6 +108,7 @@ def page_to_structured_2d(
     if walls_2d and polygons:
         floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons)
         floor_plan_modeller_2d.load_ceiling_choices(polygons)
+        floor_plan_modeller_2d.load_wall_choices(walls_2d)
         #if verbose.upper() == "TRUE":
         #model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path)
         #model_2d_path_sectioned = model_2d_path.parent.joinpath(f"{model_2d_path.stem}_sectioned_{page_section_number}").with_suffix(".png")
