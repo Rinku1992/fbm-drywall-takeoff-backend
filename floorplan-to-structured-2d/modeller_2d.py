@@ -26,6 +26,7 @@ from prompt import (
     WALL_RECTIFIER,
     SHAPE_RECTIFIER,
     CEILING_CHOICES,
+    WALL_CHOICES,
     DrywallPredictorCaliforniaResponse,
     ScaleAndCeilingHeightDetectorResponse,
     WallRectifierResponse,
@@ -2149,6 +2150,10 @@ class FloorPlan2D(FloorPlan):
     def load_ceiling_choices(self, polygons_2d_JSON):
         for polygon in polygons_2d_JSON:
             polygon["type_choices"] = CEILING_CHOICES
+
+    def load_wall_choices(self, walls_2d_JSON):
+        for wall in walls_2d_JSON:
+            wall["type_choices"] = WALL_CHOICES
 
     def _load_missing_polygons(self, walls_2d, scale, polygons_neighbor, floor_plan_path, offset):
         def load_wall_payload(wall_line):
