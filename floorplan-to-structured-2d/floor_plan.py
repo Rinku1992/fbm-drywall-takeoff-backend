@@ -69,11 +69,33 @@ class FloorPlan:
 
         return pixel_aspect_ratio_new
 
-    def detect_lines(self, image_GRAY):
+    def detect_lines(self, image_GRAY, offset=None, scale=None, floor_plan_path=None):
         lines = cv2.HoughLinesP(
             image_GRAY,
             **self.hyperparameters["modelling"]["HoughLinesTransformation"]
         )
+        lines = self.normalize(lines)
+        if offset and lines is not None:
+            canvas = cv2.imread(floor_plan_path)
+            height_in_pixels, width_in_pixels, _ = canvas.shape
+            margin_X, margin_Y = 15 * round(width_in_pixels / 1920), 15 * round(height_in_pixels / 1080)
+            (offset_top_left_X, offset_top_left_Y), (offset_bottom_right_X, offset_bottom_right_Y) = offset
+            LEFT = round(offset_top_left_X * width_in_pixels)
+            TOP = round(offset_top_left_Y * height_in_pixels)
+            BOTTOM = round(offset_bottom_right_Y * height_in_pixels)
+            RIGHT = round(offset_bottom_right_X * width_in_pixels)
+            LEFT_x = max(0, LEFT - margin_X)
+            TOP_y = max(0, TOP - margin_Y)
+            RIGHT_x = min(width_in_pixels, RIGHT + margin_X)
+            BOTTOM_y = min(height_in_pixels, BOTTOM + margin_Y)
+            lines_offset_bound = list()
+            scale_x, scale_y = scale
+            for line in lines:
+                X1, Y1, X2, Y2 = line[0]
+                X1_normalized, Y1_normalized, X2_normalized, Y2_normalized = round(scale_x * X1), round(scale_y * Y1), round(scale_x * X2), round(scale_y * Y2)
+                if X1_normalized >= LEFT_x and Y1_normalized >= TOP_y and X2_normalized <= RIGHT_x and Y2_normalized <= BOTTOM_y:
+                    lines_offset_bound.append(line)
+            return lines_offset_bound
         return lines
 
     def image_to_patches(self, image):
