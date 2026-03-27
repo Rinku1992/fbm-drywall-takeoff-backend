@@ -834,7 +834,7 @@ async def floorplan_to_2d(request: Request):
                         break
                     sleep(2)
                 if not page_extracted:
-                    raise AssertionError("Extraction has failed for PAGE: {page_number}")
+                    raise AssertionError(f"Extraction has failed for PAGE: {page_number}")
                 GBQ_query = f"SELECT DISTINCT(page_sections) FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
                 query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
                 page_sections = query_output.page_sections
@@ -848,7 +848,7 @@ async def floorplan_to_2d(request: Request):
                             break
                         sleep(2)
                     if not sections_extracted:
-                        raise AssertionError("Section extraction has failed for PAGE: {page_number}")
+                        raise AssertionError(f"Section extraction has failed for PAGE: {page_number}")
 
                 GBQ_query = f"SELECT page_section_number, model_2d, scale FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
                 query_output_sections = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())
