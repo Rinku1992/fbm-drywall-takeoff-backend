@@ -198,6 +198,7 @@ async def floorplan_to_structured_2d(request: Request):
             bigquery_client,
             CREDENTIALS,
         )
+        logging.warning(f"SYSTEM: Floorplan Rejected: Page Number: {page_number}")
         return respond_with_UI_payload(dict(status="FAILED", message="Not a Floor Plan"))
     logging.info(f"SYSTEM: Floorplan Preprocessing Completed: Page Number: {page_number}")
 
@@ -229,6 +230,21 @@ async def floorplan_to_structured_2d(request: Request):
     logging.info(f"SYSTEM: Transcription Completed from PAGE: {page_number}")
 
     floorplan_baseline_page_source = None
+    if FloorPlan2D.is_none(wall_segmented_path):
+        insert_model_2d(
+            dict(walls_2d=list(), polygons=list(), metadata=dict()),
+            FloorPlan2D.normalize_scale("0.25``:1`0``"),
+            page_number,
+            0,
+            '',
+            plan_id,
+            user_id,
+            project_id,
+            '',
+            bigquery_client,
+            CREDENTIALS,
+        )
+        logging.error(f"SYSTEM: Floorplan Segmentation FAILED: Page Number: {page_number}")
     if not FloorPlan2D.is_none(wall_segmented_path):
         floorplan_baseline, floorplan_page_statistics = FloorPlan2D.scale_to(floor_plan_path=floor_plan_processed_path)
         floorplan_baseline_page_source = upload_floorplan(floorplan_baseline, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
