@@ -29,6 +29,7 @@ from google.cloud import secretmanager
 import pandas as pd
 import numpy as np
 import math
+from random import uniform
 from pdf2image.pdf2image import pdfinfo_from_path
 
 from extrapolate_3d import Extrapolate3D
@@ -826,13 +827,15 @@ async def floorplan_to_2d(request: Request):
             for page_number in range(n_pages):
                 timeout = from_unix_epoch() + 3600
                 page_extracted = False
+                sleep_time = 1
                 while from_unix_epoch() < timeout:
                     GBQ_query = f"SELECT COUNT(*) AS n_counts FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
                     query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
                     if query_output.n_counts:
                         page_extracted = True
                         break
-                    sleep(5)
+                    sleep(sleep_time + uniform(0, 0.5))
+                    sleep_time = min(sleep_time * 2, 30)
                 if not page_extracted:
                     raise AssertionError(f"Extraction has failed for PAGE: {page_number}")
                 GBQ_query = f"SELECT DISTINCT(page_sections) FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
@@ -846,7 +849,8 @@ async def floorplan_to_2d(request: Request):
                         if query_output.n_counts == page_sections:
                             sections_extracted = True
                             break
-                        sleep(5)
+                        sleep(sleep_time + uniform(0, 0.5))
+                        sleep_time = min(sleep_time * 2, 30)
                     if not sections_extracted:
                         raise AssertionError(f"Section extraction has failed for PAGE: {page_number}")
 
