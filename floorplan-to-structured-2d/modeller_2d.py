@@ -1047,19 +1047,31 @@ class FloorPlan2D(FloorPlan):
     def scale(self):
         return self._scale
 
-    def _load_ceiling_height_and_scale(self, cropped_plans_BGR):
+    def _load_ceiling_height_and_scale(self, offset, plan_BGR):
         def normalize_scale(scale):
             if scale.find(':') != -1:
                 on_paper, real_world = scale.split(':')
             if scale.find('=') != -1:
                 on_paper, real_world = scale.split('=')
             return f"{round(float(Fraction(on_paper.strip('`"'))), 2)}``:{real_world}"
-        parts = list()
-        for cropped_plan_BGR in cropped_plans_BGR:
-            _, canvas_buffer_array = cv2.imencode(".png", cropped_plan_BGR)
-            bytes_canvas = canvas_buffer_array.tobytes()
-            parts.append(Part.from_data(data=bytes_canvas, mime_type="image/png"))
-        query = Content(role="user", parts=parts)
+
+        height_in_pixels, width_in_pixels, _ = plan_BGR.shape
+        (offset_top_left_X, offset_top_left_Y), (offset_bottom_right_X, offset_bottom_right_Y) = offset
+        margin_X, margin_Y = 10 * round(width_in_pixels / 1920), 10 * round(height_in_pixels / 1080)
+        LEFT = round(offset_top_left_X * width_in_pixels)
+        TOP = round(offset_top_left_Y * height_in_pixels)
+        BOTTOM = round(offset_bottom_right_Y * height_in_pixels)
+        RIGHT = round(offset_bottom_right_X * width_in_pixels)
+        canvas = cv2.rectangle(
+            plan_BGR,
+            (max(0, LEFT - margin_X), max(0, TOP - margin_Y)),
+            (min(width_in_pixels, RIGHT + margin_X), min(height_in_pixels, BOTTOM + margin_Y)),
+            (0, 255, 0),
+            10
+        )
+        _, canvas_buffer_array = cv2.imencode(".png", canvas)
+        bytes_canvas = canvas_buffer_array.tobytes()
+        query = Content(role="user", parts=[Part.from_data(data=bytes_canvas, mime_type="image/png")])
         try:
             if self._is_cached["SCALE_AND_CEILING_HEIGHT_DETECTOR"]:
                 response, ceiling_height_and_scale = phoenix_call(
