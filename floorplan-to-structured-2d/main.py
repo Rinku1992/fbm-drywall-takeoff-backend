@@ -53,6 +53,7 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, m
         "Content-Type": "application/json"
     }
 
+    content = b''
     for _ in range(max_retry):
         try:
             response = requests.post(
@@ -66,6 +67,7 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, m
                     mask=mask
                 )
             )
+            content = response.content
             if response.status_code == 200:
                 break
         except ConnectionError as e:
@@ -76,7 +78,7 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, m
     if not output_path:
         output_path  = Path("/tmp/floor_plan_wall_segmented.png")
     with open(output_path, "wb") as f:
-        f.write(response.content)
+        f.write(content)
     return Path(output_path)
 
 
