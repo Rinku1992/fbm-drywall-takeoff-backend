@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 import json
 import requests
+from requests.exceptions import ConnectionError
 from time import sleep
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -53,21 +54,24 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, m
     }
 
     for _ in range(max_retry):
-        response = requests.post(
-            f"{credentials["CloudRun"]["APIs"]["wall_detector"]}/detect_wall",
-            headers=headers,
-            json=dict(
-                project_id=project_id,
-                plan_id=plan_id,
-                user_id=user_id,
-                page_number=page_number,
-                mask=mask
+        try:
+            response = requests.post(
+                f"{credentials["CloudRun"]["APIs"]["wall_detector"]}/detect_wall",
+                headers=headers,
+                json=dict(
+                    project_id=project_id,
+                    plan_id=plan_id,
+                    user_id=user_id,
+                    page_number=page_number,
+                    mask=mask
+                )
             )
-        )
-        if response.status_code == 200:
-            break
-        else:
-            sleep(30)
+            if response.status_code == 200:
+                break
+        except ConnectionError as e:
+            logging.warning(f"SYSTEM: Wall Segmentation failed with error: {e}")
+            logging.warning("SYSTEM: RETRYING ...")
+        sleep(30)
 
     if not output_path:
         output_path  = Path("/tmp/floor_plan_wall_segmented.png")
