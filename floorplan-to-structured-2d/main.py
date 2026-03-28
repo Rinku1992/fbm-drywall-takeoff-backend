@@ -65,7 +65,8 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, m
                     user_id=user_id,
                     page_number=page_number,
                     mask=mask
-                )
+                ),
+                timeout=3600
             )
             content = response.content
             if response.status_code == 200:
