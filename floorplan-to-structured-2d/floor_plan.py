@@ -162,11 +162,11 @@ class FloorPlan:
         normalized_lines = list()
         for line in lines:
             X1, Y1, X2, Y2 = line[0]
-            distance_coord_0 = np.hypot(X1 - 0, Y1 - 0)
-            distance_coord_1 = np.hypot(X2 - 0, Y2 - 0)
-            if distance_coord_0 <= distance_coord_1 and [[X1, Y1, X2, Y2]] not in normalized_lines:
+            distance_origin_A = np.hypot(X1 - 0, Y1 - 0)
+            distance_origin_B = np.hypot(X2 - 0, Y2 - 0)
+            if distance_origin_A <= distance_origin_B and [[X1, Y1, X2, Y2]] not in normalized_lines:
                 normalized_lines.append([[X1, Y1, X2, Y2]]) 
-            elif distance_coord_0 > distance_coord_1 and [[X2, Y2, X1, Y1]] not in normalized_lines:
+            elif distance_origin_A > distance_origin_B and [[X2, Y2, X1, Y1]] not in normalized_lines:
                 normalized_lines.append([[X2, Y2, X1, Y1]])
         return normalized_lines
 
