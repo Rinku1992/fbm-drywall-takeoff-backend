@@ -2429,11 +2429,7 @@ class FloorPlan2D(FloorPlan):
         height, width, _ = canvas.shape
         scale_x = width / 1920
         scale_y = height / 1080
-        height_default = self._load_ceiling_height_and_scale(
-            [
-                canvas.copy()[-round(height / 3):, :],
-                canvas.copy()[:, -round(width / 3):],
-            ]
+        height_default = self._load_ceiling_height_and_scale(offset, canvas)["ceiling_height"]
         )["ceiling_height"]
         wall_lines = self._patch_to_line(image_GRAY, floor_plan_path, offset, (scale_x, scale_y))
         if not wall_lines:
