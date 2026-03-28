@@ -906,7 +906,7 @@ class FloorPlan2D(FloorPlan):
                             is_extended = True
                     if is_extended:
                         valid_wall_lines.append(wall_line)
-                if orientation == "vertical":
+                elif orientation == "vertical":
                     is_extended = False
                     pixel_distance_LEFT_A = np.argmin(canvas[Y1 - open_tolerance_threshold: Y1 + open_tolerance_threshold, :X1].mean(axis=0)[::-1])
                     pixel_value_LEFT_A = canvas[Y1 - open_tolerance_threshold: Y1 + open_tolerance_threshold, :X1].mean(axis=0)[::-1][np.argmin(canvas[Y1 - open_tolerance_threshold: Y1 + open_tolerance_threshold, :X1].mean(axis=0)[::-1])]
@@ -948,6 +948,8 @@ class FloorPlan2D(FloorPlan):
                             is_extended = True
                     if is_extended:
                         valid_wall_lines.append(wall_line)
+                else:
+                    valid_wall_lines.append(wall_line)
 
                 continue
             valid_wall_lines.append(wall_line)
