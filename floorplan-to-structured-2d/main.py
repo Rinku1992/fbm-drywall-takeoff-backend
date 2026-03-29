@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 import json
 import requests
-from requests.exceptions import ConnectionError
+from requests.exceptions import ConnectionError, ReadTimeout, ChunkedEncodingError
 from time import sleep
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -41,22 +41,26 @@ def respond_with_UI_payload(payload, status_code=200):
 
 
 def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, mask, output_path=None, max_retry=5):
-    auth_req = google.auth.transport.requests.Request()
-    service_account_credentials = IDTokenCredentials.from_service_account_file(
-        credentials["service_compute_account_key"],
-        target_audience=credentials["CloudRun"]["APIs"]["wall_detector"]
-    )
-    service_account_credentials.refresh(auth_req)
-    id_token = service_account_credentials.token
+    def load_headers_with_id_token():
+        auth_req = google.auth.transport.requests.Request()
+        service_account_credentials = IDTokenCredentials.from_service_account_file(
+            credentials["service_compute_account_key"],
+            target_audience=credentials["CloudRun"]["APIs"]["wall_detector"]
+        )
+        service_account_credentials.refresh(auth_req)
+        id_token = service_account_credentials.token
 
-    headers = {
-        "Authorization": f"Bearer {id_token}",
-        "Content-Type": "application/json"
-    }
+        headers = {
+            "Authorization": f"Bearer {id_token}",
+            "Content-Type": "application/json"
+        }
+        return headers
 
+    session = requests.Session()
     for index in range(max_retry):
         try:
-            response = requests.post(
+            headers = load_headers_with_id_token()
+            response = session.post(
                 f"{credentials["CloudRun"]["APIs"]["wall_detector"]}/detect_wall",
                 headers=headers,
                 json=dict(
@@ -66,17 +70,21 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, m
                     page_number=page_number,
                     mask=mask
                 ),
-                timeout=3600
+                timeout=900
             )
             if response.status_code == 200:
-                output_path = download_segmented_walls(plan_id, project_id, str(page_number).zfill(4), credentials, destination_path=output_path)
+                for _ in range(max_retry):
+                    output_path = download_segmented_walls(plan_id, project_id, str(page_number).zfill(4), credentials, destination_path=output_path)
+                    if Path(output_path).exists() and Path(output_path).stat().st_size > 0:
+                        break
+                    sleep(2)
                 break
-        except ConnectionError as e:
+        except (ConnectionError, ReadTimeout, ChunkedEncodingError) as e:
             logging.warning(f"SYSTEM: Wall Segmentation failed with error: {e}")
             logging.warning(f"SYSTEM: RETRYING({index + 1}) ...")
             with open(output_path, "wb") as f:
                 f.write(b'')
-        sleep(30)
+        sleep(min(60, 2 ** index))
 
     return Path(output_path)
 
