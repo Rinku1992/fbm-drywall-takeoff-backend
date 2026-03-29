@@ -69,7 +69,6 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, m
                 ),
                 timeout=3600
             )
-            content = response.content
             if response.status_code == 200:
                 output_path = download_segmented_walls(user_id, plan_id, project_id, credentials)
                 break
