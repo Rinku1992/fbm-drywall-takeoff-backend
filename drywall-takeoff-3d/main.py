@@ -13,6 +13,7 @@ from time import time as from_unix_epoch
 from time import sleep
 from collections import defaultdict
 import requests
+from requests.adapters import HTTPAdapter
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -811,6 +812,12 @@ async def floorplan_to_2d(request: Request):
     walls_2d_all = dict(pages=list())
     status = "COMPLETED"
     session = requests.Session()
+    adapter = HTTPAdapter(
+    pool_connections=n_pages,
+    pool_maxsize=n_pages,
+    )
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
     try:
         with ThreadPoolExecutor(max_workers=20) as executor:
             for page_number in range(n_pages):
