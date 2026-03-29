@@ -69,7 +69,7 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, m
                 timeout=3600
             )
             if response.status_code == 200:
-                output_path = download_segmented_walls(user_id, plan_id, project_id, credentials, destination_path=output_path)
+                output_path = download_segmented_walls(plan_id, project_id, page_number, credentials, destination_path=output_path)
                 break
         except ConnectionError as e:
             logging.warning(f"SYSTEM: Wall Segmentation failed with error: {e}")
