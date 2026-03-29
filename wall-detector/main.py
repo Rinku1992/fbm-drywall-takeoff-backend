@@ -34,7 +34,7 @@ def respond_with_JSON_payload(credentials, image: Image, project_id, plan_id, us
     destination_path.parent.mkdir(parents=True, exist_ok=True)
     image.save(destination_path)
 
-    gcs_bucket_URL = upload_segmented_walls(destination_path, plan_id, project_id, credentials, str(page_number).zfill(2))
+    gcs_bucket_URL = upload_segmented_walls(destination_path, plan_id, project_id, credentials, str(page_number).zfill(4))
     return JSONResponse(
         content=dict(gcs_bucket_URL=gcs_bucket_URL),
         status_code=200,
@@ -97,7 +97,7 @@ async def detect_wall(request: Request):
     hyperparameters = load_hyperparameters()
     client = CloudStorageClient()
     bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
-    blob_path = f"{project_id.lower()}/{plan_id.lower()}/{str(page_number).zfill(2)}/{CREDENTIALS["CloudStorage"]["blob_name"]}"
+    blob_path = f"{project_id.lower()}/{plan_id.lower()}/{str(page_number).zfill(4)}/{CREDENTIALS["CloudStorage"]["blob_name"]}"
     blob = bucket.blob(blob_path)
     destination_path = Path("/tmp/floor_plan.png")
     destination_path = destination_path.parent.joinpath(project_id).joinpath(plan_id).joinpath(user_id).joinpath(str(page_number)).joinpath(destination_path.name)
