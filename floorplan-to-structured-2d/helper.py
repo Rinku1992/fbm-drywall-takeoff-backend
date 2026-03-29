@@ -12,6 +12,7 @@ from random import uniform
 from PIL import Image
 import numpy as np
 import math
+import cv2
 
 import geoip2.database as geoip2_database
 import vertexai
@@ -26,7 +27,11 @@ from vertexai.generative_models import Content, Part
 from vertexai.caching import CachedContent
 
 from transcriber import Transcriber
-from prompt import FEEDBACK_GENERATOR
+from prompt import (
+    FEEDBACK_GENERATOR,
+    ARCHITECTURAL_DRAWING_CLASSIFIER,
+    ArchitecturalDrawingClassifierResponse
+)
 
 
 def load_vertex_ai_client(credentials, ip_address, prompts=None, default_region="us-central1"):
@@ -133,26 +138,26 @@ def load_hyperparameters() -> dict:
 
     return hyperparameters
 
-def download_floorplan(user_id, plan_id, project_id, credentials, index, destination_path="/tmp/floor_plan_wall_processed.png"):
+def download_floorplan(user_id, plan_id, project_id, credentials, index=None, destination_path="/tmp/floor_plan_wall_processed.png"):
     client = CloudStorageClient()
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
-    blob_path = f"{project_id.lower()}/{plan_id.lower()}/{index}/floor_plan.png"
-    blob = bucket.blob(blob_path)
+    if index:
+        blob_path = f"{project_id.lower()}/{plan_id.lower()}/{index}/floor_plan.png"
+        blob = bucket.blob(blob_path)
 
+        destination_path = Path(destination_path)
+        destination_path = destination_path.parent.joinpath(project_id).joinpath(plan_id).joinpath(user_id).joinpath(destination_path.name)
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+        blob.download_to_filename(destination_path)
+        return destination_path
+
+    destination_path="/tmp/floor_plan.PDF"
     destination_path = Path(destination_path)
     destination_path = destination_path.parent.joinpath(project_id).joinpath(plan_id).joinpath(user_id).joinpath(destination_path.name)
     destination_path.parent.mkdir(parents=True, exist_ok=True)
-    blob.download_to_filename(destination_path)
-    return destination_path
-
-def download_segmented_walls(user_id, plan_id, project_id, credentials, index, destination_path="/tmp/floor_plan_wall_segmented.png"):
-    client = CloudStorageClient()
-    bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
-    blob_path = f"{project_id.lower()}/{plan_id.lower()}/{index}/wall_detected.png"
+    blob_path = f"{project_id.lower()}/{plan_id.lower()}/floor_plan.PDF"
     blob = bucket.blob(blob_path)
 
-    destination_path = Path(destination_path)
-    destination_path.parent.mkdir(parents=True, exist_ok=True)
     blob.download_to_filename(destination_path)
     return destination_path
 
@@ -174,6 +179,7 @@ def insert_model_2d(
     model_2d,
     scale,
     page_number,
+    page_sections,
     page_section_number,
     plan_id,
     user_id,
@@ -190,6 +196,7 @@ def insert_model_2d(
             @project_id AS project_id,
             @user_id AS user_id,
             @page_number AS page_number,
+            @page_sections AS page_sections,
             @page_section_number AS page_section_number,
             @model_2d AS model_2d,
             @scale AS scale,
@@ -208,6 +215,7 @@ def insert_model_2d(
         project_id,
         user_id,
         page_number,
+        page_sections,
         page_section_number,
         scale,
         model_2d,
@@ -222,6 +230,7 @@ def insert_model_2d(
         s.project_id,
         s.user_id,
         s.page_number,
+        s.page_sections,
         s.page_section_number,
         s.scale,
         s.model_2d,
@@ -238,6 +247,7 @@ def insert_model_2d(
             bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
             bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
             bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
+            bigquery.ScalarQueryParameter("page_sections", "INT64", page_sections),
             bigquery.ScalarQueryParameter("page_section_number", "STRING", page_section_number),
             bigquery.ScalarQueryParameter("scale", "STRING", scale),
             bigquery.ScalarQueryParameter("model_2d", "JSON", model_2d),
@@ -361,3 +371,40 @@ def polygon_to_structured_2d(credentials, query_json):
         json=query_json
     )
     return response.status_code, response.content
+
+def classify_plan(credentials, client_ip_address, plan_path):
+    vertex_ai_client, vertex_ai_generation_config, is_cached = load_vertex_ai_client(
+        credentials,
+        client_ip_address,
+        prompts=[ARCHITECTURAL_DRAWING_CLASSIFIER]
+    )
+    plan_BGR = cv2.imread(plan_path)
+    _, canvas_buffer_array = cv2.imencode(".png", plan_BGR)
+    bytes_canvas = canvas_buffer_array.tobytes()
+    query = Content(role="user", parts=[
+        Part.from_data(data=bytes_canvas, mime_type="image/png")
+    ])
+    try:
+        if is_cached:
+            _, plan_type = phoenix_call(
+                lambda feedback_prompt, temperature: vertex_ai_client.generate_content(
+                    contents=[feedback_prompt, query] if feedback_prompt else [query],
+                    generation_config={**vertex_ai_generation_config, "temperature": temperature},
+                ),
+                max_retry=credentials["VertexAI"]["llm"]["max_retry"],
+                pydantic_model=ArchitecturalDrawingClassifierResponse,
+            )
+        else:
+            _, plan_type = phoenix_call(
+                lambda feedback_prompt, temperature: vertex_ai_client(ARCHITECTURAL_DRAWING_CLASSIFIER).generate_content(
+                    contents=[feedback_prompt, query] if feedback_prompt else [query],
+                    generation_config={**vertex_ai_generation_config, "temperature": temperature},
+                ),
+                max_retry=credentials["VertexAI"]["llm"]["max_retry"],
+                pydantic_model=ArchitecturalDrawingClassifierResponse,
+            )
+    except Exception as e:
+        logging.warning(f"SYSTEM: Plan Classification has failed")
+        plan_type = dict(plan_type="FLOOR_PLAN")
+
+    return plan_type
