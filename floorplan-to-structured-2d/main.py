@@ -235,7 +235,6 @@ async def floorplan_to_structured_2d(request: Request):
             floor_plan_processed_path,
         )
     wall_segmented_path = futures["floorplan_to_walls"].result()
-    upload_floorplan(wall_segmented_path, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
     logging.info(f"SYSTEM: Wall Detection Completed from PAGE: {page_number}")
 
     transcription_block_with_centroids, transcription_headers_and_footers = futures["transcriber"].result()
