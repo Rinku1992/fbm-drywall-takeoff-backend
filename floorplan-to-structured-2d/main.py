@@ -54,7 +54,7 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, m
         "Content-Type": "application/json"
     }
 
-    for _ in range(max_retry):
+    for index in range(max_retry):
         try:
             response = requests.post(
                 f"{credentials["CloudRun"]["APIs"]["wall_detector"]}/detect_wall",
@@ -73,7 +73,7 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, m
                 break
         except ConnectionError as e:
             logging.warning(f"SYSTEM: Wall Segmentation failed with error: {e}")
-            logging.warning("SYSTEM: RETRYING ...")
+            logging.warning(f"SYSTEM: RETRYING({index}) ...")
             with open(output_path, "wb") as f:
                 f.write(b'')
         sleep(30)
