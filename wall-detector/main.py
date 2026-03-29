@@ -55,7 +55,7 @@ def load_gcp_credentials() -> dict:
     yaml = YAML(typ="safe", pure=True)
     with open("gcp.yaml", 'r') as f:
         credentials = yaml.load(f)
-    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials["service_account_key"]
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials["service_account_key"]
 
     return credentials
 
