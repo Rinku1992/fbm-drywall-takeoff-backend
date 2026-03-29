@@ -15,11 +15,7 @@ from wall_detector import WallDetector
 
 def upload_segmented_walls(segmented_path, plan_id, project_id, credentials, page_number):
     client = CloudStorageClient()
-    page_number = Path(segmented_path.stem).suffix
-    if page_number:
-        blob_object_name = Path(str(segmented_path).replace(page_number, '')).name
-    else:
-        blob_object_name = segmented_path.name
+    blob_object_name = segmented_path.name
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
     blob_path = f"{project_id.lower()}/{plan_id.lower()}/{page_number}/{blob_object_name}"
     blob = bucket.blob(blob_path)
