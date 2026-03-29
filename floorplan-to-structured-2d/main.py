@@ -110,7 +110,7 @@ def page_to_structured_2d(
     walls_2d, polygons, walls_2d_path, external_contour = floor_plan_modeller_2d.model(
         bounding_box_offset_marginalized,
         image_path=wall_segmented_sectioned_path,
-        model_2d_path=f"/tmp/{project_id}/{plan_id}/{user_id}/walls_2d_{str(page_number).zfill(2)}_{str(page_section_number)}.json",
+        model_2d_path=f"/tmp/{project_id}/{plan_id}/{user_id}/walls_2d_{str(page_number).zfill(4)}_{str(page_section_number)}.json",
         floor_plan_path=floor_plan_processed_path,
         transcription_block_with_centroids=transcription_block_with_centroids,
         transcription_headers_and_footers=transcription_headers_and_footers,
@@ -124,9 +124,9 @@ def page_to_structured_2d(
         #model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path)
         #model_2d_path_sectioned = model_2d_path.parent.joinpath(f"{model_2d_path.stem}_sectioned_{page_section_number}").with_suffix(".png")
         #model_2d_path.rename(model_2d_path_sectioned)
-        #upload_floorplan(model_2d_path_sectioned, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
+        #upload_floorplan(model_2d_path_sectioned, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(4))
         #model_2d_path_overlay_enabled = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path, overlay_enabled=True)
-        #upload_floorplan(model_2d_path_overlay_enabled, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
+        #upload_floorplan(model_2d_path_overlay_enabled, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(4))
 
         metadata = dict(
             size_in_bytes=floorplan_page_statistics["size"],
@@ -159,7 +159,7 @@ def page_to_structured_2d(
 def floorplan_to_page(credentials, project_id, plan_id, client_ip_address, pdf_path, page_number):
     floor_plan_path_preprocessed = preprocess(pdf_path, page_number)
     plan_type = classify_plan(credentials, client_ip_address, floor_plan_path_preprocessed)
-    upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, credentials, index=str(page_number).zfill(2))
+    upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, credentials, index=str(page_number).zfill(4))
     return floor_plan_path_preprocessed, plan_type
 
 
@@ -226,7 +226,7 @@ async def floorplan_to_structured_2d(request: Request):
             user_id,
             page_number,
             plan_type["mask_factor"],
-            output_path=f"/tmp/{project_id}/{plan_id}/{user_id}/floor_plan_wall_segmented_{str(page_number).zfill(2)}.png"
+            output_path=f"/tmp/{project_id}/{plan_id}/{user_id}/floor_plan_wall_segmented_{str(page_number).zfill(4)}.png"
         )
         futures["transcriber"] = executor.submit(
             transcribe,
@@ -258,7 +258,7 @@ async def floorplan_to_structured_2d(request: Request):
         logging.error(f"SYSTEM: Floorplan Segmentation FAILED: Page Number: {page_number}")
     if not FloorPlan2D.is_none(wall_segmented_path):
         floorplan_baseline, floorplan_page_statistics = FloorPlan2D.scale_to(floor_plan_path=floor_plan_processed_path)
-        floorplan_baseline_page_source = upload_floorplan(floorplan_baseline, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(2))
+        floorplan_baseline_page_source = upload_floorplan(floorplan_baseline, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(4))
         futures = list()
         vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES)
         with ThreadPoolExecutor(max_workers=2) as executor:
