@@ -5,7 +5,7 @@ import logging
 from ruamel.yaml import YAML
 from PIL import Image
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from google.cloud.storage import Client as CloudStorageClient
@@ -13,16 +13,32 @@ from google.cloud.storage import Client as CloudStorageClient
 from wall_detector import WallDetector
 
 
-def respond_with_image_payload(image: Image, project_id, plan_id, user_id, index):
+def upload_semented_walls(plan_path, plan_id, project_id, credentials, page_number):
+    client = CloudStorageClient()
+    page_number = Path(plan_path.stem).suffix
+    if page_number:
+        blob_object_name = Path(str(plan_path).replace(page_number, '')).name
+    else:
+        blob_object_name = plan_path.name
+    bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
+    blob_path = f"{project_id.lower()}/{plan_id.lower()}/{page_number}/{blob_object_name}"
+    blob = bucket.blob(blob_path)
+
+    blob.upload_from_filename(plan_path)
+    return f"gs://{credentials["CloudStorage"]["bucket_name"]}/{blob_path}"
+
+
+def respond_with_JSON_payload(credentials, image: Image, project_id, plan_id, user_id, page_number):
     destination_path = Path("/tmp/wall_detected.png")
-    destination_path = destination_path.parent.joinpath(project_id).joinpath(plan_id).joinpath(user_id).joinpath(str(index)).joinpath(destination_path.name)
+    destination_path = destination_path.parent.joinpath(project_id).joinpath(plan_id).joinpath(user_id).joinpath(str(page_number)).joinpath(destination_path.name)
     destination_path.parent.mkdir(parents=True, exist_ok=True)
     image.save(destination_path)
 
-    return FileResponse(
-        destination_path,
-        media_type="image/png",
-        filename="wall_detected.png"
+    gcs_bucket_URL = upload_semented_walls(destination_path, plan_id, project_id, credentials, str(page_number).zfill(2))
+    return JSONResponse(
+        content=dict(gcs_bucket_URL=gcs_bucket_URL),
+        status_code=200,
+        media_type="application/json",
     )
 
 
@@ -74,17 +90,17 @@ async def detect_wall(request: Request):
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     user_id = parameters.get("user_id") or body.get("user_id")
-    index = parameters.get("page_number") or body.get("page_number")
+    page_number = parameters.get("page_number") or body.get("page_number")
     mask = parameters.get("mask") or body.get("mask")
     logging.info("SYSTEM: Received a Wall Detection Request")
 
     hyperparameters = load_hyperparameters()
     client = CloudStorageClient()
     bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
-    blob_path = f"{project_id.lower()}/{plan_id.lower()}/{str(index).zfill(2)}/{CREDENTIALS["CloudStorage"]["blob_name"]}"
+    blob_path = f"{project_id.lower()}/{plan_id.lower()}/{str(page_number).zfill(2)}/{CREDENTIALS["CloudStorage"]["blob_name"]}"
     blob = bucket.blob(blob_path)
     destination_path = Path("/tmp/floor_plan.png")
-    destination_path = destination_path.parent.joinpath(project_id).joinpath(plan_id).joinpath(user_id).joinpath(str(index)).joinpath(destination_path.name)
+    destination_path = destination_path.parent.joinpath(project_id).joinpath(plan_id).joinpath(user_id).joinpath(str(page_number)).joinpath(destination_path.name)
     destination_path.parent.mkdir(parents=True, exist_ok=True)
     blob.download_to_filename(destination_path)
 
@@ -95,4 +111,4 @@ async def detect_wall(request: Request):
     image = wall_detector.detect(destination_path, hyperparameters, mask_offset=mask_offset)
 
     logging.info("SYSTEM: Wall Detection Completed")
-    return respond_with_image_payload(image, project_id, plan_id, user_id, index)
+    return respond_with_JSON_payload(CREDENTIALS, image, project_id, plan_id, user_id, page_number)
