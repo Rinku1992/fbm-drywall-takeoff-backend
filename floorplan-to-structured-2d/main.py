@@ -22,6 +22,7 @@ from helper import (
     transcribe,
     upload_floorplan,
     download_floorplan,
+    download_segmented_walls,
     insert_model_2d,
     load_bigquery_client,
     load_templates,
@@ -70,6 +71,7 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, m
             )
             content = response.content
             if response.status_code == 200:
+                download_segmented_walls()
                 break
         except ConnectionError as e:
             logging.warning(f"SYSTEM: Wall Segmentation failed with error: {e}")
