@@ -105,7 +105,6 @@ def page_to_structured_2d(
     transcription_headers_and_footers,
     floorplan_page_statistics,
     floorplan_baseline_page_source,
-    verbose="False"
     ):
     floor_plan_modeller_2d.reload()
     wall_segmented_sectioned_path = load_section_from_page(
@@ -128,7 +127,6 @@ def page_to_structured_2d(
         floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons)
         floor_plan_modeller_2d.load_ceiling_choices(polygons)
         floor_plan_modeller_2d.load_wall_choices(walls_2d)
-        #if verbose.upper() == "TRUE":
         #model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path)
         #model_2d_path_sectioned = model_2d_path.parent.joinpath(f"{model_2d_path.stem}_sectioned_{page_section_number}").with_suffix(".png")
         #model_2d_path.rename(model_2d_path_sectioned)
@@ -196,7 +194,6 @@ async def floorplan_to_structured_2d(request: Request):
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     page_number = parameters.get("page_number") or body.get("page_number")
-    verbose = parameters.get("verbose") or body.get("verbose")
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
 
     pdf_path = download_floorplan(user_id, plan_id, project_id, CREDENTIALS)
@@ -292,7 +289,6 @@ async def floorplan_to_structured_2d(request: Request):
                         transcription_headers_and_footers,
                         floorplan_page_statistics,
                         floorplan_baseline_page_source,
-                        verbose,
                     )
                 )
             [future.result() for future in futures]
