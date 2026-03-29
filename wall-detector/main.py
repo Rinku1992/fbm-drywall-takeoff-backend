@@ -13,7 +13,7 @@ from google.cloud.storage import Client as CloudStorageClient
 from wall_detector import WallDetector
 
 
-def upload_semented_walls(segmented_path, plan_id, project_id, credentials, page_number):
+def upload_segmented_walls(segmented_path, plan_id, project_id, credentials, page_number):
     client = CloudStorageClient()
     page_number = Path(segmented_path.stem).suffix
     if page_number:
@@ -34,7 +34,7 @@ def respond_with_JSON_payload(credentials, image: Image, project_id, plan_id, us
     destination_path.parent.mkdir(parents=True, exist_ok=True)
     image.save(destination_path)
 
-    gcs_bucket_URL = upload_semented_walls(destination_path, plan_id, project_id, credentials, str(page_number).zfill(2))
+    gcs_bucket_URL = upload_segmented_walls(destination_path, plan_id, project_id, credentials, str(page_number).zfill(2))
     return JSONResponse(
         content=dict(gcs_bucket_URL=gcs_bucket_URL),
         status_code=200,
