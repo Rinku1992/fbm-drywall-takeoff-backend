@@ -1141,9 +1141,9 @@ async def floorplan_to_3d(request: Request):
     metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
     model_3d_path_sectioned = model_3d_path.parent.joinpath(f"{model_3d_path.stem}_sectioned_{page_section_number}").with_suffix(".png")
     model_3d_path.rename(model_3d_path_sectioned)
-    upload_floorplan(model_3d_path_sectioned, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2))
+    upload_floorplan(model_3d_path_sectioned, plan_id, project_id, CREDENTIALS, index=str(index).zfill(4))
     #for gltf_path in gltf_paths:
-    #    upload_floorplan(gltf_path, plan_id, project_id, CREDENTIALS, index=str(index).zfill(2), directory="gltf")
+    #    upload_floorplan(gltf_path, plan_id, project_id, CREDENTIALS, index=str(index).zfill(4), directory="gltf")
     insert_model_3d(dict(walls_3d=walls_3d, polygons=polygons_3d), scale, index, page_section_number, plan_id, user_id, project_id, bigquery_client, CREDENTIALS)
     logging.info("SYSTEM: A 3D Model of the Floorplan Generated Successfully")
 
