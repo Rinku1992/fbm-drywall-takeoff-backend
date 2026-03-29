@@ -73,7 +73,7 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, m
                 break
         except ConnectionError as e:
             logging.warning(f"SYSTEM: Wall Segmentation failed with error: {e}")
-            logging.warning(f"SYSTEM: RETRYING({index}) ...")
+            logging.warning(f"SYSTEM: RETRYING({index + 1}) ...")
             with open(output_path, "wb") as f:
                 f.write(b'')
         sleep(30)
