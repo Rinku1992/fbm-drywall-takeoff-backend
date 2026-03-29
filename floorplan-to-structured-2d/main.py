@@ -54,7 +54,6 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, m
         "Content-Type": "application/json"
     }
 
-    content = b''
     for _ in range(max_retry):
         try:
             response = requests.post(
@@ -70,17 +69,15 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, m
                 timeout=3600
             )
             if response.status_code == 200:
-                output_path = download_segmented_walls(user_id, plan_id, project_id, credentials)
+                output_path = download_segmented_walls(user_id, plan_id, project_id, credentials, destination_path=output_path)
                 break
         except ConnectionError as e:
             logging.warning(f"SYSTEM: Wall Segmentation failed with error: {e}")
             logging.warning("SYSTEM: RETRYING ...")
+            with open(output_path, "wb") as f:
+                f.write(b'')
         sleep(30)
 
-    if not output_path:
-        output_path  = Path("/tmp/floor_plan_wall_segmented.png")
-    with open(output_path, "wb") as f:
-        f.write(content)
     return Path(output_path)
 
 
