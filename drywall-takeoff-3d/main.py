@@ -527,12 +527,12 @@ def insert_project(payload_project, bigquery_client, credentials):
     return created_at
 
 
-def floorplan_to_structured_2d(credentials, id_token, project_id, plan_id, user_id, page_number):
+def floorplan_to_structured_2d(credentials, session, id_token, project_id, plan_id, user_id, page_number):
     headers = {
         "Authorization": f"Bearer {id_token}",
         "Content-Type": "application/json"
     }
-    response = requests.post(
+    response = session.post(
         f"{credentials["CloudRun"]["APIs"]["floorplan_to_structured_2d"]}/floorplan_to_structured_2d",
         headers=headers,
         json=dict(
@@ -811,6 +811,7 @@ async def floorplan_to_2d(request: Request):
 
     walls_2d_all = dict(pages=list())
     status = "COMPLETED"
+    session = requests.Session()
     try:
         with ThreadPoolExecutor(max_workers=20) as executor:
             for page_number in range(n_pages):
@@ -818,6 +819,7 @@ async def floorplan_to_2d(request: Request):
                 executor.submit(
                     floorplan_to_structured_2d,
                     CREDENTIALS,
+                    session,
                     id_token,
                     project_id,
                     plan_id,
