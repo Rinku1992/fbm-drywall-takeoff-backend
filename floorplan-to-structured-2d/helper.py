@@ -152,7 +152,6 @@ def download_segmented_walls(user_id, plan_id, project_id, credentials, index, d
     blob = bucket.blob(blob_path)
 
     destination_path = Path(destination_path)
-    destination_path = destination_path.parent.joinpath(project_id).joinpath(plan_id).joinpath(user_id).joinpath(destination_path.name)
     destination_path.parent.mkdir(parents=True, exist_ok=True)
     blob.download_to_filename(destination_path)
     return destination_path
