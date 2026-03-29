@@ -161,6 +161,17 @@ def download_floorplan(user_id, plan_id, project_id, credentials, index=None, de
     blob.download_to_filename(destination_path)
     return destination_path
 
+def download_segmented_walls(plan_id, project_id, credentials, index, destination_path="/tmp/floor_plan_wall_segmented.png"):
+    client = CloudStorageClient()
+    bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
+    blob_path = f"{project_id.lower()}/{plan_id.lower()}/{index}/wall_detected.png"
+    blob = bucket.blob(blob_path)
+
+    destination_path = Path(destination_path)
+    destination_path.parent.mkdir(parents=True, exist_ok=True)
+    blob.download_to_filename(destination_path)
+    return destination_path
+
 def load_bigquery_client(credentials):
     bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
     return bigquery_client
