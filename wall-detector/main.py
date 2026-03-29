@@ -13,18 +13,18 @@ from google.cloud.storage import Client as CloudStorageClient
 from wall_detector import WallDetector
 
 
-def upload_semented_walls(plan_path, plan_id, project_id, credentials, page_number):
+def upload_semented_walls(segmented_path, plan_id, project_id, credentials, page_number):
     client = CloudStorageClient()
-    page_number = Path(plan_path.stem).suffix
+    page_number = Path(segmented_path.stem).suffix
     if page_number:
-        blob_object_name = Path(str(plan_path).replace(page_number, '')).name
+        blob_object_name = Path(str(segmented_path).replace(page_number, '')).name
     else:
-        blob_object_name = plan_path.name
+        blob_object_name = segmented_path.name
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
     blob_path = f"{project_id.lower()}/{plan_id.lower()}/{page_number}/{blob_object_name}"
     blob = bucket.blob(blob_path)
 
-    blob.upload_from_filename(plan_path)
+    blob.upload_from_filename(segmented_path)
     return f"gs://{credentials["CloudStorage"]["bucket_name"]}/{blob_path}"
 
 
