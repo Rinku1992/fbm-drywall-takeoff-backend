@@ -813,8 +813,8 @@ async def floorplan_to_2d(request: Request):
     status = "COMPLETED"
     session = requests.Session()
     adapter = HTTPAdapter(
-    pool_connections=n_pages,
-    pool_maxsize=n_pages,
+        pool_connections=n_pages,
+        pool_maxsize=n_pages,
     )
     session.mount("http://", adapter)
     session.mount("https://", adapter)
