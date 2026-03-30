@@ -61,12 +61,12 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, m
         f.write(b'')
     session = requests.Session()
     adapter = HTTPAdapter(
-        pool_connections=max_retry,
-        pool_maxsize=max_retry,
+        pool_connections=max_retry+1,
+        pool_maxsize=max_retry+1,
     )
     session.mount("http://", adapter)
     session.mount("https://", adapter)
-    for index in range(max_retry):
+    for index in range(max_retry + 1):
         try:
             headers = load_headers_with_id_token()
             response = session.post(
