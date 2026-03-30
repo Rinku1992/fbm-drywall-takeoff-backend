@@ -519,6 +519,8 @@ ARCHITECTURAL_DRAWING_CLASSIFIER = """
         **STRICTLY**
         - Do not generate additional content apart from the designated JSON.
         Please refer the following as a reference and ensure to replace every consecutive pair of open/closed curly braces with a single one during the generation of the output.
+        **STRICTLY FOLLOW**
+          - The `bounding_box_offsets` field value should always be a non-empty list. 
         {{
             "plan_type": "<FLOOR_PLAN>/<ROOF_PLAN>/<ELECTRICAL_PLAN>/<FOUNDATION_PLAN>/<ELEVATION_PLAN>/<NOT_ARCHITECTURAL_PLAN>",
             "mask_factor":
@@ -538,6 +540,12 @@ class ArchitecturalDrawingClassifierResponse(BaseModel):
     plan_type: str
     mask_factor: Dict
     bounding_box_offsets: List[Dict]
+
+    @model_validator(mode="after")
+    def check_offset_count(self):
+        if len(self.bounding_box_offsets) < 1:
+            raise ValueError("At least one bounding box offset is needed")
+        return self
 
 CEILING_CHOICES = [
     "Flat",
