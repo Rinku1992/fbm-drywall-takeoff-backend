@@ -57,6 +57,8 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, m
         }
         return headers
 
+    with open(output_path, "wb") as f:
+        f.write(b'')
     session = requests.Session()
     adapter = HTTPAdapter(
         pool_connections=max_retry,
