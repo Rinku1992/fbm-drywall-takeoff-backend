@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 import json
 import requests
+from requests.adapters import HTTPAdapter
 from requests.exceptions import ConnectionError, ReadTimeout, ChunkedEncodingError
 from time import sleep
 from fastapi import FastAPI, Request
