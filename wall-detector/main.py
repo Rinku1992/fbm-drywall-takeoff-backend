@@ -74,6 +74,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+wall_detector = WallDetector()
 
 @app.post("/detect_wall")
 async def detect_wall(request: Request):
@@ -100,7 +101,6 @@ async def detect_wall(request: Request):
     destination_path.parent.mkdir(parents=True, exist_ok=True)
     blob.download_to_filename(destination_path)
 
-    wall_detector = WallDetector()
     mask_offset = None
     if mask:
         mask_offset = dict(horizontal=mask.get("horizontal", 0), vertical=mask.get("vertical", 0))
