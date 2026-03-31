@@ -2108,6 +2108,8 @@ class FloorPlan2D(FloorPlan):
     def scale_to(
         cls,
         floor_plan_path="/tmp/floor_plan.png",
+        pdf_path="/tmp/scaled_floor_plan.pdf",
+        svg_path="/tmp/scaled_floor_plan.svg",
         resolution=None
     ):
         canvas = Image.open(floor_plan_path)
@@ -2119,10 +2121,8 @@ class FloorPlan2D(FloorPlan):
             canvas = canvas.resize(resolution, Image.Resampling.LANCZOS)
             width_in_pixels, height_in_pixels = resolution
 
-        pdf_path = "/tmp/scaled_floor_plan.pdf"
         canvas.save(pdf_path, save_all=True)
 
-        svg_path = "/tmp/scaled_floor_plan.svg"
         subprocess.run(
             ["pdftocairo", "-svg", pdf_path, svg_path],
             check=True
