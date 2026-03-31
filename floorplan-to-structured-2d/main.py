@@ -202,6 +202,7 @@ async def floorplan_to_structured_2d(request: Request):
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     page_number = parameters.get("page_number") or body.get("page_number")
+    page_number = int(page_number)
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
 
     pdf_path = download_floorplan(user_id, plan_id, project_id, CREDENTIALS)
