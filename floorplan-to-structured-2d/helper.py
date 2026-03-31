@@ -415,7 +415,7 @@ def classify_plan(credentials, client_ip_address, plan_path):
                 pydantic_model=ArchitecturalDrawingClassifierResponse,
             )
     except Exception as e:
-        logging.warning(f"SYSTEM: Plan Classification has failed")
+        logging.warning(f"SYSTEM: Plan Classification has failed: {e}")
         plan_type = dict(plan_type="FLOOR_PLAN")
 
     return plan_type
