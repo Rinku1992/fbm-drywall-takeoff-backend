@@ -530,8 +530,8 @@ ARCHITECTURAL_DRAWING_CLASSIFIER = """
                 }}
             "bounding_box_offsets":
                 [
-                    {{"offset_top_left": <`TOP-LEFT` offset of the bounding-box for architecture drawing 1>, "offset_bottom_right": <`BOTTOM-RIGHT` offset of the bounding-box for architecture drawing 1>, "title": "<identified title of the drawing>"}},
-                    {{"offset_top_left": <`TOP-LEFT` offset of the bounding-box for architecture drawing 2>, "offset_bottom_right": <`BOTTOM-RIGHT` offset of the bounding-box for architecture drawing 2>, "title": "<identified title of the drawing>"}}
+                    {{"offset_top_left": <`TOP-LEFT` offset of the bounding-box for architecture drawing 1>, "offset_bottom_right": <`BOTTOM-RIGHT` offset of the bounding-box for architecture drawing 1>, "title": "<identified title of the architecture drawing 1>"}},
+                    {{"offset_top_left": <`TOP-LEFT` offset of the bounding-box for architecture drawing 2>, "offset_bottom_right": <`BOTTOM-RIGHT` offset of the bounding-box for architecture drawing 2>, "title": "<identified title of the architecture drawing 2>"}}
                 ]
         }}
 """
