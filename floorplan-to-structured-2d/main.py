@@ -122,7 +122,7 @@ def page_to_structured_2d(
         page_section_number
     )
     bounding_box_offset_marginalized = apply_pixel_margin_to_bounding_box(bounding_box_offset)
-    walls_2d, polygons, walls_2d_path, external_contour = floor_plan_modeller_2d.model(
+    walls_2d, polygons, _, external_contour = floor_plan_modeller_2d.model(
         bounding_box_offset_marginalized,
         image_path=wall_segmented_sectioned_path,
         model_2d_path=f"/tmp/{project_id}/{plan_id}/{user_id}/walls_2d_{str(page_number).zfill(4)}_{str(page_section_number)}.json",
