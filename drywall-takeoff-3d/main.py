@@ -821,7 +821,7 @@ async def floorplan_to_2d(request: Request):
     try:
         with ThreadPoolExecutor(max_workers=20) as executor:
             for page_number in range(n_pages):
-                if page_number != 0 and page_number % 40 == 0:
+                if page_number != 0 and page_number % 25 == 0:
                     sleep(120)
                 id_token = load_floorplan_to_structured_2d_ID_token(CREDENTIALS)
                 executor.submit(
