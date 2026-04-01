@@ -506,7 +506,7 @@ ARCHITECTURAL_DRAWING_CLASSIFIER = """
             - STRICTLY REMEMBER, the visual grounding computed for each of the drawings should be precise, such that it tightly encloses that drawing while capturing its relevant outermost lines (dimension lines, wall lines or any extended artifact but excluding the margin-lines / outermost bounding-box lines) and the title of the drawing (if present in the neighborhood).
         - Identify the title of each of the available/identified architecture drawings, typically found at the bottom of each of the drawings and associate it to the respective visual-grounding/bounding-box offsets.
             - If respective drawing titles cannot be identified, use the title as `FLOOR_PLAN_<unique_identification_number>` with unique identification number for each of the identified architecture drawings.
-            - STRICTLY REMEMBER, the titles must be unique. If duplicate titles are observed across the identified architecture drawings, add alpha-numerical suffixes to ensure they are eunique.
+            - STRICTLY REMEMBER, the titles must be unique. If duplicate titles are observed across the identified architecture drawings, add alpha-numerical suffixes to ensure they are unique.
 
         Base your decision only on visual and textual evidence present in the drawing.
 
