@@ -269,6 +269,78 @@ def insert_model_2d(
     query_output = bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
     return query_output
 
+def insert_model_2d_batch(rows, bigquery_client, credentials):
+    GBQ_query = """
+    MERGE `drywall_takeoff.models` t
+    USING UNNEST(@rows) s
+    ON LOWER(t.project_id) = LOWER(s.project_id)
+       AND LOWER(t.plan_id) = LOWER(s.plan_id)
+       AND t.page_number = s.page_number
+       AND t.page_section_number = s.page_section_number
+
+    WHEN MATCHED THEN
+    UPDATE SET
+        model_2d = SAFE.PARSE_JSON(s.model_2d),
+        scale = COALESCE(NULLIF(s.scale, ''), t.scale),
+        user_id = s.user_id,
+        updated_at = CURRENT_TIMESTAMP()
+
+    WHEN NOT MATCHED THEN
+    INSERT (
+        plan_id,
+        project_id,
+        user_id,
+        page_number,
+        page_sections,
+        page_section_number,
+        scale,
+        model_2d,
+        model_3d,
+        takeoff,
+        target_drywalls,
+        created_at,
+        updated_at
+    )
+    VALUES (
+        s.plan_id,
+        s.project_id,
+        s.user_id,
+        s.page_number,
+        s.page_sections,
+        s.page_section_number,
+        s.scale,
+        SAFE.PARSE_JSON(s.model_2d),
+        JSON '{}',
+        JSON '{}',
+        s.target_drywalls,
+        CURRENT_TIMESTAMP(),
+        CURRENT_TIMESTAMP()
+    )
+    """
+
+    job_config = dict(
+        query_parameters=[
+            bigquery.ArrayQueryParameter(
+                "rows",
+                "STRUCT<\
+                    plan_id STRING,\
+                    project_id STRING,\
+                    user_id STRING,\
+                    page_number INT64,\
+                    page_sections INT64,\
+                    page_section_number STRING,\
+                    scale STRING,\
+                    model_2d JSON,\
+                    target_drywalls STRING\
+                >",
+                rows
+            )
+        ],
+    )
+
+    query_output = bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
+    return query_output
+
 def load_templates(bigquery_client, credentials):
     GBQ_query = f"SELECT * FROM `{credentials["GBQServer"]["table_name_sku"]}`"
     product_templates = list(bigquery_run(credentials, bigquery_client, GBQ_query).result())
