@@ -76,7 +76,7 @@ def insert_model_2d_revision(
     bigquery_client,
     credentials,
     page_section_number=None,
-    ):
+):
     if not page_section_number:
         page_section_number = 'I'
     if not model_2d.get("metadata", None):
@@ -154,7 +154,7 @@ def insert_model_3d_revision(
     project_id,
     bigquery_client,
     credentials
-    ):
+):
     GBQ_query = """
     SELECT MAX(revision_number) AS revision_number FROM `drywall_takeoff.model_revisions_3d` WHERE 
     LOWER(project_id) = LOWER(@project_id) AND LOWER(plan_id) = LOWER(@plan_id) AND page_number = @page_number;
@@ -223,7 +223,7 @@ def insert_model_3d(
     project_id,
     bigquery_client,
     credentials
-    ):
+):
     GBQ_query = """
     UPDATE `drywall_takeoff.models` as t
     SET
@@ -313,7 +313,7 @@ def insert_takeoff(
     revision_number,
     bigquery_client,
     credentials
-    ):
+):
     GBQ_query = """
     UPDATE `drywall_takeoff.models` t
     SET
@@ -374,7 +374,7 @@ def insert_plan(
     size_in_bytes=None,
     GCS_URL_floorplan=None,
     n_pages=None
-    ):
+):
     GBQ_query = """
     MERGE `drywall_takeoff.plans` t
     USING (
