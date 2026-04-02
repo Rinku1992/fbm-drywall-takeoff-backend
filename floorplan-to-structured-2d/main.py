@@ -10,6 +10,9 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from concurrent.futures import ThreadPoolExecutor
 
+import random
+random.seed(0)
+
 import google.auth.transport.requests
 from google.oauth2.service_account import IDTokenCredentials
 from google.cloud import secretmanager
@@ -261,11 +264,11 @@ async def floorplan_to_structured_2d(request: Request):
             FloorPlan2D.normalize_scale("0.25``:1`0``"),
             page_number,
             0,
-            '',
+            f"NA_{random.randint(1, 1000)}",
             plan_id,
             user_id,
             project_id,
-            '',
+            "gs://",
             bigquery_client,
             CREDENTIALS,
         )
