@@ -116,7 +116,7 @@ def page_to_structured_2d(
     transcription_headers_and_footers,
     floorplan_page_statistics,
     floorplan_baseline_page_source,
-    ):
+):
     floor_plan_modeller_2d.reload()
     wall_segmented_sectioned_path = load_section_from_page(
         wall_segmented_path,
