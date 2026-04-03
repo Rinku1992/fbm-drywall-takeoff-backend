@@ -227,7 +227,7 @@ async def floorplan_to_structured_2d(request: Request):
             bigquery_client,
             CREDENTIALS,
         )
-        logging.warning(f"SYSTEM: Floorplan Rejected: Page Number: {page_number}")
+        logging.warning(f"SYSTEM: Rejected: Page Number: {page_number} (NOT A FLOORPLAN)")
         return respond_with_UI_payload(dict(status="FAILED", message="Not a Floor Plan"))
     logging.info(f"SYSTEM: Floorplan Preprocessing Completed: Page Number: {page_number}")
 
