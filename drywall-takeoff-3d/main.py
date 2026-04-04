@@ -45,6 +45,8 @@ from helper import (
     load_floorplan_to_structured_2d_ID_token,
     load_templates,
     query_drywall,
+    load_subscriber_client,
+    query_subscriber_messages,
 )
 
 
@@ -818,6 +820,7 @@ async def floorplan_to_2d(request: Request):
     )
     session.mount("http://", adapter)
     session.mount("https://", adapter)
+    subscriber_client = load_subscriber_client(CREDENTIALS)
     try:
         with ThreadPoolExecutor(max_workers=20) as executor:
             for page_number in range(n_pages):
@@ -838,40 +841,20 @@ async def floorplan_to_2d(request: Request):
                 timeout = from_unix_epoch() + 3600
                 page_extracted = False
                 sleep_time = 1
+                query_payload = dict(project_id=project_id, plan_id=plan_id, page_number=page_number)
                 while from_unix_epoch() < timeout:
-                    GBQ_query = f"SELECT COUNT(*) AS n_counts FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
-                    query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
-                    if query_output.n_counts:
+                    notification_arrived = query_subscriber_messages(CREDENTIALS, subscriber_client, query_payload)
+                    if notification_arrived:
                         page_extracted = True
                         break
-                    sleep(sleep_time + uniform(0, 0.5))
-                    sleep_time = min(sleep_time * 2, 30)
+                    sleep(sleep_time)
                 if not page_extracted:
                     raise AssertionError(f"Extraction has failed for PAGE: {page_number}")
-                GBQ_query = f"SELECT DISTINCT(page_sections) FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
-                query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
-                page_sections = query_output.page_sections
-                if page_sections:
-                    sections_extracted = False
-                    while from_unix_epoch() < timeout:
-                        GBQ_query = f"SELECT COUNT(*) AS n_counts FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
-                        query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
-                        if query_output.n_counts == page_sections:
-                            sections_extracted = True
-                            break
-                        sleep(sleep_time + uniform(0, 0.5))
-                        sleep_time = min(sleep_time * 2, 30)
-                    if not sections_extracted:
-                        raise AssertionError(f"Section extraction has failed for PAGE: {page_number}")
 
                 GBQ_query = f"SELECT page_section_number, model_2d, scale FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
                 query_output_sections = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())
                 for query_output in query_output_sections:
                     walls_2d = json.loads(query_output.model_2d) if isinstance(query_output.model_2d, str) else query_output.model_2d
-                    if not walls_2d["polygons"] or not walls_2d["walls_2d"]:
-                        GBQ_query = f"DELETE FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number} AND page_section_number = '{query_output.page_section_number}';"
-                        bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()
-                        continue
                     page = dict(
                         plan_id=plan_id,
                         page_number=page_number,
