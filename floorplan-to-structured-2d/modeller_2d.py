@@ -702,7 +702,56 @@ class FloorPlan2D(FloorPlan):
                         Y2 = Y2_new
                 extended_lines.append([[X1, Y1, X2, Y2]])
             else:
-                extended_lines.append(line)
+                dx = X2 - X1
+                dy = Y2 - Y1
+                length = np.hypot(dx, dy)
+
+                if length == 0:
+                    extended_lines.append(line)
+                    continue
+
+                ux = dx / length
+                uy = dy / length
+
+                for n_pixels in range(extension_maximum):
+                    X1_new = int(round(X1 - (n_pixels + 1) * ux))
+                    Y1_new = int(round(Y1 - (n_pixels + 1) * uy))
+
+                    if not (0 <= X1_new < 1920 and 0 <= Y1_new < 1080):
+                        break
+
+                    perp_x = int(round(-uy))
+                    perp_y = int(round(ux))
+
+                    xs = list()
+                    ys = list()
+                    for t in range(-tolerance, tolerance):
+                        xs.append(np.clip(X1_new + t * perp_x, 0, 1919))
+                        ys.append(np.clip(Y1_new + t * perp_y, 0, 1079))
+
+                    if np.any(floor_plan_topology_binary[ys, xs] == 0):
+                        X1, Y1 = X1_new, Y1_new
+
+                for n_pixels in range(extension_maximum):
+                    X2_new = int(round(X2 + (n_pixels + 1) * ux))
+                    Y2_new = int(round(Y2 + (n_pixels + 1) * uy))
+
+                    if not (0 <= X2_new < 1920 and 0 <= Y2_new < 1080):
+                        break
+
+                    perp_x = int(round(-uy))
+                    perp_y = int(round(ux))
+
+                    xs = list()
+                    ys = list()
+                    for t in range(-tolerance, tolerance):
+                        xs.append(np.clip(X2_new + t * perp_x, 0, 1919))
+                        ys.append(np.clip(Y2_new + t * perp_y, 0, 1079))
+
+                    if np.any(floor_plan_topology_binary[ys, xs] == 0):
+                        X2, Y2 = X2_new, Y2_new
+
+                extended_lines.append([[X1, Y1, X2, Y2]])
 
         return extended_lines
 
