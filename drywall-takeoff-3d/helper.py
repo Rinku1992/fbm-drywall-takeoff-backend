@@ -1,4 +1,5 @@
 import json
+from json.decoder import JSONDecodeError
 import logging
 import hashlib
 from pathlib import Path
@@ -7,6 +8,9 @@ from google.cloud import bigquery
 from google.cloud.storage import Client as CloudStorageClient
 import google.auth.transport.requests
 from google.oauth2.service_account import IDTokenCredentials
+from google.oauth2 import service_account
+from google.cloud.pubsub_v1 import SubscriberClient
+from google.api_core.exceptions import DeadlineExceeded
 
 
 def load_bigquery_client(credentials):
@@ -201,3 +205,31 @@ def query_drywall(query_sku_variant, drywall_templates):
     for drywall_template in drywall_templates:
         if drywall_template["sku_variant"] == query_sku_variant:
             return drywall_template
+
+def load_subscriber_client(credentials):
+    credentials_SA = service_account.Credentials.from_service_account_file(credentials["PubSub"]["service_account_key"])
+    subscriber = SubscriberClient(credentials=credentials_SA)
+    return subscriber
+
+def query_subscriber_messages(credentials, subscriber_client, query):
+    credentials_SA = service_account.Credentials.from_service_account_file(credentials["PubSub"]["service_account_key"])
+    subscription_path = subscriber_client.subscription_path(credentials_SA.project_id, credentials["PubSub"]["subscription_name"])
+    try:
+        response = subscriber_client.pull(
+            request=dict(subscription=subscription_path, max_messages=credentials["PubSub"]["max_messages"]),
+            timeout=credentials["PubSub"]["timeout"]
+        )
+    except DeadlineExceeded:
+        return False
+
+    for received_message in response.received_messages:
+        try:
+            message = json.loads(received_message.message.data.decode("utf-8"))
+            if query == message:
+                subscriber_client.acknowledge(
+                    request=dict(subscription=subscription_path, ack_ids=[received_message.ack_id])
+                )
+                return True
+        except JSONDecodeError:
+            continue
+    return False
