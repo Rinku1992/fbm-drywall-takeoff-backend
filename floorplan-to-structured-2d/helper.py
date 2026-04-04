@@ -25,6 +25,8 @@ from google.oauth2.service_account import IDTokenCredentials
 from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, DeadlineExceeded
 from vertexai.generative_models import Content, Part
 from vertexai.caching import CachedContent
+from google.oauth2 import service_account
+from google.cloud.pubsub_v1 import PublisherClient
 
 from transcriber import Transcriber
 from prompt import (
@@ -491,3 +493,10 @@ def classify_plan(credentials, client_ip_address, plan_path):
         plan_type = dict(plan_type="FLOOR_PLAN")
 
     return plan_type
+
+def load_publisher_client(credentials):
+     credentials_SA = service_account.Credentials.from_service_account_file(credentials["PubSub"]["service_account_key"])
+     publisher = PublisherClient(credentials=credentials_SA)
+     publisher_client = lambda payload: publisher.publish(credentials["PubSub"]["topic_name"], json.dumps(payload).encode("utf-8"))
+
+     return publisher_client
