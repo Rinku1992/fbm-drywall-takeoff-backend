@@ -252,6 +252,7 @@ async def floorplan_to_structured_2d(request: Request):
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
         future.result()
         logging.error(f"SYSTEM: Floorplan Segmentation FAILED: Page Number: {page_number}")
+        return respond_with_UI_payload(dict(status="FAILED", message="Floor Plan Segmentation FAILED"))
     if not FloorPlan2D.is_none(wall_segmented_path):
         svg_path=f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_{str(page_number).zfill(4)}.svg"
         floorplan_baseline, floorplan_page_statistics = FloorPlan2D.scale_to(floor_plan_path=floor_plan_processed_path, svg_path=svg_path)
