@@ -33,6 +33,7 @@ from helper import (
     load_section_from_page,
     apply_pixel_margin_to_bounding_box,
     classify_plan,
+    load_publisher_client,
 )
 
 
@@ -133,7 +134,6 @@ def page_to_structured_2d(
         transcription_block_with_centroids=transcription_block_with_centroids,
         transcription_headers_and_footers=transcription_headers_and_footers,
     )
-    metadata = dict()
     if walls_2d and polygons:
         floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons)
         floor_plan_modeller_2d.load_ceiling_choices(polygons)
@@ -157,19 +157,19 @@ def page_to_structured_2d(
             scales_architectural=floor_plan_modeller_2d.scales_architectural,
             drywall_choices_color_codes=floor_plan_modeller_2d.drywall_choices_color_codes,
         )
-    insert_model_2d(
-        dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
-        floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale),
-        page_number,
-        page_sections,
-        page_section_number,
-        plan_id,
-        user_id,
-        project_id,
-        floorplan_baseline_page_source,
-        bigquery_client,
-        credentials,
-    )
+        insert_model_2d(
+            dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
+            floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale),
+            page_number,
+            page_sections,
+            page_section_number,
+            plan_id,
+            user_id,
+            project_id,
+            floorplan_baseline_page_source,
+            bigquery_client,
+            credentials,
+        )
     logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} and SECTION: {page_section_number} Generated Successfully")
 
 
@@ -213,20 +213,10 @@ async def floorplan_to_structured_2d(request: Request):
 
     ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
     floor_plan_processed_path, plan_type = floorplan_to_page(CREDENTIALS, project_id, plan_id, ip_address, pdf_path, page_number)
+    publish_handler = load_publisher_client(CREDENTIALS)
     if plan_type["plan_type"].upper().find("FLOOR") == -1:
-        insert_model_2d(
-            dict(walls_2d=list(), polygons=list(), metadata=dict()),
-            FloorPlan2D.normalize_scale("0.25``:1`0``"),
-            page_number,
-            0,
-            f"NA_{random.randint(1, 1000)}",
-            plan_id,
-            user_id,
-            project_id,
-            "gs://",
-            bigquery_client,
-            CREDENTIALS,
-        )
+        future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
+        future.result()
         logging.warning(f"SYSTEM: Rejected Page Number: {page_number} (NOT A FLOORPLAN)")
         return respond_with_UI_payload(dict(status="FAILED", message="Not a Floor Plan"))
     logging.info(f"SYSTEM: Floorplan Preprocessing Completed: Page Number: {page_number}")
@@ -259,19 +249,8 @@ async def floorplan_to_structured_2d(request: Request):
 
     floorplan_baseline_page_source = None
     if FloorPlan2D.is_none(wall_segmented_path):
-        insert_model_2d(
-            dict(walls_2d=list(), polygons=list(), metadata=dict()),
-            FloorPlan2D.normalize_scale("0.25``:1`0``"),
-            page_number,
-            0,
-            f"NA_{random.randint(1, 1000)}",
-            plan_id,
-            user_id,
-            project_id,
-            "gs://",
-            bigquery_client,
-            CREDENTIALS,
-        )
+        future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
+        future.result()
         logging.error(f"SYSTEM: Floorplan Segmentation FAILED: Page Number: {page_number}")
     if not FloorPlan2D.is_none(wall_segmented_path):
         svg_path=f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_{str(page_number).zfill(4)}.svg"
@@ -305,4 +284,6 @@ async def floorplan_to_structured_2d(request: Request):
                     )
                 )
             [future.result() for future in futures]
+        future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
+        future.result()
     return respond_with_UI_payload(dict(status="SUCCESS", message="Floor Plan extraction completed"))
