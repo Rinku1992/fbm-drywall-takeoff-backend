@@ -1132,7 +1132,7 @@ async def floorplan_to_3d(request: Request):
     query_output = bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()
     metadata = list(query_output)[0].metadata
     metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
-    model_3d_path_sectioned = model_3d_path.parent.joinpath(f"{model_3d_path.stem}_sectioned_{page_section_number}").with_suffix(".png")
+    model_3d_path_sectioned = model_3d_path.parent.joinpath(f"{model_3d_path.stem}_sectioned_{page_section_number.replace('/', '_')}").with_suffix(".png")
     model_3d_path.rename(model_3d_path_sectioned)
     upload_floorplan(model_3d_path_sectioned, plan_id, project_id, CREDENTIALS, index=str(index).zfill(4))
     #for gltf_path in gltf_paths:
