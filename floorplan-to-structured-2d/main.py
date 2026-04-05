@@ -217,7 +217,7 @@ async def floorplan_to_structured_2d(request: Request):
     if plan_type["plan_type"].upper().find("FLOOR") == -1:
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
         future.result()
-        logging.warning(f"SYSTEM: Rejected Page Number: {page_number} (NOT A FLOORPLAN)")
+        logging.warning(f"SYSTEM: Rejected Page Number: {page_number} - {plan_type["plan_type"].upper()} (NOT A FLOORPLAN)")
         return respond_with_UI_payload(dict(status="FAILED", message="Not a Floor Plan"))
     logging.info(f"SYSTEM: Floorplan Preprocessing Completed: Page Number: {page_number}")
 
