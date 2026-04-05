@@ -461,3 +461,126 @@ class FloorPlan:
         external_contour = cv2.approxPolyDP(hull_external, epsilon, True)
         external_contour_normalized = self._smoothen_polygon(external_contour.reshape(-1, 2).tolist())
         return external_contour_normalized
+
+    ## TODO
+    def lines_to_topology(self, lines):
+        def grid_key(p, tolerance=20):
+            return (int(p[0] // tolerance), int(p[1] // tolerance))
+
+        def cluster_nodes(nodes, tolerance=20):
+            buckets = defaultdict(list)
+
+            for node in nodes:
+                buckets[grid_key(node)].append(node)
+
+            clusters = list()
+            visited = set()
+
+            for bucket in buckets.values():
+                for p in bucket:
+                    if p in visited:
+                        continue
+
+                    cluster = [p]
+                    visited.add(p)
+
+                    for q in bucket:
+                        if q not in visited:
+                            if math.hypot(p[0]-q[0], p[1]-q[1]) <= tolerance:
+                                cluster.append(q)
+                                visited.add(q)
+
+                    clusters.append(cluster)
+
+            return clusters
+
+        def dominant_direction(cluster):
+            cluster = clean_cluster(cluster)
+
+            if len(cluster) < 2:
+                return np.array([1.0, 0.0])
+
+            points = np.array(cluster, dtype=np.float64)
+
+            if np.all(points == points[0]):
+                return np.array([1.0, 0.0])
+
+            cov = np.cov(points.T)
+
+            if not np.all(np.isfinite(cov)):
+                return np.array([1.0, 0.0])
+
+            eigvals, eigvecs = np.linalg.eig(cov)
+
+            return eigvecs[:, np.argmax(eigvals)]
+
+        def clean_cluster(cluster):
+            clean = list()
+            for x, y in cluster:
+                if np.isfinite(x) and np.isfinite(y):
+                    clean.append((x, y))
+            return clean
+
+        def representative_point(cluster, representation_type="dominant"):
+            cluster = clean_cluster(cluster)
+
+            if len(cluster) == 0:
+                return (0, 0)
+
+            if len(cluster) == 1:
+                return cluster[0]
+
+            if representation_type == "mode":
+                x = stats.mode([p[0] for p in cluster]).mode
+                y = stats.mode([p[1] for p in cluster]).mode
+                return (int(round(x)), int(round(y)))
+
+            if representation_type == "median":
+                x = np.median([p[0] for p in cluster])
+                y = np.median([p[1] for p in cluster])
+                return (int(round(x)), int(round(y)))
+
+            direction = dominant_direction(cluster)
+
+            points = np.array(cluster)
+            projections = points @ direction
+            idx = np.argmax(projections)
+
+            return tuple(points[idx].astype(int))
+
+        def build_node_mapping(clusters):
+            mapping = dict()
+            for cluster in clusters:
+                representative = representative_point(cluster)
+                for p in cluster:
+                    mapping[p] = representative
+            return mapping
+
+        def remap_edges(edges, mapping):
+            new_edges = set()
+
+            for (p1, p2) in edges:
+                np1 = mapping[p1]
+                np2 = mapping[p2]
+
+                if np1 != np2:
+                    new_edges.add(tuple(sorted([np1, np2])))
+
+            return list(new_edges)
+
+        nodes = list()
+        edges = list()
+        for line in lines:
+            X1, Y1, X2, Y2 = line[0]
+            nodes.extend([(X1, Y1), (X2, Y2)])
+            edges.append([(X1, Y1), (X2, Y2)])
+
+        clusters = cluster_nodes(nodes)
+        mapping = build_node_mapping(clusters)
+        edges_clean = remap_edges(edges, mapping)
+        lines_clean = list()
+        for edge in edges_clean:
+            X1, Y1, X2, Y2 = edge[0][0], edge[0][1], edge[1][0], edge[1][1]
+            lines_clean.append([[X1, Y1, X2, Y2]])
+        lines_clean = self.normalize(lines_clean)
+        return lines_clean
