@@ -224,6 +224,7 @@ class FloorPlan:
                     id_to_distance[wall_line_index] = distance_nearest_neighbor
 
         if top_k:
+            id_to_distance = {wall_line_index: distance for wall_line_index, distance in id_to_distance.items() if distance <= tolerance}
             sorted_items = sorted(id_to_distance.items(), key=lambda x: x[1])
             nearest_neighbors = [
                 id_to_line[item[0]] for item in sorted_items[:top_k]]
