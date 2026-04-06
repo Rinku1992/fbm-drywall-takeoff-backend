@@ -463,6 +463,88 @@ class FloorPlan:
         external_contour_normalized = self._smoothen_polygon(external_contour.reshape(-1, 2).tolist())
         return external_contour_normalized
 
+    def topology_guided_endpoint_snapping(self, lines):
+        def nearest_endpoint(reference_line, end_type, target_line):
+            X1_reference, Y1_reference, X2_reference, Y2_reference = reference_line[0]
+            X1_target, Y1_target, X2_target, Y2_target = target_line[0]
+            if end_type == 'A':
+                if math.hypot(X1_reference - X1_target, Y1_reference - Y1_target) < math.hypot(X1_reference - X2_target, Y1_reference - Y2_target):
+                    return (X1_target, Y1_target)
+                return (X2_target, Y2_target)
+            if end_type == 'B':
+                if math.hypot(X2_reference - X1_target, Y2_reference - Y1_target) < math.hypot(X2_reference - X2_target, Y2_reference - Y2_target):
+                    return (X1_target, Y1_target)
+                return (X2_target, Y2_target)
+
+        for line in lines[:]:
+            X1, Y1, X2, Y2 = line[0]
+            orientation = self.classify_line(*line[0])
+            for end_type in ['A', 'B']:
+                nearest_neighbors = self.nearest_neighbor(line, end_type, lines, tolerance=20, top_k=5)
+                if nearest_neighbors:
+                    nearest_neighbor = nearest_neighbors[-1]
+                    endpoint_X, endpoint_Y = nearest_endpoint(line, end_type, nearest_neighbor)
+                    if orientation == "horizontal":
+                        if end_type == 'A':
+                            line_target = [[endpoint_X, Y1, X2, Y2]]
+                            lines.remove(line)
+                            lines.append(line_target)
+                            line = line_target
+                            X1, Y1, X2, Y2 = line[0]
+                        if end_type == 'B':
+                            line_target = [[X1, Y1, endpoint_X, Y2]]
+                            lines.remove(line)
+                            lines.append(line_target)
+                            line = line_target
+                            X1, Y1, X2, Y2 = line[0]
+                    if orientation == "vertical":
+                        if end_type == 'A':
+                            line_target = [[X1, endpoint_Y, X2, Y2]]
+                            lines.remove(line)
+                            lines.append(line_target)
+                            line = line_target
+                            X1, Y1, X2, Y2 = line[0]
+                        if end_type == 'B':
+                            line_target = [[X1, Y1, X2, endpoint_Y]]
+                            lines.remove(line)
+                            lines.append(line_target)
+                            line = line_target
+                            X1, Y1, X2, Y2 = line[0]
+                    if orientation == "inclined":
+                        dx = X2 - X1
+                        dy = Y2 - Y1
+                        norm = math.hypot(dx, dy)
+
+                        if norm == 0:
+                            continue
+
+                        ux = dx / norm
+                        uy = dy / norm
+
+                        if end_type == 'A':
+                            t = (endpoint_X - X1) * ux + (endpoint_Y - Y1) * uy
+                            new_X1 = int(round(X1 + t * ux))
+                            new_Y1 = int(round(Y1 + t * uy))
+
+                            line_target = [[new_X1, new_Y1, X2, Y2]]
+                            lines.remove(line)
+                            lines.append(line_target)
+                            line = line_target
+                            X1, Y1, X2, Y2 = line[0]
+
+                        if end_type == 'B':
+                            t = (endpoint_X - X2) * ux + (endpoint_Y - Y2) * uy
+                            new_X2 = int(round(X2 + t * ux))
+                            new_Y2 = int(round(Y2 + t * uy))
+
+                            line_target = [[X1, Y1, new_X2, new_Y2]]
+                            lines.remove(line)
+                            lines.append(line_target)
+                            line = line_target
+                            X1, Y1, X2, Y2 = line[0]
+
+        return lines
+
     ## TODO
     def lines_to_topology(self, lines):
         def grid_key(p, tolerance=20):
