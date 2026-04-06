@@ -551,7 +551,7 @@ class FloorPlan2D(FloorPlan):
                 if is_valid and len(shape) > 4:
                     lines.extend(self._merge_nearest_neighbor(shape))
 
-        lines = self.topology_guided_endpoint_snapping(lines)
+        #lines = self.topology_guided_endpoint_snapping(lines)
         return lines
 
     def _is_shape_valid(self, lines, scale, floor_plan_path):
