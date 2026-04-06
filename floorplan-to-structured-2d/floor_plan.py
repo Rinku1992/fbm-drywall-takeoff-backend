@@ -463,6 +463,7 @@ class FloorPlan:
         external_contour_normalized = self._smoothen_polygon(external_contour.reshape(-1, 2).tolist())
         return external_contour_normalized
 
+    ## TODO
     def topology_guided_endpoint_snapping(self, lines):
         def nearest_endpoint(reference_line, end_type, target_line):
             X1_reference, Y1_reference, X2_reference, Y2_reference = reference_line[0]
