@@ -1201,7 +1201,7 @@ class FloorPlan2D(FloorPlan):
                 (Y1 - Y2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["vertical"]
             ), 2)
             length_predicted = dimension_wall["length"]
-            if not length_predicted:
+            if not length_predicted or length_predicted == -1:
                 dimension_wall["length"] = length_target
             else:
                 dimension_wall["length"] = round(length_predicted, 2)
