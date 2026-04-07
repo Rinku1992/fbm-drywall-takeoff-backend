@@ -1332,6 +1332,7 @@ class FloorPlan2D(FloorPlan):
                         "width": self._hyperparameters["modelling"]["width_in_feet"],
                         "height": height_default,
                         "wall_type": '',
+                        "openings": [dict(opening_type="NULL", count=0, length=0, height=0)],
                         "drywall_assembly": {
                             "material": "D12L - 1/2\" DW LITE-WEIGHT",
                             "color_code": [71, 239, 143],
@@ -1454,6 +1455,7 @@ class FloorPlan2D(FloorPlan):
                     height=wall_parameter["height"] if wall_parameter["height"] else height_default,
                     length=wall_parameter["length"],
                     type=wall_parameter["wall_type"],
+                    openings=wall_parameter["openings"],
                     polygons_drywall=list()
                 )
                 try:
@@ -1598,7 +1600,8 @@ class FloorPlan2D(FloorPlan):
                 height=height_default,
                 length=wall_length_expected,
                 polygons_drywall=list(),
-                type=''
+                type='',
+                openings=[dict(opening_type="NULL", count=0, length=0, height=0)]
             )
             for polygon, polygon_index in zip(polygons, ['a', 'b']):
                 wall["polygons_drywall"].append(
