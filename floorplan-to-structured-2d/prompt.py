@@ -190,6 +190,18 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
             9. SHAFT_WALL
             10. WET_WALL
             11. HALLWAY_WALL
+        - For every identified perimeter wall segment, scan along its entire length to detect any interruptions or embedded symbols indicating openings. Detect the following opening types along the wall,
+            1. Doors (swing arcs, hinge marks, door panels)
+            2. Windows (thin rectangles within wall thickness)
+            3. Sliding doors / curtain walls (parallel panel lines)
+            4. Arched openings (curved top openings)
+            5. Pass-through / open voids (breaks without door symbol)
+            6. NULL
+
+            - Extract opening dimensions by identifying dimension annotations near the opening, typically placed above, below, or inside the opening.
+            - Extract count, length (in feet) and height (in feet) for each type of openings.
+            - An opening dimension may include, `(3) 3 exponent 8 x 8 exponent 0`, which reads as 3 openings (count) each having a length of 3 feet 8 inches (3.66 feet) and a height of 8 feet 0 inches (8 feet).
+            - If opening type is NULL, mention count, length and height as 0s.
 
       CEILING_EXTRACTION_INSTRUCTIONS:
         - The polygon marked in transparent red color marks the target ceiling in the input image.
@@ -285,6 +297,10 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
           "height": <height of the perimeter wall 1 in feet>,
           "confidence_height": <confidence score in predicting the height of the perimeter wall 1 between 0 and 1 in float rounded upto 2 decimal places>,
           "wall_type": "<type of the perimeter wall 1>",
+          "openings": [
+            {{"opening_type": "<Type of the perimeter wall 1 opening 1>", "count": <count of the opening type 1>, "length": <length of the opening type 1 in feet>, "height": <height of the opening type 1 in feet>}},
+            {{"opening_type": "<Type of the perimeter wall 1 opening 2>", "count": <count of the opening type 2>, "length": <length of the opening type 2 in feet>, "height": <height of the opening type 2 in feet>}}
+          ]
           "drywall_assembly": {{
             "material": "<drywall material for the perimeter wall 1>",
             "color_code": <color code for the predicted perimeter wall 1 drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>,
@@ -306,6 +322,9 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
           "height": <height of the perimeter wall 2 in feet>,
           "confidence_height": <confidence score in predicting the height of the perimeter wall 2 between 0 and 1 in float rounded upto 2 decimal places>,
           "wall_type": "<type of the perimeter wall 2>",
+          "openings": [
+            {{"opening_type": "<Type of the perimeter wall 2 opening 1>", "count": <count of the opening type 1>, "length": <length of the opening type 1 in feet>, "height": <height of the opening type 1 in feet>}}
+          ]
           "drywall_assembly": {{
             "material": "<drywall material for the perimeter wall 2>",
             "color_code": <color code for the predicted perimeter wall 2 drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>,
@@ -411,6 +430,7 @@ class WallParameter(BaseModel):
     height: float
     confidence_height: float = Field(ge=0, le=1)
     wall_type: str
+    openings: List[Dict]
     drywall_assembly: DrywallAssemblyWall
     code_references: List[str]
     recommendation: Optional[str]
