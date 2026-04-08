@@ -137,6 +137,31 @@ SHAPE_RECTIFIER = """
     }}
 """
 
+shape_image_samples, is_valid_json_samples = glob("shape_samples/shape_*"), glob("shape_samples/is_valid_*")
+SHAPE_RECTIFIER_FEW_SHOT = list()
+for shape_image_sample, is_valid_json_sample in zip(shape_image_samples, is_valid_json_samples):
+    canvas = cv2.imread(shape_image_sample)
+    _, canvas_buffer_array = cv2.imencode(".png", canvas)
+    bytes_canvas = canvas_buffer_array.tobytes()
+    with open(is_valid_json_sample, 'r') as f:
+        is_valid = json.load(f)
+    sample_one_shot = [
+      Content(
+        role="user",
+        parts=[
+          Part.from_text("Validate the highlighted boundary mask."),
+          Part.from_data(data=bytes_canvas, mime_type="image/png")
+        ]
+      ),
+      Content(
+        role="model",
+        parts=[
+            Part.from_text(json.dumps(is_valid))
+        ]
+      )
+    ]
+    SHAPE_RECTIFIER_FEW_SHOT.extend(sample_one_shot)
+
 class ShapeRectifierResponse(BaseModel):
     is_valid: bool
     confidence: float = Field(ge=0, le=1)
