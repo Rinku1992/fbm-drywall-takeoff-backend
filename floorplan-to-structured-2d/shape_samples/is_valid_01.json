@@ -1,0 +1,5 @@
+{
+      "is_valid": false,
+      "confidence": 1,
+      "reasoning": "More than 50% of the walls in the boundary mask are overlayed with dotted (dashed) lines which are considered `INVALID` since they are not physically cut in the current view."
+}
