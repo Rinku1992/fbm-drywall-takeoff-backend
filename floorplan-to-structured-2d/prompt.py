@@ -135,6 +135,8 @@ SHAPE_RECTIFIER = """
       "confidence": <confidence score in validating the boundary mask in red between 0 and 1 in float rounded upto 2 decimal places (e.g., 0.87)>,
       "reasoning": "<a brief reasoning behind the the boundary mask being marked as valid/invalid>"
     }}
+
+    **STRICTLY** refer the provided few-shot examples.
 """
 
 shape_image_samples, is_valid_json_samples = glob("shape_samples/shape_*"), glob("shape_samples/is_valid_*")
