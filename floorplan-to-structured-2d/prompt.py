@@ -1,7 +1,11 @@
 from typing import List, Dict, Union, Optional, Tuple, Literal
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 import math
+import json
+from glob import glob
 
+import cv2
+from vertexai.generative_models import Part, Content
 
 WALL_RECTIFIER = """
   You are a senior architectural plan-correction specialist with 20+ years of experience in residential and commercial floor plans.
@@ -32,7 +36,7 @@ WALL_RECTIFIER = """
       -> Lines representing fixtures, cabinetry, annotations, or text baselines are `INVALID`.
     - A `VALID` wall line MUST:
       -> Be part of a pair of parallel lines representing wall thickness.
-      -> Be one edge of a clearly enclosed room boundary.
+      -> Be in one edge of a room / polygon boundary.
     - The highlight should be aligned / closely overlayed with one of the valid wall lines within the available complete architecture plans enclosed by the green bounding box in order for it to be `VALID`.
     - REMEMBER if, the highlight is aligned / closely overlayed with one of the wall lines within one of the truncated / incomplete / other architectural drawings that are not enclosed by the green bounding box, the highlight MUST be `INVALID`.
     - The highlight is `INVALID` if aligned with an invalid wall line from the available architectures such as the following artifact lines,
@@ -52,10 +56,37 @@ WALL_RECTIFIER = """
     Please refer the following as a reference and ensure to replace every consecutive pair of open/closed curly braces with a single one during the generation of the output.
     {{
       "is_valid": <True/False>,
-      "confidence": <confidence score in validating the highlight in red between 0 and 1 in float rounded upto 2 decimal places>,
+      "confidence": <confidence score in validating the highlight in red between 0 and 1 in float rounded upto 2 decimal places (e.g., 0.87)>,
       "reasoning": "<a brief reasoning behind the highlighted wall being marked as valid/invalid>"
     }}
+
+    **STRICTLY** refer the provided few-shot examples. 
 """
+
+wall_image_samples, is_valid_json_samples = glob("wall_samples/wall_*"), glob("wall_samples/is_valid_*")
+WALL_RECTIFIER_FEW_SHOT = list()
+for wall_image_sample, is_valid_json_sample in zip(wall_image_samples, is_valid_json_samples):
+    canvas = cv2.imread(wall_image_sample)
+    _, canvas_buffer_array = cv2.imencode(".png", canvas)
+    bytes_canvas = canvas_buffer_array.tobytes()
+    with open(is_valid_json_sample, 'r') as f:
+        is_valid = json.load(f)
+    sample_one_shot = [
+      Content(
+        role="user",
+        parts=[
+          Part.from_text("Validate the highlighted wall."),
+          Part.from_data(data=bytes_canvas, mime_type="image/png")
+        ]
+      ),
+      Content(
+        role="model",
+        parts=[
+            Part.from_text(json.dumps(is_valid))
+        ]
+      )
+    ]
+    WALL_RECTIFIER_FEW_SHOT.extend(sample_one_shot)
 
 class WallRectifierResponse(BaseModel):
     is_valid: bool
@@ -86,7 +117,7 @@ SHAPE_RECTIFIER = """
       -> Lines representing fixtures, cabinetry, annotations, or text baselines are `INVALID`.
       -> Dotted (dashed) lines in any architectural floor plan blueprint usually represent elements that are not physically cut in the current view are `INVALID`.
       -> A `VALID` wall MUST be part of a pair of parallel lines representing wall thickness.
-      -> A `VALID` wall MUSt be one edge of a clearly enclosed room boundary.
+      -> A `VALID` wall MUSt be in one edge of a room / polygon boundary.
     - Focus only on the walls highlighted with thin red lines each paired with 2 drywall segments in red on its 2 sides.
     - Use the coordinates to reason about alignment and angle. Do not rely only on visual appearance.
     - The highlighted walls sould represent a valid boundary mask representing a layout of valid walls on the architectural plan.
@@ -101,7 +132,7 @@ SHAPE_RECTIFIER = """
     Please refer the following as a reference and ensure to replace every consecutive pair of open/closed curly braces with a single one during the generation of the output.
     {{
       "is_valid": <True/False>,
-      "confidence": <confidence score in validating the boundary mask in red between 0 and 1 in float rounded upto 2 decimal places>,
+      "confidence": <confidence score in validating the boundary mask in red between 0 and 1 in float rounded upto 2 decimal places (e.g., 0.87)>,
       "reasoning": "<a brief reasoning behind the the boundary mask being marked as valid/invalid>"
     }}
 """
@@ -270,10 +301,10 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
       "ceiling": {{
         "room_name": "<Detected Room Name the ceiling belongs to / NULL>",
         "area": <Area of the ceiling in SQFT (Square Feet)>,
-        "confidence_area": <confidence score in predicting the area of the ceiling between 0 and 1 in float rounded upto 2 decimal places>,
+        "confidence_area": <confidence score in predicting the area of the ceiling between 0 and 1 in float rounded upto 2 decimal places (e.g., 0.87)>,
         "ceiling_type": "<Type code of the ceiling>",
         "height": <height of the ceiling (centroid of the ceiling axis, if sloped)>,
-        "confidence_height": <confidence score in predicting the height of the ceiling between 0 and 1 in float rounded upto 2 decimal places>,
+        "confidence_height": <confidence score in predicting the height of the ceiling between 0 and 1 in float rounded upto 2 decimal places (e.g., 0.87)>,
         "slope": <slope of the ceiling in degrees>,
         "slope_enabled": <is sloping supported given the type of ceiling used (True/False)>,
         "tilt_axis": <axial direction of the tilted slope / NULL>,
@@ -292,10 +323,10 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
         {{
           "room_name": "<Detected Room Name the perimeter wall 1 belongs to / NULL>",
           "length": <length of perimeter wall 1 in feet>,
-          "confidence_length": <confidence score in predicting the length of the perimeter wall 1 between 0 and 1 in float rounded upto 2 decimal places>,
+          "confidence_length": <confidence score in predicting the length of the perimeter wall 1 between 0 and 1 in float rounded upto 2 decimal places (e.g., 0.87)>,
           "width": <width of the perimeter wall 1 in feet / None>,
           "height": <height of the perimeter wall 1 in feet>,
-          "confidence_height": <confidence score in predicting the height of the perimeter wall 1 between 0 and 1 in float rounded upto 2 decimal places>,
+          "confidence_height": <confidence score in predicting the height of the perimeter wall 1 between 0 and 1 in float rounded upto 2 decimal places (e.g., 0.87)>,
           "wall_type": "<type of the perimeter wall 1>",
           "openings": [
             {{"opening_type": "<Type of the perimeter wall 1 opening 1>", "count": <count of the opening type 1>, "length": <length of the opening type 1 in feet>, "height": <height of the opening type 1 in feet>}},
@@ -317,10 +348,10 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
         {{
           "room_name": "<Detected Room Name the perimeter wall 2 belongs to / NULL>",
           "length": <length of perimeter wall 2 in feet>,
-          "confidence_length": <confidence score in predicting the length of the perimeter wall 2 between 0 and 1 in float rounded upto 2 decimal places>,
+          "confidence_length": <confidence score in predicting the length of the perimeter wall 2 between 0 and 1 in float rounded upto 2 decimal places (e.g., 0.87)>,
           "width": <width of the perimeter wall 2 in feet / None>,
           "height": <height of the perimeter wall 2 in feet>,
-          "confidence_height": <confidence score in predicting the height of the perimeter wall 2 between 0 and 1 in float rounded upto 2 decimal places>,
+          "confidence_height": <confidence score in predicting the height of the perimeter wall 2 between 0 and 1 in float rounded upto 2 decimal places (e.g., 0.87)>,
           "wall_type": "<type of the perimeter wall 2>",
           "openings": [
             {{"opening_type": "<Type of the perimeter wall 2 opening 1>", "count": <count of the opening type 1>, "length": <length of the opening type 1 in feet>, "height": <height of the opening type 1 in feet>}}
