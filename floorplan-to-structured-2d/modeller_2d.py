@@ -1155,7 +1155,7 @@ class FloorPlan2D(FloorPlan):
             if self._is_cached["WALL_RECTIFIER"]:
                 _, is_valid = phoenix_call(
                     lambda feedback_prompt, temperature: self._vertex_ai_client_wall_rectification.generate_content(
-                        contents=[feedback_prompt, query] if feedback_prompt else [query],
+                        contents=WALL_RECTIFIER_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else WALL_RECTIFIER_FEW_SHOT+[query],
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
@@ -1164,7 +1164,7 @@ class FloorPlan2D(FloorPlan):
             else:
                 _, is_valid = phoenix_call(
                     lambda feedback_prompt, temperature: self._vertex_ai_client_wall_rectification(WALL_RECTIFIER).generate_content(
-                        contents=[feedback_prompt, query] if feedback_prompt else [query],
+                        contents=WALL_RECTIFIER_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else WALL_RECTIFIER_FEW_SHOT+[query],
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
