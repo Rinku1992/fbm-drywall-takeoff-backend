@@ -26,6 +26,7 @@ from prompt import (
     WALL_RECTIFIER,
     WALL_RECTIFIER_FEW_SHOT,
     SHAPE_RECTIFIER,
+    SHAPE_RECTIFIER_FEW_SHOT,
     CEILING_CHOICES,
     WALL_CHOICES,
     DrywallPredictorCaliforniaResponse,
@@ -587,7 +588,7 @@ class FloorPlan2D(FloorPlan):
             if self._is_cached["SHAPE_RECTIFIER"]:
                 _, is_valid = phoenix_call(
                     lambda feedback_prompt, temperature: self._vertex_ai_client_shape_rectification.generate_content(
-                        contents=[feedback_prompt, query] if feedback_prompt else [query],
+                        contents=SHAPE_RECTIFIER_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else SHAPE_RECTIFIER_FEW_SHOT+[query],
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
@@ -596,7 +597,7 @@ class FloorPlan2D(FloorPlan):
             else:
                 _, is_valid = phoenix_call(
                     lambda feedback_prompt, temperature: self._vertex_ai_client_shape_rectification(SHAPE_RECTIFIER).generate_content(
-                        contents=[feedback_prompt, query] if feedback_prompt else [query],
+                        contents=SHAPE_RECTIFIER_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else SHAPE_RECTIFIER_FEW_SHOT+[query],
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
