@@ -659,7 +659,7 @@ WALL_CHOICES = [
     {"wall_type": "HALLWAY_WALL", "is_height_static": True} 
 ]
 
-OPENING_CHOICES = [
+OPENING_TYPE_CHOICES = [
     "Doors",
     "Windows",
     "Sliding doors",
