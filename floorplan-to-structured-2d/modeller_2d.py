@@ -20,7 +20,7 @@ from shapely.geometry import Polygon
 import Levenshtein
 
 from floor_plan import FloorPlan
-from prompt import (
+from prompts import (
     DRYWALL_PREDICTOR_CALIFORNIA,
     SCALE_AND_CEILING_HEIGHT_DETECTOR,
     WALL_RECTIFIER,
