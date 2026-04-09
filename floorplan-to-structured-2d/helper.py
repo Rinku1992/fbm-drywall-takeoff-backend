@@ -29,7 +29,7 @@ from google.oauth2 import service_account
 from google.cloud.pubsub_v1 import PublisherClient
 
 from transcriber import Transcriber
-from prompt import (
+from prompts import (
     FEEDBACK_GENERATOR,
     ARCHITECTURAL_DRAWING_CLASSIFIER,
     ArchitecturalDrawingClassifierResponse
