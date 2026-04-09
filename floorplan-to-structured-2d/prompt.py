@@ -658,3 +658,11 @@ WALL_CHOICES = [
   {"wall_type": "WET_WALL", "is_height_static": False},
   {"wall_type": "HALLWAY_WALL", "is_height_static": True} 
 ]
+
+OPENING_CHOICES = [
+    "Doors",
+    "Windows",
+    "Sliding doors",
+    "Arched openings",
+    "Pass-through"
+]
