@@ -1830,7 +1830,7 @@ class FloorPlan2D(FloorPlan):
         drywall_skus = [drywall_template["sku_variant"] for drywall_template in self._drywall_templates]
         for wall in walls_2d[:]:
             for opening in wall["openings"][:]:
-                opening_types_levenshtein = list(map(lambda opening_type_choice: Levenshtein.distance(opening["opening_type"], opening_type_choice), OPENING_TYPE_CHOICES)
+                opening_types_levenshtein = list(map(lambda opening_type_choice: Levenshtein.distance(opening["opening_type"], opening_type_choice), OPENING_TYPE_CHOICES))
                 target_opening_type_index = opening_types_levenshtein.index(min(opening_types_levenshtein))
                 opening["opening_type"] = OPENING_TYPE_CHOICES[target_opening_type_index]
             if impute_drywall_disabled and len(wall["polygons_drywall"]) == 2:
