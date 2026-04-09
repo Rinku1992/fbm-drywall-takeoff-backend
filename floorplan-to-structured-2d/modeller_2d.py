@@ -29,6 +29,7 @@ from prompt import (
     SHAPE_RECTIFIER_FEW_SHOT,
     CEILING_CHOICES,
     WALL_CHOICES,
+    OPENING_TYPE_CHOICES,
     DrywallPredictorCaliforniaResponse,
     ScaleAndCeilingHeightDetectorResponse,
     WallRectifierResponse,
@@ -1828,6 +1829,10 @@ class FloorPlan2D(FloorPlan):
         scale_x, scale_y = scale
         drywall_skus = [drywall_template["sku_variant"] for drywall_template in self._drywall_templates]
         for wall in walls_2d[:]:
+            for opening in wall["openings"][:]:
+                opening_types_levenshtein = list(map(lambda opening_type_choice: Levenshtein.distance(opening["opening_type"], opening_type_choice), OPENING_TYPE_CHOICES)
+                target_opening_type_index = opening_types_levenshtein.index(min(opening_types_levenshtein))
+                opening["opening_type"] = OPENING_TYPE_CHOICES[target_opening_type_index]
             if impute_drywall_disabled and len(wall["polygons_drywall"]) == 2:
                 if not wall["polygons_drywall"][0]["enabled"] or not wall["polygons_drywall"][1]["enabled"]:
                     centroid_A = (round(sum([vertex['x'] for vertex in wall["polygons_drywall"][0]["polygon"]]) / 4), round(sum([vertex['y'] for vertex in wall["polygons_drywall"][0]["polygon"]]) / 4))
