@@ -1195,8 +1195,8 @@ class FloorPlan2D(FloorPlan):
     ):
         def verify_tolerance_distance(dimension_wall, wall_unnormalized, confidence_score):
             if dimension_wall["length"] and dimension_wall["width"] and confidence_score >= 0.9:
-                dimension_wall["length"] = round(dimension_wall["length"], 2)
-                dimension_wall["width"] = round(dimension_wall["width"], 2)
+                dimension_wall["length"] = round(dimension_wall["length"], 3)
+                dimension_wall["width"] = round(dimension_wall["width"], 3)
                 return dimension_wall
             X1, Y1, X2, Y2 = wall_unnormalized[0]
             length_target = round(math.hypot(
@@ -1207,11 +1207,11 @@ class FloorPlan2D(FloorPlan):
             if not length_predicted or length_predicted == -1:
                 dimension_wall["length"] = length_target
             else:
-                dimension_wall["length"] = round(length_predicted, 2)
+                dimension_wall["length"] = round(length_predicted, 3)
             if not dimension_wall["width"]:
                 dimension_wall["width"] = self._width_in_feet
             else:
-                dimension_wall["width"] = round(dimension_wall["width"], 2)
+                dimension_wall["width"] = round(dimension_wall["width"], 3)
             if length_predicted and abs(length_target - length_predicted) > tolerance:
                 dimension_wall["length"] = length_target
 
@@ -1219,17 +1219,17 @@ class FloorPlan2D(FloorPlan):
 
         def verify_tolerance_area(area_polygon_predicted, area_polygon_target, confidence_score):
             if area_polygon_predicted and confidence_score >= 0.9:
-                return area_polygon_predicted
+                return round(area_polygon_predicted, 3)
             if area_polygon_predicted and abs(area_polygon_target - area_polygon_predicted) > tolerance ** 2:
-                return area_polygon_target
+                return round(area_polygon_target, 3)
 
-            return area_polygon_predicted
+            return round(area_polygon_predicted, 3)
 
         def verify_tolerance_height(height_predicted, confidence_score):
             if height_predicted and height_predicted != -1 and confidence_score >= 0.9:
-                return height_predicted
+                return round(height_predicted, 3)
 
-            return height_default
+            return round(height_default, 3)
 
         canvas = cv2.imread(floor_plan_path)
         vertices = np.array(vertices)
