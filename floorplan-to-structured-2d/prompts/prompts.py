@@ -60,13 +60,13 @@ WALL_RECTIFIER = """
       "reasoning": "<a brief reasoning behind the highlighted wall being marked as valid/invalid>"
     }}
 
-    **STRICTLY** refer the provided few-shot examples. 
+    **STRICTLY** refer the provided few-shot examples.
 """
 
-wall_image_samples, is_valid_json_samples = glob("wall_samples/wall_*"), glob("wall_samples/is_valid_*")
+wall_rectifier_image_samples, is_valid_json_samples = glob("prompts/wall_rectifier_few_shot/wall_rectifier_*"), glob("prompts/wall_rectifier_few_shot/is_valid_*")
 WALL_RECTIFIER_FEW_SHOT = list()
-for wall_image_sample, is_valid_json_sample in zip(wall_image_samples, is_valid_json_samples):
-    canvas = cv2.imread(wall_image_sample)
+for wall_rectifier_image_sample, is_valid_json_sample in zip(wall_rectifier_image_samples, is_valid_json_samples):
+    canvas = cv2.imread(wall_rectifier_image_sample)
     _, canvas_buffer_array = cv2.imencode(".png", canvas)
     bytes_canvas = canvas_buffer_array.tobytes()
     with open(is_valid_json_sample, 'r') as f:
@@ -139,10 +139,10 @@ SHAPE_RECTIFIER = """
     **STRICTLY** refer the provided few-shot examples.
 """
 
-shape_image_samples, is_valid_json_samples = glob("shape_samples/shape_*"), glob("shape_samples/is_valid_*")
+shape_rectifier_image_samples, is_valid_json_samples = glob("prompts/shape_rectifier_few_shot/shape_rectifier_*"), glob("prompts/shape_rectifier_few_shot/is_valid_*")
 SHAPE_RECTIFIER_FEW_SHOT = list()
-for shape_image_sample, is_valid_json_sample in zip(shape_image_samples, is_valid_json_samples):
-    canvas = cv2.imread(shape_image_sample)
+for shape_rectifier_image_sample, is_valid_json_sample in zip(shape_rectifier_image_samples, is_valid_json_samples):
+    canvas = cv2.imread(shape_rectifier_image_sample)
     _, canvas_buffer_array = cv2.imencode(".png", canvas)
     bytes_canvas = canvas_buffer_array.tobytes()
     with open(is_valid_json_sample, 'r') as f:
@@ -646,17 +646,17 @@ CEILING_CHOICES = [
 ]
 
 WALL_CHOICES = [
-    {"wall_type": "OPEN_TO_BELOW", "is_height_static": False},
-    {"wall_type": "FULL_WALL", "is_height_static": True},
-    {"wall_type": "HALF_WALL", "is_height_static": False},
-    {"wall_type": "STAIRCASE_WALL", "is_height_static": False},
-    {"wall_type": "SOFFITS", "is_height_static": False},
-    {"wall_type": "MULTI_FLOOR_ALIGNMENT", "is_height_static": False},
-    {"wall_type": "DEMISING_WALL", "is_height_static": True},
-    {"wall_type": "GARAGE_SEPARATION_WALL", "is_height_static": True},
-    {"wall_type": "SHAFT_WALL", "is_height_static": False},
-    {"wall_type": "WET_WALL", "is_height_static": False},
-    {"wall_type": "HALLWAY_WALL", "is_height_static": True} 
+  {"wall_type": "OPEN_TO_BELOW", "is_height_static": False},
+  {"wall_type": "FULL_WALL", "is_height_static": True},
+  {"wall_type": "HALF_WALL", "is_height_static": False},
+  {"wall_type": "STAIRCASE_WALL", "is_height_static": False},
+  {"wall_type": "SOFFITS", "is_height_static": False},
+  {"wall_type": "MULTI_FLOOR_ALIGNMENT", "is_height_static": False},
+  {"wall_type": "DEMISING_WALL", "is_height_static": True},
+  {"wall_type": "GARAGE_SEPARATION_WALL", "is_height_static": True},
+  {"wall_type": "SHAFT_WALL", "is_height_static": False},
+  {"wall_type": "WET_WALL", "is_height_static": False},
+  {"wall_type": "HALLWAY_WALL", "is_height_static": True} 
 ]
 
 OPENING_TYPE_CHOICES = [
