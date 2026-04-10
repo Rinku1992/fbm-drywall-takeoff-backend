@@ -660,9 +660,9 @@ WALL_CHOICES = [
 ]
 
 OPENING_TYPE_CHOICES = [
-    "Doors",
-    "Windows",
-    "Sliding doors",
-    "Arched openings",
-    "Pass-through"
+    "Doors": [90, 32, 201],
+    "Windows": [32, 153, 201],
+    "Sliding doors": [201, 32, 193],
+    "Arched openings": [7, 102, 77],
+    "Pass-through": [214, 98, 26]
 ]
