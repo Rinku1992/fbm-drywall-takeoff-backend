@@ -1284,7 +1284,7 @@ class FloorPlan2D(FloorPlan):
                 )
             else:
                 _, model_polygon = phoenix_call(
-                    lambda feedback_prompt, temperature: self._vertex_ai_client_drywall_prediction(DRYWALL_PREDICTOR_CALIFORNIA).generate_content(
+                    lambda feedback_prompt, temperature: self._vertex_ai_client_drywall_prediction(DRYWALL_PREDICTOR_CALIFORNIA.format(drywall_templates=self._drywall_templates)).generate_content(
                         contents=[feedback_prompt, query] if feedback_prompt else [query],
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
