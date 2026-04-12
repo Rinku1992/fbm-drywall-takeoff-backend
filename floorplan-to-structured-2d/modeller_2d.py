@@ -1123,7 +1123,7 @@ class FloorPlan2D(FloorPlan):
         canvas = cv2.imread(floor_plan_path)
         height_in_pixels, width_in_pixels, _ = canvas.shape
         (offset_top_left_X, offset_top_left_Y), (offset_bottom_right_X, offset_bottom_right_Y) = offset
-        margin_X, margin_Y = 15 * round(width_in_pixels / 1920), 15 * round(height_in_pixels / 1080)
+        margin_X, margin_Y = 10 * round(width_in_pixels / 1920), 10 * round(height_in_pixels / 1080)
         LEFT = round(offset_top_left_X * width_in_pixels)
         TOP = round(offset_top_left_Y * height_in_pixels)
         BOTTOM = round(offset_bottom_right_Y * height_in_pixels)
@@ -1227,7 +1227,7 @@ class FloorPlan2D(FloorPlan):
         canvas = cv2.imread(floor_plan_path)
         height_in_pixels, width_in_pixels, _ = canvas.shape
         (offset_top_left_X, offset_top_left_Y), (offset_bottom_right_X, offset_bottom_right_Y) = offset
-        margin_X, margin_Y = 15 * round(width_in_pixels / 1920), 15 * round(height_in_pixels / 1080)
+        margin_X, margin_Y = 10 * round(width_in_pixels / 1920), 10 * round(height_in_pixels / 1080)
         LEFT = round(offset_top_left_X * width_in_pixels)
         TOP = round(offset_top_left_Y * height_in_pixels)
         BOTTOM = round(offset_bottom_right_Y * height_in_pixels)
