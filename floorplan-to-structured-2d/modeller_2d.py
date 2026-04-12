@@ -1203,7 +1203,7 @@ class FloorPlan2D(FloorPlan):
             length_target = round(math.hypot(
                 (X1 - X2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["horizontal"],
                 (Y1 - Y2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["vertical"]
-            ), 2)
+            ), 3)
             length_predicted = dimension_wall["length"]
             if not length_predicted or length_predicted == -1:
                 dimension_wall["length"] = length_target
