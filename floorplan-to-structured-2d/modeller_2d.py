@@ -1189,6 +1189,7 @@ class FloorPlan2D(FloorPlan):
         floor_plan_path,
         transcription_block_with_centroids,
         walls_unnormalized,
+        offset,
         threshold=1000,
         tolerance=10,
         height_default=9.125,
@@ -1224,6 +1225,24 @@ class FloorPlan2D(FloorPlan):
             return round(height_default, 3)
 
         canvas = cv2.imread(floor_plan_path)
+        height_in_pixels, width_in_pixels, _ = canvas.shape
+        (offset_top_left_X, offset_top_left_Y), (offset_bottom_right_X, offset_bottom_right_Y) = offset
+        margin_X, margin_Y = 10 * round(width_in_pixels / 1920), 10 * round(height_in_pixels / 1080)
+        LEFT = round(offset_top_left_X * width_in_pixels)
+        TOP = round(offset_top_left_Y * height_in_pixels)
+        BOTTOM = round(offset_bottom_right_Y * height_in_pixels)
+        RIGHT = round(offset_bottom_right_X * width_in_pixels)
+        canvas = cv2.rectangle(
+            canvas,
+            (max(0, LEFT - margin_X), max(0, TOP - margin_Y)),
+            (min(width_in_pixels, RIGHT + margin_X), min(height_in_pixels, BOTTOM + margin_Y)),
+            (0, 255, 0),
+            10
+        )
+        canvas[:max(0, TOP - margin_Y), :] = 255
+        canvas[:, :max(0, LEFT - margin_X)] = 255
+        canvas[:, min(width_in_pixels, RIGHT + margin_X):] = 255
+        canvas[min(height_in_pixels, BOTTOM + margin_Y):, :] = 255
         vertices = np.array(vertices)
         canvas_to_overlay = canvas.copy()
         cv2.fillPoly(canvas_to_overlay, pts=[vertices], color=(0, 0, 255))
@@ -1347,6 +1366,7 @@ class FloorPlan2D(FloorPlan):
         floor_plan_path,
         transcription_block_with_centroids,
         index,
+        offset,
     ):
         def load_wall_payload(wall_line):
             X1, Y1, X2, Y2 = wall_line[0]
@@ -1383,6 +1403,7 @@ class FloorPlan2D(FloorPlan):
             floor_plan_path,
             transcription_block_with_centroids,
             perimeter_walls_unnormalized,
+            offset,
             height_default=height_default,
         )
 
@@ -2461,6 +2482,7 @@ class FloorPlan2D(FloorPlan):
                     floor_plan_path,
                     transcription_block_with_centroids,
                     index,
+                    offset,
                 ))
             [future.result() for future in futures]
             futures = list()
@@ -2504,6 +2526,7 @@ class FloorPlan2D(FloorPlan):
                     floor_plan_path,
                     transcription_block_with_centroids,
                     index,
+                    offset,
                 ))
             [future.result() for future in futures]
         self._walls_2d = self._normalize_walls_2d(self._walls_2d, (scale_x, scale_y))
