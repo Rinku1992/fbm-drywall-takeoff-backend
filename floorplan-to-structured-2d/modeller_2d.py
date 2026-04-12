@@ -1190,31 +1190,22 @@ class FloorPlan2D(FloorPlan):
         transcription_block_with_centroids,
         walls_unnormalized,
         offset,
-        threshold=1000,
-        tolerance=10,
         height_default=9.125,
     ):
         def verify_tolerance_distance(dimension_wall, wall_unnormalized, confidence_score):
-            if dimension_wall["length"] and dimension_wall["width"] and confidence_score >= 0.9:
+            if dimension_wall["length"] and confidence_score >= 0.9:
                 dimension_wall["length"] = round(dimension_wall["length"], 3)
-                dimension_wall["width"] = round(dimension_wall["width"], 3)
-                return dimension_wall
-            X1, Y1, X2, Y2 = wall_unnormalized[0]
-            length_target = round(math.hypot(
-                (X1 - X2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["horizontal"],
-                (Y1 - Y2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["vertical"]
-            ), 3)
-            length_predicted = dimension_wall["length"]
-            if not length_predicted or length_predicted == -1:
-                dimension_wall["length"] = length_target
             else:
-                dimension_wall["length"] = round(length_predicted, 3)
+                X1, Y1, X2, Y2 = wall_unnormalized[0]
+                length_target = round(math.hypot(
+                    (X1 - X2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["horizontal"],
+                    (Y1 - Y2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["vertical"]
+                ), 3)
+                dimension_wall["length"] = length_target
             if not dimension_wall["width"]:
                 dimension_wall["width"] = self._width_in_feet
             else:
                 dimension_wall["width"] = round(dimension_wall["width"], 3)
-            if length_predicted and abs(length_target - length_predicted) > tolerance:
-                dimension_wall["length"] = length_target
 
             return dimension_wall
 
