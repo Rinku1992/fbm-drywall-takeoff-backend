@@ -52,7 +52,7 @@ class FloorPlan:
     def compute_pixel_aspect_ratio(self, scale_new, pixel_aspect_ratio_standard):
         scale_new_on_paper_length = float(scale_new.split(':')[0].strip('`'))
         scale_new_real_world_length_in_feet_and_inches_ = scale_new.split(':')[1].strip('`"')
-        if scale_new_real_world_length_in_feet_and_inches_.find('`') !=-1:
+        if scale_new_real_world_length_in_feet_and_inches_.find('`') != -1:
             scale_new_real_world_length_in_feet_and_inches = scale_new_real_world_length_in_feet_and_inches_.split('`')
         else:
             scale_new_real_world_length_in_feet_and_inches = scale_new_real_world_length_in_feet_and_inches_.split("'")
