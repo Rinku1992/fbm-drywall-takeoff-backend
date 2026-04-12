@@ -1209,6 +1209,11 @@ class FloorPlan2D(FloorPlan):
 
             return dimension_wall
 
+        def verify_tolerance_area(area_polygon_predicted, area_polygon_target, confidence_score):
+            if area_polygon_predicted and confidence_score >= 0.9:
+                return round(area_polygon_predicted, 3)
+            return round(area_polygon_target, 3)
+
         def verify_tolerance_height(height_predicted, confidence_score):
             if height_predicted and height_predicted != -1 and confidence_score >= 0.9:
                 return round(height_predicted, 3)
@@ -1284,7 +1289,10 @@ class FloorPlan2D(FloorPlan):
                     pydantic_model=DrywallPredictorCaliforniaResponse,
                     verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
                 )
-            model_polygon["ceiling"]["area"] = round(area_target, 3)
+            if self._scale == "0.25``:1`0``":
+                model_polygon["ceiling"]["area"] = round(area_target, 3)
+            else:
+                model_polygon["ceiling"]["area"] = verify_tolerance_area(model_polygon["ceiling"]["area"], area_target, model_polygon["ceiling"]["confidence_area"])
             model_polygon["ceiling"]["height"] = verify_tolerance_height(model_polygon["ceiling"]["height"], model_polygon["ceiling"]["confidence_height"])
             for index, (dimension_wall_predicted, wall_unnormalized) in enumerate(zip(model_polygon["wall_parameters"], walls_unnormalized)):
                 dimension_wall_rectified = verify_tolerance_distance(dimension_wall_predicted, wall_unnormalized, dimension_wall_predicted["confidence_length"])
