@@ -1217,14 +1217,6 @@ class FloorPlan2D(FloorPlan):
 
             return dimension_wall
 
-        def verify_tolerance_area(area_polygon_predicted, area_polygon_target, confidence_score):
-            if area_polygon_predicted and confidence_score >= 0.9:
-                return round(area_polygon_predicted, 3)
-            if area_polygon_predicted and abs(area_polygon_target - area_polygon_predicted) > tolerance ** 2:
-                return round(area_polygon_target, 3)
-
-            return round(area_polygon_predicted, 3)
-
         def verify_tolerance_height(height_predicted, confidence_score):
             if height_predicted and height_predicted != -1 and confidence_score >= 0.9:
                 return round(height_predicted, 3)
@@ -1245,20 +1237,10 @@ class FloorPlan2D(FloorPlan):
             canvas_to_overlay = canvas.copy()
             cv2.fillPoly(canvas_to_overlay, pts=[polygon_pts], color=(0, 255, 0))
             canvas = cv2.addWeighted(canvas_to_overlay, 0.5, canvas, 0.5, 0)
-        polygon_bounding_box_X1 = min(vertex[0] for vertex in vertices)
-        polygon_bounding_box_Y1 = min(vertex[1] for vertex in vertices)
-        polygon_bounding_box_X2 = max(vertex[0] for vertex in vertices)
-        polygon_bounding_box_Y2 = max(vertex[1] for vertex in vertices)
-        threshold_X = max((polygon_bounding_box_X2 - polygon_bounding_box_X1) // 2, threshold)
-        threshold_Y = max((polygon_bounding_box_Y2 - polygon_bounding_box_Y1) // 2, threshold)
-        canvas_cropped = canvas[max(0, polygon_bounding_box_Y1 - threshold_Y): polygon_bounding_box_Y2 + threshold_Y, max(0, polygon_bounding_box_X1 - threshold_X): polygon_bounding_box_X2 + threshold_X]
-        centroid_polygon_X = round(sum([vertex[0] for vertex in vertices]) / len(vertices))
-        centroid_polygon_Y = round(sum([vertex[1] for vertex in vertices]) / len(vertices))
-        nearest_transcription_blocks = self._load_nearest_transcription_blocks((centroid_polygon_X, centroid_polygon_Y), transcription_block_with_centroids)
         transcription_entries = list()
-        for transcription, centroid in nearest_transcription_blocks.items():
+        for transcription, centroid in transcription_block_with_centroids.items():
             transcription_entries.append(dict(text=transcription, centroid=dict(X=centroid[0], Y=centroid[1])))
-        _, canvas_buffer_array = cv2.imencode(".png", canvas_cropped)
+        _, canvas_buffer_array = cv2.imencode(".png", canvas)
         bytes_canvas = canvas_buffer_array.tobytes()
         perimeter_lines = list()
         for wall in walls:
@@ -1292,7 +1274,7 @@ class FloorPlan2D(FloorPlan):
                     pydantic_model=DrywallPredictorCaliforniaResponse,
                     verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
                 )
-            model_polygon["ceiling"]["area"] = verify_tolerance_area(model_polygon["ceiling"]["area"], area_target, model_polygon["ceiling"]["confidence_area"])
+            model_polygon["ceiling"]["area"] = round(area_target, 3)
             model_polygon["ceiling"]["height"] = verify_tolerance_height(model_polygon["ceiling"]["height"], model_polygon["ceiling"]["confidence_height"])
             for index, (dimension_wall_predicted, wall_unnormalized) in enumerate(zip(model_polygon["wall_parameters"], walls_unnormalized)):
                 dimension_wall_rectified = verify_tolerance_distance(dimension_wall_predicted, wall_unnormalized, dimension_wall_predicted["confidence_length"])
