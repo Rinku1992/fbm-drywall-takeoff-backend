@@ -2435,7 +2435,6 @@ class FloorPlan2D(FloorPlan):
         floor_plan_path="/tmp/floor_plan.png",
         output_path="/tmp/blueprint_model_2d.png",
         transcription_block_with_centroids=dict(),
-        transcription_headers_and_footers=dict(),
     ):
         image_GRAY = self.read_floor_plan(image_path)
         output_path = Path(output_path)
