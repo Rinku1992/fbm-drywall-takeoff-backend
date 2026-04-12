@@ -114,7 +114,6 @@ def page_to_structured_2d(
     floor_plan_processed_path,
     bounding_box_offset,
     transcription_block_with_centroids,
-    transcription_headers_and_footers,
     floorplan_page_statistics,
     floorplan_baseline_page_source,
 ):
@@ -132,7 +131,6 @@ def page_to_structured_2d(
         model_2d_path=f"/tmp/{project_id}/{plan_id}/{user_id}/walls_2d_{str(page_number).zfill(4)}_{str(page_section_number).replace('/', '_')}.json",
         floor_plan_path=floor_plan_processed_path,
         transcription_block_with_centroids=transcription_block_with_centroids,
-        transcription_headers_and_footers=transcription_headers_and_footers,
     )
     if walls_2d and polygons:
         floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons)
@@ -244,7 +242,7 @@ async def floorplan_to_structured_2d(request: Request):
     wall_segmented_path = futures["floorplan_to_walls"].result()
     logging.info(f"SYSTEM: Wall Detection Completed from PAGE: {page_number}")
 
-    transcription_block_with_centroids, transcription_headers_and_footers = futures["transcriber"].result()
+    transcription_block_with_centroids, _ = futures["transcriber"].result()
     logging.info(f"SYSTEM: Transcription Completed from PAGE: {page_number}")
 
     floorplan_baseline_page_source = None
@@ -279,7 +277,6 @@ async def floorplan_to_structured_2d(request: Request):
                         floor_plan_processed_path,
                         bounding_box_offset,
                         transcription_block_with_centroids,
-                        transcription_headers_and_footers,
                         floorplan_page_statistics,
                         floorplan_baseline_page_source,
                     )
