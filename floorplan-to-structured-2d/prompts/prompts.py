@@ -225,7 +225,7 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
 
       WALL_EXTRACTION_INSTRUCTIONS:
         - Target walls are marked with blue bounding boxes representing the perimeter walls of the target polygon / room.
-        - Identify all the dimension lines present on the image including the outermost lines towards the outer boundary of the target floor plan.
+        - Identify all the dimension lines present on the image including the outermost lines towards the outermost boundary of the target floor plan.
         - Scan through the dimension markers across the dimension lines denoted by diagonal slash marking the beginning and end of the length of the highlighted wall.
         - Scan through the dimension markers across the dimension lines denoted by diagonal slash marking the beginning and end of the width of the highlighted wall.
         - The orientation of the diagonal marker would be '/' for the horizontal walls and '\' for the vertical walls.
