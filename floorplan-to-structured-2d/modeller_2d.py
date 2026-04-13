@@ -109,7 +109,6 @@ class FloorPlan2D(FloorPlan):
         self,
         wall_lines,
         tolerance_distance=5,
-        n_steps=2500,
     ):
         def load_wall_line_index_random(n_wall_lines, wall_line_indices_prior):
             while True:
@@ -434,7 +433,6 @@ class FloorPlan2D(FloorPlan):
         self,
         wall_lines,
         tolerance_disance=100,
-        n_steps=5000
     ):
         def load_wall_line_index_random(n_wall_lines, wall_line_indices_prior):
             while True:
@@ -1212,6 +1210,7 @@ class FloorPlan2D(FloorPlan):
         def verify_tolerance_area(area_polygon_predicted, area_polygon_target, confidence_score):
             if area_polygon_predicted and confidence_score >= 0.9:
                 return round(area_polygon_predicted, 3)
+
             return round(area_polygon_target, 3)
 
         def verify_tolerance_height(height_predicted, confidence_score):
@@ -1333,11 +1332,11 @@ class FloorPlan2D(FloorPlan):
                         "room_name": '',
                         "length": length,
                         "width": self._hyperparameters["modelling"]["width_in_feet"],
-                        "height": height_default,
                         "wall_type": '',
                         "openings": [dict(opening_type="NULL", count=0, length=0, height=0)],
                         "drywall_assembly": {
                             "material": "D12L - 1/2\" DW LITE-WEIGHT",
+                            "height": height_default,
                             "color_code": [71, 239, 143],
                             "materials_vertically_stacked": [],
                             "color_codes_stacked": [],
@@ -1417,6 +1416,7 @@ class FloorPlan2D(FloorPlan):
                 except (KeyError, TypeError):
                     wall_parameter["drywall_assembly"] = dict(
                         material="DISABLED",
+                        height=height_default,
                         color_code=[0, 0, 255],
                         materials_vertically_stacked=[],
                         color_codes_stacked=[],
@@ -1436,6 +1436,7 @@ class FloorPlan2D(FloorPlan):
                         room_name=wall_parameter["room_name"],
                         polygon=polygon["coordinates"] if isinstance(polygon, dict) else polygon[0]["coordinates"],
                         type=wall_parameter["drywall_assembly"]["material"],
+                        height=wall_parameter["drywall_assembly"]["height"],
                         color=list(wall_parameter["drywall_assembly"]["color_code"]),
                         type_stacked=wall_parameter["drywall_assembly"]["materials_vertically_stacked"],
                         color_stacked=list(wall_parameter["drywall_assembly"]["color_codes_stacked"]),
@@ -1457,7 +1458,6 @@ class FloorPlan2D(FloorPlan):
                         dict(x=int(X2), y=int(Y2))
                     ],
                     thickness=wall_parameter["width"],
-                    height=wall_parameter["height"] if wall_parameter["height"] else height_default,
                     length=wall_parameter["length"],
                     type=wall_parameter["wall_type"],
                     openings=wall_parameter["openings"],
@@ -1470,6 +1470,7 @@ class FloorPlan2D(FloorPlan):
                 except (KeyError, TypeError):
                     wall_parameter["drywall_assembly"] = dict(
                         material="DISABLED",
+                        height=height_default,
                         color_code=[0, 0, 255],
                         materials_vertically_stacked=[],
                         color_codes_stacked=[],
@@ -1487,6 +1488,7 @@ class FloorPlan2D(FloorPlan):
                         room_name=wall_parameter["room_name"],
                         polygon=polygon["coordinates"] if isinstance(polygon, dict) else polygon[0]["coordinates"],
                         type=wall_parameter["drywall_assembly"]["material"],
+                        height=wall_parameter["drywall_assembly"]["height"],
                         color=list(wall_parameter["drywall_assembly"]["color_code"]),
                         type_stacked=wall_parameter["drywall_assembly"]["materials_vertically_stacked"],
                         color_stacked=list(wall_parameter["drywall_assembly"]["color_codes_stacked"]),
@@ -1506,6 +1508,7 @@ class FloorPlan2D(FloorPlan):
                             room_name=wall_parameter["room_name"],
                             polygon=polygon[1]["coordinates"],
                             type=wall_parameter["drywall_assembly"]["material"],
+                            height=wall_parameter["drywall_assembly"]["height"],
                             color=list(wall_parameter["drywall_assembly"]["color_code"]),
                             type_stacked=wall_parameter["drywall_assembly"]["materials_vertically_stacked"],
                             color_stacked=list(wall_parameter["drywall_assembly"]["color_codes_stacked"]),
@@ -1582,6 +1585,7 @@ class FloorPlan2D(FloorPlan):
                     id=f"{wall_payload["id"]}.b",
                     polygon=polygons[0]["coordinates"],
                     type="DISABLED",
+                    height=height_default,
                     color=[0, 0, 255],
                     type_stacked=[],
                     color_stacked=[],
@@ -1602,7 +1606,6 @@ class FloorPlan2D(FloorPlan):
                     dict(x=round(scale_x * X2), y=round(scale_y * Y2))
                 ],
                 thickness=thickness_default,
-                height=height_default,
                 length=wall_length_expected,
                 polygons_drywall=list(),
                 type='',
@@ -1614,6 +1617,7 @@ class FloorPlan2D(FloorPlan):
                         id=f"{len(self._walls_2d)}.{polygon_index}",
                         polygon=polygon["coordinates"],
                         type="DISABLED",
+                        height=height_default,
                         color=[0, 0, 255],
                         type_stacked=[],
                         color_stacked=[],
@@ -1995,6 +1999,7 @@ class FloorPlan2D(FloorPlan):
                             room_name='',
                             polygon=polygon_vertices,
                             type="DISABLED",
+                            height=self._hyperparameters["modelling"]["height_in_feet"],
                             color=[0, 0, 255],
                             type_stacked=[],
                             color_stacked=[],
@@ -2090,6 +2095,7 @@ class FloorPlan2D(FloorPlan):
                         room_name='',
                         polygon=polygon_vertices,
                         type="DISABLED",
+                        height=self._hyperparameters["modelling"]["height_in_feet"],
                         color=[0, 0, 255],
                         type_stacked=[],
                         color_stacked=[],
