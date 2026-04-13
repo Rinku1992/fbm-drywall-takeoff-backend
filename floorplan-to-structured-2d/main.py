@@ -212,10 +212,10 @@ async def floorplan_to_structured_2d(request: Request):
     ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
     floor_plan_processed_path, plan_type = floorplan_to_page(CREDENTIALS, project_id, plan_id, ip_address, pdf_path, page_number)
     publish_handler = load_publisher_client(CREDENTIALS)
-    if plan_type["plan_type"].upper().find("FLOOR") == -1:
+    if all(plan_category.upper().find("FLOOR") == -1 for plan_category in plan_type["plan_type"]):
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
         future.result()
-        logging.warning(f"SYSTEM: Rejected Page Number: {page_number} - {plan_type["plan_type"].upper()} (NOT A FLOORPLAN)")
+        logging.warning(f"SYSTEM: Rejected Page Number: {page_number} - {[plan_category.upper() for plan_category in plan_type["plan_type"]]} (NOT A FLOORPLAN)")
         return respond_with_UI_payload(dict(status="FAILED", message="Not a Floor Plan"))
     logging.info(f"SYSTEM: Floorplan Preprocessing Completed: Page Number: {page_number}")
 
@@ -259,6 +259,8 @@ async def floorplan_to_structured_2d(request: Request):
         vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES)
         with ThreadPoolExecutor(max_workers=2) as executor:
             for bounding_box_offset in plan_type["bounding_box_offsets"]:
+                if bounding_box_offset["plan_type"].upper().find("FLOOR") == -1:
+                    continue
                 logging.info(f"SYSTEM: Extracting structured model from SECTION: {bounding_box_offset["title"]} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
                 floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES)
                 floor_plan_modeller_2d.from_vertex_ai_clients(*vertex_ai_clients)
