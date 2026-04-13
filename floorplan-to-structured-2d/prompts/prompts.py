@@ -238,7 +238,7 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
         - If the dimension line joining the dimension markers denoted by diagonal slash, does not align with the length of the highlighted wall, use one of the 2 following approaches to obtain the length of the wall,
             1. Find more than one shorter dimension lines joining the dimension markers denoted by diagonal slashes which adds up to the length of the highlighted wall. The length of the wall would be the sum of all the numerical dimension entities found against each dimension line that adds to the wall.
             2. Find more than one larger and shorter dimension lines joining the dimension markers denoted by diagonal slashes which when subtracted from each other (shorter line subtracted from the larger one), adds up to the length of the highlighted wall. The length of the wall would be the numerical dimension entities found against shorter dimension lines subtracted from the larger ones which adds to the wall.
-        - The numerical entity representing the height of the wall surface interior to the target room / polygon would ideally be placed adjacent to the wall with mention of the `ceiling` / `CLG.` or `height` / `HGT.` keyword (optionally mentioned as ceiling height representing the ceiling height of the room that the wall belongs to with the height number located in the middle of the room on the blueprint). If no such mention is identified, mention the wall height as -1.
+        - ONLY identify the height of the wall surface interior to the target room / polygon. The numerical identity representing the height of the wall would ideally be placed adjacent to the wall with mention of the `ceiling` / `CLG.`, `WALL`, `height` / `HGT.`  keyword (optionally mentioned as ceiling / wall height representing the ceiling / wall height of the room that the wall belongs to with the height number located in the middle of the target room on the blueprint). If no such mention is identified, mention the wall height as -1.
         - Infer the type of the perimeter wall as one from the following templates. Do not generate any other wall type not present in the templates.
           WALL_TYPE TEMPLATES:
             1. OPEN_TO_BELOW
@@ -357,8 +357,6 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
           "length": <length of perimeter wall 1 in feet>,
           "confidence_length": <confidence score in predicting the length of the perimeter wall 1 between 0 and 1 in float rounded upto 2 decimal places (e.g., 0.87)>,
           "width": <width of the perimeter wall 1 in feet / None>,
-          "height": <height of the perimeter wall 1 in feet>,
-          "confidence_height": <confidence score in predicting the height of the perimeter wall 1 between 0 and 1 in float rounded upto 2 decimal places (e.g., 0.87)>,
           "wall_type": "<type of the perimeter wall 1>",
           "openings": [
             {{"opening_type": "<Type of the perimeter wall 1 opening 1>", "count": <count of the opening type 1>, "length": <length of the opening type 1 in feet>, "height": <height of the opening type 1 in feet>}},
@@ -366,6 +364,8 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
           ]
           "drywall_assembly": {{
             "material": "<drywall material for the perimeter wall 1>",
+            "height": <height of the perimeter wall 1 surface the drywall is applied upon in feet>,
+            "confidence_height": <confidence score in predicting the height of the perimeter wall 1 surface the drywall is applied upon between 0 and 1 in float rounded upto 2 decimal places (e.g., 0.87)>,
             "color_code": <color code for the predicted perimeter wall 1 drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>,
             "materials_vertically_stacked": ["<vertically stacked drywall material preference 1 for perimeter wall 1 (optional)>", "<vertically stacked drywall material preference 2 for perimeter wall 1 (optional)>"],
             "color_codes_stacked": [<color code for the vertically stacked drywall type 1 in a BGR tuple (`Blue`, `Green`, `Red`) for perimeter wall 1>, <color code for the vertically stacked drywall type 2 in a BGR tuple (`Blue`, `Green`, `Red`) for perimeter wall 1>]
@@ -382,14 +382,14 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
           "length": <length of perimeter wall 2 in feet>,
           "confidence_length": <confidence score in predicting the length of the perimeter wall 2 between 0 and 1 in float rounded upto 2 decimal places (e.g., 0.87)>,
           "width": <width of the perimeter wall 2 in feet / None>,
-          "height": <height of the perimeter wall 2 in feet>,
-          "confidence_height": <confidence score in predicting the height of the perimeter wall 2 between 0 and 1 in float rounded upto 2 decimal places (e.g., 0.87)>,
           "wall_type": "<type of the perimeter wall 2>",
           "openings": [
             {{"opening_type": "<Type of the perimeter wall 2 opening 1>", "count": <count of the opening type 1>, "length": <length of the opening type 1 in feet>, "height": <height of the opening type 1 in feet>}}
           ]
           "drywall_assembly": {{
             "material": "<drywall material for the perimeter wall 2>",
+            "height": <height of the perimeter wall 2 surface the drywall is applied upon in feet>,
+            "confidence_height": <confidence score in predicting the height of the perimeter wall 2 surface the drywall is applied upon between 0 and 1 in float rounded upto 2 decimal places (e.g., 0.87)>,
             "color_code": <color code for the predicted perimeter wall 2 drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>,
             "materials_vertically_stacked": ["<vertically stacked drywall material preference 1 for perimeter wall 2 (optional)>", "<vertically stacked drywall material preference 2 for perimeter wall 2 (optional)>"],
             "color_codes_stacked": [<color code for the vertically stacked drywall type 1 in a BGR tuple (`Blue`, `Green`, `Red`) for perimeter wall 2>, <color code for the vertically stacked drywall type 2 in a BGR tuple (`Blue`, `Green`, `Red`) for perimeter wall 2>]
@@ -404,6 +404,39 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
       ]
     }}
 """
+
+drywall_predictor_image_samples, drywall_predictor_json_samples, drywall_predicted_json_samples = glob("prompts/drywall_predictor_california_few_shot/drywall_predictor_*.png"), glob("prompts/drywall_predictor_california_few_shot/drywall_predictor_*.json"), glob("prompts/drywall_predictor_california_few_shot/drywall_predicted_*.json")
+DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT = list()
+for drywall_predictor_image_sample, drywall_predictor_json_sample, drywall_predicted_json_sample in zip(drywall_predictor_image_samples, drywall_predictor_json_samples, drywall_predicted_json_samples):
+    canvas = cv2.imread(drywall_predictor_image_sample)
+    _, canvas_buffer_array = cv2.imencode(".png", canvas)
+    bytes_canvas = canvas_buffer_array.tobytes()
+    with open(drywall_predictor_json_sample, 'r') as f:
+        drywall_predictor = json.load(f)
+    with open(drywall_predicted_json_sample, 'r') as f:
+        drywall_predicted = json.load(f)
+    sample_one_shot = [
+      Content(
+        role="user",
+        parts=[
+          Part.from_text("Validate the highlighted boundary mask."),
+          Part.from_data(data=bytes_canvas, mime_type="image/png")
+        ]
+      ),
+      Content(
+        role="user",
+        parts=[
+            Part.from_text(json.dumps(drywall_predictor))
+        ]
+      ),
+      Content(
+        role="model",
+        parts=[
+            Part.from_text(json.dumps(drywall_predicted))
+        ]
+      )
+    ]
+    DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT.extend(sample_one_shot)
 
 def ensure_not_nan(v: float) -> float:
     if v is None:
@@ -440,6 +473,8 @@ class DrywallAssemblyWall(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     material: str
+    height: float
+    confidence_height: float = Field(ge=0, le=1)
     color_code: Tuple[int, int, int]
     materials_vertically_stacked: List
     color_codes_stacked: List
@@ -448,7 +483,7 @@ class DrywallAssemblyWall(BaseModel):
     fire_rating: Optional[Union[str, float]]
     waste_factor: Union[str, int, float]
 
-    @field_validator("thickness")
+    @field_validator("thickness", "height")
     @classmethod
     def validate_float(cls, v):
         return ensure_not_nan(v)
@@ -490,15 +525,13 @@ class WallParameter(BaseModel):
     length: float
     confidence_length: float = Field(ge=0, le=1)
     width: Optional[float]
-    height: float
-    confidence_height: float = Field(ge=0, le=1)
     wall_type: str
     openings: List[Dict]
     drywall_assembly: DrywallAssemblyWall
     code_references: List[str]
     recommendation: Optional[str]
 
-    @field_validator("length", "height")
+    @field_validator("length")
     @classmethod
     def validate_float(cls, v):
         return ensure_not_nan(v)
@@ -567,7 +600,7 @@ ARCHITECTURAL_DRAWING_CLASSIFIER = """
         A single page extracted from an architectural construction plan project document entitled to a planned residence in `PNG` format.
 
     TASK:
-        Classify the construction drawing into exactly ONE of the following categories:
+        Classify the construction drawing into ONE or MORE of the following categories:
 
         - FLOOR_PLAN
         - ROOF_PLAN
@@ -577,7 +610,7 @@ ARCHITECTURAL_DRAWING_CLASSIFIER = """
         - NOT_ARCHITECTURAL_PLAN
 
         INSTRUCTIONS:
-        - Choose exactly one category from the allowed list.
+        - Choose one or more category from the allowed list to classify the single-page plan(s).
         - Use architectural conventions (symbols, annotations, layout, views).
         - Consider labels, dimensions, symbols, and drawing orientation.
         - A page containing architecture plan will contain the architecture metadata information in text at the stray sections of the image, usually at the right and bottom section of the image. Generate a mask factor containing the information on the stray section of the image following the below instrution,
@@ -590,6 +623,7 @@ ARCHITECTURAL_DRAWING_CLASSIFIER = """
         - Identify the title of each of the available/identified architecture drawings, typically found at the bottom of each of the drawings and associate it to the respective visual-grounding/bounding-box offsets.
             - If respective drawing titles cannot be identified, use the title as `FLOOR_PLAN_<unique_identification_number>` with unique identification number for each of the identified architecture drawings.
             - STRICTLY REMEMBER, the titles must be unique. If duplicate titles are observed across the identified architecture drawings, add alpha-numerical suffixes to ensure they are unique.
+        - Identify the plan category for each of the identified plans.
 
         Base your decision only on visual and textual evidence present in the drawing.
 
@@ -607,7 +641,7 @@ ARCHITECTURAL_DRAWING_CLASSIFIER = """
         **STRICTLY FOLLOW**
           - The `bounding_box_offsets` field value should always be a non-empty list. 
         {{
-            "plan_type": "<FLOOR_PLAN>/<ROOF_PLAN>/<ELECTRICAL_PLAN>/<FOUNDATION_PLAN>/<ELEVATION_PLAN>/<NOT_ARCHITECTURAL_PLAN>",
+            "plan_type": ["category of plan 1 (<FLOOR_PLAN>/<ROOF_PLAN>/<ELECTRICAL_PLAN>/<FOUNDATION_PLAN>/<ELEVATION_PLAN>/<NOT_ARCHITECTURAL_PLAN>)", "category of plan 2 (<FLOOR_PLAN>/<ROOF_PLAN>/<ELECTRICAL_PLAN>/<FOUNDATION_PLAN>/<ELEVATION_PLAN>/<NOT_ARCHITECTURAL_PLAN>)"],
             "mask_factor":
                 {{
                     "horizontal": <mask factor for the width of the image in float rounded upto 2 decimal places>,
@@ -615,14 +649,14 @@ ARCHITECTURAL_DRAWING_CLASSIFIER = """
                 }}
             "bounding_box_offsets":
                 [
-                    {{"offset_top_left": <`TOP-LEFT` offset of the bounding-box for architecture drawing 1>, "offset_bottom_right": <`BOTTOM-RIGHT` offset of the bounding-box for architecture drawing 1>, "title": "<identified title of the architecture drawing 1>"}},
-                    {{"offset_top_left": <`TOP-LEFT` offset of the bounding-box for architecture drawing 2>, "offset_bottom_right": <`BOTTOM-RIGHT` offset of the bounding-box for architecture drawing 2>, "title": "<identified title of the architecture drawing 2>"}}
+                    {{"offset_top_left": <`TOP-LEFT` offset of the bounding-box for architecture drawing 1>, "offset_bottom_right": <`BOTTOM-RIGHT` offset of the bounding-box for architecture drawing 1>, "title": "<identified title of the architecture drawing 1>", "plan_type": "type of architectural drawing 1 (<FLOOR_PLAN>/<ROOF_PLAN>/<ELECTRICAL_PLAN>/<FOUNDATION_PLAN>/<ELEVATION_PLAN>/<NOT_ARCHITECTURAL_PLAN>)"}},
+                    {{"offset_top_left": <`TOP-LEFT` offset of the bounding-box for architecture drawing 2>, "offset_bottom_right": <`BOTTOM-RIGHT` offset of the bounding-box for architecture drawing 2>, "title": "<identified title of the architecture drawing 2>", "plan_type": "type of architectural drawing 2 (<FLOOR_PLAN>/<ROOF_PLAN>/<ELECTRICAL_PLAN>/<FOUNDATION_PLAN>/<ELEVATION_PLAN>/<NOT_ARCHITECTURAL_PLAN>)"}}
                 ]
         }}
 """
 
 class ArchitecturalDrawingClassifierResponse(BaseModel):
-    plan_type: str
+    plan_type: List[str]
     mask_factor: Dict
     bounding_box_offsets: List[Dict]
 
