@@ -262,7 +262,9 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
 
             - Extract opening dimensions by identifying dimension annotations near the opening, typically placed above, below, or inside the opening.
             - Extract count, length (in feet) and height (in feet) for each type of openings.
-            - An opening dimension may include, `(3) 3 exponent 8 x 8 exponent 0`, which reads as 3 openings (count) each having a length of 3 feet 8 inches (3.66 feet) and a height of 8 feet 0 inches (8 feet).
+            - An opening dimension may include,
+              -> `(3) 3 exponent 8 x 8 exponent 0`, which reads as 3 openings (count) each having a length of 3 feet 8 inches (3.66 feet) and a height of 8 feet 0 inches (8 feet).
+              -> `2-2424 FIXED`, which reads as 2 openings (count) each having a length of 24 inches (2 feet) and height of 24 inches (2 feet).
             - If opening type is NULL, mention count, length and height as 0s.
 
       CEILING_EXTRACTION_INSTRUCTIONS:
