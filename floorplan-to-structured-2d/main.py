@@ -49,7 +49,7 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, m
     def load_headers_with_id_token():
         auth_req = google.auth.transport.requests.Request()
         service_account_credentials = IDTokenCredentials.from_service_account_file(
-            credentials["service_compute_account_key"],
+            credentials["service_drywall_account_key"],
             target_audience=credentials["CloudRun"]["APIs"]["wall_detector"]
         )
         service_account_credentials.refresh(auth_req)
