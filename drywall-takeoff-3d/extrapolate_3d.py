@@ -48,12 +48,19 @@ class Extrapolate3D(FloorPlan):
             int(round(wall_width / self._hyperparameters["pixel_aspect_ratio"]["vertical"]))
         )
 
-    def _load_wall_height_in_pixels(self, wall_line):
-        wall_height = wall_line["height"]
-        if not wall_height:
-            return self._height_in_pixels
+    def _load_wall_heights_in_pixels(self, wall_line):
+        wall_heights = [polygon_drywall["height"] for polygon_drywall in wall_line["polygons_drywall"]]
+        if not wall_heights:
+            return [self._height_in_pixels] * 2
         pixel_aspect_ratio_average = (self._hyperparameters["pixel_aspect_ratio"]["horizontal"] + self._hyperparameters["pixel_aspect_ratio"]["vertical"]) / 2
-        return round(wall_height / pixel_aspect_ratio_average)
+        return [round(wall_height / pixel_aspect_ratio_average) for wall_height in wall_heights]
+
+    def _load_polygon_height_in_pixels(self, polygon):
+        polygon_height = polygon["height"]
+        if not polygon_height:
+            return [self._height_in_pixels] * 2
+        pixel_aspect_ratio_average = (self._hyperparameters["pixel_aspect_ratio"]["horizontal"] + self._hyperparameters["pixel_aspect_ratio"]["vertical"]) / 2
+        return round(polygon_height / pixel_aspect_ratio_average)
 
     def _load_model_2d(self, model_2d_path):
         with open(model_2d_path, 'r') as f:
@@ -65,9 +72,9 @@ class Extrapolate3D(FloorPlan):
             polygons = json.load(f)
         return polygons
 
-    def _extrude_height_polygon(self, height_in_pixels, polygon):
+    def _extrude_height_polygon(self, heights_in_pixels, polygon):
         height_extruded = list()
-        for line in polygon:
+        for line, height_in_pixels in zip(polygon, heights_in_pixels):
             line_bottom = list()
             for coordinate in deepcopy(line):
                 coordinate['x'] = int(coordinate['x'])
@@ -263,15 +270,14 @@ class Extrapolate3D(FloorPlan):
         else:
             front_face, back_face = self._extrude_width(wall_line)
         if front_face and back_face:
-            height_in_pixels = self._load_wall_height_in_pixels(wall_line)
-            polygons = self._extrude_height_polygon(height_in_pixels, [front_face, back_face])
+            heights_in_pixels = self._load_wall_heights_in_pixels(wall_line)
+            polygons = self._extrude_height_polygon(heights_in_pixels, [front_face, back_face])
             return polygons
 
     def _add_wall(self, wall_line, polygons):
         wall = dict(
             id=wall_line["id"],
             thickness=wall_line["thickness"],
-            height=wall_line["height"],
             length=wall_line["length"],
             openings=wall_line["openings"],
             type=wall_line["type"],
@@ -285,6 +291,7 @@ class Extrapolate3D(FloorPlan):
                     id=polygon_type["id"],
                     room_name=polygon_type["room_name"],
                     polygon=polygon,
+                    height=polygon_type["height"],
                     type=polygon_type["type"],
                     type_stacked=polygon_type["type_stacked"],
                     enabled=polygon_type["enabled"],
@@ -332,7 +339,7 @@ class Extrapolate3D(FloorPlan):
         return [front_face, back_face]
 
     def _add_polygon(self, polygon):
-        height_in_pixels = self._load_wall_height_in_pixels(polygon)
+        height_in_pixels = self._load_polygon_height_in_pixels(polygon)
         pixel_aspect_ratio_average = (self._hyperparameters["pixel_aspect_ratio"]["horizontal"] + self._hyperparameters["pixel_aspect_ratio"]["vertical"]) / 2
         width_in_pixels = round(polygon["polygon_drywall"]["thickness"] / pixel_aspect_ratio_average)
         polygon = dict(
@@ -438,7 +445,7 @@ class Extrapolate3D(FloorPlan):
 
         for polygon in polygons_3d:
             vertices = polygon["vertices"]
-            height = self._load_wall_height_in_pixels(polygon)
+            height = self._load_polygon_height_in_pixels(polygon)
             color = polygon["surface_drywall"]["color"][::-1]
             color = tuple(c / 255 for c in color)
 
