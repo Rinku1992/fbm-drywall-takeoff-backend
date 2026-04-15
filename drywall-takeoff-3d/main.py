@@ -1373,9 +1373,9 @@ async def compute_takeoff(request: Request):
         )
     )
     for wall in walls_3d_JSON:
-        surface_area = wall["height"] * wall["length"]
         drywall_count = 0
         for drywall in wall["surfaces_drywall"]:
+            surface_area = drywall["height"] * wall["length"]
             if not drywall["enabled"]:
                 continue
             if drywall["type_stacked"]:
