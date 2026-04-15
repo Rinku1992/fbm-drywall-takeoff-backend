@@ -90,7 +90,7 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, m
                     output_path = download_segmented_walls(plan_id, project_id, str(page_number).zfill(4), credentials, destination_path=output_path)
                     if Path(output_path).exists() and Path(output_path).stat().st_size > 0:
                         break
-                    sleep(2)
+                    sleep(20)
                 break
         except (ConnectionError, ReadTimeout, ChunkedEncodingError) as e:
             if index < max_retry:
