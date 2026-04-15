@@ -837,20 +837,21 @@ async def floorplan_to_2d(request: Request):
                     user_id,
                     page_number,
                 )
+            query_payloads = [dict(project_id=project_id, plan_id=plan_id, page_number=page_number) for page_number in range(n_pages)]
+            timeout = from_unix_epoch() + 7200
+            all_pages_extracted = False
+            sleep_time = 1
+            while from_unix_epoch() < timeout:
+                notifications_arrived_all, acknowledged_queries = query_subscriber_messages(CREDENTIALS, subscriber_client, query_payloads)
+                if notifications_arrived_all:
+                    all_pages_extracted = True
+                    break
+                sleep(sleep_time)
+                for acknowledged_query in acknowledged_queries:
+                    query_payloads.remove(acknowledged_query)
+            if not all_pages_extracted:
+                raise AssertionError(f"Extraction has failed for PAGE(s): {[query_payload["page_number"] for query_payload in query_payloads]}")
             for page_number in range(n_pages):
-                timeout = from_unix_epoch() + 3600
-                page_extracted = False
-                sleep_time = 1
-                query_payload = dict(project_id=project_id, plan_id=plan_id, page_number=page_number)
-                while from_unix_epoch() < timeout:
-                    notification_arrived = query_subscriber_messages(CREDENTIALS, subscriber_client, query_payload)
-                    if notification_arrived:
-                        page_extracted = True
-                        break
-                    sleep(sleep_time)
-                if not page_extracted:
-                    raise AssertionError(f"Extraction has failed for PAGE: {page_number}")
-
                 GBQ_query = f"SELECT page_section_number, model_2d, scale FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
                 query_output_sections = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())
                 for query_output in query_output_sections:
