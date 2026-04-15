@@ -22,6 +22,7 @@ import Levenshtein
 from floor_plan import FloorPlan
 from prompts import (
     DRYWALL_PREDICTOR_CALIFORNIA,
+    DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT,
     SCALE_AND_CEILING_HEIGHT_DETECTOR,
     WALL_RECTIFIER,
     WALL_RECTIFIER_FEW_SHOT,
@@ -1271,7 +1272,7 @@ class FloorPlan2D(FloorPlan):
             if self._is_cached["DRYWALL_PREDICTOR_CALIFORNIA"]:
                 _, model_polygon = phoenix_call(
                     lambda feedback_prompt, temperature: self._vertex_ai_client_drywall_prediction.generate_content(
-                        contents=[feedback_prompt, query] if feedback_prompt else [query],
+                        contents=DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[query],
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
@@ -1281,7 +1282,7 @@ class FloorPlan2D(FloorPlan):
             else:
                 _, model_polygon = phoenix_call(
                     lambda feedback_prompt, temperature: self._vertex_ai_client_drywall_prediction(DRYWALL_PREDICTOR_CALIFORNIA.format(drywall_templates=self._drywall_templates)).generate_content(
-                        contents=[feedback_prompt, query] if feedback_prompt else [query],
+                        contents=DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[query],
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
