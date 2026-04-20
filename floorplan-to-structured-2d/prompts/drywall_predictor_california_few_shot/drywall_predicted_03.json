@@ -23,11 +23,11 @@
   "wall_parameters": [
     {
       "room_name": "MASTER BEDROOM",
-      "length": 3.23,
-      "confidence_length": 0.75,
-      "width": 0.46,
+      "length": 3.6666666666666665,
+      "confidence_length": 0.85,
+      "width": 0.29,
       "wall_type": "FULL_WALL",
-      "openings": [{"opening_type": "Window", "count": 1, "length": 2.5, "height": 4.0}],
+      "openings": [{"opening_type": "Doors", "count": 2, "length": 1.5, "height": 8.0}],
       "drywall_assembly": {
         "material": "Gypsum Board",
         "height": 10.0,
@@ -45,11 +45,11 @@
     },
     {
       "room_name": "MASTER BEDROOM",
-      "length": 1.72,
-      "confidence_length": 0.7,
-      "width": 0.46,
+      "length": 1.7708333333333335,
+      "confidence_length": 0.85,
+      "width": 0.29,
       "wall_type": "FULL_WALL",
-      "openings": [{"opening_type": "Pass-Through", "count": 1, "length": 1.33, "height": 8.0}],
+      "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
       "drywall_assembly": {
         "material": "Gypsum Board",
         "height": 10.0,
@@ -67,9 +67,9 @@
     },
     {
       "room_name": "MASTER BEDROOM",
-      "length": 0.8,
-      "confidence_length": 0.65,
-      "width": 0.46,
+      "length": 0.9811320754716981,
+      "confidence_length": 0.85,
+      "width": 0.29,
       "wall_type": "FULL_WALL",
       "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
       "drywall_assembly": {
@@ -89,11 +89,11 @@
     },
     {
       "room_name": "MASTER BEDROOM",
-      "length": 2.35,
-      "confidence_length": 0.78,
-      "width": 0.46,
+      "length": 2.518867924528302,
+      "confidence_length": 0.85,
+      "width": 0.29,
       "wall_type": "FULL_WALL",
-      "openings": [{"opening_type": "Door", "count": 1, "length": 2.67, "height": 8.0}],
+      "openings": [{"opening_type": "Doors", "count": 1, "length": 2.25, "height": 8.0}],
       "drywall_assembly": {
         "material": "Gypsum Board",
         "height": 10.0,
@@ -111,11 +111,11 @@
     },
     {
       "room_name": "MASTER BEDROOM",
-      "length": 3.08,
+      "length": 3.5,
       "confidence_length": 0.78,
       "width": 0.46,
       "wall_type": "FULL_WALL",
-      "openings": [{"opening_type": "Window", "count": 3, "length": 2.0, "height": 5.0}],
+      "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
       "drywall_assembly": {
         "material": "Gypsum Board",
         "height": 10.0,
@@ -133,8 +133,8 @@
     },
     {
       "room_name": "MASTER BEDROOM",
-      "length": 1.67,
-      "confidence_length": 0.7,
+      "length": 2,
+      "confidence_length": 0.85,
       "width": 0.46,
       "wall_type": "FULL_WALL",
       "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
@@ -155,11 +155,11 @@
     },
     {
       "room_name": "MASTER BEDROOM",
-      "length": 2.43,
-      "confidence_length": 0.72,
+      "length": 2.9166666666666665,
+      "confidence_length": 0.85,
       "width": 0.46,
       "wall_type": "FULL_WALL",
-      "openings": [{"opening_type": "Pass-Through", "count": 1, "length": 1.33, "height": 8.0}],
+      "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
       "drywall_assembly": {
         "material": "Gypsum Board",
         "height": 10.0,
@@ -177,11 +177,11 @@
     },
     {
       "room_name": "MASTER BEDROOM",
-      "length": 3.29,
-      "confidence_length": 0.75,
-      "width": 0.46,
+      "length": 3.6666666666666665,
+      "confidence_length": 0.85,
+      "width": 0.29,
       "wall_type": "FULL_WALL",
-      "openings": [{"opening_type": "Window", "count": 2, "length": 2.0, "height": 5.0}],
+      "openings": [{"opening_type": "Doors", "count": 1, "length": 3.0, "height": 8.0}],
       "drywall_assembly": {
         "material": "Gypsum Board",
         "height": 10.0,
@@ -199,9 +199,9 @@
     },
     {
       "room_name": "MASTER BEDROOM",
-      "length": 1.79,
-      "confidence_length": 0.7,
-      "width": 0.46,
+      "length": 2,
+      "confidence_length": 0.85,
+      "width": 0.29,
       "wall_type": "FULL_WALL",
       "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
       "drywall_assembly": {
@@ -221,9 +221,9 @@
     },
     {
       "room_name": "MASTER BEDROOM",
-      "length": 1.72,
-      "confidence_length": 0.7,
-      "width": 0.46,
+      "length": 1.7708333333333335,
+      "confidence_length": 0.85,
+      "width": 0.29,
       "wall_type": "FULL_WALL",
       "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
       "drywall_assembly": {
@@ -243,11 +243,11 @@
     },
     {
       "room_name": "MASTER BEDROOM",
-      "length": 15.25,
-      "confidence_length": 0.82,
+      "length": 17.833333333333332,
+      "confidence_length": 0.95,
       "width": 0.46,
       "wall_type": "FULL_WALL",
-      "openings": [{"opening_type": "Sliding Door", "count": 1, "length": 8.0, "height": 8.0}],
+      "openings": [{"opening_type": "Doors", "count": 2, "length": 2.6666666666666665, "height": 5.0}],
       "drywall_assembly": {
         "material": "Gypsum Board",
         "height": 10.0,
@@ -265,8 +265,8 @@
     },
     {
       "room_name": "MASTER BEDROOM",
-      "length": 2.37,
-      "confidence_length": 0.7,
+      "length": 2.9166666666666665,
+      "confidence_length": 0.95,
       "width": 0.46,
       "wall_type": "FULL_WALL",
       "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
@@ -287,11 +287,11 @@
     },
     {
       "room_name": "MASTER BEDROOM",
-      "length": 8.03,
-      "confidence_length": 0.8,
+      "length": 2.9166666666666665,
+      "confidence_length": 0.9,
       "width": 0.46,
       "wall_type": "FULL_WALL",
-      "openings": [{"opening_type": "Window", "count": 2, "length": 2.0, "height": 5.0}],
+      "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
       "drywall_assembly": {
         "material": "Gypsum Board",
         "height": 10.0,
@@ -309,8 +309,30 @@
     },
     {
       "room_name": "MASTER BEDROOM",
-      "length": 2.42,
-      "confidence_length": 0.7,
+      "length": 9.166666666666666,
+      "confidence_length": 0.95,
+      "width": 0.46,
+      "wall_type": "FULL_WALL",
+      "openings": [{"opening_type": "Windows", "count": 3, "length": 2.6666666666666665, "height": 7}],
+      "drywall_assembly": {
+        "material": "Gypsum Board",
+        "height": 10.0,
+        "confidence_height": 0.8,
+        "color_code": [255, 255, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0.0417,
+        "layers": 1,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R702.3.5", "GA-216", "CBC 1207"],
+      "recommendation": "Interior segment."
+    },
+    {
+      "room_name": "MASTER BEDROOM",
+      "length": 2,
+      "confidence_length": 0.95,
       "width": 0.46,
       "wall_type": "FULL_WALL",
       "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
@@ -331,33 +353,11 @@
     },
     {
       "room_name": "MASTER BEDROOM",
-      "length": 2.42,
-      "confidence_length": 0.7,
+      "length": 11.083333333333332,
+      "confidence_length": 0.95,
       "width": 0.46,
       "wall_type": "FULL_WALL",
       "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
-      "drywall_assembly": {
-        "material": "Gypsum Board",
-        "height": 10.0,
-        "confidence_height": 0.8,
-        "color_code": [255, 255, 255],
-        "materials_vertically_stacked": [],
-        "color_codes_stacked": [],
-        "thickness": 0.0417,
-        "layers": 1,
-        "fire_rating": 0,
-        "waste_factor": "10%"
-      },
-      "code_references": ["IRC R702.3.5", "GA-216", "CBC 1207"],
-      "recommendation": "Interior segment."
-    },
-    {
-      "room_name": "MASTER BEDROOM",
-      "length": 9.67,
-      "confidence_length": 0.82,
-      "width": 0.46,
-      "wall_type": "FULL_WALL",
-      "openings": [{"opening_type": "Window", "count": 3, "length": 2.0, "height": 5.0}],
       "drywall_assembly": {
         "material": "Gypsum Board",
         "height": 10.0,
@@ -375,8 +375,30 @@
     },
     {
       "room_name": "MASTER BEDROOM",
-      "length": 1.1,
-      "confidence_length": 0.6,
+      "length": 5.084621993127147,
+      "confidence_length": 0.95,
+      "width": 0.46,
+      "wall_type": "FULL_WALL",
+      "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
+      "drywall_assembly": {
+        "material": "Gypsum Board",
+        "height": 10.0,
+        "confidence_height": 0.75,
+        "color_code": [255, 255, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0.0417,
+        "layers": 1,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R702.3.5", "GA-216", "CBC 1207"],
+      "recommendation": "Small connector wall segment."
+    },
+    {
+      "room_name": "MASTER BEDROOM",
+      "length": 1.0458636833226416,
+      "confidence_length": 0.95,
       "width": 0.46,
       "wall_type": "FULL_WALL",
       "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
