@@ -1,0 +1,245 @@
+{
+  "ceiling": {
+    "room_name": "FOYER",
+    "area": 365.42,
+    "confidence_area": 0.72,
+    "ceiling_type": "Flat",
+    "height": 12,
+    "confidence_height": 0.65,
+    "slope": 0,
+    "slope_enabled": false,
+    "tilt_axis": "NULL",
+    "drywall_assembly": {
+      "material": "DISABLED",
+      "color_code": [0, 0, 255],
+      "thickness": 0,
+      "layers": 0,
+      "fire_rating": 0,
+      "waste_factor": "10%"
+    },
+    "code_references": ["IRC R302", "CBC 1207", "ASTM C840"],
+    "recommendation": "Standard 1/2\" drywall sufficient for non-rated foyer ceiling"
+  },
+  "wall_parameters": [
+    {
+      "room_name": "FOYER",
+      "length": 5.291666666666667,
+      "confidence_length": 0.95,
+      "width": 0.46,
+      "wall_type": "FULL_WALL",
+      "openings": [{"opening_type": "Doors", "count": 1, "length": 3.3333333333333335, "height": 6.666666666666667}],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 12,
+        "confidence_height": 0.65,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0,
+        "layers": 0,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R302"],
+      "recommendation": "Interior partition wall"
+    },
+    {
+      "room_name": "FOYER",
+      "length": 1.981821106821107,
+      "confidence_length": 0.95,
+      "width": 0.46,
+      "wall_type": "FULL_WALL",
+      "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 12,
+        "confidence_height": 0.65,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0,
+        "layers": 0,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R302"],
+      "recommendation": "Short return wall"
+    },
+    {
+      "room_name": "FOYER",
+      "length": 7.333333333333333,
+      "confidence_length": 0.95,
+      "width": 0.46,
+      "wall_type": "FULL_WALL",
+      "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 12,
+        "confidence_height": 0.65,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0,
+        "layers": 0,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R302"],
+      "recommendation": "Exterior-facing segment"
+    },
+    {
+      "room_name": "FOYER",
+      "length": 7.541666666666667,
+      "confidence_length": 0.95,
+      "width": 0.46,
+      "wall_type": "FULL_WALL",
+      "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 12,
+        "confidence_height": 0.65,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0,
+        "layers": 0,
+        "fire_rating": 0,
+        "waste_factor": "12%"
+      },
+      "code_references": ["IRC R311"],
+      "recommendation": "Entry door wall"
+    },
+    {
+      "room_name": "FOYER",
+      "length": 7.333333333333333,
+      "confidence_length": 0.95,
+      "width": 0.46,
+      "wall_type": "FULL_WALL",
+      "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 12,
+        "confidence_height": 0.65,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0,
+        "layers": 0,
+        "fire_rating": 0,
+        "waste_factor": "12%"
+      },
+      "code_references": ["IRC R308"],
+      "recommendation": "Glazing present"
+    },
+    {
+      "room_name": "FOYER",
+      "length": 5.208333333333333,
+      "confidence_length": 0.95,
+      "width": 0.46,
+      "wall_type": "FULL_WALL",
+      "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 12,
+        "confidence_height": 0.65,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0,
+        "layers": 0,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R302"],
+      "recommendation": "Primary horizontal span"
+    },
+    {
+      "room_name": "FOYER",
+      "length": 15.333333333333334,
+      "confidence_length": 0.95,
+      "width": 0.46,
+      "wall_type": "FULL_WALL",
+      "openings": [{"opening_type": "Doors", "count": 2, "length": 5, "height": 6.666666666666667}],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 12,
+        "confidence_height": 0.65,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0,
+        "layers": 0,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R302"],
+      "recommendation": "Exterior wall"
+    },
+    {
+      "room_name": "FOYER",
+      "length": 12.5,
+      "confidence_length": 0.95,
+      "width": 0.46,
+      "wall_type": "FULL_WALL",
+      "openings": [{"opening_type": "Sliding doors", "count": 2, "length": 2.3333333333333335, "height": 6.666666666666667}],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 12,
+        "confidence_height": 0.65,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0,
+        "layers": 0,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R302"],
+      "recommendation": "Return wall"
+    },
+    {
+      "room_name": "FOYER",
+      "length": 6.291666666666667,
+      "confidence_length": 0.95,
+      "width": 0.46,
+      "wall_type": "FULL_WALL",
+      "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 12,
+        "confidence_height": 0.65,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0,
+        "layers": 0,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R302"],
+      "recommendation": "Corner closure wall"
+    },
+    {
+      "room_name": "FOYER",
+      "length": 3.3711389961389964,
+      "confidence_length": 0.95,
+      "width": 0.46,
+      "wall_type": "FULL_WALL",
+      "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 12,
+        "confidence_height": 0.65,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0,
+        "layers": 0,
+        "fire_rating": 0,
+        "waste_factor": "12%"
+      },
+      "code_references": ["IRC R308"],
+      "recommendation": "Front elevation glazing"
+    }
+  ]
+}
