@@ -2,7 +2,7 @@
   "ceiling": {
     "room_name": "MASTER BEDROOM",
     "area": 332.0,
-    "confidence_area": 0.86,
+    "confidence_area": 0.95,
     "ceiling_type": "Flat",
     "height": 10.0,
     "confidence_height": 0.82,
@@ -24,7 +24,7 @@
     {
       "room_name": "MASTER BEDROOM",
       "length": 3.6666666666666665,
-      "confidence_length": 0.85,
+      "confidence_length": 0.95,
       "width": 0.29,
       "wall_type": "FULL_WALL",
       "openings": [{"opening_type": "Doors", "count": 2, "length": 1.5, "height": 8.0}],
@@ -46,7 +46,7 @@
     {
       "room_name": "MASTER BEDROOM",
       "length": 1.7708333333333335,
-      "confidence_length": 0.85,
+      "confidence_length": 0.95,
       "width": 0.29,
       "wall_type": "FULL_WALL",
       "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
@@ -68,7 +68,7 @@
     {
       "room_name": "MASTER BEDROOM",
       "length": 0.9811320754716981,
-      "confidence_length": 0.85,
+      "confidence_length": 0.95,
       "width": 0.29,
       "wall_type": "FULL_WALL",
       "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
@@ -90,7 +90,7 @@
     {
       "room_name": "MASTER BEDROOM",
       "length": 2.518867924528302,
-      "confidence_length": 0.85,
+      "confidence_length": 0.95,
       "width": 0.29,
       "wall_type": "FULL_WALL",
       "openings": [{"opening_type": "Doors", "count": 1, "length": 2.25, "height": 8.0}],
@@ -112,7 +112,7 @@
     {
       "room_name": "MASTER BEDROOM",
       "length": 3.5,
-      "confidence_length": 0.78,
+      "confidence_length": 0.95,
       "width": 0.46,
       "wall_type": "FULL_WALL",
       "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
@@ -134,7 +134,7 @@
     {
       "room_name": "MASTER BEDROOM",
       "length": 2,
-      "confidence_length": 0.85,
+      "confidence_length": 0.95,
       "width": 0.46,
       "wall_type": "FULL_WALL",
       "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
@@ -156,7 +156,7 @@
     {
       "room_name": "MASTER BEDROOM",
       "length": 2.9166666666666665,
-      "confidence_length": 0.85,
+      "confidence_length": 0.95,
       "width": 0.46,
       "wall_type": "FULL_WALL",
       "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
@@ -178,7 +178,7 @@
     {
       "room_name": "MASTER BEDROOM",
       "length": 3.6666666666666665,
-      "confidence_length": 0.85,
+      "confidence_length": 0.95,
       "width": 0.29,
       "wall_type": "FULL_WALL",
       "openings": [{"opening_type": "Doors", "count": 1, "length": 3.0, "height": 8.0}],
@@ -200,7 +200,7 @@
     {
       "room_name": "MASTER BEDROOM",
       "length": 2,
-      "confidence_length": 0.85,
+      "confidence_length": 0.95,
       "width": 0.29,
       "wall_type": "FULL_WALL",
       "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
@@ -222,7 +222,7 @@
     {
       "room_name": "MASTER BEDROOM",
       "length": 1.7708333333333335,
-      "confidence_length": 0.85,
+      "confidence_length": 0.95,
       "width": 0.29,
       "wall_type": "FULL_WALL",
       "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}],
