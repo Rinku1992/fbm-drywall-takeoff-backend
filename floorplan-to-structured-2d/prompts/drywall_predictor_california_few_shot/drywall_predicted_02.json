@@ -27,12 +27,12 @@
   "wall_parameters": [
     {
       "room_name": "MASTER BATH",
-      "length": 1.25,
+      "length": 1.5,
       "confidence_length": 0.72,
       "width": 0.29,
       "wall_type": "FULL_WALL",
       "openings": [
-        { "opening_type": "Window", "count": 1, "length": 2.0, "height": 5.0 }
+        { "opening_type": "NULL", "count": 0, "length": 0, "height": 0 }
       ],
       "drywall_assembly": {
         "material": "DISABLED",
@@ -51,12 +51,12 @@
     },
     {
       "room_name": "MASTER BATH",
-      "length": 6.73,
+      "length": 7.541666666666667,
       "confidence_length": 0.82,
       "width": 0.29,
       "wall_type": "FULL_WALL",
       "openings": [
-        { "opening_type": "Sliding Door", "count": 1, "length": 2.33, "height": 8.0 }
+        { "opening_type": "Doors", "count": 1, "length": 2.6666666666666665, "height": 10.125 }
       ],
       "drywall_assembly": {
         "material": "DISABLED",
@@ -75,12 +75,12 @@
     },
     {
       "room_name": "MASTER BATH",
-      "length": 5.80,
-      "confidence_length": 0.80,
+      "length": 6.854166666666667,
+      "confidence_length": 0.85,
       "width": 0.46,
       "wall_type": "FULL_WALL",
       "openings": [
-        { "opening_type": "Pass-through", "count": 1, "length": 1.33, "height": 8.0 }
+        { "opening_type": "NULL", "count": 0, "length": 0, "height": 0 }
       ],
       "drywall_assembly": {
         "material": "DISABLED",
@@ -99,7 +99,7 @@
     },
     {
       "room_name": "MASTER BATH",
-      "length": 2.00,
+      "length": 2.5250291036088477,
       "confidence_length": 0.70,
       "width": 0.29,
       "wall_type": "FULL_WALL",
@@ -123,8 +123,8 @@
     },
     {
       "room_name": "MASTER BATH",
-      "length": 1.14,
-      "confidence_length": 0.68,
+      "length": 2.0625,
+      "confidence_length": 0.85,
       "width": 0.29,
       "wall_type": "FULL_WALL",
       "openings": [
@@ -147,12 +147,12 @@
     },
     {
       "room_name": "MASTER BATH",
-      "length": 7.15,
+      "length": 8.083333333333334,
       "confidence_length": 0.85,
-      "width": 0.29,
+      "width": 0.45,
       "wall_type": "FULL_WALL",
       "openings": [
-        { "opening_type": "Window", "count": 2, "length": 1.33, "height": 8.0 }
+        { "opening_type": "Windows", "count": 3, "length": 2, "height": 5 }
       ],
       "drywall_assembly": {
         "material": "DISABLED",
@@ -171,9 +171,9 @@
     },
     {
       "room_name": "MASTER BATH",
-      "length": 3.08,
-      "confidence_length": 0.74,
-      "width": 0.46,
+      "length": 3.6041666666666665,
+      "confidence_length": 0.85,
+      "width": 0.45,
       "wall_type": "FULL_WALL",
       "openings": [
         { "opening_type": "NULL", "count": 0, "length": 0, "height": 0 }
@@ -195,8 +195,8 @@
     },
     {
       "room_name": "MASTER BATH",
-      "length": 1.30,
-      "confidence_length": 0.70,
+      "length": 1.4560643564356437,
+      "confidence_length": 0.85,
       "width": 0.46,
       "wall_type": "FULL_WALL",
       "openings": [
@@ -219,7 +219,7 @@
     },
     {
       "room_name": "MASTER BATH",
-      "length": 1.67,
+      "length": 1.7083333333333335,
       "confidence_length": 0.72,
       "width": 0.46,
       "wall_type": "FULL_WALL",
@@ -243,12 +243,12 @@
     },
     {
       "room_name": "MASTER BATH",
-      "length": 3.77,
-      "confidence_length": 0.78,
+      "length": 4.25,
+      "confidence_length": 0.85,
       "width": 0.46,
       "wall_type": "FULL_WALL",
       "openings": [
-        { "opening_type": "Window", "count": 1, "length": 1.5, "height": 2.0 }
+        { "opening_type": "Doors", "count": 2, "length": 1.25, "height": 8 }
       ],
       "drywall_assembly": {
         "material": "DISABLED",
@@ -267,12 +267,12 @@
     },
     {
       "room_name": "MASTER BATH",
-      "length": 2.43,
-      "confidence_length": 0.70,
+      "length": 3.05,
+      "confidence_length": 0.75,
       "width": 0.46,
       "wall_type": "FULL_WALL",
       "openings": [
-        { "opening_type": "NULL", "count": 0, "length": 0, "height": 0 }
+        { "opening_type": "Windows", "count": 1, "length": 1.5, "height": 2 }
       ],
       "drywall_assembly": {
         "material": "DISABLED",
@@ -291,12 +291,12 @@
     },
     {
       "room_name": "MASTER BATH",
-      "length": 3.25,
-      "confidence_length": 0.75,
+      "length": 3.6041666666666665,
+      "confidence_length": 0.85,
       "width": 0.46,
       "wall_type": "FULL_WALL",
       "openings": [
-        { "opening_type": "NULL", "count": 0, "length": 0, "height": 0 }
+        { "opening_type": "Doors", "count": 2, "length": 1.25, "height": 8 }
       ],
       "drywall_assembly": {
         "material": "DISABLED",
@@ -315,12 +315,12 @@
     },
     {
       "room_name": "MASTER BATH",
-      "length": 5.01,
-      "confidence_length": 0.80,
+      "length": 5.541666666666667,
+      "confidence_length": 0.85,
       "width": 0.46,
       "wall_type": "FULL_WALL",
       "openings": [
-        { "opening_type": "NULL", "count": 0, "length": 0, "height": 0 }
+        { "opening_type": "Sliding Doors", "count": 1, "length": 2.25, "height": 8 }
       ],
       "drywall_assembly": {
         "material": "DISABLED",
@@ -339,12 +339,12 @@
     },
     {
       "room_name": "MASTER BATH",
-      "length": 3.25,
+      "length": 3.6666666666666665,
       "confidence_length": 0.74,
       "width": 0.46,
       "wall_type": "FULL_WALL",
       "openings": [
-        { "opening_type": "NULL", "count": 0, "length": 0, "height": 0 }
+        { "opening_type": "Pass-through", "count": 1, "length": 3.6666666666666665, "height": 10.125 }
       ],
       "drywall_assembly": {
         "material": "DISABLED",
@@ -363,12 +363,12 @@
     },
     {
       "room_name": "MASTER BATH",
-      "length": 3.46,
-      "confidence_length": 0.76,
-      "width": 0.46,
+      "length": 4.25,
+      "confidence_length": 0.85,
+      "width": 0.29,
       "wall_type": "FULL_WALL",
       "openings": [
-        { "opening_type": "Window", "count": 3, "length": 2.0, "height": 5.0 }
+        { "opening_type": "NULL", "count": 0, "length": 0, "height": 0 }
       ],
       "drywall_assembly": {
         "material": "DISABLED",
