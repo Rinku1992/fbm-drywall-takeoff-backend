@@ -2,7 +2,7 @@
   "ceiling": {
     "room_name": "STORAGE",
     "area": 17.861,
-    "confidence_area": 0.9,
+    "confidence_area": 0.95,
     "ceiling_type": "Flat",
     "height": 10.0,
     "confidence_height": 0.78,
@@ -28,7 +28,7 @@
     {
       "room_name": "STORAGE",
       "length": 4.666666666666667,
-      "confidence_length": 0.9,
+      "confidence_length": 0.95,
       "width": 0.2916666666666667,
       "wall_type": "FULL_WALL",
       "openings": [
@@ -61,7 +61,7 @@
     {
       "room_name": "STORAGE",
       "length": 3.8333333333333335,
-      "confidence_length": 0.9,
+      "confidence_length": 0.95,
       "width": 0.46,
       "wall_type": "FULL_WALL",
       "openings": [
@@ -94,7 +94,7 @@
     {
       "room_name": "STORAGE",
       "length": 1.17458432304038,
-      "confidence_length": 0.9,
+      "confidence_length": 0.95,
       "width": 0.46,
       "wall_type": "GARAGE_SEPARATION_WALL",
       "openings": [
@@ -127,7 +127,7 @@
     {
       "room_name": "STORAGE",
       "length": 2.422011084718923,
-      "confidence_length": 0.9,
+      "confidence_length": 0.95,
       "width": 0.46,
       "wall_type": "GARAGE_SEPARATION_WALL",
       "openings": [
@@ -160,7 +160,7 @@
     {
       "room_name": "STORAGE",
       "length": 4.666666666666667,
-      "confidence_length": 0.6,
+      "confidence_length": 0.95,
       "width": 0.46,
       "wall_type": "FULL_WALL",
       "openings": [
