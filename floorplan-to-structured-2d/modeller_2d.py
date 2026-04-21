@@ -56,6 +56,7 @@ class FloorPlan2D(FloorPlan):
         self._width_in_feet = self._hyperparameters["modelling"]["width_in_feet"]
         self._height_in_feet = self._hyperparameters["modelling"]["height_in_feet"]
         self._scale = self._hyperparameters["modelling"]["scale"]
+        self._imperial_scales_sampled = dict(X=list(), Y=list())
         self._walls_2d = list()
         self._polygons = list()
 
@@ -1191,9 +1192,15 @@ class FloorPlan2D(FloorPlan):
         offset,
         height_default=9.125,
     ):
-        def verify_tolerance_length(dimension_wall, wall_unnormalized, confidence_score):
+        def verify_tolerance_length(dimension_wall, wall_unnormalized, confidence_score, wall_normalized):
             if dimension_wall["length"] and confidence_score >= 0.9:
                 dimension_wall["length"] = round(dimension_wall["length"], 3)
+                X1, Y1, X2, Y2 = wall_normalized[0]
+                orientation = self.classify_line(X1, Y1, X2, Y2)
+                if orientation == "horizontal":
+                    self._imperial_scales_sampled['X'].append(dimension_wall["length"] / (X2 - X1))
+                if orientation == "vertical":
+                    self._imperial_scales_sampled['Y'].append(dimension_wall["length"] / (Y2 - Y1))
             else:
                 X1, Y1, X2, Y2 = wall_unnormalized[0]
                 length_target = round(math.hypot(
@@ -1294,8 +1301,8 @@ class FloorPlan2D(FloorPlan):
             else:
                 model_polygon["ceiling"]["area"] = verify_tolerance_area(model_polygon["ceiling"]["area"], area_target, model_polygon["ceiling"]["confidence_area"])
             model_polygon["ceiling"]["height"] = verify_tolerance_height(model_polygon["ceiling"]["height"], model_polygon["ceiling"]["confidence_height"])
-            for index, (dimension_wall_predicted, wall_unnormalized) in enumerate(zip(model_polygon["wall_parameters"], walls_unnormalized)):
-                dimension_wall_rectified = verify_tolerance_length(dimension_wall_predicted, wall_unnormalized, dimension_wall_predicted["confidence_length"])
+            for index, (dimension_wall_predicted, wall_unnormalized, wall_normalized) in enumerate(zip(model_polygon["wall_parameters"], walls_unnormalized, walls)):
+                dimension_wall_rectified = verify_tolerance_length(dimension_wall_predicted, wall_unnormalized, dimension_wall_predicted["confidence_length"], wall_normalized)
                 dimension_wall_rectified["height"] = verify_tolerance_height(dimension_wall_predicted["height"], dimension_wall_predicted["confidence_height"])
                 model_polygon["wall_parameters"][index] = dimension_wall_rectified
         except Exception as e:
