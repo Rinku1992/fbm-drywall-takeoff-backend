@@ -1854,6 +1854,10 @@ class FloorPlan2D(FloorPlan):
                 wall["length"] = round((X2 - X1) * imperial_scale_X, 3)
             if orientation == "vertical":
                 wall["length"] = round((Y2 - Y1) * imperial_scale_Y, 3)
+            if orientation == "inclined":
+                length_X = (X2 - X1) * imperial_scale_X
+                length_Y = (Y2 - Y1) * imperial_scale_Y
+                wall["length"] = round((length_X ** 2 + length_Y ** 2) ** 0.5, 3)
             if impute_drywall_disabled and len(wall["polygons_drywall"]) == 2:
                 if not wall["polygons_drywall"][0]["enabled"] or not wall["polygons_drywall"][1]["enabled"]:
                     centroid_A = (round(sum([vertex['x'] for vertex in wall["polygons_drywall"][0]["polygon"]]) / 4), round(sum([vertex['y'] for vertex in wall["polygons_drywall"][0]["polygon"]]) / 4))
