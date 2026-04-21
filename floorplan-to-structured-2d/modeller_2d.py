@@ -1848,6 +1848,12 @@ class FloorPlan2D(FloorPlan):
                 target_opening_type_index = opening_types_levenshtein.index(min(opening_types_levenshtein))
                 opening["opening_type"] = list(OPENING_TYPE_CHOICES.keys())[target_opening_type_index]
                 opening["color"] = OPENING_TYPE_CHOICES[opening["opening_type"]]
+            X1, Y1, X2, Y2 = wall["wall_line"][0]['x'], wall["wall_line"][0]['y'], wall["wall_line"][1]['x'], wall["wall_line"][1]['y']
+            orientation = self.classify_line(X1, Y1, X2, Y2)
+            if orientation == "horizontal":
+                wall["length"] = round((X2 - X1) * imperial_scale_X, 3)
+            if orientation == "vertical":
+                wall["length"] = round((Y2 - Y1) * imperial_scale_Y, 3)
             if impute_drywall_disabled and len(wall["polygons_drywall"]) == 2:
                 if not wall["polygons_drywall"][0]["enabled"] or not wall["polygons_drywall"][1]["enabled"]:
                     centroid_A = (round(sum([vertex['x'] for vertex in wall["polygons_drywall"][0]["polygon"]]) / 4), round(sum([vertex['y'] for vertex in wall["polygons_drywall"][0]["polygon"]]) / 4))
