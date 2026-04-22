@@ -1057,7 +1057,7 @@ class FloorPlan2D(FloorPlan):
                 on_paper, real_world = scale.split(':')
             if scale.find('=') != -1:
                 on_paper, real_world = scale.split('=')
-            return f"{round(float(Fraction(on_paper.strip('`"'))), 2)}``:{real_world.replace("'", '`')}"
+            return f"{round(float(Fraction(on_paper.strip('`"'))), 2)}``:{real_world.replace("'", '`').replace('"', "``")}"
 
         height_in_pixels, width_in_pixels, _ = plan_BGR.shape
         (offset_top_left_X, offset_top_left_Y), (offset_bottom_right_X, offset_bottom_right_Y) = offset
