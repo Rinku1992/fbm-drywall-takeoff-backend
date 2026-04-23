@@ -1841,6 +1841,8 @@ class FloorPlan2D(FloorPlan):
         polygon_vertices_external=None
     ):
         scale_x, scale_y = scale
+        imperial_scale_X = np.median(self._imperial_scales_sampled['X'])
+        imperial_scale_Y = np.median(self._imperial_scales_sampled['Y'])
         drywall_skus = [drywall_template["sku_variant"] for drywall_template in self._drywall_templates]
         for wall in walls_2d[:]:
             for opening in wall["openings"][:]:
