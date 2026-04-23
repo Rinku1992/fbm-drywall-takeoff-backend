@@ -47,6 +47,8 @@ from helper import (
     query_drywall,
     load_subscriber_client,
     query_subscriber_messages,
+    map_floorplan_to_multipage_elevation,
+    load_elevation_map
 )
 
 
@@ -530,7 +532,7 @@ def insert_project(payload_project, bigquery_client, credentials):
     return created_at
 
 
-def floorplan_to_structured_2d(credentials, session, id_token, project_id, plan_id, user_id, page_number):
+def floorplan_to_structured_2d(credentials, session, id_token, project_id, plan_id, user_id, page_number, elevation_pages):
     headers = {
         "Authorization": f"Bearer {id_token}",
         "Content-Type": "application/json"
@@ -543,6 +545,7 @@ def floorplan_to_structured_2d(credentials, session, id_token, project_id, plan_
             plan_id=plan_id,
             user_id=user_id,
             page_number=page_number,
+            elevation_pages=elevation_pages,
         ),
     )
     return response.raise_for_status()
@@ -810,6 +813,8 @@ async def floorplan_to_2d(request: Request):
         GCS_URL_floorplan=GCS_URL_floorplan,
         n_pages=n_pages,
     )
+    ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
+    elevation_map = map_floorplan_to_multipage_elevation(CREDENTIALS, ip_address, pdf_path)
 
     walls_2d_all = dict(pages=list())
     status = "COMPLETED"
@@ -827,6 +832,7 @@ async def floorplan_to_2d(request: Request):
                 if page_number != 0 and page_number % 25 == 0:
                     sleep(120)
                 id_token = load_floorplan_to_structured_2d_ID_token(CREDENTIALS)
+                elevation_pages = load_elevation_map(elevation_map, page_number)
                 executor.submit(
                     floorplan_to_structured_2d,
                     CREDENTIALS,
@@ -836,6 +842,7 @@ async def floorplan_to_2d(request: Request):
                     plan_id,
                     user_id,
                     page_number,
+                    elevation_pages,
                 )
             query_payloads = [dict(project_id=project_id, plan_id=plan_id, page_number=page_number) for page_number in range(n_pages)]
             timeout = from_unix_epoch() + 7200
