@@ -399,3 +399,11 @@ def map_floorplan_to_multipage_elevation(credentials, client_ip_address, pdf_pat
         elevation_map = dict()
 
     return elevation_map
+
+def load_elevation_map(elevation_map, page_number):
+    page_numbers = list()
+    for group in elevation_map["floorplan_groups"]:
+        if group["floorplan_page"] == page_number:
+            page_numbers = [elevation_page["page_number"] for elevation_page in group["elevation_pages"]]
+            return page_numbers
+    return page_numbers
