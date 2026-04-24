@@ -192,6 +192,15 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
          - text: the recognized text string
          - centroid: (cx, cy) representing the visual center of the text's bounding box
 
+    4. A set of elevation plan snapshots (multi-page or grouped), where each elevation corresponds to one or more sides of the building.
+       Each elevation includes:
+         - Vertical height annotations (top plate, ridge, ceiling, slab, etc.)
+         - Roof slopes / pitch annotations (e.g., 4:12, 6:12, angles)
+         - Window / door vertical alignment
+         - Wall-to-roof junction geometry
+       Elevation pages are NOT labeled with explicit mapping to floorplan walls.
+       You MUST infer correspondence using geometry, openings, and relative positioning.
+
     Analyze the snapshot provided from the floor plan image.
 
     Your task is to,
@@ -235,7 +244,7 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
             -> The interior length is typically found inside the polygon the wall belongs to as a room size annotation identified as interior shape (<horizontal length> x <vertical length>) of the polygon. Use one of the dimensions (<horizontal length> / <vertical length>) depending on the orientation of the wall.
             -> If room size annotation is not observed inside the polygon the wall belongs to, identify the width of all the orthogonal wall(s) the target wall is connected to and subtract the sum of their widths from the exterior length of the target wall to compute the interior length.
         - If the target wall is attached to another wall in orthogonal orientation, STRICTLY refer the numerical dimension that represents its interior length to derive the length of the wall which excludes the width of the orthogonal wall.
-        - If the dimension line joining the dimension markers denoted by diagonal slash, does not align with the length of the highlighted wall, use one of the 2 following approaches to obtain the length of the wall,
+        - If the dimension line joining the dimension markers denoted by diagonal slash, does not align with the length of the highlighted wall, use one of the 3 following approaches to obtain the length of the wall,
             1. Find more than one shorter dimension lines joining the dimension markers denoted by diagonal slashes which adds up to the length of the highlighted wall. The length of the wall would be the sum of all the numerical dimension entities found against each dimension line that adds to the wall.
             2. Find more than one larger and shorter dimension lines joining the dimension markers denoted by diagonal slashes which when subtracted from each other (shorter line subtracted from the larger one), adds up to the length of the highlighted wall. The length of the wall would be the numerical dimension entities found against shorter dimension lines subtracted from the larger ones which adds to the wall.
             3. If no standard dimension lines observed to derive the the length of the highlighted wall, derive the custom length of the wall through performing the below numerical computations,
@@ -300,9 +309,27 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
       CEILING_EXTRACTION_INSTRUCTIONS:
         - The polygon marked in transparent red color marks the target ceiling in the input image.
         - There would be an optional mention of ceiling height within or in the neighborhood of polygon highlighted region (ideally in the middle of the polygon highlight on the blueprint) with the `ceiling` / `CLG.` or `height` / `HGT.` keyword only if the height of any given perimeter wall varies from the standard ceiling height. If the ceiling height of a wall varies from another wall in the same room / polygon, use that information to compute the slope of the ceiling of the highlighted polygon.
+        - Ceiling slope MUST NOT be guessed from floorplan alone. It MUST be derived from elevation plans via geometric mapping.
         - If ceiling / wall height is exclusively not mentioned, treat the ceiling type as flat with no slope or slope = 0.
-        - Slope of the ceiling is computed using the differential wall height in any arbritrary direction or textual mention of the slope angle at the nearby regions of the ceiling.
+        - COMPUTE SLOPE (DETERMINISTIC) using the following instructions,
+          Use ONE of the following (priority order):
+          METHOD A: Direct pitch annotation
+            slope (degrees) = arctan(rise/run)
+
+          METHOD B: Height difference
+            slope = arctan( (H2 - H1) / horizontal_length )
+
+          METHOD C: Pixel-based fallback (ONLY if no annotation)
+            - Compute vertical pixel delta from elevation
+            - Convert using known height annotations
+            - Derive slope
+
         - The `tilt_axis` of a sloped ceiling is in the direction against the axial projection of the inclination. The `ceiling_axis` runs through the central axial line of the ceiling in the direction of the inclination. The `tile_axis` is one of the axial lines (x-> horizontal, y-> vertical). `tile_axis` can only have a value "horizontal" or "vertical" or "NULL" depending on the angular orientation of the ceiling plane against. Mention "NULL" only if slope angle is 0. The slope of the ceiling / `ceiling_axis` is measured against its axial line / `tile_axis` (x-> horizontal, y-> vertical).
+          - If slope direction aligns with:
+            horizontal walls → tilt_axis = "horizontal"
+            vertical walls → tilt_axis = "vertical"
+          - If ambiguous → choose dominant slope direction
+          - If flat → tilt_axis = NULL
         - Considering [LEFT, TOP] as the origin, if the slope angle is computed from the direction of origin, the slope angle should have a positive value otherwise treat the slope angle as a negative number.
         - To compute the height of a sloped ceiling, always consider the maximum height.
         - Given the length of each perimeter walls, compute the area of ceiling or the highlighted polygon in SQFT without taking the slope value (if present) into account.
@@ -451,7 +478,7 @@ for drywall_predictor_image_sample, drywall_predictor_json_sample, drywall_predi
       Content(
         role="user",
         parts=[
-          Part.from_text("Validate the highlighted boundary mask."),
+          Part.from_text("Quantify the highlighted polygon in red with the dimension numbers mapped with the OCR predicted data and indentify the drywall types of the ceiling and the perimeter walls."),
           Part.from_data(data=bytes_canvas, mime_type="image/png")
         ]
       ),
