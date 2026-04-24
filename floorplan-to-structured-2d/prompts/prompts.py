@@ -311,6 +311,85 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
         - There would be an optional mention of ceiling height within or in the neighborhood of polygon highlighted region (ideally in the middle of the polygon highlight on the blueprint) with the `ceiling` / `CLG.` or `height` / `HGT.` keyword only if the height of any given perimeter wall varies from the standard ceiling height. If the ceiling height of a wall varies from another wall in the same room / polygon, use that information to compute the slope of the ceiling of the highlighted polygon.
         - Ceiling slope MUST NOT be guessed from floorplan alone. It MUST be derived from elevation plans via geometric mapping.
         - If ceiling / wall height is exclusively not mentioned, treat the ceiling type as flat with no slope or slope = 0.
+        - To compute ceiling slopes understand the provided elevation plans following the ELEVATION_SLOPE_INTERPRETATION_RULES as follows,
+          A slope annotation (e.g., 4:12) is ALWAYS perpendicular to the ridge line and ALWAYS interpreted relative to the elevation viewing direction.
+ 
+          - STEP 1: IDENTIFY ELEVATION VIEW TYPE
+
+            For each elevation:
+            - FRONT / REAR elevation:
+              → Viewer is looking along Y-axis
+              → Visible width = X-axis (horizontal)
+              → Vertical = Z-axis (height)
+ 
+            - SIDE elevation:
+              → Viewer is looking along X-axis
+              → Visible width = Y-axis (horizontal)
+              → Vertical = Z-axis (height)
+ 
+          - STEP 2: INTERPRET SLOPE SYMBOL ORIENTATION
+ 
+            A slope annotation includes:
+              - A numeric ratio (e.g., 4:12)
+              - An arrow OR slope line
+ 
+            Interpret as:
+ 
+              CASE A: Arrow pointing LEFT or RIGHT
+                → slope varies along horizontal axis of that elevation
+ 
+              CASE B: Arrow pointing UP or DOWN
+                → indicates rise direction only (still horizontal run)
+ 
+              CASE C: Slope line drawn diagonally
+                → direction of slope is perpendicular to ridge line
+ 
+          - STEP 3: CONVERT TO GLOBAL FLOORPLAN AXIS
+ 
+            If elevation is FRONT/REAR:
+              horizontal direction in elevation = FLOORPLAN X-axis
+              → tilt_axis = "horizontal"
+ 
+            If elevation is SIDE:
+              horizontal direction in elevation = FLOORPLAN Y-axis
+              → tilt_axis = "vertical"
+ 
+          - STEP 4: HANDLE MULTIPLE SLOPES (IMPORTANT)
+ 
+            If:
+              - Front elevation shows slope A
+              - Side elevation shows slope B
+ 
+            Then:
+              → This is a multi-directional roof (hip / complex / gable combo)
+ 
+            Rules:
+              - If slopes are orthogonal → multi-plane ceiling
+              - If only one slope applies to mapped wall → use that slope ONLY for that axis
+              - NEVER average slopes across different elevations
+ 
+          - STEP 5: RIDGE DETECTION
+ 
+            - Ridge line is ALWAYS perpendicular to slope direction
+            - If ridge is horizontal in elevation:
+              slope axis is vertical in floorplan
+            - If ridge is vertical in elevation:
+              slope axis is horizontal in floorplan
+ 
+          - STEP 6: VALIDATION
+ 
+            Reject incorrect slope interpretation if:
+              - Slope direction conflicts between mapped walls
+              - Slope axis does not align with wall orientation
+              - Elevation does not correspond to mapped wall
+ 
+          - STEP 7: FINAL MAPPING
+ 
+            Output must ensure:
+              - slope value derived from correct elevation
+              - tilt_axis matches floorplan axis
+              - slope direction consistent with wall mapping
+
         - COMPUTE SLOPE (DETERMINISTIC) using the following instructions,
           Use ONE of the following (priority order):
           METHOD A: Direct pitch annotation
