@@ -307,35 +307,47 @@ class Extrapolate3D(FloorPlan):
         self._walls_3d.append(wall)
 
     def _extrude_roof_3d(self, vertices, slope, tilt_axis, height_in_pixels, width_in_pixels):
-        if slope is None or slope == 0:
-            height_front_face = height_in_pixels - (width_in_pixels // 2)
-            height_back_face = height_in_pixels + (width_in_pixels // 2)
-            front_face = [dict(x=vertex[0], y=vertex[1], z=height_front_face) for vertex in vertices]
-            back_face = [dict(x=vertex[0], y=vertex[1], z=height_back_face) for vertex in vertices]
+        half_width = width_in_pixels // 2
+ 
+        if slope is None or slope == 0 or tilt_axis not in ("horizontal", "vertical"):
+            front_face = [dict(x=x, y=y - half_width, z=height_in_pixels - half_width) for x, y in vertices]
+            back_face  = [dict(x=x, y=y + half_width, z=height_in_pixels + half_width) for x, y in vertices]
+ 
             return [front_face, back_face]
-
-        xs = [vertex[0] for vertex in vertices]
-        ys = [vertex[1] for vertex in vertices]
-        cx = (min(xs) + max(xs)) / 2
-        cy = (min(ys) + max(ys)) / 2
-
-        front_face, back_face = list(), list()
-
+ 
+        xs = [v[0] for v in vertices]
+        ys = [v[1] for v in vertices]
+ 
+        if tilt_axis == "horizontal":
+            min_axis = min(xs)
+            max_axis = max(xs)
+        else:
+            min_axis = min(ys)
+            max_axis = max(ys)
+ 
+        run_pixels = max_axis - min_axis
+ 
+        if run_pixels == 0:
+            return self._extrude_roof_3d(vertices, 0, tilt_axis, height_in_pixels, width_in_pixels)
+ 
+        total_drop = math.tan(math.radians(slope)) * run_pixels
+ 
+        front_face = list()
+        back_face = list()
+ 
         for x, y in vertices:
+ 
             if tilt_axis == "horizontal":
-                d = cx - x
-            elif tilt_axis == "vertical":
-                d = cy - y
+                d = x - min_axis
             else:
-                slope = 0
-                d = cx - x
-
-            height_offset = math.tan(math.radians(slope)) * d
-            height_front_face = height_in_pixels - height_offset
-            height_back_face = height_in_pixels + height_offset
-
-            front_face.append(dict(x=x, y=y, z=height_front_face))
-            back_face.append(dict(x=x, y=y, z=height_back_face))
+                d = y - min_axis
+ 
+            t = d / run_pixels
+            z = height_in_pixels - (t * total_drop)
+ 
+            front_face.append(dict(x=x, y=y, z=z - half_width))
+            back_face.append(dict(x=x, y=y, z=z + half_width))
+ 
         return [front_face, back_face]
 
     def _add_polygon(self, polygon):
