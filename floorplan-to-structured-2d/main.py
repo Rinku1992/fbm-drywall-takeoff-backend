@@ -116,6 +116,7 @@ def page_to_structured_2d(
     transcription_block_with_centroids,
     floorplan_page_statistics,
     floorplan_baseline_page_source,
+    elevation_processed_paths,
 ):
     floor_plan_modeller_2d.reload()
     wall_segmented_sectioned_path = load_section_from_page(
@@ -128,6 +129,7 @@ def page_to_structured_2d(
     walls_2d, polygons, _, external_contour = floor_plan_modeller_2d.model(
         bounding_box_offset_marginalized,
         image_path=wall_segmented_sectioned_path,
+        elevation_paths=elevation_processed_paths,
         model_2d_path=f"/tmp/{project_id}/{plan_id}/{user_id}/walls_2d_{str(page_number).zfill(4)}_{str(page_section_number).replace('/', '_')}.json",
         floor_plan_path=floor_plan_processed_path,
         transcription_block_with_centroids=transcription_block_with_centroids,
@@ -178,6 +180,18 @@ def floorplan_to_page(credentials, project_id, plan_id, client_ip_address, pdf_p
     return floor_plan_path_preprocessed, plan_type
 
 
+def load_elevation_pages(pdf_path, elevation_page_numbers):
+    elevation_paths_preprocessed = list()
+    for elevation_page_number in elevation_page_numbers:
+        elevation_path_preprocessed = preprocess(
+            pdf_path,
+            elevation_page_number,
+            image_path=f"/tmp/elevation_plan_{str(elevation_page_number).zfill(4)}.png"
+        )
+        elevation_paths_preprocessed.append(elevation_path_preprocessed)
+    return elevation_paths_preprocessed
+
+
 app = FastAPI(title="Floorplan-to-Structured-2D (Cloud Run)")
 
 CREDENTIALS = load_gcp_credentials()
@@ -203,6 +217,7 @@ async def floorplan_to_structured_2d(request: Request):
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     page_number = parameters.get("page_number") or body.get("page_number")
+    elevation_pages = parameters.get("elevation_pages") or body.get("elevation_pages")
     page_number = int(page_number)
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
 
@@ -211,6 +226,7 @@ async def floorplan_to_structured_2d(request: Request):
 
     ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
     floor_plan_processed_path, plan_type = floorplan_to_page(CREDENTIALS, project_id, plan_id, ip_address, pdf_path, page_number)
+    elevation_processed_paths = load_elevation_pages(pdf_path, elevation_pages)
     publish_handler = load_publisher_client(CREDENTIALS)
     if all(plan_category.upper().find("FLOOR") == -1 for plan_category in plan_type["plan_type"]):
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
@@ -281,6 +297,7 @@ async def floorplan_to_structured_2d(request: Request):
                         transcription_block_with_centroids,
                         floorplan_page_statistics,
                         floorplan_baseline_page_source,
+                        elevation_processed_paths,
                     )
                 )
             [future.result() for future in futures]
