@@ -1187,6 +1187,7 @@ class FloorPlan2D(FloorPlan):
         area_target,
         polygons_pts,
         floor_plan_path,
+        elevation_paths,
         transcription_block_with_centroids,
         walls_unnormalized,
         offset,
@@ -1271,10 +1272,17 @@ class FloorPlan2D(FloorPlan):
             if perimeter_line not in perimeter_lines:
                 perimeter_lines.append(perimeter_line)
         polygon = dict(vertices=vertices.tolist(), perimeter_wall_lines=list(perimeter_lines), transcription_entries=transcription_entries)
+        parts_elevations = list()
+        for elevation_index, elevation_path in enumerate(elevation_paths):
+            elevation_canvas = cv2.imread(elevation_path)
+            _, elevation_canvas_buffer_array = cv2.imencode(".png", elevation_canvas)
+            bytes_elevation_canvas = elevation_canvas_buffer_array.tobytes()
+            parts_elevations.append(Part.from_text(f"ELEVATION PLAN: {elevation_index + 1}")),
+            parts_elevations.append(Part.from_data(data=bytes_elevation_canvas, mime_type="image/png"))
         query = Content(role="user", parts=[
             Part.from_text(json.dumps(polygon)),
             Part.from_data(data=bytes_canvas, mime_type="image/png")
-        ])
+        ]+parts_elevations)
         try:
             if self._is_cached["DRYWALL_PREDICTOR_CALIFORNIA"]:
                 _, model_polygon = phoenix_call(
@@ -1370,6 +1378,7 @@ class FloorPlan2D(FloorPlan):
         scale,
         height_default,
         floor_plan_path,
+        elevation_paths,
         transcription_block_with_centroids,
         index,
         offset,
@@ -1407,6 +1416,7 @@ class FloorPlan2D(FloorPlan):
             area,
             polygons_pts_normalized,
             floor_plan_path,
+            elevation_paths,
             transcription_block_with_centroids,
             perimeter_walls_unnormalized,
             offset,
@@ -1546,7 +1556,7 @@ class FloorPlan2D(FloorPlan):
             vertices=vertices,
             type=model_polygon["ceiling"]["ceiling_type"],
             height=model_polygon["ceiling"]["height"] if model_polygon["ceiling"]["height"] else height_default,
-            slope=0,
+            slope=model_polygon["ceiling"]["slope"],
             slope_enabled=model_polygon["ceiling"]["slope_enabled"],
             tilt_axis=model_polygon["ceiling"]["tilt_axis"],
             room_name=model_polygon["ceiling"]["room_name"],
@@ -2456,6 +2466,7 @@ class FloorPlan2D(FloorPlan):
         self,
         offset,
         image_path="/tmp/floor_plan_wall_segmented.png",
+        elevation_paths=list(),
         model_2d_path="/tmp/walls_2d.json",
         floor_plan_path="/tmp/floor_plan.png",
         output_path="/tmp/blueprint_model_2d.png",
@@ -2504,6 +2515,7 @@ class FloorPlan2D(FloorPlan):
                     (scale_x, scale_y),
                     height_default,
                     floor_plan_path,
+                    elevation_paths,
                     transcription_block_with_centroids,
                     index,
                     offset,
@@ -2548,6 +2560,7 @@ class FloorPlan2D(FloorPlan):
                     (scale_x, scale_y),
                     height_default,
                     floor_plan_path,
+                    elevation_paths,
                     transcription_block_with_centroids,
                     index,
                     offset,
