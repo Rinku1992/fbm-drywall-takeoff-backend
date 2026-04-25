@@ -795,15 +795,73 @@ ARCHITECTURAL_DRAWING_CLASSIFIER = """
         }}
 """
 
-class ArchitecturalDrawingClassifierResponse(BaseModel):
-    plan_type: List[str]
-    mask_factor: Dict
-    bounding_box_offsets: List[Dict]
+PlanType = Literal[
+    "FLOOR_PLAN",
+    "ROOF_PLAN",
+    "ELECTRICAL_PLAN",
+    "FOUNDATION_PLAN",
+    "ELEVATION_PLAN",
+    "NOT_ARCHITECTURAL_PLAN"
+]
+
+class MaskFactor(BaseModel):
+    horizontal: float = Field(..., ge=0)
+    vertical: float = Field(..., ge=0)
+
+    @field_validator("horizontal", "vertical")
+    @classmethod
+    def round_two_decimals(cls, v):
+        return round(v, 2)
+
+class BoundingBoxOffset(BaseModel):
+    offset_top_left: Tuple[float, float]
+    offset_bottom_right: Tuple[float, float]
+    title: str
+    plan_type: PlanType
+
+    @field_validator("offset_top_left", "offset_bottom_right")
+    @classmethod
+    def validate_coordinates(cls, v):
+        if len(v) != 2:
+            raise ValueError("Offset must be a tuple of (x, y)")
+        return v
 
     @model_validator(mode="after")
-    def check_offset_count(self):
-        if len(self.bounding_box_offsets) < 1:
-            raise ValueError("At least one bounding box offset is needed")
+    def check_box_validity(self):
+        x1, y1 = self.offset_top_left
+        x2, y2 = self.offset_bottom_right
+ 
+        if x2 <= x1 or y2 <= y1:
+            raise ValueError("Invalid bounding box: bottom_right must be greater than top_left")
+ 
+        return self
+
+class ArchitecturalDrawingClassifierResponse(BaseModel):
+    plan_type: List[PlanType]
+    mask_factor: MaskFactor
+    bounding_box_offsets: List[BoundingBoxOffset]
+
+    @field_validator("bounding_box_offsets")
+    @classmethod
+    def validate_non_empty_offsets(cls, v):
+        if not v or len(v) == 0:
+            raise ValueError("bounding_box_offsets must be a non-empty list")
+        return v
+
+    @field_validator("plan_type")
+    @classmethod
+    def validate_plan_type_list(cls, v):
+        if not v:
+            raise ValueError("plan_type cannot be empty")
+        return v
+
+    @model_validator(mode="after")
+    def validate_plan_consistency(self):
+        bbox_plan_types = {bbox.plan_type for bbox in self.bounding_box_offsets}
+
+        if not bbox_plan_types.issubset(set(self.plan_type)):
+            raise ValueError("Mismatch between plan_type and bounding_box_offsets.plan_type")
+
         return self
 
 CEILING_CHOICES = [
