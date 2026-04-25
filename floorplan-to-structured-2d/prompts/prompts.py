@@ -705,16 +705,18 @@ SCALE_AND_CEILING_HEIGHT_DETECTOR = """
 
   PROVIDED:
     1. A snapshot of the full Architectural Drawing in png format with the following highlight,
-      - The target drawing of interest is highlighted with a green bounding box that encloses architectural plan(s) with a very tight aproximation.
+      - The target drawing of interest is enclosed with a green bounding box that encloses architectural plan(s) with a very tight aproximation.
 
   TASK:
-    Identify the standard `ceiling_height` and `scale` mentioned in the transcription entries for the highlighted floorplan.
+    Identify the standard `ceiling_height` and `scale` applied on ONLY the target architectural plan enclosed with a green bounding box mentioned in the relevant section containing the textual metadata of the enclosed floorplan.
     INSTRUCTIONS:
-      - Look for a keyword that matches with `ceiling height` field at the title section of the highlighted drawing and identify the numerical entity closest to it. Note the feet equivalent of it.
       - Look for a keyword that has to do with the `scale` of the highlighted drawing, representing the ratio between the length on paper and the real world length in floating point values. Normalize and capture the ratio as "<paper_length_in_inches>``: <real_world_length_in_feet>`<real_world_length_in_inches>``".
           Example: 0.25``:1`0``
+      - If scale is written in a different format, preserve the exact textual format.
+      - SUPPORTED `Architectural Scales` are:
+        {supported_scales_architectural}
+      - Look for a keyword that matches with `ceiling height` field at the title section of the highlighted drawing and identify the numerical entity closest to it. Note the feet equivalent of it.
       - If multiple ceiling heights are listed, extract the standard or typical one.
-      - If scale is written in multiple formats, preserve the exact textual format.
       - If not present, return null.
 
   OUTPUT:
