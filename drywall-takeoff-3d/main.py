@@ -1440,11 +1440,9 @@ async def compute_takeoff(request: Request):
         if not polygon["surface_drywall"]["enabled"] or polygon["surface_drywall"]["type"] == "DISABLED":
             polygon["surface_drywall"]["enabled"] = False
             continue
-        surface_area = floor_plan_modeller_3d.compute_updated_area_polygon(
-            polygon["vertices"],
+        surface_area = floor_plan_modeller_3d.compute_sloped_area_polygon(
             polygon["area"],
             polygon["slope"],
-            polygon["tilt_axis"]
         )
         drywall_template = query_drywall(polygon["surface_drywall"]["type"], DRYWALL_TEMPLATES)
         if not drywall_template:
