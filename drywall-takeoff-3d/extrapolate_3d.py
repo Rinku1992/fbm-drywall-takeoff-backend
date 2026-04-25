@@ -354,8 +354,6 @@ class Extrapolate3D(FloorPlan):
         height_in_pixels = self._load_polygon_height_in_pixels(polygon)
         pixel_aspect_ratio_average = (self._hyperparameters["pixel_aspect_ratio"]["horizontal"] + self._hyperparameters["pixel_aspect_ratio"]["vertical"]) / 2
         width_in_pixels = round(polygon["polygon_drywall"]["thickness"] / pixel_aspect_ratio_average)
-        if polygon["slope"]:
-            polygon["area"] = polygon["area"] / math.cos(math.radians(polygon["slope"]))
         polygon = dict(
             id=polygon["id"],
             area=polygon["area"],
@@ -379,18 +377,11 @@ class Extrapolate3D(FloorPlan):
         )
         self._polygons_3d.append(polygon)
 
-    def compute_updated_area_polygon(self, polygon_vertices, area, slope, tilt_axis):
+    def compute_sloped_area_polygon(self, area, slope):
         if slope is None or slope == 0:
             return area
-
-        if tilt_axis == "horizontal":
-            polygon_Ys = [vertex[1] for vertex in polygon_vertices]
-            polygon_width = max(polygon_Ys) - min(polygon_Ys)
-        if tilt_axis == "vertical":
-            polygon_Xs = [vertex[0] for vertex in polygon_vertices]
-            polygon_width = max(polygon_Xs) - min(polygon_Xs)
-        a = slope / polygon_width
-        return round(area * math.sqrt(1 + a * a), 2)
+        theta = math.radians(slope)
+        return round(area / math. Cos(theta), 2)
 
     def save_plot_3d(self, model_3d_path, polygons_3d_path):
         def add_side_face(ax, p1_i, p2_i, p1_o, p2_o):
