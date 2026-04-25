@@ -76,7 +76,7 @@ class FloorPlan2D(FloorPlan):
         vertex_ai_client_metadata_extraction, _, cache_enabled = load_vertex_ai_client(
             credentials,
             client_ip_address,
-            prompts=[SCALE_AND_CEILING_HEIGHT_DETECTOR]
+            prompts=[SCALE_AND_CEILING_HEIGHT_DETECTOR.format(supported_scales_architectural=cls.scales_architectural)]
         )
         is_cached["SCALE_AND_CEILING_HEIGHT_DETECTOR"] = cache_enabled
         vertex_ai_client_wall_rectification, _, cache_enabled = load_vertex_ai_client(
@@ -1088,7 +1088,7 @@ class FloorPlan2D(FloorPlan):
                 )
             else:
                 response, ceiling_height_and_scale = phoenix_call(
-                    lambda feedback_prompt, temperature: self._vertex_ai_client_metadata_extraction(SCALE_AND_CEILING_HEIGHT_DETECTOR).generate_content(
+                    lambda feedback_prompt, temperature: self._vertex_ai_client_metadata_extraction(SCALE_AND_CEILING_HEIGHT_DETECTOR.format(supported_scales_architectural=self.scales_architectural)).generate_content(
                         contents=[feedback_prompt, query] if feedback_prompt else [query],
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
