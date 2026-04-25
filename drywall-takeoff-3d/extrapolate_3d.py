@@ -381,7 +381,7 @@ class Extrapolate3D(FloorPlan):
         if slope is None or slope == 0:
             return area
         theta = math.radians(slope)
-        return round(area / math. Cos(theta), 2)
+        return round(area / math.cos(theta), 2)
 
     def save_plot_3d(self, model_3d_path, polygons_3d_path):
         def add_side_face(ax, p1_i, p2_i, p1_o, p2_o):
