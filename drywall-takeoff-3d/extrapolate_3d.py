@@ -354,6 +354,8 @@ class Extrapolate3D(FloorPlan):
         height_in_pixels = self._load_polygon_height_in_pixels(polygon)
         pixel_aspect_ratio_average = (self._hyperparameters["pixel_aspect_ratio"]["horizontal"] + self._hyperparameters["pixel_aspect_ratio"]["vertical"]) / 2
         width_in_pixels = round(polygon["polygon_drywall"]["thickness"] / pixel_aspect_ratio_average)
+        if polygon["slope"]:
+            polygon["area"] = polygon["area"] / math.cos(math.radians(polygon["slope"]))
         polygon = dict(
             id=polygon["id"],
             area=polygon["area"],
