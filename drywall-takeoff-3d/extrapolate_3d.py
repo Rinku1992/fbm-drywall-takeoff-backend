@@ -104,10 +104,9 @@ class Extrapolate3D(FloorPlan):
 
                 t = d / run_pixels
                 height_in_pixels = height_in_pixels - (t * total_drop)
- 
+
                 return height_in_pixels
         return height_in_pixels
-
 
     def _extrude_height_polygon(self, heights_in_pixels, drywall_polygon, drywall_ids, polygons):
         height_extruded = list()
@@ -355,7 +354,7 @@ class Extrapolate3D(FloorPlan):
         if slope is None or slope == 0 or tilt_axis not in ("horizontal", "vertical"):
             front_face = [dict(x=x, y=y, z=height_in_pixels - half_width) for x, y in vertices]
             back_face  = [dict(x=x, y=y, z=height_in_pixels + half_width) for x, y in vertices]
- 
+
             return [front_face, back_face]
 
         xs = [v[0] for v in vertices]
@@ -372,7 +371,7 @@ class Extrapolate3D(FloorPlan):
 
         if run_pixels == 0:
             return self._extrude_roof_3d(vertices, 0, tilt_axis, height_in_pixels, width_in_pixels)
- 
+
         total_drop = math.tan(math.radians(slope)) * run_pixels
 
         front_face = list()
