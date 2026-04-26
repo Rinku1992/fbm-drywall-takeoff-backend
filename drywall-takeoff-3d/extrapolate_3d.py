@@ -82,26 +82,26 @@ class Extrapolate3D(FloorPlan):
                 vertices = polygon["vertices"]
                 xs = [v[0] for v in vertices]
                 ys = [v[1] for v in vertices]
- 
+
                 if polygon["tilt_axis"] == "horizontal":
                     min_axis = min(xs)
                     max_axis = max(xs)
                 else:
                     min_axis = min(ys)
                     max_axis = max(ys)
- 
+
                 run_pixels = max_axis - min_axis
- 
+
                 if run_pixels == 0:
                     return height_in_pixels
- 
+
                 total_drop = math.tan(math.radians(slope)) * run_pixels
- 
+
                 if polygon["tilt_axis"] == "horizontal":
                     d = X - min_axis
                 else:
                     d = Y - min_axis
- 
+
                 t = d / run_pixels
                 height_in_pixels = height_in_pixels - (t * total_drop)
  
@@ -357,34 +357,34 @@ class Extrapolate3D(FloorPlan):
             back_face  = [dict(x=x, y=y, z=height_in_pixels + half_width) for x, y in vertices]
  
             return [front_face, back_face]
- 
+
         xs = [v[0] for v in vertices]
         ys = [v[1] for v in vertices]
- 
+
         if tilt_axis == "horizontal":
             min_axis = min(xs)
             max_axis = max(xs)
         else:
             min_axis = min(ys)
             max_axis = max(ys)
- 
+
         run_pixels = max_axis - min_axis
- 
+
         if run_pixels == 0:
             return self._extrude_roof_3d(vertices, 0, tilt_axis, height_in_pixels, width_in_pixels)
  
         total_drop = math.tan(math.radians(slope)) * run_pixels
- 
+
         front_face = list()
         back_face = list()
- 
+
         for x, y in vertices:
- 
+
             if tilt_axis == "horizontal":
                 d = x - min_axis
             else:
                 d = y - min_axis
- 
+
             t = d / run_pixels
             z = height_in_pixels - (t * total_drop)
             if z < 0:
@@ -392,7 +392,7 @@ class Extrapolate3D(FloorPlan):
 
             front_face.append(dict(x=x, y=y, z=max(0, z - half_width)))
             back_face.append(dict(x=x, y=y, z=z + half_width))
- 
+
         return [front_face, back_face]
 
     def _add_polygon(self, polygon):
