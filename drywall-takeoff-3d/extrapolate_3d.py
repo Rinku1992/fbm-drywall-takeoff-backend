@@ -310,8 +310,8 @@ class Extrapolate3D(FloorPlan):
         half_width = width_in_pixels // 2
  
         if slope is None or slope == 0 or tilt_axis not in ("horizontal", "vertical"):
-            front_face = [dict(x=x, y=y - half_width, z=height_in_pixels - half_width) for x, y in vertices]
-            back_face  = [dict(x=x, y=y + half_width, z=height_in_pixels + half_width) for x, y in vertices]
+            front_face = [dict(x=x, y=y, z=height_in_pixels - half_width) for x, y in vertices]
+            back_face  = [dict(x=x, y=y, z=height_in_pixels + half_width) for x, y in vertices]
  
             return [front_face, back_face]
  
