@@ -344,8 +344,10 @@ class Extrapolate3D(FloorPlan):
  
             t = d / run_pixels
             z = height_in_pixels - (t * total_drop)
+            if z < 0:
+                return self._extrude_roof_3d(vertices, 0, tilt_axis, height_in_pixels, width_in_pixels)
  
-            front_face.append(dict(x=x, y=y, z=z - half_width))
+            front_face.append(dict(x=x, y=y, z=max(0, z - half_width)))
             back_face.append(dict(x=x, y=y, z=z + half_width))
  
         return [front_face, back_face]
