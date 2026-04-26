@@ -72,9 +72,46 @@ class Extrapolate3D(FloorPlan):
             polygons = json.load(f)
         return polygons
 
-    def _extrude_height_polygon(self, heights_in_pixels, polygon):
+    def _extrapolate_drywall_height_given_polygon(self, X, Y, drywall_id, height_in_pixels, polygons):
+        for polygon in polygons:
+            if drywall_id in polygon["polygon_ids_drywall_interior"]:
+                slope = polygon["slope"]
+                if slope is None or slope == 0 or polygon["tilt_axis"] not in ("horizontal", "vertical"):
+                    return height_in_pixels
+
+                vertices = polygon["vertices"]
+                xs = [v[0] for v in vertices]
+                ys = [v[1] for v in vertices]
+ 
+                if polygon["tilt_axis"] == "horizontal":
+                    min_axis = min(xs)
+                    max_axis = max(xs)
+                else:
+                    min_axis = min(ys)
+                    max_axis = max(ys)
+ 
+                run_pixels = max_axis - min_axis
+ 
+                if run_pixels == 0:
+                    return height_in_pixels
+ 
+                total_drop = math.tan(math.radians(slope)) * run_pixels
+ 
+                if polygon["tilt_axis"] == "horizontal":
+                    d = X - min_axis
+                else:
+                    d = Y - min_axis
+ 
+                t = d / run_pixels
+                height_in_pixels = height_in_pixels - (t * total_drop)
+ 
+                return height_in_pixels
+        return height_in_pixels
+
+
+    def _extrude_height_polygon(self, heights_in_pixels, drywall_polygon, drywall_ids, polygons):
         height_extruded = list()
-        for line, height_in_pixels in zip(polygon, heights_in_pixels):
+        for drywall_id, line, height_in_pixels in zip(drywall_ids, drywall_polygon, heights_in_pixels):
             line_bottom = list()
             for coordinate in deepcopy(line):
                 coordinate['x'] = int(coordinate['x'])
@@ -85,7 +122,13 @@ class Extrapolate3D(FloorPlan):
             for coordinate in deepcopy(line[::-1]):
                 coordinate['x'] = int(coordinate['x'])
                 coordinate['y'] = int(coordinate['y'])
-                coordinate['z'] = height_in_pixels
+                coordinate['z'] = self._extrapolate_drywall_height_given_polygon(
+                    coordinate['x'],
+                    coordinate['y'],
+                    drywall_id,
+                    height_in_pixels,
+                    polygons
+                )
                 line_top.append(coordinate)
             height_extruded.append(line_bottom+line_top)
         return height_extruded
@@ -264,14 +307,14 @@ class Extrapolate3D(FloorPlan):
             return self._extrude_width_with_arbritrary_orientation(X1, Y1, X2, Y2, wall_line["thickness"])
         return None, None
 
-    def _extrude_3d(self, wall_line, horizontal_wall_lines=list(), vertical_wall_lines=list()):
+    def _extrude_3d(self, wall_line, polygons, horizontal_wall_lines=list(), vertical_wall_lines=list()):
         if horizontal_wall_lines and vertical_wall_lines:
             front_face, back_face = self._extrude_width_mitered_butt(wall_line, horizontal_wall_lines, vertical_wall_lines)
         else:
             front_face, back_face = self._extrude_width(wall_line)
         if front_face and back_face:
             heights_in_pixels = self._load_wall_heights_in_pixels(wall_line)
-            polygons = self._extrude_height_polygon(heights_in_pixels, [front_face, back_face])
+            polygons = self._extrude_height_polygon(heights_in_pixels, [front_face, back_face], [wall_line["polygons_drywall"][0]["id"], wall_line["polygons_drywall"][1]["id"]], polygons)
             return polygons
 
     def _add_wall(self, wall_line, polygons):
@@ -597,13 +640,14 @@ class Extrapolate3D(FloorPlan):
         for polygon in polygons:
             self._add_polygon(polygon)
         for line in lines:
-            polygons = self._extrude_3d(
+            polygons_drywall = self._extrude_3d(
                 line,
+                polygons,
                 horizontal_wall_lines=horizontal_wall_lines,
                 vertical_wall_lines=vertical_wall_lines,
             )
-            if polygons:
-                self._add_wall(line, polygons)
+            if polygons_drywall:
+                self._add_wall(line, polygons_drywall)
 
         if model_3d_path:
             with open(model_3d_path, 'w') as f:
