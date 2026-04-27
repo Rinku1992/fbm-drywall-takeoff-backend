@@ -1142,7 +1142,6 @@ async def floorplan_to_3d(request: Request):
         scale = list(query_output)[0].scale
     floor_plan_modeller_3d = Extrapolate3D(hyperparameters)
     walls_3d, polygons_3d, walls_3d_path, polygons_3d_path = floor_plan_modeller_3d.extrapolate(scale, model_2d_path=model_2d_path, polygons_path=polygons_path)
-    walls_3d, polygons_3d = floor_plan_modeller_3d.extrapolate_wall_heights_given_polygons(walls_3d, polygons_3d)
     #gltf_paths = floor_plan_modeller_3d.gltf(model_2d_path=model_2d_path, polygons_path=polygons_path)
     model_3d_path = floor_plan_modeller_3d.save_plot_3d(walls_3d_path, polygons_3d_path)
     GBQ_query = f"SELECT model_2d.metadata FROM `drywall_takeoff.models` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index};"
@@ -1380,7 +1379,6 @@ async def compute_takeoff(request: Request):
     if scale != "1/4``=1`0``":
         pixel_aspect_ratio_new = floor_plan_modeller_3d.compute_pixel_aspect_ratio(scale, hyperparameters["pixel_aspect_ratio_to_feet"])
         walls_3d_JSON, polygons_JSON = floor_plan_modeller_3d.recompute_dimensions_walls_and_polygons(walls_3d_JSON, polygons_JSON, pixel_aspect_ratio_new, pdf_path)
-    walls_3d_JSON, polygons_JSON = floor_plan_modeller_3d.extrapolate_wall_heights_given_polygons(walls_3d_JSON, polygons_JSON)
     drywall_takeoff = dict(
         total=dict(roof=0, wall=0),
         per_drywall=dict(
@@ -1407,7 +1405,7 @@ async def compute_takeoff(request: Request):
                     polygons_JSON
                 )
             drywall_differential_area = 0.5 * abs(drywall_height_A - drywall_height_B) * wall["length"]
-            surface_area = (drywall["height"] * wall["length"]) + drywall_differential_area
+            surface_area = (min(drywall_height_A, drywall_height_B) * wall["length"]) + drywall_differential_area
             if not drywall["enabled"]:
                 continue
             if drywall["type_stacked"]:
