@@ -79,6 +79,7 @@ class Extrapolate3D(FloorPlan):
                 if slope is None or slope == 0 or polygon["tilt_axis"] not in ("horizontal", "vertical"):
                     return height_in_pixels
 
+                polygon_height_in_pixels = self._load_polygon_height_in_pixels(polygon)
                 vertices = polygon["vertices"]
                 xs = [v[0] for v in vertices]
                 ys = [v[1] for v in vertices]
@@ -103,7 +104,7 @@ class Extrapolate3D(FloorPlan):
                     d = Y - min_axis
 
                 t = d / run_pixels
-                height_in_pixels = height_in_pixels - (t * total_drop)
+                height_in_pixels = polygon_height_in_pixels - (t * total_drop)
 
                 return max(0, height_in_pixels)
         return height_in_pixels
