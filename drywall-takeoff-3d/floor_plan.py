@@ -103,7 +103,7 @@ class FloorPlan:
         inclination = math.degrees(math.atan2(abs(y1 - y2), abs(x1 - x2)))
         if inclination <= self.tolerance_angle:
             orientation = "horizontal"
-        elif inclination >= 45 + self.tolerance_angle:
+        elif inclination >= 90 - self.tolerance_angle:
             orientation = "vertical"
         else:
             orientation = "inclined"
