@@ -105,7 +105,7 @@ class Extrapolate3D(FloorPlan):
                 t = d / run_pixels
                 height_in_pixels = height_in_pixels - (t * total_drop)
 
-                return height_in_pixels
+                return max(0, height_in_pixels)
         return height_in_pixels
 
     def _extrude_height_polygon(self, heights_in_pixels, drywall_polygon, drywall_ids, polygons):
