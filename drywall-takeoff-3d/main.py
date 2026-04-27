@@ -1404,8 +1404,8 @@ async def compute_takeoff(request: Request):
                     drywall["height"],
                     polygons_JSON
                 )
-            drywall_differential_area = 0.5 * abs(drywall_height_A - drywall_height_B) * wall["length"]
-            surface_area = (min(drywall_height_A, drywall_height_B) * wall["length"]) + drywall_differential_area
+            #drywall_differential_area = 0.5 * abs(drywall_height_A - drywall_height_B) * wall["length"]
+            surface_area = max(drywall_height_A, drywall_height_B) * wall["length"]
             if not drywall["enabled"]:
                 continue
             if drywall["type_stacked"]:
