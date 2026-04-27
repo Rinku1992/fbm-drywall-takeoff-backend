@@ -1388,24 +1388,8 @@ async def compute_takeoff(request: Request):
     )
     for wall in walls_3d_JSON:
         drywall_count = 0
-        X1, Y1, X2, Y2 = wall["wall_line"][0]['x'], wall["wall_line"][0]['y'], wall["wall_line"][1]['x'], wall["wall_line"][1]['y']
         for drywall in wall["surfaces_drywall"]:
-            drywall_height_A = floor_plan_modeller_3d.extrapolate_drywall_height_given_polygon(
-                    X1,
-                    Y1,
-                    drywall["id"],
-                    drywall["height"],
-                    polygons_JSON
-                )
-            drywall_height_B = floor_plan_modeller_3d.extrapolate_drywall_height_given_polygon(
-                    X2,
-                    Y2,
-                    drywall["id"],
-                    drywall["height"],
-                    polygons_JSON
-                )
-            #drywall_differential_area = 0.5 * abs(drywall_height_A - drywall_height_B) * wall["length"]
-            surface_area = max(drywall_height_A, drywall_height_B) * wall["length"]
+            surface_area = drywall["height"] * wall["length"]
             if not drywall["enabled"]:
                 continue
             if drywall["type_stacked"]:
