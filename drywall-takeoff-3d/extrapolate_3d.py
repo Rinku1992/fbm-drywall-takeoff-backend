@@ -539,51 +539,6 @@ class Extrapolate3D(FloorPlan):
         load_gltf(walls, polygons, "/tmp/walls.gltf")
         return [Path("/tmp/walls.gltf"), Path("/tmp/walls.bin")]
 
-    def extrapolate_wall_heights_given_polygons(self, walls_3d, polygons):
-        def load_payload_wall_3d(wall_line):
-            X1, Y1, X2, Y2 = wall_line[0]
-            wall_line = [dict(x=X1, y=Y1), dict(x=X2, y=Y2)]
-            for wall in walls_3d:
-                if wall["wall_line"] == wall_line:
-                    return wall
-
-        wall_lines = list()
-        for wall_3d in walls_3d:
-            wall_lines.append([[wall_3d["wall_line"][0]['x'], wall_3d["wall_line"][0]['y'], wall_3d["wall_line"][1]['x'], wall_3d["wall_line"][1]['y']]])
-        for polygon in polygons:
-            slope = polygon["slope"]
-            if slope is None or slope == 0:
-                continue
-            tilt_axis = polygon["tilt_axis"]
-            perimeter_lines_contour = self.load_perimeter(polygon["vertices"], wall_lines)
-            for perimeter_line in perimeter_lines_contour:
-                X1, Y1, X2, Y2 = perimeter_line[0]
-                orientation = self.classify_line(X1, Y1, X2, Y2)
-                payload = load_payload_wall_3d(perimeter_line)
-                if tilt_axis == "horizontal":
-                    a = polygon["slope"] / (max([vertex[1] for vertex in polygon["vertices"]]) - min([vertex[1] for vertex in polygon["vertices"]]))
-                    if polygon["slope"] > 0:
-                        roof_high_Y = min([vertex[1] for vertex in polygon["vertices"]])
-                    else:
-                        roof_high_Y = max([vertex[1] for vertex in polygon["vertices"]])
-                    if orientation == "horizontal":
-                        payload["height"] = round(max(0, polygon["height"] - a * (round(np.median([Y1, Y2])) - roof_high_Y)))
-                    if orientation == "vertical":
-                        payload["height"] = polygon["height"]
-                elif tilt_axis == "vertical":
-                    a = polygon["slope"] / (max([vertex[0] for vertex in polygon["vertices"]]) - min([vertex[0] for vertex in polygon["vertices"]]))
-                    if polygon["slope"] > 0:
-                        roof_high_X = min([vertex[0] for vertex in polygon["vertices"]])
-                    else:
-                        roof_high_X = max([vertex[0] for vertex in polygon["vertices"]])
-                    if orientation == "vertical":
-                        payload["height"] = round(max(0, polygon["height"] - a * (round(np.median([X1, X2])) - roof_high_X)))
-                    if orientation == "horizontal":
-                        payload["height"] = polygon["height"]
-                else:
-                    continue
-        return walls_3d, polygons
-
     def recompute_dimensions_walls_and_polygons(self, walls_3d_JSON, polygons_JSON, pixel_aspect_ratio_new, floor_plan_pdf_path):
         width, height = convert_from_path(floor_plan_pdf_path, dpi=400)[0].size
         scale_x = 1920 / width
