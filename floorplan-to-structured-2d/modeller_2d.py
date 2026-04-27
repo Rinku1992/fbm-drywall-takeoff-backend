@@ -706,6 +706,71 @@ class FloorPlan2D(FloorPlan):
                         Y2 = Y2_new
                 extended_lines.append([[X1, Y1, X2, Y2]])
             else:
+                dx = X2 - X1
+                dy = Y2 - Y1
+ 
+                norm = np.hypot(dx, dy)
+                if norm == 0:
+                    extended_lines.append([[X1, Y1, X2, Y2]])
+                    continue
+ 
+                ux = dx / norm
+                uy = dy / norm
+ 
+                for n_pixels in range(extension_maximum):
+                    step = n_pixels + 1
+ 
+                    X1_new = int(round(X1 - ux * step))
+                    Y1_new = int(round(Y1 - uy * step))
+ 
+                    if not (0 <= X1_new < 1920 and 0 <= Y1_new < 1080):
+                        break
+ 
+                    perp_dx = -uy
+                    perp_dy = ux
+ 
+                    valid = False
+                    for t in range(-tolerance, tolerance + 1):
+                        xs = int(round(X1_new + perp_dx * t))
+                        ys = int(round(Y1_new + perp_dy * t))
+ 
+                        if 0 <= xs < 1920 and 0 <= ys < 1080:
+                            if floor_plan_topology_binary[ys, xs] == 0:
+                                valid = True
+                                break
+ 
+                    if valid:
+                        X1, Y1 = X1_new, Y1_new
+                    else:
+                        break
+ 
+                for n_pixels in range(extension_maximum):
+                    step = n_pixels + 1
+ 
+                    X2_new = int(round(X2 + ux * step))
+                    Y2_new = int(round(Y2 + uy * step))
+ 
+                    if not (0 <= X2_new < 1920 and 0 <= Y2_new < 1080):
+                        break
+ 
+                    perp_dx = -uy
+                    perp_dy = ux
+ 
+                    valid = False
+                    for t in range(-tolerance, tolerance + 1):
+                        xs = int(round(X2_new + perp_dx * t))
+                        ys = int(round(Y2_new + perp_dy * t))
+ 
+                        if 0 <= xs < 1920 and 0 <= ys < 1080:
+                            if floor_plan_topology_binary[ys, xs] == 0:
+                                valid = True
+                                break
+ 
+                    if valid:
+                        X2, Y2 = X2_new, Y2_new
+                    else:
+                        break
+ 
                 extended_lines.append([[X1, Y1, X2, Y2]])
 
         return extended_lines
