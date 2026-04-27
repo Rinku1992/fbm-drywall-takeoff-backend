@@ -72,7 +72,7 @@ class Extrapolate3D(FloorPlan):
             polygons = json.load(f)
         return polygons
 
-    def _extrapolate_drywall_height_given_polygon(self, X, Y, drywall_id, height_in_pixels, polygons):
+    def extrapolate_drywall_height_given_polygon(self, X, Y, drywall_id, height_in_pixels, polygons):
         for polygon in polygons:
             if drywall_id in polygon["polygon_ids_drywall_interior"]:
                 slope = polygon["slope"]
@@ -121,7 +121,7 @@ class Extrapolate3D(FloorPlan):
             for coordinate in deepcopy(line[::-1]):
                 coordinate['x'] = int(coordinate['x'])
                 coordinate['y'] = int(coordinate['y'])
-                coordinate['z'] = self._extrapolate_drywall_height_given_polygon(
+                coordinate['z'] = self.extrapolate_drywall_height_given_polygon(
                     coordinate['x'],
                     coordinate['y'],
                     drywall_id,
