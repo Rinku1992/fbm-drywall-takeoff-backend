@@ -566,7 +566,7 @@ def floorplan_to_structured_2d(
     return response.raise_for_status()
 
 
-def floorplan_to_preview_page(credentials, project_id, plan_id, user_id, page_number, ip_address, pdf_path):
+def floorplan_to_preview_page(credentials, project_id, plan_id, user_id, page_number, ip_address, pdf_path, bigquery_client):
     metadata_page = dict(page_number=page_number)
     floor_plan_processed_path, plan_type = floorplan_to_page(credentials, project_id, plan_id, ip_address, pdf_path, page_number)
     metadata_page["plan_type"] = plan_type["plan_type"]
@@ -857,7 +857,8 @@ async def floorplan_to_preview(request: Request):
                 user_id,
                 page_number,
                 ip_address,
-                pdf_path
+                pdf_path,
+                bigquery_client,
             )
             futures.append(future)
         for future in futures:
