@@ -482,3 +482,80 @@ def page_to_svg(
     tree.write(svg_path, encoding="utf-8", xml_declaration=True)
 
     return Path(svg_path)
+
+def insert_page(
+    plan_id,
+    user_id,
+    project_id,
+    page_number,
+    extracted,
+    bigquery_client,
+    credentials,
+    plan_type=dict(),
+    GCS_URL_page=None,
+    mask_factor=dict(),
+    bounding_box_offsets=dict(),
+):
+    GBQ_query = """
+    MERGE `drywall_takeoff.pages` t
+    USING (
+        SELECT
+            @plan_id AS plan_id,
+            @project_id AS project_id,
+            @user_id AS user_id,
+            @page_number AS page_number,
+            @mask_factor AS mask_factor,
+            @bounding_box_offsets AS bounding_box_offsets,
+            @source AS source,
+            @plan_type AS plan_type,
+            @extracted AS extracted
+    ) s
+    ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id) AND t.page_number = s.page_number
+    WHEN MATCHED THEN
+    UPDATE SET
+        extracted = s.extracted,
+        updated_at = CURRENT_TIMESTAMP()
+    WHEN NOT MATCHED THEN
+    INSERT (
+        plan_id,
+        project_id,
+        user_id,
+        page_number,
+        mask_factor,
+        bounding_box_offsets,
+        source,
+        plan_type,
+        extracted,
+        created_at,
+        updated_at
+    )
+    VALUES (
+        s.plan_id,
+        s.project_id,
+        s.user_id,
+        s.page_number,
+        s.mask_factor,
+        s.bounding_box_offsets,
+        s.source,
+        s.plan_type,
+        s.extracted,
+        CURRENT_TIMESTAMP(),
+        CURRENT_TIMESTAMP()
+    );
+    """
+    job_config = dict(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
+            bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
+            bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
+            bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
+            bigquery.ScalarQueryParameter("mask_factor", "JSON", mask_factor),
+            bigquery.ScalarQueryParameter("bounding_box_offsets", "JSON", bounding_box_offsets),
+            bigquery.ScalarQueryParameter("source", "STRING", GCS_URL_page),
+            bigquery.ScalarQueryParameter("plan_type", "JSON", plan_type),
+            bigquery.ScalarQueryParameter("extracted", "BOOL", extracted)
+        ]
+    )
+
+    query_output = bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
+    return query_output
