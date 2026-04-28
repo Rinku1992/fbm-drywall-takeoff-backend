@@ -28,11 +28,11 @@ from helper import (
     download_floorplan,
     download_segmented_walls,
     insert_model_2d,
+    insert_model_2d_batch,
     load_bigquery_client,
     load_templates,
     load_section_from_page,
     apply_pixel_margin_to_bounding_box,
-    classify_plan,
     load_publisher_client,
 )
 
@@ -117,7 +117,7 @@ def page_to_structured_2d(
     floorplan_page_statistics,
     floorplan_baseline_page_source,
     elevation_processed_paths,
-):
+    ):
     floor_plan_modeller_2d.reload()
     wall_segmented_sectioned_path = load_section_from_page(
         wall_segmented_path,
@@ -173,11 +173,10 @@ def page_to_structured_2d(
     logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} and SECTION: {page_section_number} Generated Successfully")
 
 
-def floorplan_to_page(credentials, project_id, plan_id, client_ip_address, pdf_path, page_number):
+def floorplan_to_page(credentials, project_id, plan_id, pdf_path, page_number):
     floor_plan_path_preprocessed = preprocess(pdf_path, page_number)
-    plan_type = classify_plan(credentials, client_ip_address, floor_plan_path_preprocessed)
     upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, credentials, index=str(page_number).zfill(4))
-    return floor_plan_path_preprocessed, plan_type
+    return floor_plan_path_preprocessed
 
 
 def load_elevation_pages(pdf_path, elevation_page_numbers):
@@ -217,6 +216,8 @@ async def floorplan_to_structured_2d(request: Request):
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     page_number = parameters.get("page_number") or body.get("page_number")
+    mask_factor = parameters.get("mask_factor") or body.get("mask_factor")
+    bounding_box_offsets = parameters.get("bounding_box_offsets") or body.get("bounding_box_offsets")
     elevation_pages = parameters.get("elevation_pages") or body.get("elevation_pages")
     page_number = int(page_number)
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
@@ -225,14 +226,9 @@ async def floorplan_to_structured_2d(request: Request):
     logging.info("SYSTEM: Floorplan Downloaded for extraction")
 
     ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
-    floor_plan_processed_path, plan_type = floorplan_to_page(CREDENTIALS, project_id, plan_id, ip_address, pdf_path, page_number)
+    floor_plan_processed_path = floorplan_to_page(CREDENTIALS, project_id, plan_id, pdf_path, page_number)
     elevation_processed_paths = load_elevation_pages(pdf_path, elevation_pages)
     publish_handler = load_publisher_client(CREDENTIALS)
-    if all(plan_category.upper().find("FLOOR") == -1 for plan_category in plan_type["plan_type"]):
-        future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
-        future.result()
-        logging.warning(f"SYSTEM: Rejected Page Number: {page_number} - {[plan_category.upper() for plan_category in plan_type["plan_type"]]} (NOT A FLOORPLAN)")
-        return respond_with_UI_payload(dict(status="FAILED", message="Not a Floor Plan"))
     logging.info(f"SYSTEM: Floorplan Preprocessing Completed: Page Number: {page_number}")
 
     hyperparameters = load_hyperparameters()
@@ -246,7 +242,7 @@ async def floorplan_to_structured_2d(request: Request):
             plan_id,
             user_id,
             page_number,
-            plan_type["mask_factor"],
+            mask_factor,
             output_path=f"/tmp/{project_id}/{plan_id}/{user_id}/floor_plan_wall_segmented_{str(page_number).zfill(4)}.png"
         )
         futures["transcriber"] = executor.submit(
@@ -274,7 +270,7 @@ async def floorplan_to_structured_2d(request: Request):
         futures = list()
         vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES)
         with ThreadPoolExecutor(max_workers=2) as executor:
-            for bounding_box_offset in plan_type["bounding_box_offsets"]:
+            for bounding_box_offset in bounding_box_offsets:
                 if bounding_box_offset["plan_type"].upper().find("FLOOR") == -1:
                     continue
                 logging.info(f"SYSTEM: Extracting structured model from SECTION: {bounding_box_offset["title"]} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
@@ -289,7 +285,7 @@ async def floorplan_to_structured_2d(request: Request):
                         plan_id,
                         user_id,
                         page_number,
-                        len(plan_type["bounding_box_offsets"]),
+                        len(bounding_box_offsets),
                         bounding_box_offset["title"],
                         wall_segmented_path,
                         floor_plan_processed_path,
