@@ -533,7 +533,18 @@ def insert_project(payload_project, bigquery_client, credentials):
     return created_at
 
 
-def floorplan_to_structured_2d(credentials, session, id_token, project_id, plan_id, user_id, page_number, elevation_pages):
+def floorplan_to_structured_2d(
+    credentials,
+    session,
+    id_token,
+    project_id,
+    plan_id,
+    user_id,
+    page_number,
+    mask_factor,
+    bounding_box_offsets,
+    elevation_pages
+):
     headers = {
         "Authorization": f"Bearer {id_token}",
         "Content-Type": "application/json"
@@ -546,6 +557,8 @@ def floorplan_to_structured_2d(credentials, session, id_token, project_id, plan_
             plan_id=plan_id,
             user_id=user_id,
             page_number=page_number,
+            mask_factor=mask_factor,
+            bounding_box_offsets=bounding_box_offsets,
             elevation_pages=elevation_pages,
         ),
     )
@@ -851,6 +864,7 @@ async def floorplan_to_2d(request: Request):
     project_id = parameters.get("project_id") or body.get("project_id")
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
+    pages_metadata = parameters.get("pages_metadata") or body.get("pages_metadata")
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
 
     pdf_path = Path("/tmp/floor_plan.PDF")
@@ -896,8 +910,8 @@ async def floorplan_to_2d(request: Request):
     subscriber_client = load_subscriber_client(CREDENTIALS)
     try:
         with ThreadPoolExecutor(max_workers=20) as executor:
-            for page_number in range(n_pages):
-                if page_number != 0 and page_number % 25 == 0:
+            for index, page_metadata in enumerate(pages_metadata):
+                if index != 0 and index % 25 == 0:
                     sleep(120)
                 id_token = load_floorplan_to_structured_2d_ID_token(CREDENTIALS)
                 elevation_pages = load_elevation_map(elevation_map, page_number)
@@ -909,7 +923,9 @@ async def floorplan_to_2d(request: Request):
                     project_id,
                     plan_id,
                     user_id,
-                    page_number,
+                    page_metadata["page_number"],
+                    page_metadata["mask_factor"],
+                    page_metadata["bounding_box_offsets"],
                     elevation_pages,
                 )
             query_payloads = [dict(project_id=project_id, plan_id=plan_id, page_number=page_number) for page_number in range(n_pages)]
