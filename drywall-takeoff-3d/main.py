@@ -831,8 +831,9 @@ async def load_plan_pages(request: Request):
         ]
     )
     query_job = bigquery_client.query(query, job_config=job_config)
-    plan_pages = list(query_job.result())
-    for plan_page in plan_pages:
+    plan_pages = list()
+    for row in query_job.result():
+        plan_page = dict(row)
         client = CloudStorageClient()
         bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
         blob_path = plan_page["source"].strip(f"gs://{CREDENTIALS["CloudStorage"]["bucket_name"]}/")
@@ -843,6 +844,7 @@ async def load_plan_pages(request: Request):
             method="GET",
         )
         plan_page["signed_url_GCS"] = url
+        plan_pages.append(plan_page)
     return respond_with_UI_payload(jsonable_encoder({
         "plan_metadata": plan_metadata,
         "plan_pages": plan_pages
