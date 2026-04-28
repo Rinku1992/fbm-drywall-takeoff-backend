@@ -29,11 +29,7 @@ from google.oauth2 import service_account
 from google.cloud.pubsub_v1 import PublisherClient
 
 from transcriber import Transcriber
-from prompts import (
-    FEEDBACK_GENERATOR,
-    ARCHITECTURAL_DRAWING_CLASSIFIER,
-    ArchitecturalDrawingClassifierResponse
-)
+from prompts import FEEDBACK_GENERATOR
 
 
 def load_vertex_ai_client(credentials, ip_address, prompts=None, default_region="us-central1"):
@@ -456,43 +452,6 @@ def polygon_to_structured_2d(credentials, query_json):
         json=query_json
     )
     return response.status_code, response.content
-
-def classify_plan(credentials, client_ip_address, plan_path):
-    vertex_ai_client, vertex_ai_generation_config, is_cached = load_vertex_ai_client(
-        credentials,
-        client_ip_address,
-        prompts=[ARCHITECTURAL_DRAWING_CLASSIFIER]
-    )
-    plan_BGR = cv2.imread(plan_path)
-    _, canvas_buffer_array = cv2.imencode(".png", plan_BGR)
-    bytes_canvas = canvas_buffer_array.tobytes()
-    query = Content(role="user", parts=[
-        Part.from_data(data=bytes_canvas, mime_type="image/png")
-    ])
-    try:
-        if is_cached:
-            _, plan_type = phoenix_call(
-                lambda feedback_prompt, temperature: vertex_ai_client.generate_content(
-                    contents=[feedback_prompt, query] if feedback_prompt else [query],
-                    generation_config={**vertex_ai_generation_config, "temperature": temperature},
-                ),
-                max_retry=credentials["VertexAI"]["llm"]["max_retry"],
-                pydantic_model=ArchitecturalDrawingClassifierResponse,
-            )
-        else:
-            _, plan_type = phoenix_call(
-                lambda feedback_prompt, temperature: vertex_ai_client(ARCHITECTURAL_DRAWING_CLASSIFIER).generate_content(
-                    contents=[feedback_prompt, query] if feedback_prompt else [query],
-                    generation_config={**vertex_ai_generation_config, "temperature": temperature},
-                ),
-                max_retry=credentials["VertexAI"]["llm"]["max_retry"],
-                pydantic_model=ArchitecturalDrawingClassifierResponse,
-            )
-    except Exception as e:
-        logging.warning(f"SYSTEM: Plan Classification has failed: {e}")
-        plan_type = dict(plan_type="FLOOR_PLAN")
-
-    return plan_type
 
 def load_publisher_client(credentials):
      credentials_SA = service_account.Credentials.from_service_account_file(credentials["PubSub"]["service_account_key"])
