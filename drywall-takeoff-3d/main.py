@@ -50,6 +50,7 @@ from helper import (
     load_elevation_map,
     floorplan_to_page,
     page_to_svg,
+    insert_page,
 )
 
 
@@ -588,6 +589,19 @@ def floorplan_to_preview_page(credentials, project_id, plan_id, user_id, page_nu
     metadata_page["signed_url_GCS"] = url
     if all(plan_category.upper().find("FLOOR") == -1 for plan_category in plan_type["plan_type"]):
         metadata_page["is_floorplan"] = False
+    insert_page(
+        plan_id,
+        user_id,
+        project_id,
+        page_number,
+        False,
+        bigquery_client,
+        credentials,
+        plan_type["plan_type"],
+        floorplan_svg_source,
+        plan_type["mask_factor"],
+        plan_type["bounding_box_offsets"],
+    )
     return metadata_page
 
 
@@ -927,6 +941,15 @@ async def floorplan_to_2d(request: Request):
                     page_metadata["mask_factor"],
                     page_metadata["bounding_box_offsets"],
                     elevation_pages,
+                )
+                insert_page(
+                    plan_id,
+                    user_id,
+                    project_id,
+                    page_metadata["page_number"],
+                    True,
+                    bigquery_client,
+                    CREDENTIALS,
                 )
             query_payloads = [dict(project_id=project_id, plan_id=plan_id, page_number=page_number) for page_number in range(n_pages)]
             timeout = from_unix_epoch() + 7200
