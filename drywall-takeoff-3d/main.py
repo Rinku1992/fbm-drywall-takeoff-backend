@@ -30,7 +30,6 @@ from google.cloud import secretmanager
 import pandas as pd
 import numpy as np
 import math
-from random import uniform
 from pdf2image.pdf2image import pdfinfo_from_path
 
 from extrapolate_3d import Extrapolate3D
@@ -48,7 +47,9 @@ from helper import (
     load_subscriber_client,
     query_subscriber_messages,
     map_floorplan_to_multipage_elevation,
-    load_elevation_map
+    load_elevation_map,
+    floorplan_to_page,
+    page_to_svg,
 )
 
 
@@ -80,7 +81,7 @@ def insert_model_2d_revision(
     bigquery_client,
     credentials,
     page_section_number=None,
-):
+    ):
     if not page_section_number:
         page_section_number = 'I'
     if not model_2d.get("metadata", None):
@@ -158,7 +159,7 @@ def insert_model_3d_revision(
     project_id,
     bigquery_client,
     credentials
-):
+    ):
     GBQ_query = """
     SELECT MAX(revision_number) AS revision_number FROM `drywall_takeoff.model_revisions_3d` WHERE 
     LOWER(project_id) = LOWER(@project_id) AND LOWER(plan_id) = LOWER(@plan_id) AND page_number = @page_number;
@@ -227,7 +228,7 @@ def insert_model_3d(
     project_id,
     bigquery_client,
     credentials
-):
+    ):
     GBQ_query = """
     UPDATE `drywall_takeoff.models` as t
     SET
@@ -317,7 +318,7 @@ def insert_takeoff(
     revision_number,
     bigquery_client,
     credentials
-):
+    ):
     GBQ_query = """
     UPDATE `drywall_takeoff.models` t
     SET
@@ -378,7 +379,7 @@ def insert_plan(
     size_in_bytes=None,
     GCS_URL_floorplan=None,
     n_pages=None
-):
+    ):
     GBQ_query = """
     MERGE `drywall_takeoff.plans` t
     USING (
@@ -532,16 +533,7 @@ def insert_project(payload_project, bigquery_client, credentials):
     return created_at
 
 
-def floorplan_to_structured_2d(
-    credentials,
-    session,
-    id_token,
-    project_id,
-    plan_id,
-    user_id,
-    page_number,
-    elevation_pages
-):
+def floorplan_to_structured_2d(credentials, session, id_token, project_id, plan_id, user_id, page_number, elevation_pages):
     headers = {
         "Authorization": f"Bearer {id_token}",
         "Content-Type": "application/json"
@@ -558,6 +550,30 @@ def floorplan_to_structured_2d(
         ),
     )
     return response.raise_for_status()
+
+
+def floorplan_to_preview_page(credentials, project_id, plan_id, user_id, page_number, ip_address, pdf_path):
+    metadata_page = dict(page_number=page_number)
+    floor_plan_processed_path, plan_type = floorplan_to_page(credentials, project_id, plan_id, ip_address, pdf_path, page_number)
+    metadata_page["plan_type"] = plan_type["plan_type"]
+    metadata_page["is_floorplan"] = True
+    svg_path=Path(f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_{str(page_number).zfill(4)}.svg")
+    svg_path.parent.mkdir(parents=True, exist_ok=True)
+    floorplan_svg = page_to_svg(floor_plan_path=floor_plan_processed_path, svg_path=svg_path)
+    floorplan_svg_source = upload_floorplan(floorplan_svg, plan_id, project_id, credentials, index=str(page_number).zfill(4))
+    client = CloudStorageClient()
+    bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
+    blob_path = floorplan_svg_source.strip(f"gs://{credentials["CloudStorage"]["bucket_name"]}/")
+    blob = bucket.blob(blob_path)
+    url = blob.generate_signed_url(
+        version="v4",
+        expiration=timedelta(minutes=credentials["CloudStorage"]["expiration_in_minutes"]),
+        method="GET",
+    )
+    metadata_page["signed_url_GCS"] = url
+    if all(plan_category.upper().find("FLOOR") == -1 for plan_category in plan_type["plan_type"]):
+        metadata_page["is_floorplan"] = False
+    return metadata_page
 
 
 def load_UI_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -585,7 +601,7 @@ def load_gcp_credentials() -> dict:
     yaml = YAML(typ="safe", pure=True)
     with open("gcp.yaml", 'r') as f:
         credentials = yaml.load(f)
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials["service_drywall_account_key"]
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials["service_drywall_account_key"]
 
     return credentials
 
@@ -779,6 +795,47 @@ async def load_plan_pages(request: Request):
 
     logging.info(f"SYSTEM: Plan Pages Data retrieved successfully")
     return respond_with_UI_payload(dict(plan_metadata=plan_metadata, plan_pages=plan_pages_data))
+
+
+@app.post("/floorplan_to_preview")
+async def floorplan_to_preview(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    project_id = parameters.get("project_id") or body.get("project_id")
+    plan_id = parameters.get("plan_id") or body.get("plan_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
+    logging.info("SYSTEM: Received a Floorplan Preview Generation Request")
+
+    pdf_path = Path("/tmp/floor_plan.PDF")
+    download_floorplan(plan_id, project_id, CREDENTIALS, destination_path=pdf_path)
+    n_pages = pdfinfo_from_path(pdf_path)["Pages"]
+    logging.info("SYSTEM: Floorplan Downloaded for preview generation")
+
+    ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
+    payload_preview = list()
+    futures = list()
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        for page_number in range(n_pages):
+            future = executor.submit(
+                floorplan_to_preview_page,
+                CREDENTIALS,
+                project_id,
+                plan_id,
+                user_id,
+                page_number,
+                ip_address,
+                pdf_path
+            )
+            futures.append(future)
+        for future in futures:
+            payload_preview.append(future.result())
+
+    logging.info("SYSTEM: Preview generated Successfully")
+    return respond_with_UI_payload(payload_preview)
 
 
 @app.post("/floorplan_to_2d")
