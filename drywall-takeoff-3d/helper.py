@@ -7,10 +7,14 @@ import datetime
 from time import sleep
 from pypdf import PdfReader, PdfWriter
 from io import BytesIO
+import xml.etree.ElementTree as ET
+import subprocess
 
 import math
 import random
 random.seed(0)
+import cv2
+from PIL import Image
 
 import geoip2.database as geoip2_database
 from google.cloud import bigquery
@@ -28,8 +32,11 @@ from vertexai.caching import CachedContent
 from prompts import (
     FLOORPLAN_TO_MULTIPAGE_ELEVATION_MAPPER,
     FloorplanToMultipageElevationMapperResponse,
+    ARCHITECTURAL_DRAWING_CLASSIFIER,
+    ArchitecturalDrawingClassifierResponse,
     FEEDBACK_GENERATOR
 )
+from preprocessing import preprocess
 
 
 def load_bigquery_client(credentials):
@@ -407,3 +414,71 @@ def load_elevation_map(elevation_map, page_number):
             page_numbers = [elevation_page["page_number"] for elevation_page in group["elevation_pages"]]
             return page_numbers
     return page_numbers
+
+def classify_plan(credentials, client_ip_address, plan_path):
+    vertex_ai_client, vertex_ai_generation_config, is_cached = load_vertex_ai_client(
+        credentials,
+        client_ip_address,
+        prompts=[ARCHITECTURAL_DRAWING_CLASSIFIER]
+    )
+    plan_BGR = cv2.imread(plan_path)
+    _, canvas_buffer_array = cv2.imencode(".png", plan_BGR)
+    bytes_canvas = canvas_buffer_array.tobytes()
+    query = Content(role="user", parts=[
+        Part.from_data(data=bytes_canvas, mime_type="image/png")
+    ])
+    try:
+        if is_cached:
+            _, plan_type = phoenix_call(
+                lambda feedback_prompt, temperature: vertex_ai_client.generate_content(
+                    contents=[feedback_prompt, query] if feedback_prompt else [query],
+                    generation_config={**vertex_ai_generation_config, "temperature": temperature},
+                ),
+                max_retry=credentials["VertexAI"]["llm"]["max_retry"],
+                pydantic_model=ArchitecturalDrawingClassifierResponse,
+            )
+        else:
+            _, plan_type = phoenix_call(
+                lambda feedback_prompt, temperature: vertex_ai_client(ARCHITECTURAL_DRAWING_CLASSIFIER).generate_content(
+                    contents=[feedback_prompt, query] if feedback_prompt else [query],
+                    generation_config={**vertex_ai_generation_config, "temperature": temperature},
+                ),
+                max_retry=credentials["VertexAI"]["llm"]["max_retry"],
+                pydantic_model=ArchitecturalDrawingClassifierResponse,
+            )
+    except Exception as e:
+        logging.warning(f"SYSTEM: Plan Classification has failed: {e}")
+        plan_type = dict(plan_type="FLOOR_PLAN")
+
+    return plan_type
+
+def floorplan_to_page(credentials, project_id, plan_id, client_ip_address, pdf_path, page_number):
+    floor_plan_path_preprocessed = preprocess(pdf_path, page_number)
+    plan_type = classify_plan(credentials, client_ip_address, floor_plan_path_preprocessed)
+    upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, credentials, index=str(page_number).zfill(4))
+    return floor_plan_path_preprocessed, plan_type
+
+def page_to_svg(
+    floor_plan_path="/tmp/floor_plan.png",
+    pdf_path="/tmp/scaled_floor_plan.pdf",
+    svg_path="/tmp/scaled_floor_plan.svg",
+):
+    canvas = Image.open(floor_plan_path)
+    if canvas.mode != "RGB":
+        canvas = canvas.convert("RGB")
+
+    canvas.save(pdf_path, save_all=True)
+
+    subprocess.run(
+        ["pdftocairo", "-svg", pdf_path, svg_path],
+        check=True
+    )
+    tree = ET.parse(svg_path)
+    root = tree.getroot()
+    root.set("width", "100%")
+    root.set("height", "100%")
+    if not root.get("preserveAspectRatio"):
+        root.set("preserveAspectRatio", "xMidYMid meet")
+    tree.write(svg_path, encoding="utf-8", xml_declaration=True)
+
+    return Path(svg_path)
