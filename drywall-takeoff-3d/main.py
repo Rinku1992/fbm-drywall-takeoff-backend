@@ -810,20 +810,32 @@ async def load_plan_pages(request: Request):
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
 
-    GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
-    query_output = bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).to_dataframe()
-    dataframe = load_UI_dataframe(query_output)
-    plan_metadata = dict()
-    if dataframe.to_dict(orient="records"):
-        plan_metadata = dataframe.to_dict(orient="records")[0]
+    GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
+    query_job = bigquery_run(CREDENTIALS, bigquery_client, GBQ_query)
+    rows = list(query_job.result())
+    row = rows[0]
+    plan_metadata = dict(row)
 
-    GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
-    query_output = bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).to_dataframe()
-    dataframe = load_UI_dataframe(query_output)
-    plan_pages_data = dataframe.to_dict(orient="records")
-
-    logging.info(f"SYSTEM: Plan Pages Data retrieved successfully")
-    return respond_with_UI_payload(dict(plan_metadata=plan_metadata, plan_pages=plan_pages_data))
+    query = f"""
+    SELECT
+        *
+    FROM `{CREDENTIALS["GBQServer"]["table_name_pages"]}`
+    WHERE
+        LOWER(project_id) = LOWER(@project_id)
+        AND LOWER(plan_id) = LOWER(@plan_id)
+    """
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
+            bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
+        ]
+    )
+    query_job = bigquery_client.query(query, job_config=job_config)
+    plan_pages = list(query_job.result())
+    return respond_with_UI_payload(jsonable_encoder({
+        "plan_metadata": plan_metadata,
+        "plan_pages": plan_pages
+    }))
 
 
 @app.post("/floorplan_to_preview")
