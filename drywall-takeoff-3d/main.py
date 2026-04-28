@@ -556,6 +556,8 @@ def floorplan_to_preview_page(credentials, project_id, plan_id, user_id, page_nu
     metadata_page = dict(page_number=page_number)
     floor_plan_processed_path, plan_type = floorplan_to_page(credentials, project_id, plan_id, ip_address, pdf_path, page_number)
     metadata_page["plan_type"] = plan_type["plan_type"]
+    metadata_page["mask_factor"] = plan_type["mask_factor"]
+    metadata_page["bounding_box_offsets"] = plan_type["bounding_box_offsets"]
     metadata_page["is_floorplan"] = True
     svg_path=Path(f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_{str(page_number).zfill(4)}.svg")
     svg_path.parent.mkdir(parents=True, exist_ok=True)
