@@ -22,3 +22,6 @@ modelling:
     height: 1000
     width: 1000
     stride: 750
+  scale_adoption:
+    dpi: 400
+    imperial_sampling: false
