@@ -866,6 +866,10 @@ async def floorplan_to_preview(request: Request):
 
     pdf_path = Path("/tmp/floor_plan.PDF")
     download_floorplan(plan_id, project_id, CREDENTIALS, destination_path=pdf_path)
+    plan_duplicate = is_duplicate(bigquery_client, CREDENTIALS, pdf_path, project_id)
+    if plan_duplicate:
+        delete_plan(CREDENTIALS, bigquery_client, plan_id, project_id)
+        return respond_with_UI_payload(dict(error="Floor Plan already exists"))
     n_pages = pdfinfo_from_path(pdf_path)["Pages"]
     logging.info("SYSTEM: Floorplan Downloaded for preview generation")
 
@@ -910,10 +914,6 @@ async def floorplan_to_2d(request: Request):
     pdf_path = Path("/tmp/floor_plan.PDF")
     GCS_URL_floorplan = download_floorplan(plan_id, project_id, CREDENTIALS, destination_path=pdf_path)
     logging.info("SYSTEM: Floorplan Downloaded")
-    plan_duplicate = is_duplicate(bigquery_client, CREDENTIALS, pdf_path, project_id)
-    if plan_duplicate:
-        delete_plan(CREDENTIALS, bigquery_client, plan_id, project_id)
-        return respond_with_UI_payload(dict(error="Floor Plan already exists"))
 
     client = CloudStorageClient()
     bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
