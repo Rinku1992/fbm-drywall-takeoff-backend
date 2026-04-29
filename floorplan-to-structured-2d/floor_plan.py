@@ -42,9 +42,10 @@ class FloorPlan:
         DPI = self.hyperparameters["modelling"]["scale_adoption"]["dpi"]
         scale_x, scale_y = scale
         scale_on_paper_length = float(architectural_scale_normalized.split(':')[0].strip('`'))
-        imperial_x = DPI * scale_on_paper_length * (1 / scale_x)
-        imperial_y = DPI * scale_on_paper_length * (1 / scale_y)
-        return (1 / imperial_x, 1 / imperial_y)
+        #imperial_x = DPI * scale_on_paper_length * (1 / scale_x)
+        #imperial_y = DPI * scale_on_paper_length * (1 / scale_y)
+        imperial = DPI * scale_on_paper_length
+        return (1 / imperial, 1 / imperial)
 
     @classmethod
     def is_none(cls, image_path):
