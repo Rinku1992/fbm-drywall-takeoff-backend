@@ -951,6 +951,7 @@ async def floorplan_to_2d(request: Request):
     try:
         with ThreadPoolExecutor(max_workers=20) as executor:
             for index, page_metadata in enumerate(pages_metadata):
+                page_number = page_metadata["page_number"]
                 if index != 0 and index % 25 == 0:
                     sleep(120)
                 id_token = load_floorplan_to_structured_2d_ID_token(CREDENTIALS)
@@ -963,7 +964,7 @@ async def floorplan_to_2d(request: Request):
                     project_id,
                     plan_id,
                     user_id,
-                    page_metadata["page_number"],
+                    page_number,
                     page_metadata["mask_factor"],
                     page_metadata["bounding_box_offsets"],
                     elevation_pages,
@@ -972,7 +973,7 @@ async def floorplan_to_2d(request: Request):
                     plan_id,
                     user_id,
                     project_id,
-                    page_metadata["page_number"],
+                    page_number,
                     True,
                     bigquery_client,
                     CREDENTIALS,
