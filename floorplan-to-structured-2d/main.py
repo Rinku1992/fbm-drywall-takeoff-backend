@@ -173,8 +173,8 @@ def page_to_structured_2d(
     logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} and SECTION: {page_section_number} Generated Successfully")
 
 
-def floorplan_to_page(credentials, project_id, plan_id, pdf_path, page_number):
-    floor_plan_path_preprocessed = preprocess(pdf_path, page_number)
+def floorplan_to_page(credentials, project_id, plan_id, pdf_path, page_number, dpi):
+    floor_plan_path_preprocessed = preprocess(pdf_path, page_number, dpi)
     upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, credentials, index=str(page_number).zfill(4))
     return floor_plan_path_preprocessed
 
@@ -225,13 +225,20 @@ async def floorplan_to_structured_2d(request: Request):
     pdf_path = download_floorplan(user_id, plan_id, project_id, CREDENTIALS)
     logging.info("SYSTEM: Floorplan Downloaded for extraction")
 
+    hyperparameters = load_hyperparameters()
+
     ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
-    floor_plan_processed_path = floorplan_to_page(CREDENTIALS, project_id, plan_id, pdf_path, page_number)
+    floor_plan_processed_path = floorplan_to_page(
+        CREDENTIALS,
+        project_id,
+        plan_id,
+        pdf_path,
+        page_number,
+        hyperparameters["modelling"]["scale_adoption"]["dpi"]
+    )
     elevation_processed_paths = load_elevation_pages(pdf_path, elevation_pages)
     publish_handler = load_publisher_client(CREDENTIALS)
     logging.info(f"SYSTEM: Floorplan Preprocessing Completed: Page Number: {page_number}")
-
-    hyperparameters = load_hyperparameters()
 
     futures = dict()
     with ThreadPoolExecutor(max_workers=5) as executor:
