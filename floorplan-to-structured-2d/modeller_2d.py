@@ -1916,8 +1916,11 @@ class FloorPlan2D(FloorPlan):
         polygon_vertices_external=None
     ):
         scale_x, scale_y = scale
-        imperial_scale_X = np.median(self._imperial_scales_sampled['X'])
-        imperial_scale_Y = np.median(self._imperial_scales_sampled['Y'])
+        if self._hyperparameters["modelling"]["scale_adoption"]["imperial_sampling"]:
+            imperial_scale_X = np.median(self._imperial_scales_sampled['X'])
+            imperial_scale_Y = np.median(self._imperial_scales_sampled['Y'])
+        else:
+            imperial_scale_X, imperial_scale_Y = self.compute_imperial_scale_from_DPI(scale, self._scale)
         drywall_skus = [drywall_template["sku_variant"] for drywall_template in self._drywall_templates]
         for wall in walls_2d[:]:
             for opening in wall["openings"][:]:
@@ -1926,15 +1929,9 @@ class FloorPlan2D(FloorPlan):
                 opening["opening_type"] = list(OPENING_TYPE_CHOICES.keys())[target_opening_type_index]
                 opening["color"] = OPENING_TYPE_CHOICES[opening["opening_type"]]
             X1, Y1, X2, Y2 = wall["wall_line"][0]['x'], wall["wall_line"][0]['y'], wall["wall_line"][1]['x'], wall["wall_line"][1]['y']
-            orientation = self.classify_line(X1, Y1, X2, Y2)
-            if orientation == "horizontal":
-                wall["length"] = round((X2 - X1) * imperial_scale_X, 3)
-            if orientation == "vertical":
-                wall["length"] = round((Y2 - Y1) * imperial_scale_Y, 3)
-            if orientation == "inclined":
-                length_X = (X2 - X1) * imperial_scale_X
-                length_Y = (Y2 - Y1) * imperial_scale_Y
-                wall["length"] = round(math.hypot(length_X, length_Y), 3)
+            length_X = (X2 - X1) * imperial_scale_X
+            length_Y = (Y2 - Y1) * imperial_scale_Y
+            wall["length"] = round(math.hypot(length_X, length_Y), 3)
             if impute_drywall_disabled and len(wall["polygons_drywall"]) == 2:
                 if not wall["polygons_drywall"][0]["enabled"] or not wall["polygons_drywall"][1]["enabled"]:
                     centroid_A = (round(sum([vertex['x'] for vertex in wall["polygons_drywall"][0]["polygon"]]) / 4), round(sum([vertex['y'] for vertex in wall["polygons_drywall"][0]["polygon"]]) / 4))
