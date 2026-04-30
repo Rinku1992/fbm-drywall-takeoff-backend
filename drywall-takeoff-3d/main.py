@@ -601,6 +601,7 @@ def floorplan_to_preview_page(credentials, project_id, plan_id, user_id, page_nu
         floorplan_svg_source,
         plan_type["mask_factor"],
         plan_type["bounding_box_offsets"],
+        metadata_page["is_floorplan"],
     )
     return metadata_page
 
