@@ -607,11 +607,11 @@ def floorplan_to_preview_page(credentials, project_id, plan_id, user_id, page_nu
         False,
         bigquery_client,
         credentials,
-        plan_type["plan_type"],
-        floorplan_svg_source,
-        plan_type["mask_factor"],
-        plan_type["bounding_box_offsets"],
-        metadata_page["is_floorplan"],
+        plan_type=plan_type["plan_type"],
+        GCS_URL_page=floorplan_svg_source,
+        mask_factor=plan_type["mask_factor"],
+        bounding_box_offsets=plan_type["bounding_box_offsets"],
+        is_floorplan=metadata_page["is_floorplan"],
     )
     return metadata_page
 
