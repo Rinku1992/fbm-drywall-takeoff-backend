@@ -174,7 +174,7 @@ def page_to_structured_2d(
 
 
 def floorplan_to_page(credentials, project_id, plan_id, pdf_path, page_number, dpi):
-    floor_plan_path_preprocessed = preprocess(pdf_path, page_number, dpi)
+    floor_plan_path_preprocessed = preprocess(pdf_path, page_number, dpi=dpi)
     upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, credentials, index=str(page_number).zfill(4))
     return floor_plan_path_preprocessed
 
