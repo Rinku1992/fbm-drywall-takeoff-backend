@@ -544,7 +544,8 @@ def floorplan_to_structured_2d(
     page_number,
     mask_factor,
     bounding_box_offsets,
-    elevation_pages
+    elevation_pages,
+    bigquery_client,
 ):
     headers = {
         "Authorization": f"Bearer {id_token}",
@@ -562,6 +563,15 @@ def floorplan_to_structured_2d(
             bounding_box_offsets=bounding_box_offsets,
             elevation_pages=elevation_pages,
         ),
+    )
+    insert_page(
+        plan_id,
+        user_id,
+        project_id,
+        page_number,
+        True,
+        bigquery_client,
+        credentials,
     )
     return response.raise_for_status()
 
@@ -969,15 +979,7 @@ async def floorplan_to_2d(request: Request):
                     page_metadata["mask_factor"],
                     page_metadata["bounding_box_offsets"],
                     elevation_pages,
-                )
-                insert_page(
-                    plan_id,
-                    user_id,
-                    project_id,
-                    page_number,
-                    True,
                     bigquery_client,
-                    CREDENTIALS,
                 )
             query_payloads = [dict(project_id=project_id, plan_id=plan_id, page_number=page_number) for page_number in range(n_pages)]
             timeout = from_unix_epoch() + 7200
