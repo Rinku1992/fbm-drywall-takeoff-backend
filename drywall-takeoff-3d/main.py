@@ -881,6 +881,16 @@ async def floorplan_to_preview(request: Request):
     if plan_duplicate:
         delete_plan(CREDENTIALS, bigquery_client, plan_id, project_id)
         return respond_with_UI_payload(dict(error="Floor Plan already exists"))
+
+    insert_plan(
+        project_id,
+        user_id,
+        "GENERATING PREVIEW",
+        bigquery_client,
+        CREDENTIALS,
+        plan_id=plan_id,
+    )
+
     n_pages = pdfinfo_from_path(pdf_path)["Pages"]
     logging.info("SYSTEM: Floorplan Downloaded for preview generation")
 
