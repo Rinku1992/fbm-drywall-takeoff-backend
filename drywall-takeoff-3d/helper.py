@@ -495,6 +495,7 @@ def insert_page(
     GCS_URL_page=None,
     mask_factor=dict(),
     bounding_box_offsets=dict(),
+    is_floorplan=None,
 ):
     GBQ_query = """
     MERGE `drywall_takeoff.pages` t
@@ -508,7 +509,8 @@ def insert_page(
             @bounding_box_offsets AS bounding_box_offsets,
             @source AS source,
             @plan_type AS plan_type,
-            @extracted AS extracted
+            @extracted AS extracted,
+            @is_floorplan AS is_floorplan
     ) s
     ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id) AND t.page_number = s.page_number
     WHEN MATCHED THEN
@@ -526,6 +528,7 @@ def insert_page(
         source,
         plan_type,
         extracted,
+        is_floorplan,
         created_at,
         updated_at
     )
@@ -539,6 +542,7 @@ def insert_page(
         s.source,
         s.plan_type,
         s.extracted,
+        s.is_floorplan,
         CURRENT_TIMESTAMP(),
         CURRENT_TIMESTAMP()
     );
@@ -553,7 +557,8 @@ def insert_page(
             bigquery.ScalarQueryParameter("bounding_box_offsets", "JSON", bounding_box_offsets),
             bigquery.ScalarQueryParameter("source", "STRING", GCS_URL_page),
             bigquery.ScalarQueryParameter("plan_type", "JSON", plan_type),
-            bigquery.ScalarQueryParameter("extracted", "BOOL", extracted)
+            bigquery.ScalarQueryParameter("extracted", "BOOL", extracted),
+            bigquery.ScalarQueryParameter("is_floorplan", "BOOL", is_floorplan)
         ]
     )
 
