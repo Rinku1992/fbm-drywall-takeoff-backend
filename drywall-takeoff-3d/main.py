@@ -997,10 +997,6 @@ async def floorplan_to_2d(request: Request):
             sleep_time = 1
             while from_unix_epoch() < timeout:
                 notifications_arrived_all, acknowledged_queries = query_subscriber_messages(CREDENTIALS, subscriber_client, query_payloads)
-                if notifications_arrived_all:
-                    all_pages_extracted = True
-                    break
-                sleep(sleep_time)
                 for acknowledged_query in acknowledged_queries:
                     insert_page(
                         plan_id,
@@ -1012,6 +1008,10 @@ async def floorplan_to_2d(request: Request):
                         CREDENTIALS,
                     )
                     query_payloads.remove(acknowledged_query)
+                if notifications_arrived_all:
+                    all_pages_extracted = True
+                    break
+                sleep(sleep_time)
             if not all_pages_extracted:
                 raise AssertionError(f"Extraction has failed for PAGE(s): {[query_payload["page_number"] for query_payload in query_payloads]}")
             for page_metadata in pages_metadata:
