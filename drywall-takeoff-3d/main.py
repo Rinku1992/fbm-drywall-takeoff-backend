@@ -967,7 +967,7 @@ async def floorplan_to_2d(request: Request):
                     plan_id,
                     user_id,
                     project_id,
-                    acknowledged_query["page_number"],
+                    page_metadata["page_number"],
                     False,
                     bigquery_client,
                     CREDENTIALS,
