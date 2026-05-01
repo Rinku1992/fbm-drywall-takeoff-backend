@@ -1109,7 +1109,7 @@ async def load_2d_all(request: Request):
         return respond_with_UI_payload(dict(error="Floor Plan already exists"))
     query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
     n_pages = query_output.pages
-    timeout = from_unix_epoch() + (n_pages * 120)
+    timeout = from_unix_epoch() + (n_pages * 900)
     while from_unix_epoch() < timeout:
         GBQ_query = f"SELECT status FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
         try:
