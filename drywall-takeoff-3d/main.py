@@ -564,15 +564,6 @@ def floorplan_to_structured_2d(
             elevation_pages=elevation_pages,
         ),
     )
-    insert_page(
-        plan_id,
-        user_id,
-        project_id,
-        page_number,
-        True,
-        bigquery_client,
-        credentials,
-    )
     return response.raise_for_status()
 
 
@@ -1002,10 +993,20 @@ async def floorplan_to_2d(request: Request):
                     break
                 sleep(sleep_time)
                 for acknowledged_query in acknowledged_queries:
+                    insert_page(
+                        plan_id,
+                        user_id,
+                        project_id,
+                        acknowledged_query["page_number"],
+                        True,
+                        bigquery_client,
+                        CREDENTIALS,
+                    )
                     query_payloads.remove(acknowledged_query)
             if not all_pages_extracted:
                 raise AssertionError(f"Extraction has failed for PAGE(s): {[query_payload["page_number"] for query_payload in query_payloads]}")
-            for page_number in range(n_pages):
+            for index, page_metadata in enumerate(pages_metadata):
+                page_number = page_metadata["page_number"]
                 GBQ_query = f"SELECT page_section_number, model_2d, scale FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
                 query_output_sections = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())
                 for query_output in query_output_sections:
