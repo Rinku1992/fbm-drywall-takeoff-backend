@@ -1005,7 +1005,7 @@ async def floorplan_to_2d(request: Request):
                     query_payloads.remove(acknowledged_query)
             if not all_pages_extracted:
                 raise AssertionError(f"Extraction has failed for PAGE(s): {[query_payload["page_number"] for query_payload in query_payloads]}")
-            for index, page_metadata in enumerate(pages_metadata):
+            for page_metadata in pages_metadata:
                 page_number = page_metadata["page_number"]
                 GBQ_query = f"SELECT page_section_number, model_2d, scale FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
                 query_output_sections = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())
