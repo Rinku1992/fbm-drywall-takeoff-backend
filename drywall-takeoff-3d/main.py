@@ -954,8 +954,8 @@ async def floorplan_to_2d(request: Request):
     status = "COMPLETED"
     session = requests.Session()
     adapter = HTTPAdapter(
-        pool_connections=n_pages,
-        pool_maxsize=n_pages,
+        pool_connections=len(pages_metadata),
+        pool_maxsize=len(pages_metadata),
     )
     session.mount("http://", adapter)
     session.mount("https://", adapter)
@@ -991,7 +991,7 @@ async def floorplan_to_2d(request: Request):
                     elevation_pages,
                     bigquery_client,
                 )
-            query_payloads = [dict(project_id=project_id, plan_id=plan_id, page_number=page_number) for page_number in range(n_pages)]
+            query_payloads = [dict(project_id=project_id, plan_id=plan_id, page_number=page_metadata["page_number"]) for page_metadata in pages_metadata]
             timeout = from_unix_epoch() + 7200
             all_pages_extracted = False
             sleep_time = 1
