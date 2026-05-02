@@ -6,7 +6,7 @@ import cv2
 def process_page(pdf_path, page_index, image_path_page):
     pdf_page = convert_from_path(
         pdf_path,
-        dpi=400,
+        dpi=300,
         first_page=page_index+1,
         last_page=page_index+1
     )[0]
