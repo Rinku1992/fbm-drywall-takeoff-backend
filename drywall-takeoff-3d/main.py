@@ -656,6 +656,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 bigquery_client = load_bigquery_client(CREDENTIALS)
+DRYWALL_TEMPLATES = load_templates(bigquery_client, CREDENTIALS)
 
 class PayloadProject(BaseModel):
     project_id: str
@@ -1502,8 +1503,6 @@ async def compute_takeoff(request: Request):
     user_id = parameters.get("user_id") or body.get("user_id")
     revision_number = parameters.get("revision_number", '') or body.get("revision_number", '')
     logging.info("SYSTEM: Received a Drywall Takeoff computation Request")
-
-    DRYWALL_TEMPLATES = load_templates(bigquery_client, CREDENTIALS)
 
     GBQ_query = f"SELECT scale FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index};"
     query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
