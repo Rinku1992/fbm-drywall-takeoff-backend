@@ -1920,7 +1920,7 @@ class FloorPlan2D(FloorPlan):
             imperial_scale_X = np.median(self._imperial_scales_sampled['X'])
             imperial_scale_Y = np.median(self._imperial_scales_sampled['Y'])
         else:
-            imperial_scale_X, imperial_scale_Y = self.compute_imperial_scale_from_DPI(scale, self._scale)
+            imperial_scale_X, imperial_scale_Y = self.compute_imperial_scale_from_DPI(self._scale)
         drywall_skus = [drywall_template["sku_variant"] for drywall_template in self._drywall_templates]
         for wall in walls_2d[:]:
             for opening in wall["openings"][:]:
