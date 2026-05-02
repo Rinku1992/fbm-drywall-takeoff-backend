@@ -889,7 +889,7 @@ async def floorplan_to_preview(request: Request):
     ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
     payload_preview = list()
     futures = list()
-    with ThreadPoolExecutor(max_workers=20) as executor:
+    with ThreadPoolExecutor(max_workers=5) as executor:
         for page_number in range(n_pages):
             future = executor.submit(
                 floorplan_to_preview_page,
