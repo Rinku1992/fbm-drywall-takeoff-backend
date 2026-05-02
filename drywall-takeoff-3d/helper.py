@@ -415,12 +415,20 @@ def load_elevation_map(elevation_map, page_number):
             return page_numbers
     return page_numbers
 
-def classify_plan(credentials, client_ip_address, plan_path):
-    vertex_ai_client, vertex_ai_generation_config, is_cached = load_vertex_ai_client(
-        credentials,
-        client_ip_address,
-        prompts=[ARCHITECTURAL_DRAWING_CLASSIFIER]
-    )
+def classify_plan(
+    credentials,
+    client_ip_address,
+    plan_path,
+    vertex_ai_client=None,
+    vertex_ai_generation_config=None,
+    is_cached=None
+):
+    if not vertex_ai_client:
+        vertex_ai_client, vertex_ai_generation_config, is_cached = load_vertex_ai_client(
+            credentials,
+            client_ip_address,
+            prompts=[ARCHITECTURAL_DRAWING_CLASSIFIER]
+        )
     plan_BGR = cv2.imread(plan_path)
     _, canvas_buffer_array = cv2.imencode(".png", plan_BGR)
     bytes_canvas = canvas_buffer_array.tobytes()
@@ -452,9 +460,9 @@ def classify_plan(credentials, client_ip_address, plan_path):
 
     return plan_type
 
-def floorplan_to_page(credentials, project_id, plan_id, client_ip_address, pdf_path, page_number):
+def floorplan_to_page(credentials, project_id, plan_id, client_ip_address, pdf_path, page_number, **vertex_ai_client):
     floor_plan_path_preprocessed = preprocess(pdf_path, page_number)
-    plan_type = classify_plan(credentials, client_ip_address, floor_plan_path_preprocessed)
+    plan_type = classify_plan(credentials, client_ip_address, floor_plan_path_preprocessed, **vertex_ai_client)
     upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, credentials, index=str(page_number).zfill(4))
     return floor_plan_path_preprocessed, plan_type
 
