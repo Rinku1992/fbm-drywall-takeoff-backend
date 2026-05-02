@@ -36,6 +36,7 @@ from extrapolate_3d import Extrapolate3D
 from helper import (
     load_bigquery_client,
     bigquery_run,
+    load_vertex_ai_client,
     sha256,
     upload_floorplan,
     insert_model_2d,
@@ -52,6 +53,7 @@ from helper import (
     page_to_svg,
     insert_page,
 )
+from prompts import ARCHITECTURAL_DRAWING_CLASSIFIER
 
 
 def respond_with_UI_payload(payload, status_code=200):
@@ -569,7 +571,22 @@ def floorplan_to_structured_2d(
 
 def floorplan_to_preview_page(credentials, project_id, plan_id, user_id, page_number, ip_address, pdf_path, bigquery_client):
     metadata_page = dict(page_number=page_number)
-    floor_plan_processed_path, plan_type = floorplan_to_page(credentials, project_id, plan_id, ip_address, pdf_path, page_number)
+    vertex_ai_client, vertex_ai_generation_config, is_cached = load_vertex_ai_client(
+        credentials,
+        ip_address,
+        prompts=[ARCHITECTURAL_DRAWING_CLASSIFIER]
+    )
+    floor_plan_processed_path, plan_type = floorplan_to_page(
+        credentials,
+        project_id,
+        plan_id,
+        ip_address,
+        pdf_path,
+        page_number,
+        vertex_ai_client=vertex_ai_client,
+        vertex_ai_generation_config=vertex_ai_generation_config,
+        is_cached=is_cached
+    )
     metadata_page["plan_type"] = plan_type["plan_type"]
     metadata_page["mask_factor"] = plan_type["mask_factor"]
     metadata_page["bounding_box_offsets"] = plan_type["bounding_box_offsets"]
