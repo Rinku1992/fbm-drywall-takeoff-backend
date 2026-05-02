@@ -49,7 +49,7 @@ from helper import (
     query_subscriber_messages,
     map_floorplan_to_multipage_elevation,
     load_elevation_map,
-    floorplan_to_page,
+    floorplan_to_pages,
     page_to_svg,
     insert_page,
 )
@@ -547,7 +547,6 @@ def floorplan_to_structured_2d(
     mask_factor,
     bounding_box_offsets,
     elevation_pages,
-    bigquery_client,
 ):
     headers = {
         "Authorization": f"Bearer {id_token}",
@@ -569,59 +568,75 @@ def floorplan_to_structured_2d(
     return response.raise_for_status()
 
 
-def floorplan_to_preview_page(credentials, project_id, plan_id, user_id, page_number, ip_address, pdf_path, bigquery_client):
-    metadata_page = dict(page_number=page_number)
+def floorplan_to_preview_pages(
+    credentials,
+    project_id,
+    plan_id,
+    user_id,
+    n_pages,
+    ip_address,
+    pdf_path,
+    bigquery_client,
+    batch_size=10,
+):
     vertex_ai_client, vertex_ai_generation_config, is_cached = load_vertex_ai_client(
         credentials,
         ip_address,
         prompts=[ARCHITECTURAL_DRAWING_CLASSIFIER]
     )
-    floor_plan_processed_path, plan_type = floorplan_to_page(
-        credentials,
-        project_id,
-        plan_id,
-        ip_address,
-        pdf_path,
-        page_number,
-        vertex_ai_client=vertex_ai_client,
-        vertex_ai_generation_config=vertex_ai_generation_config,
-        is_cached=is_cached
-    )
-    metadata_page["plan_type"] = plan_type["plan_type"]
-    metadata_page["mask_factor"] = plan_type["mask_factor"]
-    metadata_page["bounding_box_offsets"] = plan_type["bounding_box_offsets"]
-    metadata_page["is_floorplan"] = True
-    svg_path=Path(f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_{str(page_number).zfill(4)}.svg")
-    svg_path.parent.mkdir(parents=True, exist_ok=True)
-    floorplan_svg = page_to_svg(floor_plan_path=floor_plan_processed_path, svg_path=svg_path)
-    floorplan_svg_source = upload_floorplan(floorplan_svg, plan_id, project_id, credentials, index=str(page_number).zfill(4))
+    page_batches = [list(range(batch_index * batch_size, batch_index * batch_size + batch_size)) for batch_index in range(n_pages // batch_size)]
+    page_batches += [list(range(n_pages - (n_pages % batch_size), n_pages))]
+    preview_pages = list()
     client = CloudStorageClient()
     bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
-    blob_path = floorplan_svg_source.strip(f"gs://{credentials["CloudStorage"]["bucket_name"]}/")
-    blob = bucket.blob(blob_path)
-    url = blob.generate_signed_url(
-        version="v4",
-        expiration=timedelta(minutes=credentials["CloudStorage"]["expiration_in_minutes"]),
-        method="GET",
-    )
-    metadata_page["signed_url_GCS"] = url
-    if all(plan_category.upper().find("FLOOR") == -1 for plan_category in plan_type["plan_type"]):
-        metadata_page["is_floorplan"] = False
-    insert_page(
-        plan_id,
-        user_id,
-        project_id,
-        page_number,
-        False,
-        bigquery_client,
-        credentials,
-        plan_type=plan_type["plan_type"],
-        GCS_URL_page=floorplan_svg_source,
-        mask_factor=plan_type["mask_factor"],
-        bounding_box_offsets=plan_type["bounding_box_offsets"],
-        is_floorplan=metadata_page["is_floorplan"],
-    )
-    return metadata_page
+    for page_batch in page_batches:
+        floor_plan_processed_paths, pages = floorplan_to_pages(
+            credentials,
+            project_id,
+            plan_id,
+            ip_address,
+            pdf_path,
+            page_batch,
+            vertex_ai_client=vertex_ai_client,
+            vertex_ai_generation_config=vertex_ai_generation_config,
+            is_cached=is_cached
+        )
+        for floor_plan_processed_path, page in zip(floor_plan_processed_paths, pages["pages"]):
+            metadata_page = dict(page_number=page["page_number"])
+            metadata_page["plan_type"] = page["plan_type"]
+            metadata_page["mask_factor"] = page["mask_factor"]
+            metadata_page["bounding_box_offsets"] = page["bounding_box_offsets"]
+            metadata_page["is_floorplan"] = True
+            svg_path=Path(f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_{str(page["page_number"]).zfill(4)}.svg")
+            svg_path.parent.mkdir(parents=True, exist_ok=True)
+            floorplan_svg = page_to_svg(floor_plan_path=floor_plan_processed_path, svg_path=svg_path)
+            floorplan_svg_source = upload_floorplan(floorplan_svg, plan_id, project_id, credentials, index=str(page["page_number"]).zfill(4))
+            blob_path = floorplan_svg_source.strip(f"gs://{credentials["CloudStorage"]["bucket_name"]}/")
+            blob = bucket.blob(blob_path)
+            url = blob.generate_signed_url(
+                version="v4",
+                expiration=timedelta(minutes=credentials["CloudStorage"]["expiration_in_minutes"]),
+                method="GET",
+            )
+            metadata_page["signed_url_GCS"] = url
+            if all(plan_category.upper().find("FLOOR") == -1 for plan_category in page["plan_type"]):
+                metadata_page["is_floorplan"] = False
+            insert_page(
+                plan_id,
+                user_id,
+                project_id,
+                page["page_number"],
+                False,
+                bigquery_client,
+                credentials,
+                plan_type=page["plan_type"],
+                GCS_URL_page=floorplan_svg_source,
+                mask_factor=page["mask_factor"],
+                bounding_box_offsets=page["bounding_box_offsets"],
+                is_floorplan=metadata_page["is_floorplan"],
+            )
+            preview_pages.append(metadata_page)
+    return preview_pages
 
 
 def load_UI_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -904,24 +919,16 @@ async def floorplan_to_preview(request: Request):
     logging.info("SYSTEM: Floorplan Downloaded for preview generation")
 
     ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
-    payload_preview = list()
-    futures = list()
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        for page_number in range(n_pages):
-            future = executor.submit(
-                floorplan_to_preview_page,
-                CREDENTIALS,
-                project_id,
-                plan_id,
-                user_id,
-                page_number,
-                ip_address,
-                pdf_path,
-                bigquery_client,
-            )
-            futures.append(future)
-        for future in futures:
-            payload_preview.append(future.result())
+    payload_preview = floorplan_to_preview_pages(
+        CREDENTIALS,
+        project_id,
+        plan_id,
+        user_id,
+        n_pages,
+        ip_address,
+        pdf_path,
+        bigquery_client,
+    )
 
     logging.info("SYSTEM: Preview generated Successfully")
     return respond_with_UI_payload(payload_preview)
@@ -1007,7 +1014,6 @@ async def floorplan_to_2d(request: Request):
                     page_metadata["mask_factor"],
                     page_metadata["bounding_box_offsets"],
                     elevation_pages,
-                    bigquery_client,
                 )
             query_payloads = [dict(project_id=project_id, plan_id=plan_id, page_number=page_metadata["page_number"]) for page_metadata in pages_metadata]
             timeout = from_unix_epoch() + 7200
