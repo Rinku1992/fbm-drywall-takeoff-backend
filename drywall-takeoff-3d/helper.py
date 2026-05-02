@@ -8,6 +8,7 @@ from time import sleep
 from pypdf import PdfReader, PdfWriter
 from io import BytesIO
 import xml.etree.ElementTree as ET
+from concurrent.futures import ThreadPoolExecutor
 import subprocess
 
 import math
@@ -418,7 +419,8 @@ def load_elevation_map(elevation_map, page_number):
 def classify_plan(
     credentials,
     client_ip_address,
-    plan_path,
+    plan_paths,
+    page_batch,
     vertex_ai_client=None,
     vertex_ai_generation_config=None,
     is_cached=None
@@ -429,42 +431,64 @@ def classify_plan(
             client_ip_address,
             prompts=[ARCHITECTURAL_DRAWING_CLASSIFIER]
         )
-    plan_BGR = cv2.imread(plan_path)
-    _, canvas_buffer_array = cv2.imencode(".png", plan_BGR)
-    bytes_canvas = canvas_buffer_array.tobytes()
-    query = Content(role="user", parts=[
-        Part.from_data(data=bytes_canvas, mime_type="image/png")
-    ])
+    query_parts = list()
+    for page_number, plan_path in zip(page_batch, plan_paths):
+        plan_BGR = cv2.imread(plan_path)
+        _, canvas_buffer_array = cv2.imencode(".png", plan_BGR)
+        bytes_canvas = canvas_buffer_array.tobytes()
+        query_parts.append(Part.from_text(f"PAGE: {page_number}"))
+        query_parts.append(Part.from_data(data=bytes_canvas, mime_type="image/png"))
+    query = Content(role="user", parts=query_parts)
     try:
         if is_cached:
-            _, plan_type = phoenix_call(
+            _, plan_types = phoenix_call(
                 lambda feedback_prompt, temperature: vertex_ai_client.generate_content(
                     contents=[feedback_prompt, query] if feedback_prompt else [query],
                     generation_config={**vertex_ai_generation_config, "temperature": temperature},
                 ),
                 max_retry=credentials["VertexAI"]["llm"]["max_retry"],
                 pydantic_model=ArchitecturalDrawingClassifierResponse,
+                verify_field_counts=dict(pages=len(plan_paths))
             )
         else:
-            _, plan_type = phoenix_call(
+            _, plan_types = phoenix_call(
                 lambda feedback_prompt, temperature: vertex_ai_client(ARCHITECTURAL_DRAWING_CLASSIFIER).generate_content(
                     contents=[feedback_prompt, query] if feedback_prompt else [query],
                     generation_config={**vertex_ai_generation_config, "temperature": temperature},
                 ),
                 max_retry=credentials["VertexAI"]["llm"]["max_retry"],
                 pydantic_model=ArchitecturalDrawingClassifierResponse,
+                verify_field_counts=dict(pages=len(plan_paths))
             )
     except Exception as e:
         logging.warning(f"SYSTEM: Plan Classification has failed: {e}")
-        plan_type = dict(plan_type="FLOOR_PLAN")
+        pages = [dict(
+            page_number=page_number,
+            plan_type=["FLOOR_PLAN"],
+            mask_factor=dict(horizontal=0.0, vertical=0.0),
+            bounding_box_offsets=[dict(offset_top_left=[0.0, 0.0], offset_bottom_right=[1.0, 1.0], title='', plan_type="FLOOR_PLAN")]
+        ) for page_number in range(len(plan_paths))]
+        plan_types = dict(pages=pages)
 
-    return plan_type
+    return plan_types
 
-def floorplan_to_page(credentials, project_id, plan_id, client_ip_address, pdf_path, page_number, **vertex_ai_client):
-    floor_plan_path_preprocessed = preprocess(pdf_path, page_number)
-    plan_type = classify_plan(credentials, client_ip_address, floor_plan_path_preprocessed, **vertex_ai_client)
-    upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, credentials, index=str(page_number).zfill(4))
-    return floor_plan_path_preprocessed, plan_type
+def floorplan_to_pages(credentials, project_id, plan_id, client_ip_address, pdf_path, page_batch, **vertex_ai_client):
+    floor_plan_paths_preprocessed = list()
+    futures = list()
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        for page_number in page_batch:
+            future = executor.submit(
+                preprocess,
+                pdf_path,
+                page_number
+            )
+            futures.append(future)
+    for future in futures:
+        floor_plan_paths_preprocessed.append(future.result())
+    plan_types = classify_plan(credentials, client_ip_address, floor_plan_paths_preprocessed, page_batch, **vertex_ai_client)
+    for floor_plan_path_preprocessed in floor_plan_paths_preprocessed:
+        upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, credentials, index=str(page_number).zfill(4))
+    return floor_plan_paths_preprocessed, plan_types
 
 def page_to_svg(
     floor_plan_path="/tmp/floor_plan.png",
