@@ -636,7 +636,7 @@ def floorplan_to_preview_pages(
                 is_floorplan=metadata_page["is_floorplan"],
             )
             preview_pages.append(metadata_page)
-            logging.info(f"SYSTEM: Preview Generated for {page["page_number"]}/{n_pages} pages")
+            logging.info(f"SYSTEM: Preview Generated for {page["page_number"]+1}/{n_pages} pages")
     return preview_pages
 
 
