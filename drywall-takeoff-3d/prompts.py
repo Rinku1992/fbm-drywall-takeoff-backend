@@ -322,10 +322,8 @@ class Pages(BaseModel):
         return v
     @model_validator(mode="after")
     def validate_page(self):
-        # bounding boxes must exist
         if not self.bounding_box_offsets:
             raise ValueError("bounding_box_offsets must be non-empty")
-        # ensure unique titles per page
         titles = [box.title for box in self.bounding_box_offsets]
         if len(titles) != len(set(titles)):
             raise ValueError("Bounding box titles must be unique per page")
