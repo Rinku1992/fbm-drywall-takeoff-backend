@@ -10,6 +10,7 @@ from io import BytesIO
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 import subprocess
+from collections import defaultdict
 
 import math
 import random
@@ -596,3 +597,46 @@ def insert_page(
 
     query_output = bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
     return query_output
+
+def load_drywall_weights(walls_3d_JSON, polygons_JSON, compute_waste_average_standard=False, drywall_templates=None):
+    weights_drywall = defaultdict(lambda: 0)
+    drywall_count = 0
+    waste_factor_total = 0
+    for wall in walls_3d_JSON:
+        for drywall in wall["surfaces_drywall"]:
+            if not drywall["enabled"]:
+                continue
+            if drywall["type_stacked"]:
+                for drywall_type in drywall["type_stacked"]:
+                    drywall_template = query_drywall(drywall_type, drywall_templates)
+                    if not drywall_template:
+                        continue
+                    if compute_waste_average_standard:
+                        waste_factor_total += float(drywall_template["waste"])
+                    drywall_count += 1
+                    weights_drywall[drywall_type] += 1
+            else:
+                drywall_template = query_drywall(drywall["type"], drywall_templates)
+                if not drywall_template:
+                    continue
+                if compute_waste_average_standard:
+                    waste_factor_total += float(drywall_template["waste"])
+                drywall_count += 1
+                weights_drywall[drywall["type"]] += 1
+    for polygon in polygons_JSON:
+        if not polygon["surface_drywall"]["enabled"] or polygon["surface_drywall"]["type"] == "DISABLED":
+            continue
+        drywall_template = query_drywall(polygon["surface_drywall"]["type"], drywall_templates)
+        if not drywall_template:
+            continue
+        if compute_waste_average_standard:
+            waste_factor_total += float(drywall_template["waste"])
+        drywall_count += 1
+        weights_drywall[polygon["surface_drywall"]["type"]] += 1
+    for drywall_type in weights_drywall.keys():
+        weights_drywall[drywall_type] /= drywall_count
+
+    if compute_waste_average_standard:
+        waste_average = waste_factor_total / drywall_count
+        return weights_drywall, waste_average, drywall_count
+    return weights_drywall, drywall_count
