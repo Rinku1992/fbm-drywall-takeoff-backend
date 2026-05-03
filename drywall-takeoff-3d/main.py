@@ -1571,7 +1571,7 @@ async def compute_takeoff(request: Request):
                     drywall_template = query_drywall(drywall_type, DRYWALL_TEMPLATES)
                     if not drywall_template:
                         continue
-                    waste_factor = int(drywall_template["waste"]) / 100
+                    waste_factor = float(drywall_template["waste"]) / 100
                     net_sqft = drywall["layers"] * (surface_area / stack_length)
                     total_sqft = net_sqft * (1 + waste_factor)
                     sheet_size = drywall_template["sheet_size"]
@@ -1590,7 +1590,7 @@ async def compute_takeoff(request: Request):
                 drywall_template = query_drywall(drywall["type"], DRYWALL_TEMPLATES)
                 if not drywall_template:
                     continue
-                waste_factor = int(drywall_template["waste"]) / 100
+                waste_factor = float(drywall_template["waste"]) / 100
                 net_sqft = drywall["layers"] * surface_area
                 total_sqft = net_sqft * (1 + waste_factor)
                 sheet_size = drywall_template["sheet_size"]
@@ -1618,7 +1618,7 @@ async def compute_takeoff(request: Request):
         drywall_template = query_drywall(polygon["surface_drywall"]["type"], DRYWALL_TEMPLATES)
         if not drywall_template:
             continue
-        waste_factor = int(drywall_template["waste"]) / 100
+        waste_factor = float(drywall_template["waste"]) / 100
         net_sqft = polygon["surface_drywall"]["layers"] * surface_area
         total_sqft = net_sqft * (1 + waste_factor)
         sheet_size = drywall_template["sheet_size"]
