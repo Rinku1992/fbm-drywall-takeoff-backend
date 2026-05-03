@@ -1603,8 +1603,6 @@ async def compute_takeoff(request: Request):
         waste_factor_average_delta = float(waste_factor_average) - waste_standard
     else:
         waste_factor_average_delta = 0
-    print(waste_factor_average_delta)
-    print(waste_standard)
     normalization_variance_aware = sum(w**2 for w in drywall_weights.values())
     for wall in walls_3d_JSON:
         drywall_count = 0
