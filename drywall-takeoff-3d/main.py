@@ -1157,7 +1157,7 @@ async def load_2d_all(request: Request):
                 return respond_with_UI_payload(dict(error="Floor Plan does not exist"), status_code=500)
             sleep(5)
         if status != "COMPLETED":
-            return respond_with_UI_payload(dict(error="Floor Plan extraction not completed within 15 minutes"), status_code=500)
+            return respond_with_UI_payload(dict(error=f"Floor Plan extraction not completed within {(n_pages * 900)/60} minutes"), status_code=500)
 
     walls_2d_all = dict(pages=list())
     if page_number != '':
