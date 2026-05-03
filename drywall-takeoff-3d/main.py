@@ -1513,6 +1513,53 @@ async def remove_floorplan(request: Request):
     logging.info("SYSTEM: Floorplan Deleted Successfully")
 
 
+@app.post("/load_waste_average")
+async def load_waste_average(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    walls_3d_JSON = parameters.get("walls_3d", list()) or body.get("walls_3d", list())
+    polygons_JSON = parameters.get("polygons", list()) or body.get("polygons", list())
+    page_number = parameters.get("page_number") or body.get("page_number")
+    project_id = parameters.get("project_id") or body.get("project_id")
+    plan_id = parameters.get("plan_id") or body.get("plan_id")
+
+    GBQ_query = f"SELECT waste_average FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+    query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
+    waste_average = query_output.waste_average
+    if waste_average:
+        return respond_with_UI_payload(dict(waste_average_in_percentage=waste_average))
+
+    drywall_count = 0
+    waste_factor_total = 0
+    for wall in walls_3d_JSON:
+        for drywall in wall["surfaces_drywall"]:
+            if not drywall["enabled"]:
+                continue
+            if drywall["type_stacked"]:
+                for drywall_type in drywall["type_stacked"]:
+                    drywall_template = query_drywall(drywall_type, DRYWALL_TEMPLATES)
+                    waste_factor_total += float(drywall_template["waste"])
+                    drywall_count += 1
+            else:
+                drywall_template = query_drywall(drywall_type, DRYWALL_TEMPLATES)
+                waste_factor_total += float(drywall_template["waste"])
+                drywall_count += 1
+    for polygon in polygons_JSON:
+        if not polygon["surface_drywall"]["enabled"] or polygon["surface_drywall"]["type"] == "DISABLED":
+            continue
+        drywall_template = query_drywall(polygon["surface_drywall"]["type"], DRYWALL_TEMPLATES)
+        if not drywall_template:
+            continue
+        waste_factor_total += float(drywall_template["waste"])
+        drywall_count += 1
+    waste_average = waste_factor_total / drywall_count
+    return respond_with_UI_payload(dict(waste_average_in_percentage=waste_average))
+
+
 @app.post("/compute_takeoff")
 async def compute_takeoff(request: Request):
     enable_logging_on_stdout()
