@@ -52,6 +52,7 @@ from helper import (
     floorplan_to_pages,
     page_to_svg,
     insert_page,
+    load_drywall_weights,
 )
 from prompts import ARCHITECTURAL_DRAWING_CLASSIFIER
 
@@ -314,6 +315,7 @@ def delete_floorplan(project_id, plan_id, user_id, bigquery_client, credentials)
 
 def insert_takeoff(
     takeoff,
+    waste_factor_average,
     page_number,
     plan_id,
     user_id,
@@ -326,6 +328,7 @@ def insert_takeoff(
     UPDATE `drywall_takeoff.models` t
     SET
         takeoff = @takeoff,
+        waste_average = @waste_average,
         updated_at = CURRENT_TIMESTAMP(),
         user_id = @user_id
     WHERE
@@ -339,7 +342,8 @@ def insert_takeoff(
             bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
             bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
             bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
-            bigquery.ScalarQueryParameter("takeoff", "JSON", takeoff)
+            bigquery.ScalarQueryParameter("takeoff", "JSON", takeoff),
+            bigquery.ScalarQueryParameter("waste_average", "FLOAT64", waste_factor_average)
         ]
     )
     query_output_takeoff_insert = bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
@@ -1533,30 +1537,12 @@ async def load_waste_average(request: Request):
     if waste_average:
         return respond_with_UI_payload(dict(waste_average_in_percentage=waste_average))
 
-    drywall_count = 0
-    waste_factor_total = 0
-    for wall in walls_3d_JSON:
-        for drywall in wall["surfaces_drywall"]:
-            if not drywall["enabled"]:
-                continue
-            if drywall["type_stacked"]:
-                for drywall_type in drywall["type_stacked"]:
-                    drywall_template = query_drywall(drywall_type, DRYWALL_TEMPLATES)
-                    waste_factor_total += float(drywall_template["waste"])
-                    drywall_count += 1
-            else:
-                drywall_template = query_drywall(drywall_type, DRYWALL_TEMPLATES)
-                waste_factor_total += float(drywall_template["waste"])
-                drywall_count += 1
-    for polygon in polygons_JSON:
-        if not polygon["surface_drywall"]["enabled"] or polygon["surface_drywall"]["type"] == "DISABLED":
-            continue
-        drywall_template = query_drywall(polygon["surface_drywall"]["type"], DRYWALL_TEMPLATES)
-        if not drywall_template:
-            continue
-        waste_factor_total += float(drywall_template["waste"])
-        drywall_count += 1
-    waste_average = waste_factor_total / drywall_count
+    _, waste_average, _ = load_drywall_weights(
+        walls_3d_JSON,
+        polygons_JSON,
+        compute_waste_average_standard=True,
+        drywall_templates=DRYWALL_TEMPLATES
+    )
     return respond_with_UI_payload(dict(waste_average_in_percentage=waste_average))
 
 
@@ -1570,6 +1556,7 @@ async def compute_takeoff(request: Request):
         body = dict()
     walls_3d_JSON = parameters.get("walls_3d", list()) or body.get("walls_3d", list())
     polygons_JSON = parameters.get("polygons", list()) or body.get("polygons", list())
+    waste_factor_average = parameters.get("waste_factor_average", None) or body.get("waste_factor_average", None)
     index = parameters.get("page_number") or body.get("page_number")
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
@@ -1606,6 +1593,19 @@ async def compute_takeoff(request: Request):
             wall=defaultdict(lambda: defaultdict(lambda: 0))
         )
     )
+    drywall_weights, waste_standard, _ = load_drywall_weights(
+        walls_3d_JSON,
+        polygons_JSON,
+        compute_waste_average_standard=True,
+        drywall_templates=DRYWALL_TEMPLATES
+    )
+    if waste_factor_average:
+        waste_factor_average_delta = float(waste_factor_average) - waste_standard
+    else:
+        waste_factor_average_delta = 0
+    print(waste_factor_average_delta)
+    print(waste_standard)
+    normalization_variance_aware = sum(w**2 for w in drywall_weights.values())
     for wall in walls_3d_JSON:
         drywall_count = 0
         for drywall in wall["surfaces_drywall"]:
@@ -1618,7 +1618,8 @@ async def compute_takeoff(request: Request):
                     drywall_template = query_drywall(drywall_type, DRYWALL_TEMPLATES)
                     if not drywall_template:
                         continue
-                    waste_factor = float(drywall_template["waste"]) / 100
+                    waste_factor_delta = waste_factor_average_delta * (drywall_weights[drywall_type] / normalization_variance_aware)
+                    waste_factor = max(0, float(drywall_template["waste"]) + waste_factor_delta) / 100
                     net_sqft = drywall["layers"] * (surface_area / stack_length)
                     total_sqft = net_sqft * (1 + waste_factor)
                     sheet_size = drywall_template["sheet_size"]
@@ -1637,7 +1638,8 @@ async def compute_takeoff(request: Request):
                 drywall_template = query_drywall(drywall["type"], DRYWALL_TEMPLATES)
                 if not drywall_template:
                     continue
-                waste_factor = float(drywall_template["waste"]) / 100
+                waste_factor_delta = waste_factor_average_delta * (drywall_weights[drywall["type"]] / normalization_variance_aware)
+                waste_factor = max(0, float(drywall_template["waste"]) + waste_factor_delta) / 100
                 net_sqft = drywall["layers"] * surface_area
                 total_sqft = net_sqft * (1 + waste_factor)
                 sheet_size = drywall_template["sheet_size"]
@@ -1665,7 +1667,8 @@ async def compute_takeoff(request: Request):
         drywall_template = query_drywall(polygon["surface_drywall"]["type"], DRYWALL_TEMPLATES)
         if not drywall_template:
             continue
-        waste_factor = float(drywall_template["waste"]) / 100
+        waste_factor_delta = waste_factor_average_delta * (drywall_weights[polygon["surface_drywall"]["type"]] / normalization_variance_aware)
+        waste_factor = max(0, float(drywall_template["waste"]) + waste_factor_delta) / 100
         net_sqft = polygon["surface_drywall"]["layers"] * surface_area
         total_sqft = net_sqft * (1 + waste_factor)
         sheet_size = drywall_template["sheet_size"]
@@ -1685,7 +1688,8 @@ async def compute_takeoff(request: Request):
     drywall_takeoff["total"]["wall"] = round(drywall_takeoff["total"]["wall"], 2)
     drywall_takeoff["total"]["roof"] = round(drywall_takeoff["total"]["roof"], 2)
 
-    insert_takeoff(drywall_takeoff, index, plan_id, user_id, project_id, revision_number, bigquery_client, CREDENTIALS)
+    waste_factor_average = waste_factor_average if waste_factor_average else waste_standard
+    insert_takeoff(drywall_takeoff, waste_factor_average, index, plan_id, user_id, project_id, revision_number, bigquery_client, CREDENTIALS)
     logging.info("SYSTEM: Drywall Takeoff Computed Successfully for the provided Floorplan")
     return respond_with_UI_payload(drywall_takeoff)
 
