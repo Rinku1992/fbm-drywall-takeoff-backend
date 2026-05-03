@@ -286,7 +286,7 @@ class MaskFactor(BaseModel):
     horizontal: float = Field(..., ge=0, le=1)
     vertical: float = Field(..., ge=0, le=1)
 
-class BoundingBox(BaseModel):
+class BoundingBoxOffset(BaseModel):
     offset_top_left: List[float]
     offset_bottom_right: List[float]
     title: str
@@ -313,7 +313,7 @@ class Pages(BaseModel):
     page_number: int
     plan_type: List[planType]
     mask_factor: MaskFactor
-    bounding_box_offsets: List[BoundingBox]
+    bounding_box_offsets: List[BoundingBoxOffset]
     @field_validator("plan_type")
     @classmethod
     def validate_plan_type_list(cls, v):
