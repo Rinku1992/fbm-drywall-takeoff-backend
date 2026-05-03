@@ -56,7 +56,7 @@ class FloorPlan2D(FloorPlan):
         self._width_in_feet = self._hyperparameters["modelling"]["width_in_feet"]
         self._height_in_feet = self._hyperparameters["modelling"]["height_in_feet"]
         self._scale = self._hyperparameters["modelling"]["scale"]
-        self._imperial_scales_sampled = dict(X=list(), Y=list())
+        self._imperial_scales_sampled = dict(X=list(), Y=list(), A=list())
         self._walls_2d = list()
         self._polygons = list()
 
@@ -1281,8 +1281,10 @@ class FloorPlan2D(FloorPlan):
 
             return dimension_wall
 
-        def verify_tolerance_area(area_polygon_predicted, area_polygon_target, confidence_score):
+        def verify_tolerance_area(area_polygon_predicted, area_polygon_target, confidence_score, vertices_normalized):
             if area_polygon_predicted and confidence_score >= 0.9:
+                area_pixels = cv2.contourArea(np.array(vertices_normalized, dtype=np.float32))
+                self._imperial_scales_sampled['A'].append(area_polygon_predicted / area_pixels)
                 return round(area_polygon_predicted, 3)
 
             return round(area_polygon_target, 3)
@@ -1372,7 +1374,7 @@ class FloorPlan2D(FloorPlan):
             if self._scale == "0.25``:1`0``":
                 model_polygon["ceiling"]["area"] = round(area_target, 3)
             else:
-                model_polygon["ceiling"]["area"] = verify_tolerance_area(model_polygon["ceiling"]["area"], area_target, model_polygon["ceiling"]["confidence_area"])
+                model_polygon["ceiling"]["area"] = verify_tolerance_area(model_polygon["ceiling"]["area"], area_target, model_polygon["ceiling"]["confidence_area"], vertices)
             model_polygon["ceiling"]["height"] = verify_tolerance_height(model_polygon["ceiling"]["height"], model_polygon["ceiling"]["confidence_height"])
             for index, (dimension_wall_predicted, wall_unnormalized, wall_normalized) in enumerate(zip(model_polygon["wall_parameters"], walls_unnormalized, walls)):
                 dimension_wall_rectified = verify_tolerance_length(dimension_wall_predicted, wall_unnormalized, dimension_wall_predicted["confidence_length"], wall_normalized)
@@ -2205,7 +2207,11 @@ class FloorPlan2D(FloorPlan):
     def _normalize_polygons(self, polygons, walls_2d):
         polygons_valid = list()
         walls_2d_ids = [wall["id"] for wall in walls_2d]
+        imperial_scale_A = np.median(self._imperial_scales_sampled['A'])
         for polygon in polygons:
+            if self._hyperparameters["modelling"]["scale_adoption"]["imperial_sampling"]:
+                polygon_area_pixels = cv2.contourArea(np.array(polygon["vertices"], dtype=np.float32))
+                polygon["area"] = polygon_area_pixels * imperial_scale_A
             perimeter_wall_missing = False
             for drywall_id in polygon["polygon_ids_drywall_interior"]:
                 wall_id = int(drywall_id.split('.')[0])
@@ -2405,7 +2411,9 @@ class FloorPlan2D(FloorPlan):
             if not is_valid(polygon_vertices):
                 continue
             perimeter_lines_contour_all = self.load_perimeter(polygon_vertices, [[[wall["wall_line"][0]['x'], wall["wall_line"][0]['y'], wall["wall_line"][1]['x'], wall["wall_line"][1]['y']]] for wall in walls_2d], scale=scale)
-            polygon_area = cv2.contourArea(np.array(polygon_vertices, np.int32)) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["area"]
+            imperial_scale_X, imperial_scale_Y = self.compute_imperial_scale_from_DPI(self._scale)
+            imperial_scale_A = imperial_scale_X * imperial_scale_Y
+            polygon_area = cv2.contourArea(np.array(polygon_vertices, np.float32)) * imperial_scale_A
             for wall_line in perimeter_lines_contour_all:
                 wall_payload = load_wall_payload(wall_line)
                 if wall_line in shape:
@@ -2562,7 +2570,13 @@ class FloorPlan2D(FloorPlan):
                     X1, Y1, X2, Y2 = polygon_perimeter_wall[0]
                     polygon_perimeter_wall_normalized = [[round(scale_x * X1), round(scale_y * Y1), round(scale_x * X2), round(scale_y * Y2)]]
                     polygon_perimeter_walls_normalized.append(polygon_perimeter_wall_normalized)
-                polygon_area_normalized = polygon_area * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["area"]
+                imperial_scale_A = self._hyperparameters["pixel_aspect_ratio_to_feet"]["area"]
+                polygon_area_normalized = polygon_area * imperial_scale_A
+                if not self._hyperparameters["modelling"]["scale_adoption"]["imperial_sampling"]:
+                    imperial_scale_X, imperial_scale_Y = self.compute_imperial_scale_from_DPI(self._scale)
+                    polygon_area_pixels = cv2.contourArea(np.array(polygon_vertices_normalized, dtype=np.float32))
+                    imperial_scale_A = imperial_scale_X * imperial_scale_Y
+                    polygon_area_normalized = polygon_area_pixels * imperial_scale_A
                 drywall_polygons = self._extrude_polygon_drywalls(
                     polygon_perimeter_walls_normalized,
                     polygon_vertices_normalized,
