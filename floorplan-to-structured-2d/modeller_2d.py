@@ -1388,7 +1388,10 @@ class FloorPlan2D(FloorPlan):
                     "area": area_target,
                     "ceiling_type": "Flat",
                     "height": height_default,
-                    "slope": 0,
+                    "pitch": {
+                        "rise": 0.0,
+                        "run": -1.0
+                    },
                     "slope_enabled": False,
                     "tilt_axis": '',
                     "drywall_assembly": {
@@ -1623,7 +1626,7 @@ class FloorPlan2D(FloorPlan):
             vertices=vertices,
             type=model_polygon["ceiling"]["ceiling_type"],
             height=model_polygon["ceiling"]["height"] if model_polygon["ceiling"]["height"] else height_default,
-            slope=model_polygon["ceiling"]["slope"],
+            slope=slope=math.degrees(math.atan2(model_polygon["ceiling"]["pitch"]["rise"], model_polygon["ceiling"]["pitch"]["run"])),
             slope_enabled=model_polygon["ceiling"]["slope_enabled"],
             tilt_axis=model_polygon["ceiling"]["tilt_axis"],
             room_name=model_polygon["ceiling"]["room_name"],
