@@ -6,7 +6,10 @@
     "ceiling_type": "Barrel vault",
     "height": 10.125,
     "confidence_height": 0.78,
-    "slope": 0,
+    "pitch": {
+      "rise": 0.0,
+      "run": -1.0
+    },
     "slope_enabled": false,
     "tilt_axis": "NULL",
     "drywall_assembly": {
