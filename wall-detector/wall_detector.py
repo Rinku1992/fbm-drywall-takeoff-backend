@@ -60,4 +60,9 @@ class WallDetector:
                 image[-round(height_original * mask_height_factor):, :] = 255
             image_detected = Image.fromarray(image)
             image_detected = image_detected.resize((width, height))
+
+        if "OUTPUT_RESOLUTION" in hyperparameters:
+            out_w = hyperparameters["OUTPUT_RESOLUTION"]["WIDTH"]
+            out_h = hyperparameters["OUTPUT_RESOLUTION"]["HEIGHT"]
+            image_detected = image_detected.resize((out_w, out_h), Image.LANCZOS)
         return image_detected
