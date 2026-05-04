@@ -310,7 +310,7 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
         - The polygon marked in transparent red color marks the target ceiling in the input image.
         - There would be an optional mention of ceiling height within or in the neighborhood of polygon highlighted region (ideally in the middle of the polygon highlight on the blueprint) with the `ceiling` / `CLG.` or `height` / `HGT.` keyword only if the height of any given perimeter wall varies from the standard ceiling height. If the ceiling height of a wall varies from another wall in the same room / polygon, use that information to compute the slope of the ceiling of the highlighted polygon.
         - Ceiling slope MUST NOT be guessed from floorplan alone. It MUST be derived from elevation plans via geometric mapping.
-        - If ceiling / wall height is exclusively not mentioned, treat the ceiling type as flat with no slope or slope = 0.
+        - If ceiling / wall height is exclusively not mentioned, treat the ceiling type as flat with no slope or (rise=0, run=-1).
         - To compute ceiling slopes understand the provided elevation plans following the ELEVATION_SLOPE_INTERPRETATION_RULES as follows,
           A slope annotation (e.g., 4:12) is ALWAYS perpendicular to the ridge line and ALWAYS interpreted relative to the elevation viewing direction.
  
@@ -390,18 +390,22 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
               - tilt_axis matches floorplan axis
               - slope direction consistent with wall mapping
 
-        - COMPUTE SLOPE (DETERMINISTIC) using the following instructions,
+        - COMPUTE PITCH of the SLOPE(DETERMINISTIC) using the following instructions,
           Use ONE of the following (priority order):
           METHOD A: Direct pitch annotation
-            slope (degrees) = arctan(rise/run)
+            pitch =>
+              - `rise`: <rise> 
+              - `run`: <run>
 
           METHOD B: Height difference
-            slope = arctan( (H2 - H1) / horizontal_length )
+            pitch =>
+              - `rise`: <(H2 - H1)>
+              - `run`: <horizontal_length>
 
           METHOD C: Pixel-based fallback (ONLY if no annotation)
             - Compute vertical pixel delta from elevation
             - Convert using known height annotations
-            - Derive slope
+            - Derive pitch
 
         - The `tilt_axis` of a sloped ceiling is in the direction against the axial projection of the inclination. The `ceiling_axis` runs through the central axial line of the ceiling in the direction of the inclination. The `tile_axis` is one of the axial lines (x-> horizontal, y-> vertical). `tile_axis` can only have a value "horizontal" or "vertical" or "NULL" depending on the angular orientation of the ceiling plane against. Mention "NULL" only if slope angle is 0. The slope of the ceiling / `ceiling_axis` is measured against its axial line / `tile_axis` (x-> horizontal, y-> vertical).
           - If slope direction aligns with:
@@ -475,7 +479,10 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
         "ceiling_type": "<Type code of the ceiling>",
         "height": <height of the ceiling (centroid of the ceiling axis, if sloped)>,
         "confidence_height": <confidence score in predicting the height of the ceiling between 0 and 1 in float rounded upto 2 decimal places (e.g., 0.87)>,
-        "slope": <slope of the ceiling in degrees>,
+        "pitch": {{
+          "rise": <rise of the slope in float>,
+          "run": <run of the slope in float>
+        }},
         "slope_enabled": <is sloping supported given the type of ceiling used (True/False)>,
         "tilt_axis": <axial direction of the tilted slope / NULL>,
         "drywall_assembly": {{
@@ -635,6 +642,12 @@ class DrywallAssemblyWall(BaseModel):
             raise ValueError("Invalid BGR value")
         return v
 
+class Pitch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    rise: float
+    run: float
+
 class Ceiling(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -644,14 +657,14 @@ class Ceiling(BaseModel):
     ceiling_type: str
     height: float
     confidence_height: float = Field(ge=0, le=1)
-    slope: float
+    pitch: Pitch
     slope_enabled: bool
     tilt_axis: Optional[Literal["horizontal", "vertical", "NULL"]]
     drywall_assembly: DrywallAssemblyCeiling
     code_references: List[str]
     recommendation: Optional[str]
 
-    @field_validator("area", "height", "slope")
+    @field_validator("area", "height", "pitch")
     @classmethod
     def validate_float(cls, v):
         return ensure_not_nan(v)
