@@ -1457,27 +1457,29 @@ async def generate_drywall_overlaid_floorplan_download_signed_URL(request: Reque
     index = parameters.get("page_number") or body.get("page_number")
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
+    load_lazy = parameters.get("load_lazy", "true") or body.get("load_lazy", "true")
     logging.info("SYSTEM: Received Signed Floorplan download URL generation Request")
 
-    status = "IN PROGRESS"
-    GBQ_query = f"SELECT pages FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
-    if not list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()):
-        return respond_with_UI_payload(dict(error="Floor Plan already exists"))
-    query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
-    n_pages = query_output.pages
-    timeout = from_unix_epoch() + (n_pages * 120)
-    while from_unix_epoch() < timeout:
-        GBQ_query = f"SELECT status FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
-        try:
-            query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
-            status = query_output.status
-            if status == "COMPLETED":
-                break
-        except IndexError:
-            return respond_with_UI_payload(dict(error="Floor Plan does not exist"), status_code=500)
-        sleep(5)
-    if status != "COMPLETED":
-        return respond_with_UI_payload(dict(error="Floor Plan extraction not completed within 15 minutes"), status_code=500)
+    if load_lazy == "false":
+        status = "IN PROGRESS"
+        GBQ_query = f"SELECT pages FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
+        if not list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()):
+            return respond_with_UI_payload(dict(error="Floor Plan already exists"))
+        query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
+        n_pages = query_output.pages
+        timeout = from_unix_epoch() + (n_pages * 900)
+        while from_unix_epoch() < timeout:
+            GBQ_query = f"SELECT status FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
+            try:
+                query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
+                status = query_output.status
+                if status == "COMPLETED":
+                    break
+            except IndexError:
+                return respond_with_UI_payload(dict(error="Floor Plan does not exist"), status_code=500)
+            sleep(5)
+        if status != "COMPLETED":
+            return respond_with_UI_payload(dict(error=f"Floor Plan extraction not completed within {(n_pages * 900)/60} minutes"), status_code=500)
 
     GBQ_query = f"SELECT target_drywalls FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index};"
     query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())
