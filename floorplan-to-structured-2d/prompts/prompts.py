@@ -418,22 +418,22 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
         - Given the length of each perimeter walls, compute the area of ceiling or the highlighted polygon in SQFT without taking the slope value (if present) into account.
           -> **STRICTLY REMEMBER** the shape of the ceiling could be complex (convex or concave) and hence always apply SHOELACE on ceiling vertices to compute the area and Do NOT use the wall length / OCR data to compute the area.
         - To predict ceiling type, You must support ONLY one of the following ceiling types,
-          - Flat -> Standard Ceiling
-          - Single-sloped -> Shed ceiling (one plane sloped)
-          - Gable -> Cathedral ceiling (two sloped planes meeting at ridge)
-          - Tray -> flat center + flat perimeter “step” + vertical faces
-          - Barrel vault -> curved ceiling, common “arched” vault
-          - Coffered -> grid beams + recess panels
-          - Combination -> Flat + Vault
-          - Soffit -> Bulkhead Ceiling Area
-          - Cove -> curved wall-to-ceiling transition
-          - Dome -> Rotunda Ceiling
-          - Cloister Vault -> four curved surfaces meeting at center
-          - Knee-Wall -> Attic Ceiling
-          - Cathedral with Flat Center -> Hybrid Vault
-          - Angled-Plane -> Faceted Ceiling
-          - Boxed-Beam -> Ceiling with false structural beams
-        - The above is a list of few common ceiling type codes mapped with their descriptions. Use only ceiling type code to predict the `ceiling type`.
+          - `Flat` -> Standard Ceiling
+          - `Single-sloped` -> Shed ceiling (one plane sloped)
+          - `Gable` -> Cathedral ceiling (two sloped planes meeting at ridge)
+          - `Tray` -> flat center + flat perimeter “step” + vertical faces
+          - `Barrel vault` -> curved ceiling, common “arched” vault
+          - `Coffered` -> grid beams + recess panels
+          - `Combination` -> Flat + Vault
+          - `Soffit` -> Bulkhead Ceiling Area
+          - `Cove` -> curved wall-to-ceiling transition
+          - `Dome` -> Rotunda Ceiling
+          - `Cloister Vault` -> four curved surfaces meeting at center
+          - `Knee-Wall` -> Attic Ceiling
+          - `Cathedral with Flat Center` -> Hybrid Vault
+          - `Angled-Plane` -> Faceted Ceiling
+          - `Boxed-Beam` -> Ceiling with false structural beams
+        - The above is a list of few common ceiling type codes on left (enclosed in ``) mapped with their descriptions on right. Use only ceiling type code to predict the `ceiling type`. DO NOT update the letters or words present in the ceiling type code.
         - If the ceiling type of the highlighted room / polygon appears ambiguous, use `Flat` as the ceiling type code.
 
       WALL_IDENTITY_PREDICTOR_INSTRUCTIONS:
