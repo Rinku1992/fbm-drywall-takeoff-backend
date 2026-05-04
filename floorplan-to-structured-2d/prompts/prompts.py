@@ -417,7 +417,7 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
         - To compute the height of a sloped ceiling, always consider the maximum height.
         - Given the length of each perimeter walls, compute the area of ceiling or the highlighted polygon in SQFT without taking the slope value (if present) into account.
           -> **STRICTLY REMEMBER** the shape of the ceiling could be complex (convex or concave) and hence always apply SHOELACE on ceiling vertices to compute the area and Do NOT use the wall length / OCR data to compute the area.
-        - To predict ceiling type, You must support all common ceiling types including,
+        - To predict ceiling type, You must support ONLY one of the following ceiling types,
           - Flat -> Standard Ceiling
           - Single-sloped -> Shed ceiling (one plane sloped)
           - Gable -> Cathedral ceiling (two sloped planes meeting at ridge)
