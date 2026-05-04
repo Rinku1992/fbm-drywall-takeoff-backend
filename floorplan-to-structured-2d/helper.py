@@ -52,7 +52,7 @@ def load_vertex_ai_client(credentials, ip_address, prompts=None, default_region=
         cached_content = CachedContent.create(
             model_name=credentials["VertexAI"]["llm"]["model_name"],
             contents=prompts,
-            ttl=datetime.timedelta(minutes=60),
+            ttl=datetime.timedelta(hours=5),
             display_name="drywall_predictor_cache"
         )
         vertex_ai_client = GenerativeModel.from_cached_content(cached_content)
