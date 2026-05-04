@@ -23,9 +23,12 @@ PROMPT: |
       - For each room, infer the continuous surrounding walls.
       - Merge wall segments interrupted by doors or windows into single continuous bold wall lines.
       - Output only continuous wall centerlines that fully enclose rooms.
-N_IMAGES: 1
+N_IMAGES: 16
 RESOLUTION:
   KEEP_ORIGINAL: False
+  HEIGHT: 512
+  WIDTH: 512
+OUTPUT_RESOLUTION:
   HEIGHT: 1080
   WIDTH: 1920
 N_INFERENCE_STEPS: 50
