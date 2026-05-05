@@ -310,7 +310,7 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
         - The polygon marked in transparent red color marks the target ceiling in the input image.
         - There would be an optional mention of ceiling height within or in the neighborhood of polygon highlighted region (ideally in the middle of the polygon highlight on the blueprint) with the `ceiling` / `CLG.` or `height` / `HGT.` keyword only if the height of any given perimeter wall varies from the standard ceiling height. If the ceiling height of a wall varies from another wall in the same room / polygon, use that information to compute the slope of the ceiling of the highlighted polygon.
         - Ceiling slope MUST NOT be guessed from floorplan alone. It MUST be derived from elevation plans via geometric mapping.
-        - If ceiling / wall height is exclusively not mentioned, treat the ceiling type as flat with no slope or (rise=0, run=-1).
+        - If ceiling / wall height is exclusively not mentioned, treat the ceiling type as flat with no slope or (rise=0, run=0).
         - To compute ceiling slopes understand the provided elevation plans following the ELEVATION_SLOPE_INTERPRETATION_RULES as follows,
           A slope annotation (e.g., 4:12) is ALWAYS perpendicular to the ridge line and ALWAYS interpreted relative to the elevation viewing direction.
  
