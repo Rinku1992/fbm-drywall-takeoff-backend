@@ -1390,7 +1390,7 @@ class FloorPlan2D(FloorPlan):
                     "height": height_default,
                     "pitch": {
                         "rise": 0.0,
-                        "run": -1.0
+                        "run": 0.0
                     },
                     "slope_enabled": False,
                     "tilt_axis": '',
