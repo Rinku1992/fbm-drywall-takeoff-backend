@@ -33,7 +33,7 @@ class FloorPlan:
     def read_floor_plan(self, image_path, resize=None):
         image = cv2.imread(image_path).copy()
         if resize:
-            image = cv2.resize(image, resize)
+            image = cv2.resize(image, resize, interpolation=cv2.INTER_LANCZOS4)
 
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         return gray
