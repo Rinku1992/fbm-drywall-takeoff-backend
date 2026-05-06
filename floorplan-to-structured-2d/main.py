@@ -145,31 +145,31 @@ def page_to_structured_2d(
         #model_2d_path_overlay_enabled = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path, overlay_enabled=True)
         #upload_floorplan(model_2d_path_overlay_enabled, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(4))
 
-        metadata = dict(
-            size_in_bytes=floorplan_page_statistics["size"],
-            height_in_pixels=floorplan_page_statistics["height_in_pixels"],
-            width_in_pixels=floorplan_page_statistics["width_in_pixels"],
-            height_in_points=floorplan_page_statistics["height_in_points"],
-            width_in_points=floorplan_page_statistics["width_in_points"],
-            origin=["LEFT", "TOP"],
-            offset=(0, 0),
-            contour_root_vertices=external_contour,
-            scales_architectural=floor_plan_modeller_2d.scales_architectural,
-            drywall_choices_color_codes=floor_plan_modeller_2d.drywall_choices_color_codes,
-        )
-        insert_model_2d(
-            dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
-            floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale),
-            page_number,
-            page_sections,
-            page_section_number,
-            plan_id,
-            user_id,
-            project_id,
-            floorplan_baseline_page_source,
-            bigquery_client,
-            credentials,
-        )
+    metadata = dict(
+        size_in_bytes=floorplan_page_statistics["size"],
+        height_in_pixels=floorplan_page_statistics["height_in_pixels"],
+        width_in_pixels=floorplan_page_statistics["width_in_pixels"],
+        height_in_points=floorplan_page_statistics["height_in_points"],
+        width_in_points=floorplan_page_statistics["width_in_points"],
+        origin=["LEFT", "TOP"],
+        offset=(0, 0),
+        contour_root_vertices=external_contour,
+        scales_architectural=floor_plan_modeller_2d.scales_architectural,
+        drywall_choices_color_codes=floor_plan_modeller_2d.drywall_choices_color_codes,
+    )
+    insert_model_2d(
+        dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
+        floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale),
+        page_number,
+        page_sections,
+        page_section_number,
+        plan_id,
+        user_id,
+        project_id,
+        floorplan_baseline_page_source,
+        bigquery_client,
+        credentials,
+    )
     logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} and SECTION: {page_section_number} Generated Successfully")
 
 
@@ -265,15 +265,41 @@ async def floorplan_to_structured_2d(request: Request):
     logging.info(f"SYSTEM: Transcription Completed from PAGE: {page_number}")
 
     floorplan_baseline_page_source = None
+    svg_path=f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_{str(page_number).zfill(4)}.svg"
+    floorplan_baseline, floorplan_page_statistics = FloorPlan2D.scale_to(floor_plan_path=floor_plan_processed_path, svg_path=svg_path)
+    floorplan_baseline_page_source = upload_floorplan(floorplan_baseline, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(4))
     if FloorPlan2D.is_none(wall_segmented_path):
+        for bounding_box_offset in bounding_box_offsets:
+            metadata = dict(
+                size_in_bytes=floorplan_page_statistics["size"],
+                height_in_pixels=floorplan_page_statistics["height_in_pixels"],
+                width_in_pixels=floorplan_page_statistics["width_in_pixels"],
+                height_in_points=floorplan_page_statistics["height_in_points"],
+                width_in_points=floorplan_page_statistics["width_in_points"],
+                origin=["LEFT", "TOP"],
+                offset=(0, 0),
+                contour_root_vertices=list(),
+                scales_architectural=FloorPlan2D.scales_architectural,
+                drywall_choices_color_codes=list(),
+            )
+            insert_model_2d(
+                dict(walls_2d=list(), polygons=list(), metadata=metadata),
+                "0.25``:1`0``",
+                page_number,
+                len(bounding_box_offsets),
+                bounding_box_offset["title"],
+                plan_id,
+                user_id,
+                project_id,
+                floorplan_baseline_page_source,
+                bigquery_client,
+                CREDENTIALS,
+            )
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
         future.result()
         logging.error(f"SYSTEM: Floorplan Segmentation FAILED: Page Number: {page_number}")
         return respond_with_UI_payload(dict(status="FAILED", message="Floor Plan Segmentation FAILED"))
     if not FloorPlan2D.is_none(wall_segmented_path):
-        svg_path=f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_{str(page_number).zfill(4)}.svg"
-        floorplan_baseline, floorplan_page_statistics = FloorPlan2D.scale_to(floor_plan_path=floor_plan_processed_path, svg_path=svg_path)
-        floorplan_baseline_page_source = upload_floorplan(floorplan_baseline, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(4))
         futures = list()
         vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES)
         with ThreadPoolExecutor(max_workers=2) as executor:
