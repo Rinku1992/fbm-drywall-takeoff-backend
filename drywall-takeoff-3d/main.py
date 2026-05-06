@@ -1236,8 +1236,6 @@ async def load_2d_all(request: Request):
             continue
 
         walls_2d = json.loads(row.model_2d) if isinstance(row.model_2d, str) else row.model_2d
-        if not walls_2d.get("walls_2d", None) or not walls_2d.get("polygons", None):
-            continue
         page = {
             "plan_id": plan_id,
             "page_number": row.page_number,
