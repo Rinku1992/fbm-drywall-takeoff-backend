@@ -632,7 +632,7 @@ def floorplan_to_preview_pages(
             svg_path.parent.mkdir(parents=True, exist_ok=True)
             floorplan_svg = page_to_svg(floor_plan_path=floor_plan_processed_path, svg_path=svg_path)
             floorplan_svg_source = upload_floorplan(floorplan_svg, plan_id, project_id, credentials, index=str(page["page_number"]).zfill(4))
-            blob_path = floorplan_svg_source.strip(f"gs://{credentials["CloudStorage"]["bucket_name"]}/")
+            _, _, _, blob_path = floorplan_svg_source.split('/', 3)
             blob = bucket.blob(blob_path)
             url = blob.generate_signed_url(
                 version="v4",
@@ -647,7 +647,7 @@ def floorplan_to_preview_pages(
             svg_path_thumbnail=Path(f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_thumbnail_{str(page["page_number"]).zfill(4)}.svg")
             floorplan_svg_thumbnail = page_to_svg(floor_plan_path=floor_plan_processed_path_thumbnail, svg_path=svg_path_thumbnail)
             floorplan_svg_source_thumbnail = upload_floorplan(floorplan_svg_thumbnail, plan_id, project_id, credentials, index=str(page["page_number"]).zfill(4))
-            blob_path = floorplan_svg_source_thumbnail.strip(f"gs://{credentials["CloudStorage"]["bucket_name"]}/")
+            _, _, _, blob_path = floorplan_svg_source_thumbnail.split('/', 3)
             blob = bucket.blob(blob_path)
             url = blob.generate_signed_url(
                 version="v4",
@@ -909,7 +909,7 @@ async def load_plan_pages(request: Request):
         plan_page = dict(row)
         client = CloudStorageClient()
         bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
-        blob_path = plan_page["source"].strip(f"gs://{CREDENTIALS["CloudStorage"]["bucket_name"]}/")
+        _, _, _, blob_path = plan_page["source"].split('/', 3)
         blob = bucket.blob(blob_path)
         url = blob.generate_signed_url(
             version="v4",
@@ -917,7 +917,7 @@ async def load_plan_pages(request: Request):
             method="GET",
         )
         plan_page["signed_url_GCS"] = url
-        blob_path = plan_page["thumbnail"].strip(f"gs://{CREDENTIALS["CloudStorage"]["bucket_name"]}/")
+        _, _, _, blob_path = plan_page["thumbnail"].split('/', 3)
         blob = bucket.blob(blob_path)
         url = blob.generate_signed_url(
             version="v4",
