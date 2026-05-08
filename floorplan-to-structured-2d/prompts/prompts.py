@@ -205,10 +205,10 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
 
     Your task is to,
         - Predict the correct drywall specification for each highlighted wall segment according to California residential construction standards and map it to the appropiate wall drywall-relevant wall segment color.
-        - Predict the relevant wall dimensions (length, width and height) for each highlightes walls as per the instructions provided.
-        - Predict the relevant ceiling dimensions (height, area, slope, axis_of_slope and type_of_slope) for the highlightes room/polygon as per the instructions provided.
+        - Predict the relevant wall dimensions (length, width and height) for each highlighted walls as per the instructions provided.
+        - Predict the relevant ceiling dimensions (height, area, pitch_of_slope, axis_of_slope and type_of_slope) for the highlighted room/polygon as per the instructions provided.
         - Predict the correct drywall specification for the ceiling of the highlighted room/polygon according to California residential construction standards and map it to the appropiate ceiling drywall-relevant wall segment color.
-        
+
     For each highlighted wall:
       1. Identify the wall context based on adjacent labeled rooms (e.g., garage, laundry, bathroom, bedroom, exterior).
       2. Determine whether the wall is:
@@ -227,8 +227,8 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
 
   TASK:
     Analyze the architectural floor plan and highlighted wall segments accompanied by polygon vertices, it's perimeter wall endpoints and OCR extracted transcription entries from the floor plan to determine the following features,
-      - The `length`, `width`, `height` and `type` of each perimeter wall in feet based upon the provided `WALL_EXTRACTION_INSTRUCTIONS`.
-      - Identify The `ceiling_type`, `height`, `slope` and `area` of the ceiling of the hihlighted room / polygon based upon the provided `CEILING_EXTRACTION_INSTRUCTIONS`.
+      - The `width` and `height` in feet accompanied by `type` of each perimeter wall based upon the provided `WALL_EXTRACTION_INSTRUCTIONS`.
+      - Identify The `ceiling_type`, `height`, `slope` and `area` of the ceiling of the highlighted room / polygon based upon the provided `CEILING_EXTRACTION_INSTRUCTIONS`.
       - Identify the `Room Name` the highlighted polygon belongs to. Follow `WALL_IDENTITY_PREDICTOR_INSTRUCTIONS` to understand the identity of each wall.
       - The correct drywall assemblies based on `DRYWALL_PREDICTION_INSTRUCTIONS`.
 
@@ -237,7 +237,8 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
         - Identify all the dimension lines present on the image including the outermost lines towards the outermost boundary of the target floor plan.
         - Scan through the dimension markers across the dimension lines denoted by diagonal slash marking the beginning and end of the length of the highlighted wall.
         - Scan through the dimension markers across the dimension lines denoted by diagonal slash marking the beginning and end of the width of the highlighted wall.
-        - The orientation of the diagonal marker would be '/' for the horizontal walls and '\' for the vertical walls.
+        - If the markers representing the width of the target wall is not present, refer the dimension markers representing the width of the immediate next wall the target wall is connected to.
+        - The orientation of the diagonal marker would be '/' for the horizontal distances and '\' for the vertical distances.
         - Identify the line joining these diagonal markers and the numerical dimension entity closest to it (aligned towards the center of the line).
         - The numerical dimension entity will supposedly represent the length (supposedly interior) or the width of the wall depedending on the orientation of the highlighted wall they are aligned with.
         - If the numerical dimension entity represents the exterior length of the wall which includes the width / thickness of the orthogonal wall(s) it is joined with, apply one of the following instructions,
@@ -252,7 +253,111 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
               b. If the highlighted wall is vertical, determine any arbitrary vertical wall as a reference wall from the list of provided wall coordinates whose length can be derived in feet from the dimensions lines with markers on the image / transcriptions.
               c. Determine the length of the reference wall in pixels from the provided coordinates of the reference wall and determine the real world length in feet of a pixel. The wall (X1, Y1, X2, Y2) if horizontal, length_in_pixels => (X2 - X1) and if vertical, length_in_pixels => (Y2 - Y1). So, length of one pixel in feet would be `length_in_pixels / length_in_feet (derived from the image / transcription)`.
               d. Multiply the obtained `length of one pixel in feet` with the length of the highlighted wall in pixels. (Pixel length of the highlighted wall from the coordinates provided * obtained `length of one pixel in feet`).
-        - ONLY identify the height of the wall surface interior to the target room / polygon. The numerical identity representing the height of the wall would ideally be placed adjacent to the wall with mention of the `ceiling` / `CLG.`, `WALL`, `height` / `HGT.`  keyword (optionally mentioned as ceiling / wall height representing the ceiling / wall height of the room that the wall belongs to with the height number located in the middle of the target room on the blueprint). If no such mention is identified, mention the wall height as -1.
+        - Refer the `HEIGHT_EXTRACTION_FROM_FLOOR_PLAN_INSTRUCTIONS` to measure the height of the target wall.
+            a. IF the target wall height cannot be reliably derived from the floor plan, infer wall height from attached elevation plans following the `HEIGHT_EXTRACTION_FROM_ELEVATION_PLAN_INSTRUCTIONS`.
+            b. ONLY IF the target wall height cannot be reliably derived either from the floor plan or the elevation plans, mention the wall height as -1.
+        
+            HEIGHT_EXTRACTION_FROM_FLOOR_PLAN_INSTRUCTIONS:
+              - ONLY identify the height of the wall surface interior to the target room / polygon.
+              - Scan the target room interior for room-height annotations such as:
+                - `CLG.`
+                - `CLG HT`
+                - `CLG HGT`
+                - `CEILING`
+                - `CEILING HEIGHT`
+                - `WALL HEIGHT`
+                - `PLATE`
+                - `TOP PLATE`
+                - `8'-0"`
+                - `9'-0"`
+                - `10'-0"`
+                - `VAULTED`
+                - `SLOPED`
+                - `OPEN TO BELOW`
+              - Height annotations are commonly located:
+                - Near the center of the room
+                - Adjacent to staircase regions
+                - Near vaulted or sloped ceiling indicators
+                - Adjacent to ceiling symbols or section callouts
+              - If multiple room-height annotations are observed, select the annotation spatially nearest to the blue bounding-box highlighted target wall.
+              - If multiple ceiling heights are present in one polygon, use the primary wall height transcribed closest to the target wall.
+              - If ceiling annotation indicates vaulted/sloped ceiling, derive:
+                - base wall height
+                - maximum ceiling height
+                - slope direction if identifiable
+
+            HEIGHT_EXTRACTION_FROM_ELEVATION_PLAN_INSTRUCTIONS:
+              - Elevation plans typically contain:
+                - floor markers
+                - plate elevations
+                - roof slope indicators
+                - vertical dimension chains
+                - ridge heights
+                - top plate elevations
+                - finished floor elevations
+              - Identify elevation labels such as:
+                - `FIRST FLOOR FINISHED SLAB`
+                - `FIRST FLOOR TOP PLATE`
+                - `SECOND FLOOR SUBFLOOR`
+                - `SECOND FLOOR TOP PLATE`
+                - `AVERAGE FINISHED GRADE`
+                - `T.O. PLATE`
+                - `TOP OF PLATE`
+                - `RIDGE`
+                - `EAVE`
+                - `PARAPET`
+                - `HDR. HT`
+                - `HEADER HT`
+              - Determine the wall height by computing the vertical difference between architectural floor markers:
+                - Example:
+                  - `FIRST FLOOR FINISHED SLAB` → `FIRST FLOOR TOP PLATE`
+                  - `FIRST FLOOR TOP PLATE` → `SECOND FLOOR SUBFLOOR`
+                  - `SECOND FLOOR SUBFLOOR` → `SECOND FLOOR TOP PLATE`
+              - Use the nearest aligned vertical dimension chain adjacent to the elevation facade corresponding to the target room/wall.
+              - Vertical dimensions are typically represented by:
+                - stacked dimensions
+                - arrows
+                - extension lines
+                - floor datum markers
+                - level indicators
+              - Detect dimension values such as:
+                - `8'-0"`
+                - `9'-0"`
+                - `10'-11"`
+                - `12'-1 1/2"`
+                - `22'-7"`
+                - `30'-9 1/4"`
+              - Use these values to infer:
+                - finished wall height
+                - floor-to-floor height
+                - parapet extension
+                - vaulted ceiling rise
+                - staircase double-height regions
+              - If the target polygon corresponds to a room adjacent to an exterior facade:
+                - Align the room horizontally with the elevation facade.
+                - Infer the likely wall height from the corresponding facade segment.
+              - If multiple floor levels exist:
+                - Match the target room floor index using:
+                  - staircase alignment
+                  - room naming
+                  - window positioning
+                  - floor datum labels
+                  - vertical continuity
+              - If roof slopes are visible in elevation:
+                - Infer sloped ceiling height transition from:
+                  - ridge height
+                  - eave height
+              - For vaulted ceilings:
+                - wall base height is measured to the spring line / plate height.
+                - maximum ceiling height extends toward the ridge.
+              - If ceiling is flat:
+                - use top plate elevation minus finished floor elevation.
+              - If no reliable elevation-derived height is available:
+                - fallback to standard residential assumptions:
+                  - 8 ft interior wall
+                  - 9 ft main living spaces
+                  - 10+ ft luxury/open foyer/great room
+
         - Infer the type of the perimeter wall as one from the following templates. Do not generate any other wall type not present in the templates.
           WALL_TYPE TEMPLATES:
             1. OPEN_TO_BELOW
@@ -413,7 +518,6 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
             vertical walls → tilt_axis = "vertical"
           - If ambiguous → choose dominant slope direction
           - If flat → tilt_axis = NULL
-        - Considering [LEFT, TOP] as the origin, if the slope angle is computed from the direction of origin, the slope angle should have a positive value otherwise treat the slope angle as a negative number.
         - To compute the height of a sloped ceiling, always consider the maximum height.
         - Given the length of each perimeter walls, compute the area of ceiling or the highlighted polygon in SQFT without taking the slope value (if present) into account.
           -> **STRICTLY REMEMBER** the shape of the ceiling could be complex (convex or concave) and hence always apply SHOELACE on ceiling vertices to compute the area and Do NOT use the wall length / OCR data to compute the area.
@@ -468,7 +572,7 @@ DRYWALL_PREDICTOR_CALIFORNIA = """
     **STRICTLY**
       - `wall_parameters` field should contain predicted wall parameters and drywall assembly for all the perimeter walls provided in the input that also corresponds with the perimeter lines highlighted with blue bounding boxes of the highlighted polygon.
       - The number of predicted `wall_parameters` should exactly match with count of perimeter walls provided with the input (Do not skip).
-      - The order of the walls provided in the `wall_parameters` list should follow the oder in which the perimeter walls are provided in the input.
+      - The order of the walls provided in the `wall_parameters` list should follow the order in which the perimeter walls are provided in the input.
       - Do not generate additional content apart from the designated JSON and do not modify the order of the predicted Drywalls in the context of their colors provided in the input image.
     Please refer the following as a reference and ensure to replace every consecutive pair of open/closed curly braces with a single one during the generation of the output.
     {{
