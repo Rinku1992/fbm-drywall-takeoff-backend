@@ -304,8 +304,6 @@ async def floorplan_to_structured_2d(request: Request):
         vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES)
         with ThreadPoolExecutor(max_workers=2) as executor:
             for bounding_box_offset in bounding_box_offsets:
-                if bounding_box_offset["plan_type"].upper().find("FLOOR") == -1:
-                    continue
                 logging.info(f"SYSTEM: Extracting structured model from SECTION: {bounding_box_offset["title"]} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
                 floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES)
                 floor_plan_modeller_2d.from_vertex_ai_clients(*vertex_ai_clients)
