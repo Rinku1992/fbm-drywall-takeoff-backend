@@ -267,17 +267,15 @@ def delete_floorplan(project_id, plan_id, user_id, bigquery_client, credentials)
     DELETE FROM `drywall_takeoff.pages`
     WHERE
         LOWER(project_id) = LOWER(@project_id)
-        AND LOWER(plan_id) = LOWER(@plan_id)
-        AND LOWER(user_id) = LOWER(@user_id);
+        AND LOWER(plan_id) = LOWER(@plan_id);
     """
-    job_config = dict(
+    job_config_user_independent = dict(
         query_parameters=[
             bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
             bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
-            bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
         ]
     )
-    bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
+    bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config_user_independent).result()
 
     GBQ_query = """
     DELETE FROM `drywall_takeoff.plans`
@@ -299,28 +297,25 @@ def delete_floorplan(project_id, plan_id, user_id, bigquery_client, credentials)
     DELETE FROM `drywall_takeoff.models`
     WHERE
         LOWER(project_id) = LOWER(@project_id)
-        AND LOWER(plan_id) = LOWER(@plan_id)
-        AND LOWER(user_id) = LOWER(@user_id);
+        AND LOWER(plan_id) = LOWER(@plan_id);
     """
-    bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
+    bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config_user_independent).result()
 
     GBQ_query = """
     DELETE FROM `drywall_takeoff.model_revisions_2d`
     WHERE
         LOWER(project_id) = LOWER(@project_id)
-        AND LOWER(plan_id) = LOWER(@plan_id)
-        AND LOWER(user_id) = LOWER(@user_id);
+        AND LOWER(plan_id) = LOWER(@plan_id);
     """
-    bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
+    bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config_user_independent).result()
 
     GBQ_query = """
     DELETE FROM `drywall_takeoff.model_revisions_3d`
     WHERE
         LOWER(project_id) = LOWER(@project_id)
-        AND LOWER(plan_id) = LOWER(@plan_id)
-        AND LOWER(user_id) = LOWER(@user_id);
+        AND LOWER(plan_id) = LOWER(@plan_id);
     """
-    bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
+    bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config_user_independent).result()
 
     client = CloudStorageClient()
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
