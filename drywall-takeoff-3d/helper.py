@@ -522,6 +522,7 @@ def insert_page(
     project_id,
     page_number,
     extracted,
+    status,
     bigquery_client,
     credentials,
     plan_type=dict(),
@@ -545,13 +546,15 @@ def insert_page(
             @thumbnail AS thumbnail,
             @plan_type AS plan_type,
             @extracted AS extracted,
+            @status AS status,
             @is_floorplan AS is_floorplan
     ) s
     ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id) AND t.page_number = s.page_number
     WHEN MATCHED THEN
     UPDATE SET
         extracted = s.extracted,
-        updated_at = CURRENT_TIMESTAMP()
+        updated_at = CURRENT_TIMESTAMP(),
+        status = s.status
     WHEN NOT MATCHED THEN
     INSERT (
         plan_id,
@@ -564,6 +567,7 @@ def insert_page(
         thumbnail,
         plan_type,
         extracted,
+        status,
         is_floorplan,
         created_at,
         updated_at
@@ -579,6 +583,7 @@ def insert_page(
         s.thumbnail,
         s.plan_type,
         s.extracted,
+        s.status,
         s.is_floorplan,
         CURRENT_TIMESTAMP(),
         CURRENT_TIMESTAMP()
@@ -596,6 +601,7 @@ def insert_page(
             bigquery.ScalarQueryParameter("thumbnail", "STRING", GCS_URL_page_thumbnail),
             bigquery.ScalarQueryParameter("plan_type", "JSON", plan_type),
             bigquery.ScalarQueryParameter("extracted", "BOOL", extracted),
+            bigquery.ScalarQueryParameter("status", "STRING", status),
             bigquery.ScalarQueryParameter("is_floorplan", "BOOL", is_floorplan)
         ]
     )
