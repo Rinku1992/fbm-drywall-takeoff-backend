@@ -1,6 +1,8 @@
 from pathlib import Path
 from pdf2image import convert_from_path
 import cv2
+from PIL import Image
+Image.MAX_IMAGE_PIXELS = None
 
 
 def process_page(pdf_path, page_index, image_path_page, dpi):
