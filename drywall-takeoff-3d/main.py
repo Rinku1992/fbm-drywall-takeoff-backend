@@ -658,6 +658,7 @@ def floorplan_to_preview_pages(
                 project_id,
                 page["page_number"],
                 False,
+                "NOT STARTED",
                 bigquery_client,
                 credentials,
                 plan_type=page["plan_type"],
@@ -1035,6 +1036,7 @@ async def floorplan_to_2d(request: Request):
                     project_id,
                     page_metadata["page_number"],
                     False,
+                    "NOT STARTED",
                     bigquery_client,
                     CREDENTIALS,
                 )
@@ -1069,6 +1071,7 @@ async def floorplan_to_2d(request: Request):
                         project_id,
                         acknowledged_query["page_number"],
                         True,
+                        "COMPLETED",
                         bigquery_client,
                         CREDENTIALS,
                     )
