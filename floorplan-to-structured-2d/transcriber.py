@@ -39,6 +39,9 @@ class Transcriber:
         Y2 = Y1 + kernel_parameters["height"]
 
         cropped = image_array[Y1:Y2, X1:X2]
+        if cropped is None or cropped.size == 0:
+            logging.warning(f"SYSTEM: EMPTY Crop Detected: X1:{X1}, Y1:{Y1}, X2:{X2}, Y2:{Y2}")
+            return
         cv2.imwrite(f"/tmp/{output_path}_{str((v_stride_index*n_horizontal_strides)+h_stride_index).zfill(3)}.png", cropped)
 
         with open(f"/tmp/{output_path}_{str((v_stride_index*n_horizontal_strides)+h_stride_index).zfill(3)}.png", "rb") as f:
