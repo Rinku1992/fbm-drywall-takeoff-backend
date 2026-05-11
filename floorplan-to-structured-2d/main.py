@@ -34,6 +34,7 @@ from helper import (
     load_section_from_page,
     apply_pixel_margin_to_bounding_box,
     load_publisher_client,
+    insert_page,
 )
 
 
@@ -225,19 +226,44 @@ async def floorplan_to_structured_2d(request: Request):
     pdf_path = download_floorplan(user_id, plan_id, project_id, CREDENTIALS)
     logging.info("SYSTEM: Floorplan Downloaded for extraction")
 
-    hyperparameters = load_hyperparameters()
-
-    ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
-    floor_plan_processed_path = floorplan_to_page(
-        CREDENTIALS,
-        project_id,
+    insert_page(
         plan_id,
-        pdf_path,
+        user_id,
+        project_id,
         page_number,
-        hyperparameters["modelling"]["scale_adoption"]["dpi"]
+        False,
+        "IN PROGRESS",
+        bigquery_client,
+        CREDENTIALS,
     )
-    elevation_processed_paths = load_elevation_pages(pdf_path, elevation_pages)
+    hyperparameters = load_hyperparameters()
     publish_handler = load_publisher_client(CREDENTIALS)
+    ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
+    try:
+        floor_plan_processed_path = floorplan_to_page(
+            CREDENTIALS,
+            project_id,
+            plan_id,
+            pdf_path,
+            page_number,
+            hyperparameters["modelling"]["scale_adoption"]["dpi"]
+        )
+        elevation_processed_paths = load_elevation_pages(pdf_path, elevation_pages)
+    except Exception as e:
+        future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
+        future.result()
+        logging.warning(f"SYSTEM: Floorplan extraction has failed for Page Number: {page_number} with Error: {e}")
+        insert_page(
+            plan_id,
+            user_id,
+            project_id,
+            page_number,
+            True,
+            "FAILED",
+            bigquery_client,
+            CREDENTIALS,
+        )
+        return respond_with_UI_payload(dict(status="FAILED", message=f"NO Floor Plan layout observed"))
     logging.info(f"SYSTEM: Floorplan Preprocessing Completed: Page Number: {page_number}")
 
     floorplan_baseline_page_source = None
@@ -273,6 +299,16 @@ async def floorplan_to_structured_2d(request: Request):
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
         future.result()
         logging.warning(f"SYSTEM: NO valid Floorplan layout observed: Page Number: {page_number}")
+        insert_page(
+            plan_id,
+            user_id,
+            project_id,
+            page_number,
+            True,
+            "COMPLETED",
+            bigquery_client,
+            CREDENTIALS,
+        )
         return respond_with_UI_payload(dict(status="SUCCESS", message="NO Floor Plan layout observed"))
 
     futures = dict()
@@ -329,6 +365,16 @@ async def floorplan_to_structured_2d(request: Request):
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
         future.result()
         logging.warning(f"SYSTEM: Floorplan Segmentation FAILED: Page Number: {page_number}")
+        insert_page(
+            plan_id,
+            user_id,
+            project_id,
+            page_number,
+            True,
+            "COMPLETED",
+            bigquery_client,
+            CREDENTIALS,
+        )
         return respond_with_UI_payload(dict(status="SUCCESS", message="NO Floor Plan layout observed"))
     if not FloorPlan2D.is_none(wall_segmented_path):
         futures = list()
@@ -361,4 +407,14 @@ async def floorplan_to_structured_2d(request: Request):
             [future.result() for future in futures]
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
         future.result()
+    insert_page(
+        plan_id,
+        user_id,
+        project_id,
+        page_number,
+        True,
+        "COMPLETED",
+        bigquery_client,
+        CREDENTIALS,
+    )
     return respond_with_UI_payload(dict(status="SUCCESS", message="Floor Plan extraction completed"))
