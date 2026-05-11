@@ -2,6 +2,7 @@ import logging
 from diffusers import StableDiffusionControlNetPipeline, ControlNetModel
 import torch
 from PIL import Image
+Image.MAX_IMAGE_PIXELS = None
 import numpy as np
 
 __all__ = ["WallDetector"]
