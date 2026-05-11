@@ -623,6 +623,7 @@ def floorplan_to_preview_pages(
             metadata_page["mask_factor"] = page["mask_factor"]
             metadata_page["bounding_box_offsets"] = page["bounding_box_offsets"]
             metadata_page["is_floorplan"] = True
+            metadata_page["status"] = "NOT STARTED"
             svg_path=Path(f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_{str(page["page_number"]).zfill(4)}.svg")
             svg_path.parent.mkdir(parents=True, exist_ok=True)
             floorplan_svg = page_to_svg(floor_plan_path=floor_plan_processed_path, svg_path=svg_path)
