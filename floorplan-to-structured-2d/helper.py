@@ -184,6 +184,99 @@ def bigquery_run(credentials, bigquery_client, GBQ_query, job_config=dict()):
     query_output = bigquery_client.query(GBQ_query, job_config=job_config)
     return query_output
 
+def insert_page(
+    plan_id,
+    user_id,
+    project_id,
+    page_number,
+    extracted,
+    status,
+    bigquery_client,
+    credentials,
+    plan_type=dict(),
+    GCS_URL_page=None,
+    GCS_URL_page_thumbnail=None,
+    mask_factor=dict(),
+    bounding_box_offsets=dict(),
+    is_floorplan=None,
+):
+    GBQ_query = """
+    MERGE `drywall_takeoff.pages` t
+    USING (
+        SELECT
+            @plan_id AS plan_id,
+            @project_id AS project_id,
+            @user_id AS user_id,
+            @page_number AS page_number,
+            @mask_factor AS mask_factor,
+            @bounding_box_offsets AS bounding_box_offsets,
+            @source AS source,
+            @thumbnail AS thumbnail,
+            @plan_type AS plan_type,
+            @extracted AS extracted,
+            @status AS status,
+            @is_floorplan AS is_floorplan
+    ) s
+    ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id) AND t.page_number = s.page_number
+    WHEN MATCHED THEN
+    UPDATE SET
+        extracted = s.extracted,
+        updated_at = CURRENT_TIMESTAMP(),
+        status = s.status
+    WHEN NOT MATCHED THEN
+    INSERT (
+        plan_id,
+        project_id,
+        user_id,
+        page_number,
+        mask_factor,
+        bounding_box_offsets,
+        source,
+        thumbnail,
+        plan_type,
+        extracted,
+        status,
+        is_floorplan,
+        created_at,
+        updated_at
+    )
+    VALUES (
+        s.plan_id,
+        s.project_id,
+        s.user_id,
+        s.page_number,
+        s.mask_factor,
+        s.bounding_box_offsets,
+        s.source,
+        s.thumbnail,
+        s.plan_type,
+        s.extracted,
+        s.status,
+        s.is_floorplan,
+        CURRENT_TIMESTAMP(),
+        CURRENT_TIMESTAMP()
+    );
+    """
+    job_config = dict(
+        query_parameters=[
+            bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
+            bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
+            bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
+            bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
+            bigquery.ScalarQueryParameter("mask_factor", "JSON", mask_factor),
+            bigquery.ScalarQueryParameter("bounding_box_offsets", "JSON", bounding_box_offsets),
+            bigquery.ScalarQueryParameter("source", "STRING", GCS_URL_page),
+            bigquery.ScalarQueryParameter("thumbnail", "STRING", GCS_URL_page_thumbnail),
+            bigquery.ScalarQueryParameter("plan_type", "JSON", plan_type),
+            bigquery.ScalarQueryParameter("extracted", "BOOL", extracted),
+            bigquery.ScalarQueryParameter("status", "STRING", status),
+            bigquery.ScalarQueryParameter("is_floorplan", "BOOL", is_floorplan)
+        ]
+    )
+
+    query_output = bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
+    return query_output
+
 def insert_model_2d(
     model_2d,
     scale,
