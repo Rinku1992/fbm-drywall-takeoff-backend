@@ -777,31 +777,49 @@ async def load_projects(request: Request):
 
     GBQ_query = f"""
         SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_projects"]}` WHERE created_by IN (
-            WITH current_user_groups AS (
+            WITH current_user AS (
+                SELECT '{user_id}' AS user_id
+            ),
+
+            current_user_groups AS (
                 SELECT DISTINCT group_id
-                FROM `drywall_takeoff.users`,
-                UNNEST(group_ids) AS group_id
-                WHERE LOWER(user_id) = LOWER('{user_id}')
+                FROM `drywall_takeoff.users` u,
+                UNNEST(IFNULL(u.group_ids, [])) AS group_id
+                JOIN current_user cu
+                    ON LOWER(u.user_id) = LOWER(cu.user_id)
             ),
 
             matching_users AS (
-                SELECT
-                    ug.user_id,
-                    ug.group_id
-                FROM `drywall_takeoff.groups` ug
+                SELECT DISTINCT
+                    g.user_id
+                FROM `drywall_takeoff.groups` g
+                JOIN current_user_groups cug
+                    ON g.group_id = cug.group_id
+            ),
 
-                INNER JOIN current_user_groups cug
-                    ON ug.group_id = cug.group_id
+            fallback_user AS (
+                SELECT cu.user_id
+                FROM current_user cu
+                CROSS JOIN UNNEST([1]) dummy
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM current_user_groups
+                )
+            ),
+
+            final_users AS (
+                SELECT user_id
+                FROM matching_users
+ 
+                UNION DISTINCT
+
+                SELECT user_id
+                FROM fallback_user
             )
 
-            SELECT
-            u.user_id
-            FROM matching_users mu
-            JOIN `drywall_takeoff.users` u
-                ON mu.user_id = u.user_id
-            GROUP BY
-                u.user_id
-            );
+            SELECT user_id
+            FROM final_users
+        );
     """
     projects = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())
 
