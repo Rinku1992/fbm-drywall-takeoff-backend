@@ -773,8 +773,36 @@ async def load_projects(request: Request):
         body = await request.json()
     except Exception:
         body = dict()
+    user_id = parameters.get("user_id") or body.get("user_id")
 
-    GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_projects"]}`"
+    GBQ_query = f"""
+        SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_projects"]}` WHERE created_by IN (
+            WITH current_user_groups AS (
+                SELECT DISTINCT group_id
+                FROM `drywall_takeoff.users`,
+                UNNEST(group_ids) AS group_id
+                WHERE LOWER(user_id) = LOWER('{user_id}')
+            ),
+
+            matching_users AS (
+                SELECT
+                    ug.user_id,
+                    ug.group_id
+                FROM `drywall_takeoff.groups` ug
+
+                INNER JOIN current_user_groups cug
+                    ON ug.group_id = cug.group_id
+            )
+
+            SELECT
+            u.user_id
+            FROM matching_users mu
+            JOIN `drywall_takeoff.users` u
+                ON mu.user_id = u.user_id
+            GROUP BY
+                u.user_id
+            );
+    """
     projects = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())
 
     logging.info("SYSTEM: Project Metadata retrieved successfully")
