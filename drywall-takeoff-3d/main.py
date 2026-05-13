@@ -1713,7 +1713,7 @@ async def compute_takeoff(request: Request):
                     drywall_takeoff["per_drywall"]["wall"][drywall_type] = dict(
                         total_sqft=round(drywall_takeoff["per_drywall"]["wall"][drywall_type]["total_sqft"]+total_sqft, 2),
                         net_sqft=round(drywall_takeoff["per_drywall"]["wall"][drywall_type]["net_sqft"]+net_sqft, 2),
-                        waste_percentage=drywall_template["waste"],
+                        waste_percentage=waste_factor*100,
                         sheet_size=sheet_size,
                         sheets_required_total=drywall_takeoff["per_drywall"]["wall"][drywall_type]["sheets_required_total"]+sheets_required_total,
                         sheets_required_no_waste=drywall_takeoff["per_drywall"]["wall"][drywall_type]["sheets_required_no_waste"]+sheets_required_no_waste
@@ -1733,7 +1733,7 @@ async def compute_takeoff(request: Request):
                 drywall_takeoff["per_drywall"]["wall"][drywall["type"]] = dict(
                     total_sqft=round(drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["total_sqft"]+total_sqft, 2),
                     net_sqft=round(drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["net_sqft"]+net_sqft, 2),
-                    waste_percentage=drywall_template["waste"],
+                    waste_percentage=waste_factor*100,
                     sheet_size=sheet_size,
                     sheets_required_total=drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["sheets_required_total"]+sheets_required_total,
                     sheets_required_no_waste=drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["sheets_required_no_waste"]+sheets_required_no_waste
@@ -1762,7 +1762,7 @@ async def compute_takeoff(request: Request):
         drywall_takeoff["per_drywall"]["roof"][polygon["surface_drywall"]["type"]] = dict(
             total_sqft=round(drywall_takeoff["per_drywall"]["roof"][polygon["surface_drywall"]["type"]]["total_sqft"]+total_sqft, 2),
             net_sqft=round(drywall_takeoff["per_drywall"]["roof"][polygon["surface_drywall"]["type"]]["net_sqft"]+net_sqft, 2),
-            waste_percentage=drywall_template["waste"],
+            waste_percentage=waste_factor*100,
             sheet_size=sheet_size,
             sheets_required_total=drywall_takeoff["per_drywall"]["roof"][polygon["surface_drywall"]["type"]]["sheets_required_total"]+sheets_required_total,
             sheets_required_no_waste=drywall_takeoff["per_drywall"]["roof"][polygon["surface_drywall"]["type"]]["sheets_required_no_waste"]+sheets_required_no_waste
