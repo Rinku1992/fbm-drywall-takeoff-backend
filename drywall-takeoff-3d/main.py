@@ -851,7 +851,7 @@ async def load_project_plans(request: Request):
                 WHERE pl.project_id = p.project_id
             ) AS project_plans
         FROM `{CREDENTIALS["GBQServer"]["table_name_projects"]}` p
-        WHERE LOWER(p.project_id) = LOWER(@project_id) AND LOWER(p.user_id) IN (
+        WHERE LOWER(p.project_id) = LOWER(@project_id) AND LOWER(p.created_by) IN (
             WITH current_user AS (
                 SELECT @user_id AS user_id
             ),
