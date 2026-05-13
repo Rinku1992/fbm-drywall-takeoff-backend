@@ -840,6 +840,7 @@ async def load_project_plans(request: Request):
     except Exception:
         body = dict()
     project_id = parameters.get("project_id") or body.get("project_id")
+    user_id = paraeters.get("user_id") or body.get("user_id")
 
     query = f"""
         SELECT
@@ -850,12 +851,56 @@ async def load_project_plans(request: Request):
                 WHERE pl.project_id = p.project_id
             ) AS project_plans
         FROM `{CREDENTIALS["GBQServer"]["table_name_projects"]}` p
-        WHERE LOWER(p.project_id) = LOWER(@project_id)
+        WHERE LOWER(p.project_id) = LOWER(@project_id) AND LOWER(p.user_id) IN (
+            WITH current_user AS (
+                SELECT @user_id AS user_id
+            ),
+
+            current_user_groups AS (
+                SELECT DISTINCT group_id
+                FROM `drywall_takeoff.users` u,
+                UNNEST(IFNULL(u.group_ids, [])) AS group_id
+                JOIN current_user cu
+                    ON LOWER(u.user_id) = LOWER(cu.user_id)
+            ),
+
+            matching_users AS (
+                SELECT DISTINCT
+                    g.user_id
+                FROM `drywall_takeoff.groups` g
+                JOIN current_user_groups cug
+                    ON g.group_id = cug.group_id
+            ),
+
+            fallback_user AS (
+                SELECT cu.user_id
+                FROM current_user cu
+                CROSS JOIN UNNEST([1]) dummy
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM current_user_groups
+                )
+            ),
+
+            final_users AS (
+                SELECT user_id
+                FROM matching_users
+ 
+                UNION DISTINCT
+
+                SELECT user_id
+                FROM fallback_user
+            )
+
+            SELECT LOWER(user_id)
+            FROM final_users
+        );
     """
 
     job_config = bigquery.QueryJobConfig(
         query_parameters=[
-            bigquery.ScalarQueryParameter("project_id", "STRING", project_id)
+            bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
+            bigquery.ScalarQueryParameter("user_id", "STRING", user_id)
         ]
     )
 
@@ -925,10 +970,60 @@ async def load_plan_pages(request: Request):
         body = dict()
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
 
-    GBQ_query = f"SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
+    GBQ_query = f"""
+        SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) IN (
+            WITH current_user AS (
+                SELECT '{user_id}' AS user_id
+            ),
+
+            current_user_groups AS (
+                SELECT DISTINCT group_id
+                FROM `drywall_takeoff.users` u,
+                UNNEST(IFNULL(u.group_ids, [])) AS group_id
+                JOIN current_user cu
+                    ON LOWER(u.user_id) = LOWER(cu.user_id)
+            ),
+
+            matching_users AS (
+                SELECT DISTINCT
+                    g.user_id
+                FROM `drywall_takeoff.groups` g
+                JOIN current_user_groups cug
+                    ON g.group_id = cug.group_id
+            ),
+
+            fallback_user AS (
+                SELECT cu.user_id
+                FROM current_user cu
+                CROSS JOIN UNNEST([1]) dummy
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM current_user_groups
+                )
+            ),
+
+            final_users AS (
+                SELECT user_id
+                FROM matching_users
+ 
+                UNION DISTINCT
+
+                SELECT user_id
+                FROM fallback_user
+            )
+
+            SELECT LOWER(user_id)
+            FROM final_users
+        );
+    """
     query_job = bigquery_run(CREDENTIALS, bigquery_client, GBQ_query)
     rows = list(query_job.result())
+
+    if not rows:
+        return respond_with_UI_payload(dict(plan_metadata=dict(), plan_pages=list()))
+
     row = rows[0]
     plan_metadata = dict(row)
 
@@ -1224,13 +1319,59 @@ async def load_2d_all(request: Request):
         body = dict()
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
+    user_id = parameter.get("user_id") or body.get("user_id")
     page_number = parameters.get("page_number", '') or body.get("page_number", '')
     load_lazy = parameters.get("load_lazy", "true") or body.get("load_lazy", "true")
     logging.info("SYSTEM: Received All Floorplan 2D Models Load Request")
 
     if load_lazy == "false":
         status = "IN PROGRESS"
-        GBQ_query = f"SELECT pages FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
+        GBQ_query = f"""
+            SELECT pages FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) IN (
+            WITH current_user AS (
+                SELECT '{user_id}' AS user_id
+            ),
+
+            current_user_groups AS (
+                SELECT DISTINCT group_id
+                FROM `drywall_takeoff.users` u,
+                UNNEST(IFNULL(u.group_ids, [])) AS group_id
+                JOIN current_user cu
+                    ON LOWER(u.user_id) = LOWER(cu.user_id)
+            ),
+
+            matching_users AS (
+                SELECT DISTINCT
+                    g.user_id
+                FROM `drywall_takeoff.groups` g
+                JOIN current_user_groups cug
+                    ON g.group_id = cug.group_id
+            ),
+
+            fallback_user AS (
+                SELECT cu.user_id
+                FROM current_user cu
+                CROSS JOIN UNNEST([1]) dummy
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM current_user_groups
+                )
+            ),
+
+            final_users AS (
+                SELECT user_id
+                FROM matching_users
+ 
+                UNION DISTINCT
+
+                SELECT user_id
+                FROM fallback_user
+            )
+
+            SELECT LOWER(user_id)
+            FROM final_users
+        );
+        """
         if not list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()):
             return respond_with_UI_payload(dict(error="Floor Plan already exists"))
         query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
@@ -1262,13 +1403,59 @@ async def load_2d_all(request: Request):
                 LOWER(project_id) = LOWER(@project_id)
                 AND LOWER(plan_id) = LOWER(@plan_id)
                 AND page_number = @page_number
-            ORDER BY page_number
-        """
+                AND LOWER(user_id) IN (
+                    WITH current_user AS (
+                        SELECT @user_id AS user_id
+                    ),
+
+                    current_user_groups AS (
+                        SELECT DISTINCT group_id
+                        FROM `drywall_takeoff.users` u,
+                        UNNEST(IFNULL(u.group_ids, [])) AS group_id
+                        JOIN current_user cu
+                            ON LOWER(u.user_id) = LOWER(cu.user_id)
+                    ),
+
+                    matching_users AS (
+                        SELECT DISTINCT
+                            g.user_id
+                        FROM `drywall_takeoff.groups` g
+                        JOIN current_user_groups cug
+                            ON g.group_id = cug.group_id
+                    ),
+
+                    fallback_user AS (
+                        SELECT cu.user_id
+                        FROM current_user cu
+                        CROSS JOIN UNNEST([1]) dummy
+                        WHERE NOT EXISTS (
+                            SELECT 1
+                            FROM current_user_groups
+                        )
+                    ),
+
+                    final_users AS (
+                        SELECT user_id
+                        FROM matching_users
+
+                        UNION DISTINCT
+
+                        SELECT user_id
+                        FROM fallback_user
+                    )
+
+                    SELECT LOWER(user_id)
+                    FROM final_users
+                )
+                    ORDER BY page_number
+                """
+
         job_config = bigquery.QueryJobConfig(
             query_parameters=[
                 bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
                 bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
                 bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
+                bigquery.ScalarQueryParameter("user_id", "STRING", user_id)
             ]
         )
     else:
@@ -1282,12 +1469,58 @@ async def load_2d_all(request: Request):
             WHERE
                 LOWER(project_id) = LOWER(@project_id)
                 AND LOWER(plan_id) = LOWER(@plan_id)
+                AND LOWER(user_id) IN (
+                    WITH current_user AS (
+                        SELECT @user_id AS user_id
+                    ),
+
+                    current_user_groups AS (
+                        SELECT DISTINCT group_id
+                        FROM `drywall_takeoff.users` u,
+                        UNNEST(IFNULL(u.group_ids, [])) AS group_id
+                        JOIN current_user cu
+                            ON LOWER(u.user_id) = LOWER(cu.user_id)
+                    ),
+
+                    matching_users AS (
+                        SELECT DISTINCT
+                            g.user_id
+                        FROM `drywall_takeoff.groups` g
+                        JOIN current_user_groups cug
+                            ON g.group_id = cug.group_id
+                    ),
+
+                    fallback_user AS (
+                        SELECT cu.user_id
+                        FROM current_user cu
+                        CROSS JOIN UNNEST([1]) dummy
+                        WHERE NOT EXISTS (
+                            SELECT 1
+                            FROM current_user_groups
+                        )
+                    ),
+
+                    final_users AS (
+                        SELECT user_id
+                        FROM matching_users
+
+                        UNION DISTINCT
+
+                        SELECT user_id
+                        FROM fallback_user
+                    )
+
+                    SELECT LOWER(user_id)
+                    FROM final_users
+                )
             ORDER BY page_number
         """
+
         job_config = bigquery.QueryJobConfig(
             query_parameters=[
                 bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
                 bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
+                bigquery.ScalarQueryParameter("user_id", "STRING", user_id)
             ]
         )
     query_job = bigquery_client.query(query, job_config=job_config)
