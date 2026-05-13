@@ -776,7 +776,7 @@ async def load_projects(request: Request):
     user_id = parameters.get("user_id") or body.get("user_id")
 
     GBQ_query = f"""
-        SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_projects"]}` WHERE created_by IN (
+        SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_projects"]}` WHERE LOWER(created_by) IN (
             WITH current_user AS (
                 SELECT '{user_id}' AS user_id
             ),
@@ -817,7 +817,7 @@ async def load_projects(request: Request):
                 FROM fallback_user
             )
 
-            SELECT user_id
+            SELECT LOWER(user_id)
             FROM final_users
         );
     """
