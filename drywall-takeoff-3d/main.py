@@ -840,7 +840,7 @@ async def load_project_plans(request: Request):
     except Exception:
         body = dict()
     project_id = parameters.get("project_id") or body.get("project_id")
-    user_id = paraeters.get("user_id") or body.get("user_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
 
     query = f"""
         SELECT
