@@ -1319,7 +1319,7 @@ async def load_2d_all(request: Request):
         body = dict()
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
-    user_id = parameter.get("user_id") or body.get("user_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
     page_number = parameters.get("page_number", '') or body.get("page_number", '')
     load_lazy = parameters.get("load_lazy", "true") or body.get("load_lazy", "true")
     logging.info("SYSTEM: Received All Floorplan 2D Models Load Request")
