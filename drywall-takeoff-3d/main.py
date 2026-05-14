@@ -1018,6 +1018,7 @@ async def load_plan_pages(request: Request):
             FROM final_users
         );
     """
+
     query_job = bigquery_run(CREDENTIALS, bigquery_client, GBQ_query)
     rows = list(query_job.result())
 
@@ -1881,6 +1882,7 @@ async def compute_takeoff(request: Request):
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     user_id = parameters.get("user_id") or body.get("user_id")
     revision_number = parameters.get("revision_number", '') or body.get("revision_number", '')
+    load_preview = parameters.get("load_preview", "false") or body.get("load_preview", "false")
     logging.info("SYSTEM: Received a Drywall Takeoff computation Request")
 
     GBQ_query = f"SELECT scale FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index};"
@@ -2005,8 +2007,10 @@ async def compute_takeoff(request: Request):
     drywall_takeoff["total"]["wall"] = round(drywall_takeoff["total"]["wall"], 2)
     drywall_takeoff["total"]["roof"] = round(drywall_takeoff["total"]["roof"], 2)
 
-    waste_factor_average = waste_factor_average if waste_factor_average else waste_standard
-    insert_takeoff(drywall_takeoff, waste_factor_average, index, plan_id, user_id, project_id, revision_number, bigquery_client, CREDENTIALS)
+    if load_preview.upper() == "FALSE":
+        waste_factor_average = waste_factor_average if waste_factor_average else waste_standard
+        insert_takeoff(drywall_takeoff, waste_factor_average, index, plan_id, user_id, project_id, revision_number, bigquery_client, CREDENTIALS)
+        logging.info("SYSTEM: Drywall Takeoff computation saved")
     logging.info("SYSTEM: Drywall Takeoff Computed Successfully for the provided Floorplan")
     return respond_with_UI_payload(drywall_takeoff)
 
