@@ -1893,14 +1893,25 @@ async def compute_takeoff(request: Request):
 
     if not walls_3d_JSON:
         if revision_number:
-            GBQ_query = f"SELECT model FROM `{CREDENTIALS["GBQServer"]["table_name_model_revisions_3d"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index} AND revision_number = {revision_number};"
-            walls_3d_JSON = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0].model
+            GBQ_query = f"SELECT model.walls_3d FROM `{CREDENTIALS["GBQServer"]["table_name_model_revisions_3d"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index} AND revision_number = {revision_number};"
+            walls_3d_JSON = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0].walls_3d
         else:
-            GBQ_query = f"SELECT model_3d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index};"
-            walls_3d_JSON = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0].model_3d
+            GBQ_query = f"SELECT model_3d.walls_3d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index};"
+            walls_3d_JSON = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0].walls_3d
     
         if walls_3d_JSON is None:
             walls_3d_JSON = list()
+
+    if not polygons_JSON:
+        if revision_number:
+            GBQ_query = f"SELECT model.polygons FROM `{CREDENTIALS["GBQServer"]["table_name_model_revisions_3d"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index} AND revision_number = {revision_number};"
+            polygons_JSON = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0].polygons
+        else:
+            GBQ_query = f"SELECT model_3d.polygons FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index};"
+            polygons_JSON = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0].polygons
+    
+        if polygons_JSON is None:
+            polygons_JSON = list()
 
     hyperparameters = load_hyperparameters()
     floor_plan_modeller_3d = Extrapolate3D(hyperparameters)
