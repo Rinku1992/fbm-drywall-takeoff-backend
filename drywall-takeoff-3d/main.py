@@ -44,6 +44,7 @@ from helper import (
     is_duplicate,
     delete_plan,
     load_floorplan_to_structured_2d_ID_token,
+    load_visual_grounding,
     load_templates,
     query_drywall,
     load_subscriber_client,
@@ -54,8 +55,9 @@ from helper import (
     page_to_svg,
     insert_page,
     load_drywall_weights,
+    download_floorplan,
 )
-from prompts import ARCHITECTURAL_DRAWING_CLASSIFIER
+from prompts import ARCHITECTURAL_DRAWING_CLASSIFIER, VISUAL_GROUNDING_DETECTOR
 
 
 def respond_with_UI_payload(payload, status_code=200):
@@ -64,16 +66,6 @@ def respond_with_UI_payload(payload, status_code=200):
         status_code=status_code,
         media_type="application/json",
     )
-
-
-def download_floorplan(plan_id, project_id, credentials, destination_path="/tmp/floor_plan.PDF"):
-    client = CloudStorageClient()
-    bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
-    blob_path = f"{project_id.lower()}/{plan_id.lower()}/floor_plan.PDF"
-    blob = bucket.blob(blob_path)
-
-    blob.download_to_filename(destination_path)
-    return f"gs://{credentials["CloudStorage"]["bucket_name"]}/{blob_path}"
 
 
 def insert_model_2d_revision(
@@ -272,7 +264,7 @@ def delete_floorplan(project_id, plan_id, user_id, bigquery_client, credentials)
     job_config_user_independent = dict(
         query_parameters=[
             bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
-            bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
+            bigquery.ScalarQueryParameter("project_id", "STRING", project_id)
         ]
     )
     bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config_user_independent).result()
@@ -592,85 +584,67 @@ def floorplan_to_preview_pages(
     n_pages,
     ip_address,
     pdf_path,
-    bigquery_client,
-    batch_size=10,
+    bigquery_client
 ):
-    vertex_ai_client, vertex_ai_generation_config, is_cached = load_vertex_ai_client(
-        credentials,
-        ip_address,
-        prompts=[ARCHITECTURAL_DRAWING_CLASSIFIER]
-    )
-    page_batches = [list(range(batch_index * batch_size, batch_index * batch_size + batch_size)) for batch_index in range(n_pages // batch_size)]
-    page_batches += [list(range(n_pages - (n_pages % batch_size), n_pages))]
     preview_pages = list()
     client = CloudStorageClient()
     bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
-    for page_batch in page_batches:
-        floor_plan_processed_paths, pages = floorplan_to_pages(
-            credentials,
-            project_id,
-            plan_id,
-            ip_address,
-            pdf_path,
-            page_batch,
-            vertex_ai_client=vertex_ai_client,
-            vertex_ai_generation_config=vertex_ai_generation_config,
-            is_cached=is_cached
+    floor_plan_processed_paths, pages = floorplan_to_pages(
+        credentials,
+        project_id,
+        plan_id,
+        user_id,
+        pdf_path,
+        n_pages,
+    )
+    for floor_plan_processed_path, page in zip(floor_plan_processed_paths, pages["pages"]):
+        metadata_page = dict(page_number=page["page_number"])
+        metadata_page["plan_type"] = page["plan_type"]
+        metadata_page["is_floorplan"] = page["plan_type"].upper().find("FLOOR") != -1
+        metadata_page["status"] = "NOT STARTED"
+        svg_path=Path(f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_{str(page["page_number"]).zfill(4)}.svg")
+        svg_path.parent.mkdir(parents=True, exist_ok=True)
+        floorplan_svg = page_to_svg(floor_plan_path=floor_plan_processed_path, svg_path=svg_path)
+        floorplan_svg_source = upload_floorplan(floorplan_svg, plan_id, project_id, credentials, index=str(page["page_number"]).zfill(4))
+        _, _, _, blob_path = floorplan_svg_source.split('/', 3)
+        blob = bucket.blob(blob_path)
+        url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(minutes=credentials["CloudStorage"]["expiration_in_minutes"]),
+            method="GET",
         )
-        for floor_plan_processed_path, page in zip(floor_plan_processed_paths, pages["pages"]):
-            metadata_page = dict(page_number=page["page_number"])
-            metadata_page["plan_type"] = page["plan_type"]
-            metadata_page["mask_factor"] = page["mask_factor"]
-            metadata_page["bounding_box_offsets"] = page["bounding_box_offsets"]
-            metadata_page["is_floorplan"] = True
-            metadata_page["status"] = "NOT STARTED"
-            svg_path=Path(f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_{str(page["page_number"]).zfill(4)}.svg")
-            svg_path.parent.mkdir(parents=True, exist_ok=True)
-            floorplan_svg = page_to_svg(floor_plan_path=floor_plan_processed_path, svg_path=svg_path)
-            floorplan_svg_source = upload_floorplan(floorplan_svg, plan_id, project_id, credentials, index=str(page["page_number"]).zfill(4))
-            _, _, _, blob_path = floorplan_svg_source.split('/', 3)
-            blob = bucket.blob(blob_path)
-            url = blob.generate_signed_url(
-                version="v4",
-                expiration=timedelta(minutes=credentials["CloudStorage"]["expiration_in_minutes"]),
-                method="GET",
-            )
-            metadata_page["signed_url_GCS"] = url
-            floor_plan_processed_image = cv2.imread(floor_plan_processed_path)
-            floor_plan_processed_image = cv2.resize(floor_plan_processed_image, (256, 256), interpolation=cv2.INTER_LANCZOS4)
-            floor_plan_processed_path_thumbnail = floor_plan_processed_path.parent.joinpath(floor_plan_processed_path.name.replace("floor_plan", "floor_plan_thumbnail"))
-            cv2.imwrite(floor_plan_processed_path_thumbnail, floor_plan_processed_image)
-            svg_path_thumbnail=Path(f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_thumbnail_{str(page["page_number"]).zfill(4)}.svg")
-            floorplan_svg_thumbnail = page_to_svg(floor_plan_path=floor_plan_processed_path_thumbnail, svg_path=svg_path_thumbnail)
-            floorplan_svg_source_thumbnail = upload_floorplan(floorplan_svg_thumbnail, plan_id, project_id, credentials, index=str(page["page_number"]).zfill(4))
-            _, _, _, blob_path = floorplan_svg_source_thumbnail.split('/', 3)
-            blob = bucket.blob(blob_path)
-            url = blob.generate_signed_url(
-                version="v4",
-                expiration=timedelta(minutes=credentials["CloudStorage"]["expiration_in_minutes"]),
-                method="GET",
-            )
-            metadata_page["signed_url_thumbnail_GCS"] = url
-            if all(plan_category.upper().find("FLOOR") == -1 for plan_category in page["plan_type"]):
-                metadata_page["is_floorplan"] = False
-            insert_page(
-                plan_id,
-                user_id,
-                project_id,
-                page["page_number"],
-                False,
-                "NOT STARTED",
-                bigquery_client,
-                credentials,
-                plan_type=page["plan_type"],
-                GCS_URL_page=floorplan_svg_source,
-                GCS_URL_page_thumbnail=floorplan_svg_source_thumbnail,
-                mask_factor=page["mask_factor"],
-                bounding_box_offsets=page["bounding_box_offsets"],
-                is_floorplan=metadata_page["is_floorplan"],
-            )
-            preview_pages.append(metadata_page)
-            logging.info(f"SYSTEM: Preview Generated for {page["page_number"]+1}/{n_pages} pages")
+        metadata_page["signed_url_GCS"] = url
+        floor_plan_processed_image = cv2.imread(floor_plan_processed_path)
+        floor_plan_processed_image = cv2.resize(floor_plan_processed_image, (1024, 1024), interpolation=cv2.INTER_LANCZOS4)
+        floor_plan_processed_path_thumbnail = floor_plan_processed_path.parent.joinpath(floor_plan_processed_path.name.replace("floor_plan", "floor_plan_thumbnail"))
+        cv2.imwrite(floor_plan_processed_path_thumbnail, floor_plan_processed_image)
+        svg_path_thumbnail=Path(f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_thumbnail_{str(page["page_number"]).zfill(4)}.svg")
+        floorplan_svg_thumbnail = page_to_svg(floor_plan_path=floor_plan_processed_path_thumbnail, svg_path=svg_path_thumbnail)
+        floorplan_svg_source_thumbnail = upload_floorplan(floorplan_svg_thumbnail, plan_id, project_id, credentials, index=str(page["page_number"]).zfill(4))
+        _, _, _, blob_path = floorplan_svg_source_thumbnail.split('/', 3)
+        blob = bucket.blob(blob_path)
+        url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(minutes=credentials["CloudStorage"]["expiration_in_minutes"]),
+            method="GET",
+        )
+        metadata_page["signed_url_thumbnail_GCS"] = url
+        insert_page(
+            plan_id,
+            user_id,
+            project_id,
+            page["page_number"],
+            False,
+            "NOT STARTED",
+            bigquery_client,
+            credentials,
+            plan_type=page["plan_type"],
+            GCS_URL_page=floorplan_svg_source,
+            GCS_URL_page_thumbnail=floorplan_svg_source_thumbnail,
+            is_floorplan=metadata_page["is_floorplan"],
+        )
+        preview_pages.append(metadata_page)
+        logging.info(f"SYSTEM: Preview Generated for {page["page_number"]+1}/{n_pages} pages")
     return preview_pages
 
 
@@ -1184,7 +1158,22 @@ async def floorplan_to_2d(request: Request):
         n_pages=n_pages,
     )
     ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
+    vertex_ai_client, vertex_ai_generation_config, is_cached = load_vertex_ai_client(
+        CREDENTIALS,
+        ip_address,
+        prompts=[VISUAL_GROUNDING_DETECTOR]
+    )
     elevation_map = map_floorplan_to_multipage_elevation(CREDENTIALS, ip_address, pdf_path)
+    pages_metadata = load_visual_grounding(
+        CREDENTIALS,
+        project_id,
+        plan_id,
+        ip_address,
+        pages_metadata,
+        vertex_ai_client=vertex_ai_client,
+        vertex_ai_generation_config=vertex_ai_generation_config,
+        is_cached=is_cached
+    )
 
     walls_2d_all = dict(pages=list())
     status = "COMPLETED"
@@ -1853,7 +1842,7 @@ async def remove_floorplan(request: Request):
     project_id = parameters.get("project_id") or body.get("project_id")
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
-    logging.info("SYSTEM: Received a Floorplan Deletion Request")
+    logging.info("SYSTEM: Received a Plan Deletion Request")
 
     GBQ_query = f"SELECT * FROM `drywall_takeoff.plans` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) = LOWER('{user_id}');"
     query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())
