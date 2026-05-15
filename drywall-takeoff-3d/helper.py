@@ -2,6 +2,7 @@ import json
 from json.decoder import JSONDecodeError
 import logging
 import hashlib
+import requests
 from pathlib import Path
 import datetime
 from time import sleep
@@ -36,6 +37,8 @@ from prompts import (
     FloorplanToMultipageElevationMapperResponse,
     ARCHITECTURAL_DRAWING_CLASSIFIER,
     ArchitecturalDrawingClassifierResponse,
+    VISUAL_GROUNDING_DETECTOR,
+    VisualGroundingDetectorResponse,
     FEEDBACK_GENERATOR
 )
 from preprocessing import preprocess
@@ -207,6 +210,16 @@ def load_floorplan_to_structured_2d_ID_token(credentials):
     service_account_credentials = IDTokenCredentials.from_service_account_file(
         credentials["service_drywall_account_key"],
         target_audience=credentials["CloudRun"]["APIs"]["floorplan_to_structured_2d"]
+    )
+    service_account_credentials.refresh(auth_req)
+    id_token = service_account_credentials.token
+    return id_token
+
+def load_floorplan_to_preview_ID_token(credentials):
+    auth_req = google.auth.transport.requests.Request()
+    service_account_credentials = IDTokenCredentials.from_service_account_file(
+        credentials["service_drywall_account_key"],
+        target_audience=credentials["CloudRun"]["APIs"]["floorplan_to_preview"]
     )
     service_account_credentials.refresh(auth_req)
     id_token = service_account_credentials.token
@@ -473,21 +486,103 @@ def classify_plan(
 
     return plan_types
 
-def floorplan_to_pages(credentials, project_id, plan_id, client_ip_address, pdf_path, page_batch, **vertex_ai_client):
-    floor_plan_paths_preprocessed = list()
-    futures = list()
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        for page_number in page_batch:
-            future = executor.submit(
-                preprocess,
-                pdf_path,
-                page_number
+def detect_bounding_boxes(
+    credentials,
+    client_ip_address,
+    plan_paths,
+    page_batch,
+    vertex_ai_client=None,
+    vertex_ai_generation_config=None,
+    is_cached=None
+):
+    if not vertex_ai_client:
+        vertex_ai_client, vertex_ai_generation_config, is_cached = load_vertex_ai_client(
+            credentials,
+            client_ip_address,
+            prompts=[VISUAL_GROUNDING_DETECTOR]
+        )
+    query_parts = list()
+    for page_number, plan_path in zip(page_batch, plan_paths):
+        plan_BGR = cv2.imread(plan_path)
+        _, canvas_buffer_array = cv2.imencode(".png", plan_BGR)
+        bytes_canvas = canvas_buffer_array.tobytes()
+        query_parts.append(Part.from_text(f"PAGE: {page_number}"))
+        query_parts.append(Part.from_data(data=bytes_canvas, mime_type="image/png"))
+    query = Content(role="user", parts=query_parts)
+    try:
+        if is_cached:
+            _, bounding_boxes = phoenix_call(
+                lambda feedback_prompt, temperature: vertex_ai_client.generate_content(
+                    contents=[feedback_prompt, query] if feedback_prompt else [query],
+                    generation_config={**vertex_ai_generation_config, "temperature": temperature},
+                ),
+                max_retry=credentials["VertexAI"]["llm"]["max_retry"],
+                pydantic_model=VisualGroundingDetectorResponse,
+                verify_field_counts=dict(pages=len(plan_paths))
             )
-            futures.append(future)
-    for future in futures:
-        floor_plan_paths_preprocessed.append(future.result())
-    plan_types = classify_plan(credentials, client_ip_address, floor_plan_paths_preprocessed, page_batch, **vertex_ai_client)
-    for floor_plan_path_preprocessed in floor_plan_paths_preprocessed:
+        else:
+            _, bounding_boxes = phoenix_call(
+                lambda feedback_prompt, temperature: vertex_ai_client(VISUAL_GROUNDING_DETECTOR).generate_content(
+                    contents=[feedback_prompt, query] if feedback_prompt else [query],
+                    generation_config={**vertex_ai_generation_config, "temperature": temperature},
+                ),
+                max_retry=credentials["VertexAI"]["llm"]["max_retry"],
+                pydantic_model=VisualGroundingDetectorResponse,
+                verify_field_counts=dict(pages=len(plan_paths))
+            )
+    except Exception as e:
+        logging.warning(f"SYSTEM: Bounding Box detection has failed: {e}")
+        pages = [dict(
+            page_number=page_number,
+            mask_factor=dict(horizontal=0.0, vertical=0.0),
+            bounding_box_offsets=[dict(offset_top_left=[0.0, 0.0], offset_bottom_right=[1.0, 1.0], title='', plan_type="FLOOR_PLAN")]
+        ) for page_number in page_batch]
+        bounding_boxes = dict(pages=pages)
+
+    return bounding_boxes
+
+def plan_to_preview(
+    credentials,
+    project_id,
+    plan_id,
+    user_id,
+):
+    id_token = load_floorplan_to_preview_ID_token(credentials)
+    headers = {
+        "Authorization": f"Bearer {id_token}",
+        "Content-Type": "application/json"
+    }
+    response = requests.post(
+        f"{credentials["CloudRun"]["APIs"]["floorplan_to_preview"]}/classify_pages",
+        headers=headers,
+        json=dict(
+            project_id=project_id,
+            plan_id=plan_id,
+            user_id=user_id
+        ),
+    )
+    response.raise_for_status()
+    plan_types = response.json()
+    return plan_types
+
+def floorplan_to_pages(credentials, project_id, plan_id, user_id, client_ip_address, pdf_path, n_pages, batch_size=10, **vertex_ai_client):
+    page_batches = [list(range(batch_index * batch_size, batch_index * batch_size + batch_size)) for batch_index in range(n_pages // batch_size)]
+    page_batches += [list(range(n_pages - (n_pages % batch_size), n_pages))]
+    floor_plan_paths_preprocessed = list()
+    for page_batch in page_batches:
+        futures = list()
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for page_number in page_batch:
+                future = executor.submit(
+                    preprocess,
+                    pdf_path,
+                    page_number
+                )
+                futures.append(future)
+        for future in futures:
+            floor_plan_paths_preprocessed.append(future.result())
+    plan_types = plan_to_preview(credentials, project_id, plan_id, user_id)
+    for page_number, floor_plan_path_preprocessed in enumerate(floor_plan_paths_preprocessed):
         upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, credentials, index=str(page_number).zfill(4))
     return floor_plan_paths_preprocessed, plan_types
 
@@ -651,3 +746,54 @@ def load_drywall_weights(walls_3d_JSON, polygons_JSON, compute_waste_average_sta
         waste_average = waste_factor_total / drywall_count
         return weights_drywall, waste_average, drywall_count
     return weights_drywall, drywall_count
+
+def load_visual_grounding(
+    credentials,
+    project_id,
+    plan_id,
+    ip_address,
+    pages_metadata,
+    batch_size=10,
+    vertex_ai_client=None,
+    vertex_ai_generation_config=None,
+    is_cached=None
+):
+    n_pages = len(pages_metadata)
+    page_batches = [list(map(lambda page_metadata: page_metadata["page_number"], pages_metadata[batch_index * batch_size: batch_index * batch_size + batch_size])) for batch_index in range(n_pages // batch_size)]
+    page_batches += [list(map(lambda page_metadata: page_metadata["page_number"], pages_metadata[n_pages - (n_pages % batch_size): n_pages]))]
+
+    plan_paths = dict()
+    for page_metadata in pages_metadata:
+        index = str(page_metadata["page_number"]).zfill(4)
+        destination_path = f"/tmp/floor_plan_{index}.png"
+        blob_name = "floor_plan.png"
+        download_floorplan(plan_id, project_id, credentials, index=index, blob_name=blob_name, destination_path=destination_path)
+        plan_paths[page_metadata["page_number"]] = destination_path
+    for page_batch in page_batches:
+        bounding_boxes = detect_bounding_boxes(
+            credentials,
+            ip_address,
+            [plan_paths[page_number] for page_number in page_batch],
+            page_batch,
+            vertex_ai_client=vertex_ai_client,
+            vertex_ai_generation_config=vertex_ai_generation_config,
+            is_cached=is_cached
+        )
+        for bounding_box in bounding_boxes["pages"]:
+            for page_metadata in pages_metadata:
+                if bounding_box["page_number"] == page_metadata["page_number"]:
+                    page_metadata["mask_factor"] = bounding_box["mask_factor"]
+                    page_metadata["bounding_box_offsets"] = bounding_box["bounding_box_offsets"]
+    return pages_metadata
+
+def download_floorplan(plan_id, project_id, credentials, index=None, blob_name="floor_plan.PDF", destination_path="/tmp/floor_plan.PDF"):
+    client = CloudStorageClient()
+    bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
+    if index:
+        blob_path = f"{project_id.lower()}/{plan_id.lower()}/{index}/{blob_name}"
+    else:
+        blob_path = f"{project_id.lower()}/{plan_id.lower()}/{blob_name}"
+    blob = bucket.blob(blob_path)
+
+    blob.download_to_filename(destination_path)
+    return f"gs://{credentials["CloudStorage"]["bucket_name"]}/{blob_path}"
