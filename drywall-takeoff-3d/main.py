@@ -960,6 +960,32 @@ async def generate_floorplan_upload_signed_URL(request: Request) -> str:
     return url
 
 
+@app.post("/generate_floorplan_download_signed_URL")
+async def generate_floorplan_download_signed_URL(request: Request) -> str:
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    project_id = parameters.get("project_id") or body.get("project_id")
+    plan_id = parameters.get("plan_id") or body.get("plan_id")
+    logging.info("SYSTEM: Received Signed Floorplan download URL generation Request")
+
+    client = CloudStorageClient()
+    bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
+    blob_path = f"{project_id.lower()}/{plan_id.lower()}/floor_plan.PDF"
+    blob = bucket.blob(blob_path)
+    url = blob.generate_signed_url(
+        version="v4",
+        expiration=timedelta(minutes=CREDENTIALS["CloudStorage"]["expiration_in_minutes"]),
+        method="GET",
+        content_type="application/octet-stream",
+    )
+
+    return url
+
+
 @app.post("/load_plan_pages")
 async def load_plan_pages(request: Request):
     enable_logging_on_stdout()
