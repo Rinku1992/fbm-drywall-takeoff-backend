@@ -1832,9 +1832,10 @@ async def remove_floorplan(request: Request):
     GBQ_query = f"SELECT * FROM `drywall_takeoff.plans` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND LOWER(user_id) = LOWER('{user_id}');"
     query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())
     if not query_output:
-        return respond_with_UI_payload(dict(error="Plan ID: {} cannot be deleted".format(plan_id)))
+        return respond_with_UI_payload(dict(status="FAILED", message="Plan: {} cannot be deleted".format(plan_id)))
     delete_floorplan(project_id, plan_id, user_id, bigquery_client, CREDENTIALS)
-    logging.info("SYSTEM: Floorplan Deleted Successfully")
+    logging.info("SYSTEM: Plan Deleted Successfully")
+    return respond_with_UI_payload(dict(status="SUCCESS", message=f"Plan: {plan_id} Deleted Successfully"))
 
 
 @app.post("/load_waste_average")
