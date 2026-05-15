@@ -565,7 +565,7 @@ def plan_to_preview(
     plan_types = response.json()
     return plan_types
 
-def floorplan_to_pages(credentials, project_id, plan_id, user_id, client_ip_address, pdf_path, n_pages, batch_size=10, **vertex_ai_client):
+def floorplan_to_pages(credentials, project_id, plan_id, user_id, pdf_path, n_pages, batch_size=10):
     page_batches = [list(range(batch_index * batch_size, batch_index * batch_size + batch_size)) for batch_index in range(n_pages // batch_size)]
     page_batches += [list(range(n_pages - (n_pages % batch_size), n_pages))]
     floor_plan_paths_preprocessed = list()
