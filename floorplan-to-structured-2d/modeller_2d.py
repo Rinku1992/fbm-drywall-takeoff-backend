@@ -2218,6 +2218,8 @@ class FloorPlan2D(FloorPlan):
             ceiling_types_levenshtein = list(map(lambda ceiling_type: Levenshtein.distance(polygon["type"], ceiling_type), CEILING_CHOICES))
             target_ceiling_type_index = ceiling_types_levenshtein.index(min(ceiling_types_levenshtein))
             polygon["type"] = CEILING_CHOICES[target_ceiling_type_index]
+            polygon_area_shoelace = cv2.contourArea(np.array(polygon["vertices"], dtype=np.float32))
+            polygon["polygon_area_shoelace"] = polygon_area_shoelace
             perimeter_wall_missing = False
             for drywall_id in polygon["polygon_ids_drywall_interior"]:
                 wall_id = int(drywall_id.split('.')[0])
