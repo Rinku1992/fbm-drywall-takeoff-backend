@@ -34,6 +34,7 @@ import cv2
 from pdf2image.pdf2image import pdfinfo_from_path
 
 from extrapolate_3d import Extrapolate3D
+from floor_plan import FloorPlan
 from helper import (
     load_bigquery_client,
     bigquery_run,
@@ -1597,11 +1598,28 @@ async def update_scale(request: Request):
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     page_number = parameters.get("page_number") or body.get("page_number")
+    walls_2d_JSON = parameters.get("walls_2d") or body.get("walls_2d")
+    polygons_JSON = parameters.get("polygons") or body.get("polygons")
     logging.info("SYSTEM: Received a Scale Update Request")
 
     GBQ_query = f"UPDATE `{CREDENTIALS["GBQServer"]["table_name_models"]}` SET scale = '{scale}' WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
     bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()
     logging.info("SYSTEM: Scale Updated Successfully")
+
+    if walls_2d_JSON and polygons_JSON:
+        hyperparameters = load_hyperparameters()
+        floor_plan = FloorPlan(hyperparameters)
+        imperial_scale_X, imperial_scale_Y = floor_plan.compute_imperial_scale_from_DPI(scale)
+        imperial_scale_A = imperial_scale_X * imperial_scale_Y
+        for polygon in polygons_JSON:
+            polygon["area"] = polygon["polygon_area_shoelace"] * imperial_scale_A
+        for wall in walls_2d_JSON:
+            X1, Y1, X2, Y2 = wall["wall_line"][0]['x'], wall["wall_line"][0]['y'], wall["wall_line"][1]['x'], wall["wall_line"][1]['y']
+            length_X = (X2 - X1) * imperial_scale_X
+            length_Y = (Y2 - Y1) * imperial_scale_Y
+            wall["length"] = round(math.hypot(length_X, length_Y), 3)
+        logging.info(f"SYSTEM: Walls 2D and Polygons computed with scale: {scale}")
+        return respond_with_UI_payload(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON))
 
 
 @app.post("/load_scale")
