@@ -24,6 +24,12 @@ class FloorPlan:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         return gray
 
+    def compute_imperial_scale_from_DPI(self, architectural_scale_normalized):
+        DPI = self.hyperparameters["modelling"]["scale_adoption"]["dpi"]
+        scale_on_paper_length = float(architectural_scale_normalized.split(':')[0].strip('`'))
+        imperial = DPI * scale_on_paper_length
+        return (1 / imperial, 1 / imperial)
+
     def compute_pixel_aspect_ratio(self, scale_new, pixel_aspect_ratio_standard):
         scale_new_unnormalized = f"{round(float(Fraction(scale_new.split('=')[0].strip('`'))), 2)}``:1`0``"
         scale_new_on_paper_length = float(scale_new_unnormalized.split(':')[0].strip('`"'))
