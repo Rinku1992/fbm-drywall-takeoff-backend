@@ -24,9 +24,9 @@ class FloorPlan:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         return gray
 
-    def compute_imperial_scale_from_DPI(self, architectural_scale_normalized):
+    def compute_imperial_scale_from_DPI(self, architectural_scale):
         DPI = self.hyperparameters["modelling"]["scale_adoption"]["dpi"]
-        scale_on_paper_length = float(architectural_scale_normalized.split(':')[0].strip('`'))
+        scale_on_paper_length = float(Fraction(architectural_scale.split('=')[0].strip('`')))
         imperial = DPI * scale_on_paper_length
         return (1 / imperial, 1 / imperial)
 
