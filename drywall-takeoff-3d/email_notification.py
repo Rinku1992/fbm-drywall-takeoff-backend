@@ -77,7 +77,7 @@ def trigger(
         <p>{details_paragraph}</p>
         <p><b>Status:</b> {message}</p>
         <p><b>Project:</b> {project_name}</p>
-        <p><b>File:</b> {plan_name}</p>
+        <p><b>Plan:</b> {plan_name}</p>
 
         <p>Regards,<br>{team_name}</p>
         """
