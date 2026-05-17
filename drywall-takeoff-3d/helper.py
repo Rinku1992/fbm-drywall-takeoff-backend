@@ -804,7 +804,7 @@ def trigger_email_notification(credentials, bigquery_client, status, project_id,
         message = f"PLAN: {plan_id} | : PAGE NUMBERS: {page_numbers} | extraction status: {status}"
     else:
         message = f"PLAN: {plan_id} | extraction status: {status}"
-    GBQ_query = f"select group_id from drywall_takeoff.users, UNNEST(group_ids) AS group_id where user_id = '{user_id}'"
+    GBQ_query = f"select group_id from drywall_takeoff.users, UNNEST(group_ids) AS group_id where LOWER(user_id) = LOWER('{user_id}')"
     query_output = bigquery_run(credentials, bigquery_client, GBQ_query).result()
     group_ids = [row.group_id for row in query_output]
     for group_id in group_ids:
