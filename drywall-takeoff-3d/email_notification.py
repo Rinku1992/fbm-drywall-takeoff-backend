@@ -72,7 +72,7 @@ def trigger(
             )
 
         body_content = f"""
-        <p>Hi {user_name},</p>
+        <p>Hi {user_name.split('@')[0]},</p>
         <p>{status_paragraph}</p>
         <p>{details_paragraph}</p>
         <p><b>Status:</b> {message}</p>
