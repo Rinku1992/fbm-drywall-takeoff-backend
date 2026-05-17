@@ -1277,7 +1277,15 @@ async def floorplan_to_2d(request: Request):
     with open("/tmp/floorplan_structured_2d.json", 'w') as f:
         json.dump(walls_2d_all, f, indent=4)
     blob.upload_from_filename("/tmp/floorplan_structured_2d.json")
-    trigger_email_notification(CREDENTIALS, bigquery_client, status, project_id, plan_id, user_id)
+    trigger_email_notification(
+        CREDENTIALS,
+        bigquery_client,
+        status,
+        project_id,
+        plan_id,
+        user_id,
+        page_numbers=[page_metadata["page_number"] for page_metadata in pages_metadata]
+    )
     return respond_with_UI_payload(walls_2d_all)
 
 
