@@ -1773,7 +1773,6 @@ class FloorPlan2D(FloorPlan):
             polygon_ids_drywall_interior_filtered.append(polygon_id_drywall_interior)
             interior_wall_ids.add(wall_id)
 
-        #print(model_polygon["ceiling"])
         polygon = dict(
             id=index,
             area=model_polygon["ceiling"]["area"],
