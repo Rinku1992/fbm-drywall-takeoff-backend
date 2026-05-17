@@ -801,9 +801,9 @@ def download_floorplan(plan_id, project_id, credentials, index=None, blob_name="
 
 def trigger_email_notification(credentials, bigquery_client, status, project_id, plan_id, user_id, page_numbers=None):
     if page_numbers:
-        message = f"PLAN: {plan_id} | : PAGE NUMBERS: {page_numbers} | extraction status: {status}"
+        message = f"Plan: {plan_id} | Page Numbers: {page_numbers} | Extraction: {status}"
     else:
-        message = f"PLAN: {plan_id} | extraction status: {status}"
+        message = f"Plan: {plan_id} | Extraction: {status}"
     GBQ_query = f"select group_id from drywall_takeoff.users, UNNEST(group_ids) AS group_id where LOWER(user_id) = LOWER('{user_id}')"
     query_output = bigquery_run(credentials, bigquery_client, GBQ_query).result()
     group_ids = [row.group_id for row in query_output]
