@@ -42,6 +42,7 @@ from prompts import (
     FEEDBACK_GENERATOR
 )
 from preprocessing import preprocess
+from email_notification import trigger
 
 
 def load_bigquery_client(credentials):
@@ -797,3 +798,20 @@ def download_floorplan(plan_id, project_id, credentials, index=None, blob_name="
 
     blob.download_to_filename(destination_path)
     return f"gs://{credentials["CloudStorage"]["bucket_name"]}/{blob_path}"
+
+def trigger_email_notification(credentials, bigquery_client, status, project_id, plan_id, user_id):
+    message = f"PLAN: {plan_id} extraction status: {status}"
+    GBQ_query = f"select group_id from drywall_takeoff.users, UNNEST(group_ids) AS group_id where user_id = '{user_id}'"
+    query_output = bigquery_run(credentials, bigquery_client, GBQ_query).result()
+    group_ids = [row.group_id for row in query_output]
+    for group_id in group_ids:
+        trigger(
+            credentials,
+            group_id,
+            user_id,
+            user_id,
+            plan_id,
+            project_id,
+            group_id,
+            message=message,
+        )
