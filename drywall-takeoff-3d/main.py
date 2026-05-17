@@ -1603,7 +1603,7 @@ async def update_scale(request: Request):
     polygons_JSON = parameters.get("polygons") or body.get("polygons")
     logging.info("SYSTEM: Received a Scale Update Request")
 
-    GBQ_query = f"UPDATE `{CREDENTIALS["GBQServer"]["table_name_models"]}` SET scale = '{scale}' WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+    GBQ_query = f"UPDATE `{CREDENTIALS["GBQServer"]["table_name_models"]}` SET scale = '{scale}' WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number} AND page_section_number = {page_section_number};"
     bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()
     logging.info("SYSTEM: Scale Updated Successfully")
 
