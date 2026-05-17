@@ -57,6 +57,7 @@ from helper import (
     insert_page,
     load_drywall_weights,
     download_floorplan,
+    trigger_email_notification,
 )
 from prompts import ARCHITECTURAL_DRAWING_CLASSIFIER, VISUAL_GROUNDING_DETECTOR
 
@@ -1276,6 +1277,7 @@ async def floorplan_to_2d(request: Request):
     with open("/tmp/floorplan_structured_2d.json", 'w') as f:
         json.dump(walls_2d_all, f, indent=4)
     blob.upload_from_filename("/tmp/floorplan_structured_2d.json")
+    trigger_email_notification(CREDENTIALS, bigquery_client, status, project_id, plan_id, user_id)
     return respond_with_UI_payload(walls_2d_all)
 
 
