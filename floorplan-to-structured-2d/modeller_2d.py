@@ -21,8 +21,11 @@ import Levenshtein
 
 from floor_plan import FloorPlan
 from prompts import (
+    POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA,
+    POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT,
+    POLYGON_DETECTOR,
+    POLYGON_DETECTOR_FEW_SHOT,
     DRYWALL_PREDICTOR_CALIFORNIA,
-    DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT,
     SCALE_AND_CEILING_HEIGHT_DETECTOR,
     WALL_RECTIFIER,
     WALL_RECTIFIER_FEW_SHOT,
@@ -31,6 +34,8 @@ from prompts import (
     CEILING_CHOICES,
     WALL_CHOICES,
     OPENING_TYPE_CHOICES,
+    PolygonDetectorAndDrywallPredictorCaliforniaResponse,
+    PolygonDetectorResponse,
     DrywallPredictorCaliforniaResponse,
     ScaleAndCeilingHeightDetectorResponse,
     WallRectifierResponse,
@@ -39,7 +44,6 @@ from prompts import (
 from helper import (
     load_vertex_ai_client,
     phoenix_call,
-    polygon_to_structured_2d
 )
 
 __all__ = ["FloorPlan2D"]
@@ -67,18 +71,30 @@ class FloorPlan2D(FloorPlan):
     @classmethod
     def load_vertex_ai_clients(cls, credentials, client_ip_address, drywall_templates):
         is_cached = dict()
-        vertex_ai_client_drywall_prediction, generation_config, cache_enabled = load_vertex_ai_client(
+        vertex_ai_client_polygon_detection_and_drywall_prediction, generation_config, cache_enabled = load_vertex_ai_client(
             credentials,
             client_ip_address,
-            prompts=[DRYWALL_PREDICTOR_CALIFORNIA.format(drywall_templates=drywall_templates)]
+            prompts=[POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA.format(drywall_templates=drywall_templates)]
         )
-        is_cached["DRYWALL_PREDICTOR_CALIFORNIA"] = cache_enabled
+        is_cached["POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA"] = cache_enabled
         vertex_ai_client_metadata_extraction, _, cache_enabled = load_vertex_ai_client(
             credentials,
             client_ip_address,
             prompts=[SCALE_AND_CEILING_HEIGHT_DETECTOR.format(supported_scales_architectural=cls.scales_architectural)]
         )
         is_cached["SCALE_AND_CEILING_HEIGHT_DETECTOR"] = cache_enabled
+        vertex_ai_client_polygon_detection, generation_config, cache_enabled = load_vertex_ai_client(
+            credentials,
+            client_ip_address,
+            prompts=[POLYGON_DETECTOR]
+        )
+        is_cached["POLYGON_DETECTOR"] = cache_enabled
+        vertex_ai_client_drywall_prediction, generation_config, cache_enabled = load_vertex_ai_client(
+            credentials,
+            client_ip_address,
+            prompts=[DRYWALL_PREDICTOR_CALIFORNIA.format(drywall_templates=drywall_templates)]
+        )
+        is_cached["DRYWALL_PREDICTOR_CALIFORNIA"] = cache_enabled
         vertex_ai_client_wall_rectification, _, cache_enabled = load_vertex_ai_client(
             credentials,
             client_ip_address,
@@ -92,8 +108,10 @@ class FloorPlan2D(FloorPlan):
         )
         is_cached["SHAPE_RECTIFIER"] = cache_enabled
         vertex_ai_clients = (
-            vertex_ai_client_drywall_prediction,
+            vertex_ai_client_polygon_detection_and_drywall_prediction,
             vertex_ai_client_metadata_extraction,
+            vertex_ai_client_polygon_detection,
+            vertex_ai_client_drywall_prediction,
             vertex_ai_client_wall_rectification,
             vertex_ai_client_shape_rectification
         )
@@ -102,10 +120,12 @@ class FloorPlan2D(FloorPlan):
     def from_vertex_ai_clients(self, is_cached, vertex_ai_clients, generation_config):
         self._vertex_ai_generation_config = generation_config
         self._is_cached = is_cached
-        self._vertex_ai_client_drywall_prediction = vertex_ai_clients[0]
+        self._vertex_ai_client_polygon_detection_and_drywall_prediction = vertex_ai_clients[0]
         self._vertex_ai_client_metadata_extraction = vertex_ai_clients[1]
-        self._vertex_ai_client_wall_rectification = vertex_ai_clients[2]
-        self._vertex_ai_client_shape_rectification = vertex_ai_clients[3]
+        self._vertex_ai_client_polygon_detection = vertex_ai_clients[2]
+        self._vertex_ai_client_drywall_prediction = vertex_ai_clients[3]
+        self._vertex_ai_client_wall_rectification = vertex_ai_clients[4]
+        self._vertex_ai_client_shape_rectification = vertex_ai_clients[5]
 
     def _close_jagged_openings(
         self,
