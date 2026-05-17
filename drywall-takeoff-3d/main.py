@@ -1971,7 +1971,6 @@ async def compute_takeoff(request: Request):
         waste_factor_average_delta = 0
     normalization_variance_aware = sum(w**2 for w in drywall_weights.values())
     for wall in walls_3d_JSON:
-        drywall_count = 0
         for drywall in wall["surfaces_drywall"]:
             surface_area = drywall["height"] * wall["length"]
             if not drywall["enabled"]:
@@ -1986,6 +1985,7 @@ async def compute_takeoff(request: Request):
                     waste_factor = max(0, float(drywall_template["waste"]) + waste_factor_delta) / 100
                     net_sqft = drywall["layers"] * (surface_area / stack_length)
                     total_sqft = net_sqft * (1 + waste_factor)
+                    drywall_takeoff["total"]["wall"] += total_sqft
                     sheet_size = drywall_template["sheet_size"]
                     sheet_area_sqft = int(sheet_size.split('x')[0]) * int(sheet_size.split('x')[1])
                     sheets_required_total = math.ceil(total_sqft / sheet_area_sqft)
@@ -2006,6 +2006,7 @@ async def compute_takeoff(request: Request):
                 waste_factor = max(0, float(drywall_template["waste"]) + waste_factor_delta) / 100
                 net_sqft = drywall["layers"] * surface_area
                 total_sqft = net_sqft * (1 + waste_factor)
+                drywall_takeoff["total"]["wall"] += total_sqft
                 sheet_size = drywall_template["sheet_size"]
                 sheet_area_sqft = int(sheet_size.split('x')[0]) * int(sheet_size.split('x')[1])
                 sheets_required_total = math.ceil(total_sqft / sheet_area_sqft)
@@ -2018,8 +2019,6 @@ async def compute_takeoff(request: Request):
                     sheets_required_total=drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["sheets_required_total"]+sheets_required_total,
                     sheets_required_no_waste=drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["sheets_required_no_waste"]+sheets_required_no_waste
                 )
-            drywall_count += drywall["layers"]
-        drywall_takeoff["total"]["wall"] += drywall_count * surface_area
     for polygon in polygons_JSON:
         if not polygon["surface_drywall"]["enabled"] or polygon["surface_drywall"]["type"] == "DISABLED":
             polygon["surface_drywall"]["enabled"] = False
@@ -2047,7 +2046,7 @@ async def compute_takeoff(request: Request):
             sheets_required_total=drywall_takeoff["per_drywall"]["roof"][polygon["surface_drywall"]["type"]]["sheets_required_total"]+sheets_required_total,
             sheets_required_no_waste=drywall_takeoff["per_drywall"]["roof"][polygon["surface_drywall"]["type"]]["sheets_required_no_waste"]+sheets_required_no_waste
         )
-        drywall_takeoff["total"]["roof"] += surface_area
+        drywall_takeoff["total"]["roof"] += total_sqft
 
     drywall_takeoff["total"]["wall"] = round(drywall_takeoff["total"]["wall"], 2)
     drywall_takeoff["total"]["roof"] = round(drywall_takeoff["total"]["roof"], 2)
