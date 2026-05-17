@@ -807,14 +807,14 @@ def trigger_email_notification(credentials, bigquery_client, status, project_id,
     GBQ_query = f"select group_id from drywall_takeoff.users, UNNEST(group_ids) AS group_id where LOWER(user_id) = LOWER('{user_id}')"
     query_output = bigquery_run(credentials, bigquery_client, GBQ_query).result()
     group_ids = [row.group_id for row in query_output]
-    for group_id in group_ids:
-        trigger(
-            credentials,
-            group_id,
-            user_id,
-            user_id,
-            plan_id,
-            project_id,
-            group_id,
-            message=message,
-        )
+    group_id = " | ".join(group_ids)
+    trigger(
+        credentials,
+        user_id,
+        user_id,
+        user_id,
+        plan_id,
+        project_id,
+        group_id,
+        message=message,
+    )
