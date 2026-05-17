@@ -1598,6 +1598,7 @@ async def update_scale(request: Request):
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     page_number = parameters.get("page_number") or body.get("page_number")
+    page_section_number = parameters.get("page_section_number") or body.get("page_section_number")
     walls_2d_JSON = parameters.get("walls_2d") or body.get("walls_2d")
     polygons_JSON = parameters.get("polygons") or body.get("polygons")
     logging.info("SYSTEM: Received a Scale Update Request")
@@ -1619,6 +1620,8 @@ async def update_scale(request: Request):
             length_Y = (Y2 - Y1) * imperial_scale_Y
             wall["length"] = round(math.hypot(length_X, length_Y), 3)
         logging.info(f"SYSTEM: Walls 2D and Polygons computed with scale: {scale}")
+        insert_model_2d(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), scale, page_number, plan_id, user_id, project_id, None, None, bigquery_client, CREDENTIALS, page_section_number=page_section_number)
+        insert_model_2d_revision(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), scale, page_number, plan_id, user_id, project_id, bigquery_client, CREDENTIALS, page_section_number=page_section_number)
         return respond_with_UI_payload(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON))
 
 
