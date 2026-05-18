@@ -35,6 +35,7 @@ from helper import (
     apply_pixel_margin_to_bounding_box,
     load_publisher_client,
     insert_page,
+    trigger_email_notification,
 )
 
 
@@ -119,7 +120,7 @@ def page_to_structured_2d(
     floorplan_baseline_page_source,
     elevation_processed_paths,
     predict_drywall,
-):
+    ):
     floor_plan_modeller_2d.reload()
     wall_segmented_sectioned_path = load_section_from_page(
         wall_segmented_path,
@@ -276,6 +277,15 @@ async def floorplan_to_structured_2d(request: Request):
             bigquery_client,
             CREDENTIALS,
         )
+        trigger_email_notification(
+            CREDENTIALS,
+            bigquery_client,
+            "FAILED",
+            project_id,
+            plan_id,
+            user_id,
+            page_number=page_number
+        )
         return respond_with_UI_payload(dict(status="FAILED", message=f"NO Floor Plan layout observed"))
     logging.info(f"SYSTEM: Floorplan Preprocessing Completed: Page Number: {page_number}")
 
@@ -321,6 +331,15 @@ async def floorplan_to_structured_2d(request: Request):
             "COMPLETED",
             bigquery_client,
             CREDENTIALS,
+        )
+        trigger_email_notification(
+            CREDENTIALS,
+            bigquery_client,
+            "COMPLETED",
+            project_id,
+            plan_id,
+            user_id,
+            page_number=page_number
         )
         return respond_with_UI_payload(dict(status="SUCCESS", message="NO Floor Plan layout observed"))
 
@@ -388,10 +407,20 @@ async def floorplan_to_structured_2d(request: Request):
             bigquery_client,
             CREDENTIALS,
         )
+        trigger_email_notification(
+            CREDENTIALS,
+            bigquery_client,
+            "COMPLETED",
+            project_id,
+            plan_id,
+            user_id,
+            page_number=page_number
+        )
         return respond_with_UI_payload(dict(status="SUCCESS", message="NO Floor Plan layout observed"))
     if not FloorPlan2D.is_none(wall_segmented_path):
         futures = list()
         vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES)
+        print(transcription_block_with_centroids)
         with ThreadPoolExecutor(max_workers=2) as executor:
             for bounding_box_offset in bounding_box_offsets:
                 logging.info(f"SYSTEM: Extracting structured model from SECTION: {bounding_box_offset["title"]} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
@@ -430,5 +459,14 @@ async def floorplan_to_structured_2d(request: Request):
         "COMPLETED",
         bigquery_client,
         CREDENTIALS,
+    )
+    trigger_email_notification(
+        CREDENTIALS,
+        bigquery_client,
+        "COMPLETED",
+        project_id,
+        plan_id,
+        user_id,
+        page_number=page_number
     )
     return respond_with_UI_payload(dict(status="SUCCESS", message="Floor Plan extraction completed"))
