@@ -1103,7 +1103,6 @@ async def floorplan_to_preview(request: Request):
     n_pages = pdfinfo_from_path(pdf_path)["Pages"]
     logging.info("SYSTEM: Floorplan Downloaded for preview generation")
 
-    ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
     payload_preview = floorplan_to_preview_pages(
         CREDENTIALS,
         project_id,
