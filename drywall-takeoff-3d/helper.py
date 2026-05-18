@@ -799,7 +799,16 @@ def download_floorplan(plan_id, project_id, credentials, index=None, blob_name="
     blob.download_to_filename(destination_path)
     return f"gs://{credentials["CloudStorage"]["bucket_name"]}/{blob_path}"
 
-def trigger_email_notification(credentials, bigquery_client, status, project_id, plan_id, user_id, page_numbers=None):
+def trigger_email_notification(
+    credentials,
+    bigquery_client,
+    status,
+    project_id,
+    plan_id,
+    user_id,
+    page_numbers=None,
+    notify_group=False,
+):
     if page_numbers:
         message = f"Plan: {plan_id} | Page Numbers: {page_numbers} | Extraction: {status}"
     else:
@@ -808,13 +817,72 @@ def trigger_email_notification(credentials, bigquery_client, status, project_id,
     query_output = bigquery_run(credentials, bigquery_client, GBQ_query).result()
     group_ids = [row.group_id for row in query_output]
     group_id = " | ".join(group_ids)
-    trigger(
-        credentials,
-        user_id,
-        user_id,
-        user_id,
-        plan_id,
-        project_id,
-        group_id,
-        message=message,
-    )
+    if notify_group:
+        GBQ_query = f"""WITH current_user AS (
+                SELECT '{user_id}' AS user_id
+            ),
+
+            current_user_groups AS (
+                SELECT DISTINCT group_id
+                FROM `drywall_takeoff.users` u,
+                UNNEST(IFNULL(u.group_ids, [])) AS group_id
+                JOIN current_user cu
+                    ON LOWER(u.user_id) = LOWER(cu.user_id)
+            ),
+
+            matching_users AS (
+                SELECT DISTINCT
+                    g.user_id
+                FROM `drywall_takeoff.groups` g
+                JOIN current_user_groups cug
+                    ON g.group_id = cug.group_id
+            ),
+
+            fallback_user AS (
+                SELECT cu.user_id
+                FROM current_user cu
+                CROSS JOIN UNNEST([1]) dummy
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM current_user_groups
+                )
+            ),
+
+            final_users AS (
+                SELECT user_id
+                FROM matching_users
+ 
+                UNION DISTINCT
+
+                SELECT user_id
+                FROM fallback_user
+            )
+
+            SELECT LOWER(user_id) AS user_id
+            FROM final_users
+        );
+        """
+        query_output = bigquery_run(credentials, bigquery_client, GBQ_query).result()
+        user_ids_group = [row.user_id_id for row in query_output]
+        for user_id_group in user_ids_group:
+            trigger(
+                credentials,
+                user_id,
+                user_id_group,
+                user_id_group,
+                plan_id,
+                project_id,
+                group_id,
+                message=message,
+            )
+    else:
+        trigger(
+            credentials,
+            user_id,
+            user_id,
+            user_id,
+            plan_id,
+            project_id,
+            group_id,
+            message=message,
+        )
