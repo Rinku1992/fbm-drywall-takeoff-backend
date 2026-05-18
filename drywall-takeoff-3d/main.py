@@ -1923,7 +1923,7 @@ async def compute_takeoff(request: Request):
         body = dict()
     walls_3d_JSON = parameters.get("walls_3d", list()) or body.get("walls_3d", list())
     polygons_JSON = parameters.get("polygons", list()) or body.get("polygons", list())
-    waste_factor_average = parameters.get("waste_factor_average", None) or body.get("waste_factor_average", None)
+    waste_factor_average = parameters.get("waste_factor_average") or body.get("waste_factor_average") or None
     index = parameters.get("page_number") or body.get("page_number")
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
@@ -1978,6 +1978,10 @@ async def compute_takeoff(request: Request):
         compute_waste_average_standard=True,
         drywall_templates=DRYWALL_TEMPLATES
     )
+    if not waste_factor_average:
+        GBQ_query = f"SELECT waste_average FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index};"
+        query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
+        waste_factor_average = query_output.waste_average
     if waste_factor_average:
         waste_factor_average_delta = float(waste_factor_average) - waste_standard
     else:
@@ -2070,7 +2074,6 @@ async def compute_takeoff(request: Request):
         logging.info("SYSTEM: Drywall Takeoff computation saved")
     logging.info("SYSTEM: Drywall Takeoff Computed Successfully for the provided Floorplan")
     return respond_with_UI_payload(drywall_takeoff)
-
 
 @app.get("/insert_templates")
 async def insert_templates():
