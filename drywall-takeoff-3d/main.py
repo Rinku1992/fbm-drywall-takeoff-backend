@@ -2075,6 +2075,7 @@ async def compute_takeoff(request: Request):
     logging.info("SYSTEM: Drywall Takeoff Computed Successfully for the provided Floorplan")
     return respond_with_UI_payload(drywall_takeoff)
 
+
 @app.get("/insert_templates")
 async def insert_templates():
     def parse_fire_rating(description: str):
