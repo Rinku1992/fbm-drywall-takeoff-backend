@@ -583,7 +583,6 @@ def floorplan_to_preview_pages(
     plan_id,
     user_id,
     n_pages,
-    ip_address,
     pdf_path,
     bigquery_client
 ):
@@ -1111,7 +1110,6 @@ async def floorplan_to_preview(request: Request):
         plan_id,
         user_id,
         n_pages,
-        ip_address,
         pdf_path,
         bigquery_client,
     )
