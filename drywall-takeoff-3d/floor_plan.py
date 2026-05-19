@@ -4,6 +4,7 @@ from fractions import Fraction
 import math
 import numpy as np
 import cv2
+from scipy.spatial import cKDTree
 from pdf2image import convert_from_path
 
 __all__ = ["FloorPlan"]
@@ -58,6 +59,22 @@ class FloorPlan:
             **self.hyperparameters["modelling"]["HoughLinesTransformation"]
         )
         return lines
+
+    def load_KD_tree(self, lines):
+        points = list()
+        line_lookup = list()
+
+        for idx, line in enumerate(lines):
+            x1, y1, x2, y2 = line[0]
+
+            points.append((x1, y1))
+            line_lookup.append(idx)
+
+            points.append((x2, y2))
+            line_lookup.append(idx)
+
+        tree = cKDTree(np.array(points))
+        return tree, line_lookup
 
     def image_to_patches(self, image):
         patches = list()
@@ -142,19 +159,34 @@ class FloorPlan:
         return open_ends
 
     def neighbors(self, reference_line, target_lines, tolerance=10):
-        neighbor_lines = list()
-        X1, Y1, X2, Y2 = reference_line[0]
-        target_wall_lines = deepcopy(target_lines)
-        if reference_line in target_wall_lines:
-            target_wall_lines.remove(reference_line)
-        for target_wall_line in target_wall_lines:
-            target_X1, target_Y1, target_X2, target_Y2 = target_wall_line[0]
-            if math.hypot(X1 - target_X1, Y1 - target_Y1) <= tolerance or math.hypot(X1 - target_X2, Y1 - target_Y2) <= tolerance:
-                neighbor_lines.append(target_wall_line)
-            if math.hypot(X2 - target_X1, Y2 - target_Y1) <= tolerance or math.hypot(X2 - target_X2, Y2 - target_Y2) <= tolerance:
-                neighbor_lines.append(target_wall_line)
+        tree, line_lookup = self.load_KD_tree(target_lines)
+        x1, y1, x2, y2 = reference_line[0]
 
-        return neighbor_lines
+        neighbor_indices = set()
+
+        near_p1 = tree.query_ball_point(
+            [x1, y1],
+            tolerance
+        )
+
+        near_p2 = tree.query_ball_point(
+            [x2, y2],
+            tolerance
+        )
+
+        all_hits = near_p1 + near_p2
+
+        for endpoint_idx in all_hits:
+            line_idx = line_lookup[endpoint_idx]
+            candidate_line = target_lines[line_idx]
+
+            if candidate_line != reference_line:
+                neighbor_indices.add(line_idx)
+
+        return [
+            target_lines[i]
+            for i in neighbor_indices
+        ]
 
     def nearest_neighbor(self, reference_line, end_type, target_lines, tolerance=500):
         X1, Y1, X2, Y2 = reference_line[0]
