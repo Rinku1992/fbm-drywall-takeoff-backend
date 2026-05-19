@@ -986,7 +986,7 @@ async def load_plan_pages(request: Request):
 
             current_user_groups AS (
                 SELECT DISTINCT group_id
-                FROM `drywall_takeoff.users` u,
+                FROM `{CREDENTIALS["GBQServer"]["table_name_users"]}` u,
                 UNNEST(IFNULL(u.group_ids, [])) AS group_id
                 JOIN current_user cu
                     ON LOWER(u.user_id) = LOWER(cu.user_id)
@@ -995,7 +995,7 @@ async def load_plan_pages(request: Request):
             matching_users AS (
                 SELECT DISTINCT
                     g.user_id
-                FROM `drywall_takeoff.groups` g
+                FROM `{CREDENTIALS["GBQServer"]["table_name_groups"]}` g
                 JOIN current_user_groups cug
                     ON g.group_id = cug.group_id
             ),
