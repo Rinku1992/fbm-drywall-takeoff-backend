@@ -2,11 +2,8 @@ from copy import deepcopy
 import json
 from pathlib import Path
 
-from pdf2image import convert_from_path
 import math
-import cv2
 import matplotlib.pyplot as plt
-import numpy as np
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
 from floor_plan import FloorPlan
@@ -422,12 +419,6 @@ class Extrapolate3D(FloorPlan):
         )
         self._polygons_3d.append(polygon)
 
-    def compute_sloped_area_polygon(self, area, slope):
-        if slope is None or slope == 0:
-            return area
-        theta = math.radians(slope)
-        return round(area / math.cos(theta), 2)
-
     def save_plot_3d(self, model_3d_path, polygons_3d_path):
         def add_side_face(ax, p1_i, p2_i, p1_o, p2_o):
             face = [
@@ -539,29 +530,6 @@ class Extrapolate3D(FloorPlan):
             )
         load_gltf(walls, polygons, "/tmp/walls.gltf")
         return [Path("/tmp/walls.gltf"), Path("/tmp/walls.bin")]
-
-    def recompute_dimensions_walls_and_polygons(self, walls_3d_JSON, polygons_JSON, pixel_aspect_ratio_new, floor_plan_pdf_path):
-        width, height = convert_from_path(floor_plan_pdf_path, dpi=400)[0].size
-        scale_x = 1920 / width
-        scale_y = 1080 / height
-        walls_3d_JSON_updated, polygons_JSON_updated = list(), list()
-        for wall_3d in walls_3d_JSON:
-            X1, Y1, X2, Y2 = wall_3d["wall_line"][0]['x'], wall_3d["wall_line"][0]['y'], wall_3d["wall_line"][1]['x'], wall_3d["wall_line"][1]['y']
-            X1_scaled, Y1_scaled, X2_scaled, Y2_scaled = scale_x * X1, scale_y * Y1, scale_x * X2, scale_y * Y2
-            length_target = round(math.hypot(
-                (X1_scaled - X2_scaled) * pixel_aspect_ratio_new["horizontal"],
-                (Y1_scaled - Y2_scaled) * pixel_aspect_ratio_new["vertical"]
-            ), 2)
-            wall_3d["length"] = length_target
-            walls_3d_JSON_updated.append(wall_3d)
-        for polygon in polygons_JSON:
-            polygon_vertices_scaled = [(scale_x * vertex[0], scale_y * vertex[1]) for vertex in polygon["vertices"]]
-            polygon_vertices_scaled = np.array(polygon_vertices_scaled, np.float32)
-            area = cv2.contourArea(polygon_vertices_scaled)
-            polygon["area"] = pixel_aspect_ratio_new["area"] * area
-            polygons_JSON_updated.append(polygon)
-
-        return walls_3d_JSON_updated, polygons_JSON_updated
 
     def _scale_hyperparameters(self, scale):
         new_pixel_aspect_ratio_to_feet = self.compute_pixel_aspect_ratio(scale, self.hyperparameters["pixel_aspect_ratio_to_feet"])
