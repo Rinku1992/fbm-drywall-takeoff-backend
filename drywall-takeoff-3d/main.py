@@ -739,23 +739,40 @@ async def load_projects(request: Request):
     user_id = parameters.get("user_id") or body.get("user_id")
 
     GBQ_query = f"""
-        SELECT * FROM `{CREDENTIALS["GBQServer"]["table_name_projects"]}` WHERE LOWER(created_by) IN (
+        SELECT
+            p.*,
+            CASE
+                WHEN COALESCE(pc.plan_count, 0) = 0
+                    THEN 'NOT STARTED'
+                ELSE 'ACTIVE'
+            END AS status
+        FROM `{CREDENTIALS["GBQServer"]["table_name_projects"]}` p
+
+        LEFT JOIN (
+            SELECT
+                LOWER(project_id) AS project_id,
+                COUNT(*) AS plan_count
+            FROM `{CREDENTIALS["GBQServer"]["table_name_plans"]}`
+            GROUP BY LOWER(project_id)
+        ) pc
+        ON LOWER(p.project_id) = pc.project_id
+
+        WHERE LOWER(p.created_by) IN (
             WITH current_user AS (
                 SELECT '{user_id}' AS user_id
             ),
 
             current_user_groups AS (
                 SELECT DISTINCT group_id
-                FROM `drywall_takeoff.users` u,
+                FROM `{CREDENTIALS["GBQServer"]["table_name_users"]}` u,
                 UNNEST(IFNULL(u.group_ids, [])) AS group_id
                 JOIN current_user cu
                     ON LOWER(u.user_id) = LOWER(cu.user_id)
             ),
 
             matching_users AS (
-                SELECT DISTINCT
-                    g.user_id
-                FROM `drywall_takeoff.groups` g
+                SELECT DISTINCT g.user_id
+                FROM `{CREDENTIALS["GBQServer"]["table_name_groups"]}` g
                 JOIN current_user_groups cug
                     ON g.group_id = cug.group_id
             ),
@@ -773,7 +790,7 @@ async def load_projects(request: Request):
             final_users AS (
                 SELECT user_id
                 FROM matching_users
- 
+
                 UNION DISTINCT
 
                 SELECT user_id
