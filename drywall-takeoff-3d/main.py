@@ -1892,7 +1892,7 @@ async def load_waste_average(request: Request):
         body = await request.json()
     except Exception:
         body = dict()
-    walls_3d_JSON = parameters.get("walls_3d", list()) or body.get("walls_3d", list())
+    walls_2d_JSON = parameters.get("walls_2d", list()) or body.get("walls_2d", list())
     polygons_JSON = parameters.get("polygons", list()) or body.get("polygons", list())
     page_number = parameters.get("page_number") or body.get("page_number")
     project_id = parameters.get("project_id") or body.get("project_id")
@@ -1905,7 +1905,7 @@ async def load_waste_average(request: Request):
         return respond_with_UI_payload(dict(waste_average_in_percentage=waste_average))
 
     _, waste_average, _ = load_drywall_weights(
-        walls_3d_JSON,
+        walls_2d_JSON,
         polygons_JSON,
         compute_waste_average_standard=True,
         drywall_templates=DRYWALL_TEMPLATES
