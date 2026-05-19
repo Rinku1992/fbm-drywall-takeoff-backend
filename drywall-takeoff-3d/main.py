@@ -591,6 +591,7 @@ def floorplan_to_preview_pages(
     bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
     floor_plan_processed_paths, pages = floorplan_to_pages(
         credentials,
+        bigquery_client,
         project_id,
         plan_id,
         user_id,
@@ -629,20 +630,8 @@ def floorplan_to_preview_pages(
             method="GET",
         )
         metadata_page["signed_url_thumbnail_GCS"] = url
-        insert_page(
-            plan_id,
-            user_id,
-            project_id,
-            page["page_number"],
-            False,
-            "NOT STARTED",
-            bigquery_client,
-            credentials,
-            plan_type=page["plan_type"],
-            GCS_URL_page=floorplan_svg_source,
-            GCS_URL_page_thumbnail=floorplan_svg_source_thumbnail,
-            is_floorplan=metadata_page["is_floorplan"],
-        )
+        GBQ_query = f"UPDATE `drywall_takeoff.pages` SET source = '{floorplan_svg_source}', thumbnail = '{floorplan_svg_source_thumbnail}' WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page["page_number"]};"
+        bigquery_run(credentials, bigquery_client, GBQ_query).result()
         preview_pages.append(metadata_page)
         logging.info(f"SYSTEM: Preview Generated for {page["page_number"]+1}/{n_pages} pages")
     return preview_pages
@@ -1048,21 +1037,25 @@ async def load_plan_pages(request: Request):
         plan_page = dict(row)
         client = CloudStorageClient()
         bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
-        _, _, _, blob_path = plan_page["source"].split('/', 3)
-        blob = bucket.blob(blob_path)
-        url = blob.generate_signed_url(
-            version="v4",
-            expiration=timedelta(minutes=CREDENTIALS["CloudStorage"]["expiration_in_minutes"]),
-            method="GET",
-        )
+        url = ''
+        if plan_page["source"]:
+            _, _, _, blob_path = plan_page["source"].split('/', 3)
+            blob = bucket.blob(blob_path)
+            url = blob.generate_signed_url(
+                version="v4",
+                expiration=timedelta(minutes=CREDENTIALS["CloudStorage"]["expiration_in_minutes"]),
+                method="GET",
+            )
         plan_page["signed_url_GCS"] = url
-        _, _, _, blob_path = plan_page["thumbnail"].split('/', 3)
-        blob = bucket.blob(blob_path)
-        url = blob.generate_signed_url(
-            version="v4",
-            expiration=timedelta(minutes=CREDENTIALS["CloudStorage"]["expiration_in_minutes"]),
-            method="GET",
-        )
+        url = ''
+        if plan_page["thumbnail"]:
+            _, _, _, blob_path = plan_page["thumbnail"].split('/', 3)
+            blob = bucket.blob(blob_path)
+            url = blob.generate_signed_url(
+                version="v4",
+                expiration=timedelta(minutes=CREDENTIALS["CloudStorage"]["expiration_in_minutes"]),
+                method="GET",
+            )
         plan_page["signed_url_thumbnail_GCS"] = url
         plan_pages.append(plan_page)
     return respond_with_UI_payload(jsonable_encoder({
@@ -1244,16 +1237,17 @@ async def floorplan_to_2d(request: Request):
                 query_output_sections = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())
                 for query_output in query_output_sections:
                     walls_2d = json.loads(query_output.model_2d) if isinstance(query_output.model_2d, str) else query_output.model_2d
-                    page = dict(
-                        plan_id=plan_id,
-                        page_number=page_number,
-                        page_section_number=query_output.page_section_number,
-                        scale=query_output.scale,
-                        walls_2d=walls_2d["walls_2d"],
-                        polygons=walls_2d["polygons"],
-                        **walls_2d["metadata"]
-                    )
-                    walls_2d_all["pages"].append(page)
+                    if walls_2d["walls_2d"] and walls_2d["polygons"]:
+                        page = dict(
+                            plan_id=plan_id,
+                            page_number=page_number,
+                            page_section_number=query_output.page_section_number,
+                            scale=query_output.scale,
+                            walls_2d=walls_2d["walls_2d"],
+                            polygons=walls_2d["polygons"],
+                            **walls_2d["metadata"]
+                        )
+                        walls_2d_all["pages"].append(page)
     except Exception as e:
         stacktrace = traceback.format_exc()
         logging.error(f"SYSTEM: Floorplan extraction failed with error: {e}; stacktrace: {stacktrace}")
@@ -1539,22 +1533,41 @@ async def load_2d_all(request: Request):
         )
     query_job = bigquery_client.query(query, job_config=job_config)
 
+    page_to_model_2d_minimal = dict()
     for row in query_job.result():
         if not row.model_2d:
             continue
 
         walls_2d = json.loads(row.model_2d) if isinstance(row.model_2d, str) else row.model_2d
-        page = {
-            "plan_id": plan_id,
-            "page_number": row.page_number,
-            "page_section_number": row.page_section_number,
-            "scale": row.scale,
-            "walls_2d": walls_2d.get("walls_2d", list()),
-            "polygons": walls_2d.get("polygons", list()),
-            **walls_2d.get("metadata", dict()),
-        }
-
-        walls_2d_all["pages"].append(page)
+        page_to_model_2d_minimal[row.page_number] = dict(
+            page_section_number=row.page_section_number,
+            scale=row.scale,
+            walls_2d=walls_2d["walls_2d"],
+            polygons=walls_2d["polygons"],
+            metadata=walls_2d["metadata"]
+        )
+        if walls_2d["walls_2d"] and walls_2d["polygons"]:
+            page = {
+                "plan_id": plan_id,
+                "page_number": row.page_number,
+                "page_section_number": row.page_section_number,
+                "scale": row.scale,
+                "walls_2d": walls_2d.get("walls_2d", list()),
+                "polygons": walls_2d.get("polygons", list()),
+                **walls_2d.get("metadata", dict()),
+            }
+            walls_2d_all["pages"].append(page)
+        for page_number in list(set(page_to_model_2d_minimal.keys()) - set([page["page_number"] for page in walls_2d_all["pages"]])):
+            page = {
+                "plan_id": plan_id,
+                "page_number": page_number,
+                "page_section_number": page_to_model_2d_minimal[page_number]["page_section_number"],
+                "scale": page_to_model_2d_minimal[page_number]["scale"],
+                "walls_2d": page_to_model_2d_minimal[page_number]["walls_2d"],
+                "polygons": page_to_model_2d_minimal[page_number]["polygons"],
+                **page_to_model_2d_minimal[page_number]["metadata"],
+            }
+            walls_2d_all["pages"].append(page)
 
     return respond_with_UI_payload(walls_2d_all)
 
