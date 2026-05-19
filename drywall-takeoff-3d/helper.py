@@ -565,7 +565,23 @@ def plan_to_preview(
     plan_types = response.json()
     return plan_types
 
-def floorplan_to_pages(credentials, project_id, plan_id, user_id, pdf_path, n_pages, batch_size=10):
+def floorplan_to_pages(credentials, bigquery_client, project_id, plan_id, user_id, pdf_path, n_pages, batch_size=10):
+    plan_types = plan_to_preview(credentials, project_id, plan_id, user_id)
+    for page in plan_types["pages"]:
+        insert_page(
+            plan_id,
+            user_id,
+            project_id,
+            page["page_number"],
+            False,
+            "NOT STARTED",
+            bigquery_client,
+            credentials,
+            plan_type=page["plan_type"],
+            GCS_URL_page='',
+            GCS_URL_page_thumbnail='',
+            is_floorplan=page["plan_type"].upper().find("FLOOR")!=-1,
+        )
     page_batches = [list(range(batch_index * batch_size, batch_index * batch_size + batch_size)) for batch_index in range(n_pages // batch_size)]
     page_batches += [list(range(n_pages - (n_pages % batch_size), n_pages))]
     floor_plan_paths_preprocessed = list()
@@ -581,7 +597,6 @@ def floorplan_to_pages(credentials, project_id, plan_id, user_id, pdf_path, n_pa
                 futures.append(future)
         for future in futures:
             floor_plan_paths_preprocessed.append(future.result())
-    plan_types = plan_to_preview(credentials, project_id, plan_id, user_id)
     for page_number, floor_plan_path_preprocessed in enumerate(floor_plan_paths_preprocessed):
         upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, credentials, index=str(page_number).zfill(4))
     return floor_plan_paths_preprocessed, plan_types
