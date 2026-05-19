@@ -23,6 +23,7 @@ scikit-image
 opencv-python
 geoip2
 numpy
+scipy
 shapely
 ruamel-yaml
 matplotlib
