@@ -583,7 +583,8 @@ def floorplan_to_pages(credentials, bigquery_client, project_id, plan_id, user_i
             is_floorplan=page["plan_type"].upper().find("FLOOR")!=-1,
         )
     page_batches = [list(range(batch_index * batch_size, batch_index * batch_size + batch_size)) for batch_index in range(n_pages // batch_size)]
-    page_batches += [list(range(n_pages - (n_pages % batch_size), n_pages))]
+    if n_pages % batch_size:
+        page_batches += [list(range(n_pages - (n_pages % batch_size), n_pages))]
     floor_plan_paths_preprocessed = list()
     for page_batch in page_batches:
         futures = list()
