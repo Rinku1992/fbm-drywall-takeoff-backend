@@ -567,21 +567,27 @@ def plan_to_preview(
 
 def floorplan_to_pages(credentials, bigquery_client, project_id, plan_id, user_id, pdf_path, n_pages, batch_size=10):
     plan_types = plan_to_preview(credentials, project_id, plan_id, user_id)
+    pages_to_insert = list()
     for page in plan_types["pages"]:
-        insert_page(
-            plan_id,
-            user_id,
-            project_id,
-            page["page_number"],
-            False,
-            "NOT STARTED",
-            bigquery_client,
-            credentials,
-            plan_type=page["plan_type"],
-            GCS_URL_page='',
-            GCS_URL_page_thumbnail='',
-            is_floorplan=page["plan_type"].upper().find("FLOOR")!=-1,
-        )
+        pages_to_insert.append({
+            "plan_id": plan_id,
+            "project_id": project_id,
+            "user_id": user_id,
+            "page_number": page["page_number"],
+            "mask_factor": json.dumps(dict()),
+            "bounding_box_offsets": json.dumps(dict()),
+            "source": '',
+            "thumbnail": '',
+            "plan_type": page["plan_type"],
+            "extracted": False,
+            "status": "NOT STARTED",
+            "is_floorplan": "FLOOR" in page["plan_type"].upper(),
+        })
+    insert_pages_batch(
+        pages_to_insert,
+        bigquery_client,
+        credentials,
+    )
     page_batches = [list(range(batch_index * batch_size, batch_index * batch_size + batch_size)) for batch_index in range(n_pages // batch_size)]
     if n_pages % batch_size:
         page_batches += [list(range(n_pages - (n_pages % batch_size), n_pages))]
@@ -719,6 +725,148 @@ def insert_page(
 
     query_output = bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
     return query_output
+
+def insert_pages_batch(
+    pages,
+    bigquery_client,
+    credentials,
+):
+    if not pages:
+        return None
+
+    GBQ_query = """
+    MERGE `drywall_takeoff.pages` t
+    USING (
+        SELECT *
+        FROM UNNEST(@pages)
+    ) s
+    ON LOWER(t.project_id) = LOWER(s.project_id)
+    AND LOWER(t.plan_id) = LOWER(s.plan_id)
+    AND t.page_number = s.page_number
+
+    WHEN MATCHED THEN
+    UPDATE SET
+        extracted = s.extracted,
+        updated_at = CURRENT_TIMESTAMP(),
+        status = s.status,
+        plan_type = s.plan_type,
+        source = s.source,
+        thumbnail = s.thumbnail,
+        mask_factor = s.mask_factor,
+        bounding_box_offsets = s.bounding_box_offsets,
+        is_floorplan = s.is_floorplan
+
+    WHEN NOT MATCHED THEN
+    INSERT (
+        plan_id,
+        project_id,
+        user_id,
+        page_number,
+        mask_factor,
+        bounding_box_offsets,
+        source,
+        thumbnail,
+        plan_type,
+        extracted,
+        status,
+        is_floorplan,
+        created_at,
+        updated_at
+    )
+    VALUES (
+        s.plan_id,
+        s.project_id,
+        s.user_id,
+        s.page_number,
+        s.mask_factor,
+        s.bounding_box_offsets,
+        s.source,
+        s.thumbnail,
+        s.plan_type,
+        s.extracted,
+        s.status,
+        s.is_floorplan,
+        CURRENT_TIMESTAMP(),
+        CURRENT_TIMESTAMP()
+    )
+    """
+
+    page_struct_type = bigquery.StructQueryParameterType(
+        bigquery.ScalarQueryParameterType("STRING", name="plan_id"),
+        bigquery.ScalarQueryParameterType("STRING", name="project_id"),
+        bigquery.ScalarQueryParameterType("STRING", name="user_id"),
+        bigquery.ScalarQueryParameterType("INT64", name="page_number"),
+        bigquery.ScalarQueryParameterType("JSON", name="mask_factor"),
+        bigquery.ScalarQueryParameterType("JSON", name="bounding_box_offsets"),
+        bigquery.ScalarQueryParameterType("STRING", name="source"),
+        bigquery.ScalarQueryParameterType("STRING", name="thumbnail"),
+        bigquery.ScalarQueryParameterType("JSON", name="plan_type"),
+        bigquery.ScalarQueryParameterType("BOOL", name="extracted"),
+        bigquery.ScalarQueryParameterType("STRING", name="status"),
+        bigquery.ScalarQueryParameterType("BOOL", name="is_floorplan"),
+    )
+
+    page_rows = list()
+    for page in pages:
+        page_rows.append(
+            bigquery.StructQueryParameter(
+                None,
+                bigquery.ScalarQueryParameter(
+                    "plan_id", "STRING", page["plan_id"]
+                ),
+                bigquery.ScalarQueryParameter(
+                    "project_id", "STRING", page["project_id"]
+                ),
+                bigquery.ScalarQueryParameter(
+                    "user_id", "STRING", page["user_id"]
+                ),
+                bigquery.ScalarQueryParameter(
+                    "page_number", "INT64", page["page_number"]
+                ),
+                bigquery.ScalarQueryParameter(
+                    "mask_factor", "JSON", page.get("mask_factor", dict())
+                ),
+                bigquery.ScalarQueryParameter(
+                    "bounding_box_offsets",
+                    "JSON",
+                    page.get("bounding_box_offsets", dict())
+                ),
+                bigquery.ScalarQueryParameter(
+                    "source", "STRING", page.get("source", '')
+                ),
+                bigquery.ScalarQueryParameter(
+                    "thumbnail", "STRING", page.get("thumbnail", '')
+                ),
+                bigquery.ScalarQueryParameter(
+                    "plan_type", "JSON", page.get("plan_type", dict())
+                ),
+                bigquery.ScalarQueryParameter(
+                    "extracted", "BOOL", page["extracted"]
+                ),
+                bigquery.ScalarQueryParameter(
+                    "status", "STRING", page["status"]
+                ),
+                bigquery.ScalarQueryParameter(
+                    "is_floorplan", "BOOL", page["is_floorplan"]
+                ),
+            )
+        )
+    job_config = dict(
+        query_parameters=[
+            bigquery.ArrayQueryParameter(
+                "pages",
+                page_struct_type,
+                page_rows
+            )
+        ]
+    )
+
+    return bigquery_run(
+        credentials,
+        bigquery_client,
+        GBQ_query,
+        job_config=job_config
+    ).result()
 
 def load_drywall_weights(walls_2d_JSON, polygons_JSON, compute_waste_average_standard=False, drywall_templates=None):
     weights_drywall = defaultdict(lambda: 0)
