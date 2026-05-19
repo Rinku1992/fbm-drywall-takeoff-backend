@@ -1921,7 +1921,7 @@ async def compute_takeoff(request: Request):
         body = await request.json()
     except Exception:
         body = dict()
-    walls_3d_JSON = parameters.get("walls_3d", list()) or body.get("walls_3d", list())
+    walls_2d_JSON = parameters.get("walls_2d", list()) or body.get("walls_2d", list())
     polygons_JSON = parameters.get("polygons", list()) or body.get("polygons", list())
     waste_factor_average = parameters.get("waste_factor_average") or body.get("waste_factor_average") or None
     index = parameters.get("page_number") or body.get("page_number")
@@ -1938,33 +1938,33 @@ async def compute_takeoff(request: Request):
     pdf_path = Path("/tmp/floor_plan.PDF")
     download_floorplan(plan_id, project_id, CREDENTIALS, destination_path=pdf_path)
 
-    if not walls_3d_JSON:
+    if not walls_2d_JSON:
         if revision_number:
-            GBQ_query = f"SELECT model.walls_3d FROM `{CREDENTIALS["GBQServer"]["table_name_model_revisions_3d"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index} AND revision_number = {revision_number};"
-            walls_3d_JSON = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0].walls_3d
+            GBQ_query = f"SELECT model.walls_2d FROM `{CREDENTIALS["GBQServer"]["table_name_model_revisions_2d"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index} AND revision_number = {revision_number};"
+            walls_2d_JSON = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0].walls_2d
         else:
-            GBQ_query = f"SELECT model_3d.walls_3d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index};"
-            walls_3d_JSON = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0].walls_3d
+            GBQ_query = f"SELECT model_2d.walls_2d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index};"
+            walls_2d_JSON = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0].walls_2d
     
-        if walls_3d_JSON is None:
-            walls_3d_JSON = list()
+        if walls_2d_JSON is None:
+            walls_2d_JSON = list()
 
     if not polygons_JSON:
         if revision_number:
-            GBQ_query = f"SELECT model.polygons FROM `{CREDENTIALS["GBQServer"]["table_name_model_revisions_3d"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index} AND revision_number = {revision_number};"
+            GBQ_query = f"SELECT model.polygons FROM `{CREDENTIALS["GBQServer"]["table_name_model_revisions_2d"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index} AND revision_number = {revision_number};"
             polygons_JSON = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0].polygons
         else:
-            GBQ_query = f"SELECT model_3d.polygons FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index};"
+            GBQ_query = f"SELECT model_2d.polygons FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index};"
             polygons_JSON = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0].polygons
     
         if polygons_JSON is None:
             polygons_JSON = list()
 
     hyperparameters = load_hyperparameters()
-    floor_plan_modeller_3d = Extrapolate3D(hyperparameters)
+    plan = FloorPlan(hyperparameters)
     if scale != "1/4``=1`0``":
-        pixel_aspect_ratio_new = floor_plan_modeller_3d.compute_pixel_aspect_ratio(scale, hyperparameters["pixel_aspect_ratio_to_feet"])
-        walls_3d_JSON, polygons_JSON = floor_plan_modeller_3d.recompute_dimensions_walls_and_polygons(walls_3d_JSON, polygons_JSON, pixel_aspect_ratio_new, pdf_path)
+        pixel_aspect_ratio_new = plan.compute_pixel_aspect_ratio(scale, hyperparameters["pixel_aspect_ratio_to_feet"])
+        walls_2d_JSON, polygons_JSON = plan.recompute_dimensions_walls_and_polygons(walls_2d_JSON, polygons_JSON, pixel_aspect_ratio_new, pdf_path)
     drywall_takeoff = dict(
         total=dict(roof=0, wall=0),
         per_drywall=dict(
@@ -1973,7 +1973,7 @@ async def compute_takeoff(request: Request):
         )
     )
     drywall_weights, waste_standard, _ = load_drywall_weights(
-        walls_3d_JSON,
+        walls_2d_JSON,
         polygons_JSON,
         compute_waste_average_standard=True,
         drywall_templates=DRYWALL_TEMPLATES
@@ -1987,8 +1987,8 @@ async def compute_takeoff(request: Request):
     else:
         waste_factor_average_delta = 0
     normalization_variance_aware = sum(w**2 for w in drywall_weights.values())
-    for wall in walls_3d_JSON:
-        for drywall in wall["surfaces_drywall"]:
+    for wall in walls_2d_JSON:
+        for drywall in wall["polygons_drywall"]:
             surface_area = drywall["height"] * wall["length"]
             if not drywall["enabled"]:
                 continue
@@ -2010,7 +2010,7 @@ async def compute_takeoff(request: Request):
                     drywall_takeoff["per_drywall"]["wall"][drywall_type] = dict(
                         total_sqft=round(drywall_takeoff["per_drywall"]["wall"][drywall_type]["total_sqft"]+total_sqft, 2),
                         net_sqft=round(drywall_takeoff["per_drywall"]["wall"][drywall_type]["net_sqft"]+net_sqft, 2),
-                        waste_percentage=waste_factor*100,
+                        waste_percentage=round(waste_factor*100, 2),
                         sheet_size=sheet_size,
                         sheets_required_total=drywall_takeoff["per_drywall"]["wall"][drywall_type]["sheets_required_total"]+sheets_required_total,
                         sheets_required_no_waste=drywall_takeoff["per_drywall"]["wall"][drywall_type]["sheets_required_no_waste"]+sheets_required_no_waste
@@ -2031,37 +2031,37 @@ async def compute_takeoff(request: Request):
                 drywall_takeoff["per_drywall"]["wall"][drywall["type"]] = dict(
                     total_sqft=round(drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["total_sqft"]+total_sqft, 2),
                     net_sqft=round(drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["net_sqft"]+net_sqft, 2),
-                    waste_percentage=waste_factor*100,
+                    waste_percentage=round(waste_factor*100, 2),
                     sheet_size=sheet_size,
                     sheets_required_total=drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["sheets_required_total"]+sheets_required_total,
                     sheets_required_no_waste=drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["sheets_required_no_waste"]+sheets_required_no_waste
                 )
     for polygon in polygons_JSON:
-        if not polygon["surface_drywall"]["enabled"] or polygon["surface_drywall"]["type"] == "DISABLED":
-            polygon["surface_drywall"]["enabled"] = False
+        if not polygon["polygon_drywall"]["enabled"] or polygon["polygon_drywall"]["type"] == "DISABLED":
+            polygon["polygon_drywall"]["enabled"] = False
             continue
-        surface_area = floor_plan_modeller_3d.compute_sloped_area_polygon(
+        surface_area = plan.compute_sloped_area_polygon(
             polygon["area"],
             polygon["slope"],
         )
-        drywall_template = query_drywall(polygon["surface_drywall"]["type"], DRYWALL_TEMPLATES)
+        drywall_template = query_drywall(polygon["polygon_drywall"]["type"], DRYWALL_TEMPLATES)
         if not drywall_template:
             continue
-        waste_factor_delta = waste_factor_average_delta * (drywall_weights[polygon["surface_drywall"]["type"]] / normalization_variance_aware)
+        waste_factor_delta = waste_factor_average_delta * (drywall_weights[polygon["polygon_drywall"]["type"]] / normalization_variance_aware)
         waste_factor = max(0, float(drywall_template["waste"]) + waste_factor_delta) / 100
-        net_sqft = polygon["surface_drywall"]["layers"] * surface_area
+        net_sqft = polygon["polygon_drywall"]["layers"] * surface_area
         total_sqft = net_sqft * (1 + waste_factor)
         sheet_size = drywall_template["sheet_size"]
         sheet_area_sqft = int(sheet_size.split('x')[0]) * int(sheet_size.split('x')[1])
         sheets_required_total = math.ceil(total_sqft / sheet_area_sqft)
         sheets_required_no_waste = math.ceil(net_sqft / sheet_area_sqft)
         drywall_takeoff["per_drywall"]["roof"][polygon["surface_drywall"]["type"]] = dict(
-            total_sqft=round(drywall_takeoff["per_drywall"]["roof"][polygon["surface_drywall"]["type"]]["total_sqft"]+total_sqft, 2),
-            net_sqft=round(drywall_takeoff["per_drywall"]["roof"][polygon["surface_drywall"]["type"]]["net_sqft"]+net_sqft, 2),
-            waste_percentage=waste_factor*100,
+            total_sqft=round(drywall_takeoff["per_drywall"]["roof"][polygon["polygon_drywall"]["type"]]["total_sqft"]+total_sqft, 2),
+            net_sqft=round(drywall_takeoff["per_drywall"]["roof"][polygon["polygon_drywall"]["type"]]["net_sqft"]+net_sqft, 2),
+            waste_percentage=round(waste_factor*100, 2),
             sheet_size=sheet_size,
-            sheets_required_total=drywall_takeoff["per_drywall"]["roof"][polygon["surface_drywall"]["type"]]["sheets_required_total"]+sheets_required_total,
-            sheets_required_no_waste=drywall_takeoff["per_drywall"]["roof"][polygon["surface_drywall"]["type"]]["sheets_required_no_waste"]+sheets_required_no_waste
+            sheets_required_total=drywall_takeoff["per_drywall"]["roof"][polygon["polygon_drywall"]["type"]]["sheets_required_total"]+sheets_required_total,
+            sheets_required_no_waste=drywall_takeoff["per_drywall"]["roof"][polygon["polygon_drywall"]["type"]]["sheets_required_no_waste"]+sheets_required_no_waste
         )
         drywall_takeoff["total"]["roof"] += total_sqft
 
