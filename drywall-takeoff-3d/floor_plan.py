@@ -4,6 +4,7 @@ from fractions import Fraction
 import math
 import numpy as np
 import cv2
+from pdf2image import convert_from_path
 
 __all__ = ["FloorPlan"]
 
@@ -12,8 +13,8 @@ class FloorPlan:
 
     def __init__(self, hyperparameters):
         self.hyperparameters = hyperparameters
-        self.tolerance_angle = self.hyperparameters["modelling"]["tolerance_angle"]
-        self._lines_classified = dict()
+        self.tolerance_vertical = self.hyperparameters["modelling"]["tolerance_vertical"]
+        self.tolerance_horizontal = self.hyperparameters["modelling"]["tolerance_horizontal"]
         self._perimeter_lines = list()
 
     def read_floor_plan(self, image_path, resize=None):
@@ -47,7 +48,7 @@ class FloorPlan:
         pixel_aspect_ratio_new = dict()
         pixel_aspect_ratio_new["horizontal"] = scale * pixel_aspect_ratio_standard["horizontal"]
         pixel_aspect_ratio_new["vertical"] = scale * pixel_aspect_ratio_standard["vertical"]
-        pixel_aspect_ratio_new["area"] = scale * scale * pixel_aspect_ratio_standard["area"]
+        pixel_aspect_ratio_new["area"] = scale * pixel_aspect_ratio_standard["area"]
 
         return pixel_aspect_ratio_new
 
@@ -103,18 +104,13 @@ class FloorPlan:
 
     def classify_line(self, x1, y1, x2, y2):
         """Classify a line as horizontal, vertical, or inclined."""
-        line_id = str([x1, y1, x2, y2])
-        if line_id in self._lines_classified:
-            return self._lines_classified[line_id]
-        inclination = math.degrees(math.atan2(abs(y1 - y2), abs(x1 - x2)))
-        if inclination <= self.tolerance_angle:
-            orientation = "horizontal"
-        elif inclination >= 90 - self.tolerance_angle:
-            orientation = "vertical"
-        else:
-            orientation = "inclined"
-        self._lines_classified[line_id] = orientation
-        return orientation
+        if abs(x2 - x1) > self.tolerance_horizontal and abs(y2 - y1) <= self.tolerance_vertical:
+            return "horizontal"
+        elif abs(x2 - x1) <= self.tolerance_horizontal and abs(y2 - y1) > self.tolerance_vertical:
+            return "vertical"
+        elif abs(x2 - x1) > self.tolerance_horizontal and abs(y2 - y1) > self.tolerance_vertical:
+            return "inclined"
+        return "invalid"
 
     def normalize(self, lines):
         if lines is None:
@@ -160,7 +156,7 @@ class FloorPlan:
 
         return neighbor_lines
 
-    def nearest_neighbor(self, reference_line, end_type, target_lines, tolerance=500, top_k=None):
+    def nearest_neighbor(self, reference_line, end_type, target_lines, tolerance=500):
         X1, Y1, X2, Y2 = reference_line[0]
         distance_nearest_neighbor = np.inf
         target_wall_lines = deepcopy(target_lines)
@@ -183,18 +179,9 @@ class FloorPlan:
                     distance_nearest_neighbor = min(euclidean_distance_B_A, euclidean_distance_B_B)
                     id_to_distance[wall_line_index] = distance_nearest_neighbor
 
-        if top_k:
-            id_to_distance = {wall_line_index: distance for wall_line_index, distance in id_to_distance.items() if distance <= tolerance}
-            sorted_items = sorted(id_to_distance.items(), key=lambda x: x[1])
-            nearest_neighbors = [
-                id_to_line[item[0]] for item in sorted_items[:top_k]]
-
-            return nearest_neighbors
-
         if min(id_to_distance.values()) <= tolerance:
             index_minimum_id_to_distance = list(id_to_distance.values()).index(min(id_to_distance.values()))
             nearest_neighbor = id_to_line[list(id_to_distance.keys())[index_minimum_id_to_distance]]
-
             return nearest_neighbor
 
     def disconnected_shapes(self, wall_lines, tolerance=10):
@@ -230,33 +217,23 @@ class FloorPlan:
 
         return disconnected_shapes
 
-    def load_perimeter(self, coordinates, wall_lines, tolerance=10, bound_capture=True, scale=None):
-        if scale:
-            scale_x, scale_y = scale
-            tolerance *= np.mean([scale[0], scale[1]])
+    def load_perimeter(self, coordinates, wall_lines, tolerance=10):
         perimeter_lines = list()
         for source_coordinate in coordinates:
             for target_coordinate in coordinates:
                 perimeter_line_found = False
                 perimeter_segments = list()
                 X1, Y1, X2, Y2 = self.normalize([[[source_coordinate[0], source_coordinate[1], target_coordinate[0], target_coordinate[1]]]])[0][0]
-                if scale:
-                    orientation = self.classify_line(X1 / scale_x, Y1 / scale_y, X2 / scale_x, Y2 / scale_y)
-                else:
-                    orientation = self.classify_line(X1, Y1, X2, Y2)
+                orientation = self.classify_line(X1, Y1, X2, Y2)
                 for wall_line in wall_lines:
                     target_X1, target_Y1, target_X2, target_Y2 = wall_line[0]
-                    if scale:
-                        orientation_target = self.classify_line(target_X1 / scale_x, target_Y1 / scale_y, target_X2 / scale_x, target_Y2 / scale_y)
-                    else:
-                        orientation_target = self.classify_line(target_X1, target_Y1, target_X2, target_Y2)
+                    orientation_target = self.classify_line(target_X1, target_Y1, target_X2, target_Y2)
                     if orientation == "horizontal" and orientation_target == "horizontal":
                         if abs(np.median([Y1, Y2]) - np.median([target_Y1, target_Y2])) <= tolerance and target_X1 - X1 >= -tolerance and target_X2 - X2 <= tolerance:
                             perimeter_segments.append(wall_line)
                     if orientation == "vertical" and orientation_target == "vertical":
                         if abs(np.median([X1, X2]) - np.median([target_X1, target_X2])) <= tolerance and target_Y1 - Y1 >= -tolerance and target_Y2 - Y2 <= tolerance:
                             perimeter_segments.append(wall_line)
-
                     if abs(target_X1 - X1) <= tolerance and abs(target_Y1 - Y1) <= tolerance and abs(target_X2 - X2) <= tolerance and abs(target_Y2 - Y2) <= tolerance:
                         perimeter_line_found = True
                         perimeter_line = [[target_X1, target_Y1, target_X2, target_Y2]]
@@ -264,16 +241,7 @@ class FloorPlan:
                             perimeter_lines.append([[target_X1, target_Y1, target_X2, target_Y2]])
                         break
                 if not perimeter_line_found:
-                    for perimeter_segment in perimeter_segments:
-                        if perimeter_segment not in perimeter_lines:
-                            perimeter_lines.append(perimeter_segment)
-
-        if bound_capture:
-            for wall_line in wall_lines:
-                target_X1, target_Y1, target_X2, target_Y2 = wall_line[0]
-                if self.is_inside_polygon((target_X1, target_Y1), coordinates) and self.is_inside_polygon((target_X2, target_Y2), coordinates):
-                    if wall_line not in perimeter_lines:
-                        perimeter_lines.append(wall_line)
+                    perimeter_lines.extend(perimeter_segments)
 
         return perimeter_lines
 
@@ -389,8 +357,10 @@ class FloorPlan:
             if component[3] == -1:
                 continue
             area = cv2.contourArea(contour)
+            if area < 250:
+                continue
 
-            epsilon = max(2, 0.005 * cv2.arcLength(contour, True))
+            epsilon = 0.01 * cv2.arcLength(contour, True)
             geometry_polygons = cv2.approxPolyDP(contour, epsilon, True)
 
             coordinates = [
@@ -404,13 +374,37 @@ class FloorPlan:
             perimeter_lines_contours.append(perimeter_lines_contour)
             polygonized.append((area, coordinates))
 
-        if not polygonized:
-            return polygonized, perimeter_lines_contours, list()
-
-        coordinates_all = np.vstack([polygon[1] for polygon in polygonized])
-        hull_external = cv2.convexHull(coordinates_all)
-        epsilon = max(2, 0.005 * cv2.arcLength(hull_external, True))
-        external_contour = cv2.approxPolyDP(hull_external, epsilon, True)
+        contours, _ = cv2.findContours(canvas_eroded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        external_contour = sorted(contours, key=cv2.contourArea, reverse=True)[0]
         external_contour_normalized = self._smoothen_polygon(external_contour.reshape(-1, 2).tolist())
 
         return polygonized, perimeter_lines_contours, external_contour_normalized
+
+    def recompute_dimensions_walls_and_polygons(self, walls_JSON, polygons_JSON, pixel_aspect_ratio_new, floor_plan_pdf_path):
+        width, height = convert_from_path(floor_plan_pdf_path, dpi=400)[0].size
+        scale_x = 1920 / width
+        scale_y = 1080 / height
+        walls_JSON_updated, polygons_JSON_updated = list(), list()
+        for wall in walls_JSON:
+            X1, Y1, X2, Y2 = wall["wall_line"][0]['x'], wall["wall_line"][0]['y'], wall["wall_line"][1]['x'], wall["wall_line"][1]['y']
+            X1_scaled, Y1_scaled, X2_scaled, Y2_scaled = scale_x * X1, scale_y * Y1, scale_x * X2, scale_y * Y2
+            length_target = round(math.hypot(
+                (X1_scaled - X2_scaled) * pixel_aspect_ratio_new["horizontal"],
+                (Y1_scaled - Y2_scaled) * pixel_aspect_ratio_new["vertical"]
+            ), 2)
+            wall["length"] = length_target
+            walls_JSON_updated.append(wall)
+        for polygon in polygons_JSON:
+            polygon_vertices_scaled = [(scale_x * vertex[0], scale_y * vertex[1]) for vertex in polygon["vertices"]]
+            polygon_vertices_scaled = np.array(polygon_vertices_scaled, np.float32)
+            area = cv2.contourArea(polygon_vertices_scaled)
+            polygon["area"] = pixel_aspect_ratio_new["area"] * area
+            polygons_JSON_updated.append(polygon)
+
+        return walls_JSON_updated, polygons_JSON_updated
+
+    def compute_sloped_area_polygon(self, area, slope):
+        if slope is None or slope == 0:
+            return area
+        theta = math.radians(slope)
+        return round(area / math.cos(theta), 2)
