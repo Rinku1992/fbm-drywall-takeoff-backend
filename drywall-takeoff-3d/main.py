@@ -1207,7 +1207,7 @@ async def floorplan_to_2d(request: Request):
                     CREDENTIALS,
                 )
                 page_number = page_metadata["page_number"]
-                GBQ_query = f"UPDATE `{CREDENTIALS["GBQServer"]["drywall_takeoff_pages"]}` SET mask_factor = PARSE_JSON('{json.dumps(page_metadata["mask_factor"])}'), bounding_box_offsets = PARSE_JSON('{json.dumps(page_metadata["bounding_box_offsets"])}') WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+                GBQ_query = f"UPDATE `{CREDENTIALS["GBQServer"]["table_name_pages"]}` SET mask_factor = PARSE_JSON('{json.dumps(page_metadata["mask_factor"])}'), bounding_box_offsets = PARSE_JSON('{json.dumps(page_metadata["bounding_box_offsets"])}') WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
                 bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()
                 if index != 0 and index % 25 == 0:
                     sleep(120)
