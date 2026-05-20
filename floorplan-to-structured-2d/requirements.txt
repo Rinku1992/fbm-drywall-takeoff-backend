@@ -23,6 +23,7 @@ opencv-python
 geoip2
 numpy
 roman
+scipy
 shapely
 ruamel-yaml
 matplotlib
