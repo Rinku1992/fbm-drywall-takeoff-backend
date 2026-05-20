@@ -467,7 +467,7 @@ def phoenix_call(generate_content_lambda, max_retry=5, base_delay=1.0, pydantic_
                 response_json_pydantic = pydantic_model(**json_response)
                 return response_json_pydantic, json_response
             return response.text
-        except (ResourceExhausted, ServiceUnavailable, DeadlineExceeded) as e:
+        except (ResourceExhausted, DeadlineExceeded) as e:
             n_iterations += 1
             if n_iterations >= max_retry:
                 raise e
