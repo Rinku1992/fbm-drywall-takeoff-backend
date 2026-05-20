@@ -1101,6 +1101,7 @@ async def floorplan_to_preview(request: Request):
         delete_plan(CREDENTIALS, bigquery_client, plan_id, project_id)
         return respond_with_UI_payload(dict(error="Floor Plan already exists"))
 
+    n_pages = pdfinfo_from_path(pdf_path)["Pages"]
     insert_plan(
         project_id,
         user_id,
@@ -1108,9 +1109,8 @@ async def floorplan_to_preview(request: Request):
         bigquery_client,
         CREDENTIALS,
         plan_id=plan_id,
+        n_pages=n_pages
     )
-
-    n_pages = pdfinfo_from_path(pdf_path)["Pages"]
     logging.info("SYSTEM: Floorplan Downloaded for preview generation")
 
     payload_preview = floorplan_to_preview_pages(
