@@ -1697,6 +1697,14 @@ async def floorplan_to_3d(request: Request):
     polygons_path = "/tmp/polygons.json"
     with open(polygons_path, 'w') as f:
         json.dump(polygons_JSON, f)
+
+    GBQ_query = f"SELECT model_2d.metadata FROM `drywall_takeoff.models` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index};"
+    query_output = bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()
+    metadata = list(query_output)[0].metadata
+    metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
+    if not walls_2d_JSON or not polygons_JSON:
+        return respond_with_UI_payload(dict(walls_3d=list(), polygons=list(), metadata=metadata))
+
     hyperparameters = load_hyperparameters()
     if not scale:
         GBQ_query = f"SELECT scale FROM `drywall_takeoff.models` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index} AND page_section_number = '{page_section_number}';"
@@ -1706,10 +1714,6 @@ async def floorplan_to_3d(request: Request):
     walls_3d, polygons_3d, walls_3d_path, polygons_3d_path = floor_plan_modeller_3d.extrapolate(scale, model_2d_path=model_2d_path, polygons_path=polygons_path)
     #gltf_paths = floor_plan_modeller_3d.gltf(model_2d_path=model_2d_path, polygons_path=polygons_path)
     model_3d_path = floor_plan_modeller_3d.save_plot_3d(walls_3d_path, polygons_3d_path)
-    GBQ_query = f"SELECT model_2d.metadata FROM `drywall_takeoff.models` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index};"
-    query_output = bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()
-    metadata = list(query_output)[0].metadata
-    metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
     model_3d_path_sectioned = model_3d_path.parent.joinpath(f"{model_3d_path.stem}_sectioned_{page_section_number.replace('/', '_')}").with_suffix(".png")
     model_3d_path.rename(model_3d_path_sectioned)
     upload_floorplan(model_3d_path_sectioned, plan_id, project_id, CREDENTIALS, index=str(index).zfill(4))
