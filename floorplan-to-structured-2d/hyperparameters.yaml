@@ -11,6 +11,27 @@ modelling:
   width_in_feet: 1
   height_in_feet: 9.125
   scale: 0.25``:1`0``
+  scale_regex: |
+    (?:
+        scale\s*[:\-]?\s*
+    )?
+
+    (
+        \d+\s*/\s*\d+\s*["'`]{,2}?\s*
+        =?\s*
+        \d+\s*["'`]?\s*
+        (?:-\s*\d+\s*["'`]?)?
+
+        |
+
+        \d+\s*:\s*\d+
+
+        |
+
+        nts
+        |
+        not\s+to\s+scale
+    )
   pixel_aspect_ratio: *pixel_aspect_ratio_to_feet
   HoughLinesTransformation:
     rho: 1
