@@ -1459,7 +1459,7 @@ class FloorPlan2D(FloorPlan):
                         "waste_factor": "8-12%",
                     },
                     "code_references": list(),
-                    "recommendation": ''
+                    "recommendation": "FP - Verify the drywall assignment"
                 }
             }
             wall_parameters = list()
@@ -1488,7 +1488,7 @@ class FloorPlan2D(FloorPlan):
                             "waste_factor": "8-12%"
                         },
                         "code_references": list(),
-                        "recommendation": ''
+                        "recommendation": "FP - Verify the drywall assignment"
                     }
                 )
             model_polygon["wall_parameters"] = wall_parameters
