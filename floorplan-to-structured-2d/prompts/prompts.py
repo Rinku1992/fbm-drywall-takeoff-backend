@@ -1473,12 +1473,13 @@ SCALE_AND_CEILING_HEIGHT_DETECTOR = """
   TASK:
     Identify the standard `ceiling_height` and `scale` applied on ONLY the target architectural plan enclosed with a green bounding box mentioned in the relevant section containing the textual metadata of the enclosed floorplan.
     INSTRUCTIONS:
-      - Look for a keyword that has to do with the `scale` of the highlighted drawing, representing the ratio between the length on paper and the real world length in floating point values. Normalize and capture the ratio as "<paper_length_in_inches>``: <real_world_length_in_feet>`<real_world_length_in_inches>``".
+      - Look for a keyword that has to do with the `scale` of the highlighted target drawing, representing the ratio between the length on paper and the real world length in floating point values. Normalize and capture the ratio as "<paper_length_in_inches>``: <real_world_length_in_feet>`<real_world_length_in_inches>``".
           Example: 0.25``:1`0``
       - If scale is written in a different format, preserve the exact textual format.
       - SUPPORTED `Architectural Scales` are:
         {supported_scales_architectural}
-      - Look for a keyword that matches with `ceiling height` field at the title section of the highlighted drawing and identify the numerical entity closest to it. Note the feet equivalent of it.
+      - If no scale is annotated on the drawing, STRICTLY do not invent a scale and mention the scale as `NULL`.
+      - Look for a keyword that matches with `ceiling height` field at the title section of the highlig hted drawing and identify the numerical entity closest to it. Note the feet equivalent of it.
       - If multiple ceiling heights are listed, extract the standard or typical one.
       - If not present, return null.
 
@@ -1488,13 +1489,15 @@ SCALE_AND_CEILING_HEIGHT_DETECTOR = """
     Please refer the following as a reference and ensure to replace every consecutive pair of open/closed curly braces with a single one during the generation of the output.
     {{
         "ceiling_height": <Standard ceiling height mentioned in the transcriptions converted to feet in float>,
-        "scale": "<Scale of the drawing mentioned in the transcriptions i.e. number_in_inches``: number_in_feet`number_in_inches``>"
+        "scale": "<Scale of the drawing mentioned in the transcriptions i.e. number_in_inches``: number_in_feet`number_in_inches`` / NULL>",
+        "scale_confidence": <confidence score in detecting the scale from the annotated text between 0 and 1 in float rounded upto 2 decimal places (e.g., 0.87)>,
     }}
 """
 
 class ScaleAndCeilingHeightDetectorResponse(BaseModel):
     ceiling_height: Union[float, int]
-    scale: str
+    scale: Optional[str]
+    scale_confidence: float = Field(ge=0, le=1)
 
 CEILING_CHOICES = [
     "Flat",
