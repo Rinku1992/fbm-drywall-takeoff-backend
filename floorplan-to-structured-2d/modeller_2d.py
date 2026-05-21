@@ -69,6 +69,10 @@ class FloorPlan2D(FloorPlan):
         self._walls_2d = list()
         self._polygons = list()
 
+    @property
+    def is_scale_detected(self):
+        return self._is_scale_detected
+
     @classmethod
     def load_vertex_ai_clients(cls, credentials, client_ip_address, drywall_templates):
         is_cached = dict()
