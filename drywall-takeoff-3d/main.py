@@ -1202,7 +1202,7 @@ async def floorplan_to_2d(request: Request):
                     project_id,
                     page_metadata["page_number"],
                     False,
-                    "NOT STARTED",
+                    "IN PROGRESS",
                     bigquery_client,
                     CREDENTIALS,
                 )
