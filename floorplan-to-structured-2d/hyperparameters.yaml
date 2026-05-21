@@ -13,24 +13,24 @@ modelling:
   scale: 0.25``:1`0``
   scale_regex: |
     (?:
-        scale\s*[:\-]?\s*
+      scale\s*[:\-]?\s*
     )?
 
     (
-        \d+\s*/\s*\d+\s*["'`]{,2}?\s*
-        =?\s*
-        \d+\s*["'`]?\s*
-        (?:-\s*\d+\s*["'`]?)?
+      \d+\s*/\s*\d+\s*["'`]{,2}?\s*
+      (?:\s*=\s*|\s*:\s*|\s)
+      \d+\s*["'`]?\s*
+      (?:-\s*\d+\s*["'`]?)?
 
-        |
+      |
 
-        \d+\s*:\s*\d+
+      \d+\s*:\s*\d+
 
-        |
+      |
 
-        nts
-        |
-        not\s+to\s+scale
+      nts
+      |
+      not\s+to\s+scale
     )
   pixel_aspect_ratio: *pixel_aspect_ratio_to_feet
   HoughLinesTransformation:
