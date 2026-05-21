@@ -60,6 +60,7 @@ class FloorPlan2D(FloorPlan):
         self._width_in_feet = self._hyperparameters["modelling"]["width_in_feet"]
         self._height_in_feet = self._hyperparameters["modelling"]["height_in_feet"]
         self._scale = self._hyperparameters["modelling"]["scale"]
+        self._is_scale_detected = False
         self._imperial_scales_sampled = dict(X=list(), Y=list(), A=list())
         self._walls_2d = list()
         self._polygons = list()
@@ -1209,6 +1210,7 @@ class FloorPlan2D(FloorPlan):
             if scale:
                 self._scale = scale
                 ceiling_height_and_scale["scale"] = scale
+                self._is_scale_detected = True
             else:
                 ceiling_height_and_scale["scale"] = self._scale
             if not ceiling_height:
