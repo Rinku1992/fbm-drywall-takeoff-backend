@@ -474,6 +474,9 @@ def phoenix_call(generate_content_lambda, max_retry=5, base_delay=1.0, pydantic_
             sleep_time = base_delay * (2 ** (n_iterations - 1)) + uniform(0, 0.5)
             sleep(sleep_time)
             logging.warning(f"SYSTEM: {e}: RETRYING ...")
+        except ServiceUnavailable as e:
+            logging.warning(f"SYSTEM: {e}")
+            raise e
         except Exception as e:
             n_iterations += 1
             if n_iterations >= max_retry:
