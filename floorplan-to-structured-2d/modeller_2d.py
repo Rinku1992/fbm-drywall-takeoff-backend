@@ -1136,13 +1136,24 @@ class FloorPlan2D(FloorPlan):
     def scale(self):
         return self._scale
 
-    def _load_ceiling_height_and_scale(self, offset, plan_BGR):
+    def _load_ceiling_height_and_scale(self, offset, plan_BGR, transcription_block_with_centroids):
         def normalize_scale(scale):
             if scale.find(':') != -1:
                 on_paper, real_world = scale.split(':')
             if scale.find('=') != -1:
                 on_paper, real_world = scale.split('=')
             return f"{round(float(Fraction(on_paper.strip('`"'))), 2)}``:{real_world.replace("'", '`').replace('"', "``")}"
+
+        def load_least_scale(scales):
+            if not scales:
+                return
+            scales_on_paper_length = list()
+            scales_normalized = list()
+            for scale in scales:
+                scales_normalized.append(normalize_scale(scale))
+                scales_on_paper_length.append(float(Fraction(scale.split('=')[0].strip('`'))))
+            least_scale_index = scales_on_paper_length.index(min(scales_on_paper_length))
+            return scales_normalized[least_scale_index]
 
         height_in_pixels, width_in_pixels, _ = plan_BGR.shape
         (offset_top_left_X, offset_top_left_Y), (offset_bottom_right_X, offset_bottom_right_Y) = offset
@@ -1181,6 +1192,20 @@ class FloorPlan2D(FloorPlan):
                     pydantic_model=ScaleAndCeilingHeightDetectorResponse,
                 )
             scale, ceiling_height = normalize_scale(response.scale), response.ceiling_height
+
+            scales_possible = list()
+            nearest_transcription_blocks = self._load_nearest_transcription_blocks(((LEFT + RIGHT) / 2, (TOP + BOTTOM) / 2), transcription_block_with_centroids)
+            for transcription, _ in nearest_transcription_blocks.items():
+                scale_possible = self.load_scale_from_text(transcription)
+                if scale_possible:
+                    scales_possible.append(scale_possible)
+            if not scales_possible:
+                for transcription, _ in transcription_block_with_centroids.items():
+                    scale_possible = self.load_scale_from_text(transcription)
+                    if scale_possible:
+                        scales_possible.append(scale_possible)
+            scale = load_least_scale(scales_possible)
+
             if scale:
                 self._scale = scale
                 ceiling_height_and_scale["scale"] = scale
@@ -2728,7 +2753,7 @@ class FloorPlan2D(FloorPlan):
         height, width, _ = canvas.shape
         scale_x = width / 1920
         scale_y = height / 1080
-        height_default = self._load_ceiling_height_and_scale(offset, canvas)["ceiling_height"]
+        height_default = self._load_ceiling_height_and_scale(offset, canvas, transcription_block_with_centroids)["ceiling_height"]
         wall_lines = self._patch_to_line(image_GRAY, floor_plan_path, offset, (scale_x, scale_y))
         if not wall_lines:
             return None, None, None, None
@@ -2843,7 +2868,7 @@ class FloorPlan2D(FloorPlan):
         height, width, _ = canvas.shape
         scale_x = width / 1920
         scale_y = height / 1080
-        height_default = self._load_ceiling_height_and_scale(offset, canvas)["ceiling_height"]
+        height_default = self._load_ceiling_height_and_scale(offset, canvas, transcription_block_with_centroids)["ceiling_height"]
         wall_lines = self._patch_to_line(image_GRAY, floor_plan_path, offset, (scale_x, scale_y))
         if not wall_lines:
             return None, None, None, None
