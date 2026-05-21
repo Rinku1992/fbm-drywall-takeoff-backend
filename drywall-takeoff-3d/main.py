@@ -1234,16 +1234,6 @@ async def floorplan_to_2d(request: Request):
             while from_unix_epoch() < timeout:
                 notifications_arrived_all, acknowledged_queries = query_subscriber_messages(CREDENTIALS, subscriber_client, query_payloads)
                 for acknowledged_query in acknowledged_queries:
-                    insert_page(
-                        plan_id,
-                        user_id,
-                        project_id,
-                        acknowledged_query["page_number"],
-                        True,
-                        "COMPLETED",
-                        bigquery_client,
-                        CREDENTIALS,
-                    )
                     query_payloads.remove(acknowledged_query)
                 if notifications_arrived_all:
                     all_pages_extracted = True
