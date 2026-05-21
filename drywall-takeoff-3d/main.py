@@ -1165,6 +1165,17 @@ async def floorplan_to_2d(request: Request):
         GCS_URL_floorplan=GCS_URL_floorplan,
         n_pages=n_pages,
     )
+    for index, page_metadata in enumerate(pages_metadata):
+        insert_page(
+            plan_id,
+            user_id,
+            project_id,
+            page_metadata["page_number"],
+            False,
+            "IN PROGRESS",
+            bigquery_client,
+            CREDENTIALS,
+        )
     ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
     vertex_ai_client, vertex_ai_generation_config, is_cached = load_vertex_ai_client(
         CREDENTIALS,
@@ -1196,16 +1207,6 @@ async def floorplan_to_2d(request: Request):
     try:
         with ThreadPoolExecutor(max_workers=20) as executor:
             for index, page_metadata in enumerate(pages_metadata):
-                insert_page(
-                    plan_id,
-                    user_id,
-                    project_id,
-                    page_metadata["page_number"],
-                    False,
-                    "IN PROGRESS",
-                    bigquery_client,
-                    CREDENTIALS,
-                )
                 page_number = page_metadata["page_number"]
                 GBQ_query = f"UPDATE `{CREDENTIALS["GBQServer"]["table_name_pages"]}` SET mask_factor = PARSE_JSON('{json.dumps(page_metadata["mask_factor"])}'), bounding_box_offsets = PARSE_JSON('{json.dumps(page_metadata["bounding_box_offsets"])}') WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
                 bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result()
