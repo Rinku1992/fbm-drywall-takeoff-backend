@@ -1196,20 +1196,25 @@ class FloorPlan2D(FloorPlan):
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
                     pydantic_model=ScaleAndCeilingHeightDetectorResponse,
                 )
-            scale, ceiling_height = normalize_scale(response.scale), response.ceiling_height
+            ceiling_height = response.ceiling_height
+            if response.scale.upper() == "NULL":
+                scale = None
+            if response.scale:
+                scale = normalize_scale(response.scale)
 
-            scales_possible = list()
-            nearest_transcription_blocks = self._load_nearest_transcription_blocks(((LEFT + RIGHT) / 2, (TOP + BOTTOM) / 2), transcription_block_with_centroids)
-            for transcription, _ in nearest_transcription_blocks.items():
-                scale_possible = self.load_scale_from_text(transcription)
-                if scale_possible:
-                    scales_possible.append(scale_possible)
-            if not scales_possible:
-                for transcription, _ in transcription_block_with_centroids.items():
+            if response.scale_confidence < 0.95:
+                scales_possible = list()
+                nearest_transcription_blocks = self._load_nearest_transcription_blocks(((LEFT + RIGHT) / 2, (TOP + BOTTOM) / 2), transcription_block_with_centroids)
+                for transcription, _ in nearest_transcription_blocks.items():
                     scale_possible = self.load_scale_from_text(transcription)
                     if scale_possible:
                         scales_possible.append(scale_possible)
-            scale = load_least_scale(scales_possible)
+                if not scales_possible:
+                    for transcription, _ in transcription_block_with_centroids.items():
+                        scale_possible = self.load_scale_from_text(transcription)
+                        if scale_possible:
+                            scales_possible.append(scale_possible)
+                scale = load_least_scale(scales_possible)
 
             if scale:
                 self._scale = scale
@@ -1220,13 +1225,13 @@ class FloorPlan2D(FloorPlan):
             if not ceiling_height:
                 ceiling_height_and_scale["ceiling_height"] = self._height_in_feet
         except Exception as e:
-            logging.info(f"SYSTEM: Standard Scale and Ceiling Height detection failed with error: {e}")
+            logging.warning(f"SYSTEM: Standard Scale and Ceiling Height detection failed with error: {e}")
             ceiling_height_and_scale = dict(ceiling_height=self._height_in_feet, scale=self._scale)
 
         new_pixel_aspect_ratio_to_feet = self.compute_pixel_aspect_ratio(ceiling_height_and_scale["scale"], self._hyperparameters["pixel_aspect_ratio_to_feet"])
         self._hyperparameters["pixel_aspect_ratio_to_feet"] = new_pixel_aspect_ratio_to_feet
         self._hyperparameters["modelling"]["pixel_aspect_ratio"] = new_pixel_aspect_ratio_to_feet
-        self._hyperparameters["modelling"]["height_in_feet"] = ceiling_height_and_scale["ceiling_height"]
+        self._hyperparameters["modelling"]["height_in_feet"] = round(ceiling_height_and_scale["ceiling_height"], 3)
         return ceiling_height_and_scale
 
     def _is_wall_valid(
