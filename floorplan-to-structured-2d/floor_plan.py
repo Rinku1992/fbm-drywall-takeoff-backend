@@ -1,4 +1,5 @@
 from copy import deepcopy
+import re
 
 from fractions import Fraction
 import math
@@ -104,6 +105,44 @@ class FloorPlan:
                     lines_offset_bound.append(line)
             return lines_offset_bound
         return lines
+
+    def normalize_transcription(self, text_corpus):
+        text_corpus = text_corpus.lower()
+
+        text_corpus = text_corpus.replace("”", '"')
+        text_corpus = text_corpus.replace("“", '"')
+        text_corpus = text_corpus.replace("′", "'")
+        text_corpus = text_corpus.replace("`", "'")
+
+        text_corpus = text_corpus.replace("o\"", '0"')
+        text_corpus = text_corpus.replace("o'", "0'")
+        text_corpus = text_corpus.replace("i/", "1/")
+        text_corpus = text_corpus.replace("l/", "1/")
+
+        text_corpus = re.sub(r"\s+", " ", text_corpus)
+
+        return text_corpus.strip()
+
+    def load_scale_from_text(self, text_corpus):
+        text_corpus_normalized = self.normalize_transcription(text_corpus)
+        regex_scale = re.compile(self.hyperparameters["modelling"]["scale_regex"], re.IGNORECASE | re.VERBOSE)
+        scale = regex_scale.search(text_corpus_normalized)
+        if not scale:
+            return
+        scale_identified = scale.group(1)
+        if scale_identified:
+            if scale_identified.find(':') != -1:
+                scale_on_paper_length = scale_identified.split(':')[0].strip("'`\"")
+            elif scale_identified.find('=') != -1:
+                scale_on_paper_length = scale_identified.split('=')[0].strip("'`\"")
+            else:
+                scale_on_paper_length = scale_identified.split()[0].strip("'`\"")
+            for scale_architecture in self.scales_architectural:
+                try:
+                    if round(float(Fraction(scale_architecture.split('=')[0].strip('`'))), 2) == round(float(Fraction(scale_on_paper_length)), 2):
+                        return scale_architecture
+                except ValueError:
+                    return
 
     def load_KD_tree(self, lines):
         points = list()
