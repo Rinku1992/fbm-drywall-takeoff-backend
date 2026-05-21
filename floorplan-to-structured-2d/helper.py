@@ -485,7 +485,7 @@ def phoenix_call(generate_content_lambda, max_retry=5, base_delay=1.0, pydantic_
             system_feedback = [Part.from_text(FEEDBACK_GENERATOR.format(max_retry=max_retry, exceptions=exceptions))]
             feedback_prompt = Content(role="model", parts=system_feedback)
             temperature = min(0.5 * (n_iterations + 1) / max_retry, 0.5)
-            logging.warning(f"SYSTEM: Response Generation/Parsing failed with ERROR: {e}")
+            logging.warning(f"SYSTEM: Response Generation/Parsing failed with ERROR: {e}: RETRYING ...")
             logging.warning(f"SYSTEM: RETRYING with TEMPERATURE: {temperature}")
 
 def load_section_from_page(wall_segmented_path, floor_plan_path, bounding_box_offset, section_name):
