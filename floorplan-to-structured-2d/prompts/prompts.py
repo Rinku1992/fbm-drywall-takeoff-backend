@@ -1473,15 +1473,41 @@ SCALE_AND_CEILING_HEIGHT_DETECTOR = """
   TASK:
     Identify the standard `ceiling_height` and `scale` applied on ONLY the target architectural plan enclosed with a green bounding box mentioned in the relevant section containing the textual metadata of the enclosed floorplan.
     INSTRUCTIONS:
-      - Look for a keyword that has to do with the `scale` of the highlighted target drawing, representing the ratio between the length on paper and the real world length in floating point values. Normalize and capture the ratio as "<paper_length_in_inches>``: <real_world_length_in_feet>`<real_world_length_in_inches>``".
-          Example: 0.25``:1`0``
-      - If scale is written in a different format, preserve the exact textual format.
+      - Identify the `scale` ONLY for the highlighted target drawing, representing the ratio between paper length and real-world length.
+      - Normalize architectural scales into:
+          "<paper_length_in_inches>``:<real_world_length_in_feet>`<real_world_length_in_inches>``"
+          Example:
+            1/4" = 1'-0"  →  0.25``:1`0``
+            1/8" = 1'-0"  →  0.125``:1`0``
       - SUPPORTED `Architectural Scales` are:
-        {supported_scales_architectural}
-      - If no scale is annotated on the drawing, STRICTLY do not invent a scale and mention the scale as `NULL`.
-      - Look for a keyword that matches with `ceiling height` field at the title section of the highlig hted drawing and identify the numerical entity closest to it. Note the feet equivalent of it.
-      - If multiple ceiling heights are listed, extract the standard or typical one.
-      - If not present, return null.
+          {supported_scales_architectural}
+      - STRICT DRAWING ASSOCIATION RULES:
+        Only extract a scale if it is explicitly associated with the highlighted target drawing by one or more of the following:
+          • Located directly adjacent to the highlighted drawing title
+          • Inside the title block for the highlighted drawing
+          • Explicitly labeled as the scale of the highlighted drawing
+          • Unique and unambiguous on the page
+      - MULTI-SCALE / REPRODUCTION RULE:
+        If multiple scales appear for different sheet sizes, print layouts, or reproduction formats
+        (e.g., "1/4\" = 1'-0\" AT 22\"x34\" LAYOUT" and "1/8\" = 1'-0\" AT 11\"x17\" LAYOUT"),
+        DO NOT infer the target drawing scale.
+        These are print/reproduction scales and are ambiguous unless the target drawing explicitly specifies which applies.
+      - AMBIGUITY RULE:
+        Return `NULL` for `scale` when:
+          • Multiple competing scales exist
+          • The scale belongs to page layout, viewport, or print size
+          • The scale cannot be confidently tied to the highlighted drawing
+          • The page contains only sheet-level scale references
+          • The text contains phrases such as:
+            "AT 22x34 LAYOUT", "AT 11x17 LAYOUT",
+            "NOT TO SCALE", "NTS", "FOR REFERENCE ONLY"
+      - NEVER infer or guess a scale from geometry, dimensions, room sizes, wall lengths, known object sizes, or typical architectural conventions.
+      - If scale is written in a non-standard format, preserve the exact textual format.
+      - If no unambiguous target-drawing scale exists, STRICTLY return:
+        `scale = NULL`
+      - Look for a keyword matching `ceiling height` in the highlighted drawing title section and extract the nearest numerical value.
+      - If multiple ceiling heights exist, prefer the standard/typical ceiling height.
+      - If ceiling height is not present, return `NULL`.
 
   OUTPUT:
     Your output should be in the JSON format containing the standard `ceiling_height` and `scale` of the floorplan.
