@@ -1482,6 +1482,7 @@ class FloorPlan2D(FloorPlan):
                     )
 
                 model_polygon["wall_parameters"][index] = dimension_wall_rectified
+            logging.info(f"SYSTEM: POLYGON DETECTED: {json.dumps(model_polygon)}")
         except Exception as e:
             logging.warning(f"SYSTEM: Drywall prediction for polygon: {json.dumps(polygon)} failed with error: {e}")
             model_polygon = {
