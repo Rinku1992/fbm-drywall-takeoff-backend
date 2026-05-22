@@ -68,6 +68,7 @@ class FloorPlan2D(FloorPlan):
     def reload(self):
         self._walls_2d = list()
         self._polygons = list()
+        self._is_scale_detected = False
 
     @property
     def is_scale_detected(self):
@@ -1141,7 +1142,13 @@ class FloorPlan2D(FloorPlan):
     def scale(self):
         return self._scale
 
-    def _load_ceiling_height_and_scale(self, offset, plan_BGR, transcription_block_with_centroids):
+    def _load_ceiling_height_and_scale(
+        self,
+        offset,
+        plan_BGR,
+        transcription_block_with_centroids,
+        architectural_scale=None
+    ):
         def normalize_scale(scale):
             if scale.find(':') != -1:
                 on_paper, real_world = scale.split(':')
@@ -1197,24 +1204,27 @@ class FloorPlan2D(FloorPlan):
                     pydantic_model=ScaleAndCeilingHeightDetectorResponse,
                 )
             ceiling_height = response.ceiling_height
-            if response.scale.upper() == "NULL":
-                scale = None
-            if response.scale:
-                scale = normalize_scale(response.scale)
+            if architectural_scale:
+                scale = normalize_scale(architectural_scale)
+            else:
+                if response.scale.upper() == "NULL":
+                    scale = None
+                if response.scale:
+                    scale = normalize_scale(response.scale)
 
-            if response.scale_confidence < 0.95:
-                scales_possible = list()
-                nearest_transcription_blocks = self._load_nearest_transcription_blocks(((LEFT + RIGHT) / 2, (TOP + BOTTOM) / 2), transcription_block_with_centroids)
-                for transcription, _ in nearest_transcription_blocks.items():
-                    scale_possible = self.load_scale_from_text(transcription)
-                    if scale_possible:
-                        scales_possible.append(scale_possible)
-                if not scales_possible:
-                    for transcription, _ in transcription_block_with_centroids.items():
+                if response.scale_confidence < 0.95:
+                    scales_possible = list()
+                    nearest_transcription_blocks = self._load_nearest_transcription_blocks(((LEFT + RIGHT) / 2, (TOP + BOTTOM) / 2), transcription_block_with_centroids)
+                    for transcription, _ in nearest_transcription_blocks.items():
                         scale_possible = self.load_scale_from_text(transcription)
                         if scale_possible:
                             scales_possible.append(scale_possible)
-                scale = load_least_scale(scales_possible)
+                    if not scales_possible:
+                        for transcription, _ in transcription_block_with_centroids.items():
+                            scale_possible = self.load_scale_from_text(transcription)
+                            if scale_possible:
+                                scales_possible.append(scale_possible)
+                    scale = load_least_scale(scales_possible)
 
             if scale:
                 self._scale = scale
@@ -2757,6 +2767,7 @@ class FloorPlan2D(FloorPlan):
         model_2d_path="/tmp/walls_2d.json",
         floor_plan_path="/tmp/floor_plan.png",
         transcription_block_with_centroids=dict(),
+        architectural_scale=None,
     ):
         image_GRAY = self.read_floor_plan(image_path)
 
@@ -2764,7 +2775,12 @@ class FloorPlan2D(FloorPlan):
         height, width, _ = canvas.shape
         scale_x = width / 1920
         scale_y = height / 1080
-        height_default = self._load_ceiling_height_and_scale(offset, canvas, transcription_block_with_centroids)["ceiling_height"]
+        height_default = self._load_ceiling_height_and_scale(
+            offset,
+            canvas,
+            transcription_block_with_centroids,
+            architectural_scale=architectural_scale
+        )["ceiling_height"]
         wall_lines = self._patch_to_line(image_GRAY, floor_plan_path, offset, (scale_x, scale_y))
         if not wall_lines:
             return None, None, None, None
@@ -2872,6 +2888,7 @@ class FloorPlan2D(FloorPlan):
         model_2d_path="/tmp/walls_2d.json",
         floor_plan_path="/tmp/floor_plan.png",
         transcription_block_with_centroids=dict(),
+        architectural_scale=None,
     ):
         image_GRAY = self.read_floor_plan(image_path)
 
@@ -2879,7 +2896,12 @@ class FloorPlan2D(FloorPlan):
         height, width, _ = canvas.shape
         scale_x = width / 1920
         scale_y = height / 1080
-        height_default = self._load_ceiling_height_and_scale(offset, canvas, transcription_block_with_centroids)["ceiling_height"]
+        height_default = self._load_ceiling_height_and_scale(
+            offset,
+            canvas,
+            transcription_block_with_centroids,
+            architectural_scale=architectural_scale
+        )["ceiling_height"]
         wall_lines = self._patch_to_line(image_GRAY, floor_plan_path, offset, (scale_x, scale_y))
         if not wall_lines:
             return None, None, None, None
