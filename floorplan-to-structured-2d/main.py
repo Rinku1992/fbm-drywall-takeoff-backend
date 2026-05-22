@@ -240,16 +240,6 @@ async def floorplan_to_structured_2d(request: Request):
     pdf_path = download_floorplan(user_id, plan_id, project_id, CREDENTIALS)
     logging.info("SYSTEM: Floorplan Downloaded for extraction")
 
-    insert_page(
-        plan_id,
-        user_id,
-        project_id,
-        page_number,
-        False,
-        "IN PROGRESS",
-        bigquery_client,
-        CREDENTIALS,
-    )
     hyperparameters = load_hyperparameters()
     publish_handler = load_publisher_client(CREDENTIALS)
     ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
