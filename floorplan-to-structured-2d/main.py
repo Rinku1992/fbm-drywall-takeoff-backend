@@ -120,6 +120,7 @@ def page_to_structured_2d(
     floorplan_baseline_page_source,
     elevation_processed_paths,
     predict_drywall,
+    architectural_scale,
     ):
     floor_plan_modeller_2d.reload()
     wall_segmented_sectioned_path = load_section_from_page(
@@ -137,6 +138,7 @@ def page_to_structured_2d(
             model_2d_path=f"/tmp/{project_id}/{plan_id}/{user_id}/walls_2d_{str(page_number).zfill(4)}_{str(page_section_number).replace('/', '_')}.json",
             floor_plan_path=floor_plan_processed_path,
             transcription_block_with_centroids=transcription_block_with_centroids,
+            architectural_scale=architectural_scale
         )
     else:
         walls_2d, polygons, _, external_contour = floor_plan_modeller_2d.model(
@@ -146,6 +148,7 @@ def page_to_structured_2d(
             model_2d_path=f"/tmp/{project_id}/{plan_id}/{user_id}/walls_2d_{str(page_number).zfill(4)}_{str(page_section_number).replace('/', '_')}.json",
             floor_plan_path=floor_plan_processed_path,
             transcription_block_with_centroids=transcription_block_with_centroids,
+            architectural_scale=architectural_scale
         )
     if walls_2d and polygons:
         floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons)
@@ -184,6 +187,7 @@ def page_to_structured_2d(
         credentials,
     )
     logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} and SECTION: {page_section_number} Generated Successfully")
+    return floor_plan_modeller_2d.is_scale_detected
 
 
 def floorplan_to_page(credentials, project_id, plan_id, pdf_path, page_number, dpi):
@@ -233,6 +237,7 @@ async def floorplan_to_structured_2d(request: Request):
     bounding_box_offsets = parameters.get("bounding_box_offsets") or body.get("bounding_box_offsets")
     elevation_pages = parameters.get("elevation_pages") or body.get("elevation_pages")
     predict_drywall = parameters.get("predict_drywall") or body.get("predict_drywall") or "true"
+    architectural_scale = parameters.get("architectural_scale") or body.get("architectural_scale")
     page_number = int(page_number)
     predict_drywall = predict_drywall.upper() == "TRUE"
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
@@ -410,7 +415,7 @@ async def floorplan_to_structured_2d(request: Request):
     if not FloorPlan2D.is_none(wall_segmented_path):
         futures = list()
         vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES)
-        print(transcription_block_with_centroids)
+        scale_detected = True
         with ThreadPoolExecutor(max_workers=2) as executor:
             for bounding_box_offset in bounding_box_offsets:
                 logging.info(f"SYSTEM: Extracting structured model from SECTION: {bounding_box_offset["title"]} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
@@ -435,21 +440,36 @@ async def floorplan_to_structured_2d(request: Request):
                         floorplan_baseline_page_source,
                         elevation_processed_paths,
                         predict_drywall,
+                        architectural_scale,
                     )
                 )
-            [future.result() for future in futures]
+            for future in futures:
+                is_scale_detected = future.result()
+                scale_detected = scale_detected and is_scale_detected
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
         future.result()
-    insert_page(
-        plan_id,
-        user_id,
-        project_id,
-        page_number,
-        True,
-        "COMPLETED",
-        bigquery_client,
-        CREDENTIALS,
-    )
+    if scale_detected:
+        insert_page(
+            plan_id,
+            user_id,
+            project_id,
+            page_number,
+            True,
+            "COMPLETED",
+            bigquery_client,
+            CREDENTIALS,
+        )
+    else:
+        insert_page(
+            plan_id,
+            user_id,
+            project_id,
+            page_number,
+            True,
+            "SCALE_NOT_DETECTED",
+            bigquery_client,
+            CREDENTIALS,
+        )
     trigger_email_notification(
         CREDENTIALS,
         bigquery_client,
