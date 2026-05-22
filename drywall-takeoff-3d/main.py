@@ -1567,17 +1567,17 @@ async def load_2d_all(request: Request):
                 **walls_2d.get("metadata", dict()),
             }
             walls_2d_all["pages"].append(page)
-        for page_number in list(set(page_to_model_2d_minimal.keys()) - set([page["page_number"] for page in walls_2d_all["pages"]])):
-            page = {
-                "plan_id": plan_id,
-                "page_number": page_number,
-                "page_section_number": page_to_model_2d_minimal[page_number]["page_section_number"],
-                "scale": page_to_model_2d_minimal[page_number]["scale"],
-                "walls_2d": page_to_model_2d_minimal[page_number]["walls_2d"],
-                "polygons": page_to_model_2d_minimal[page_number]["polygons"],
-                **page_to_model_2d_minimal[page_number]["metadata"],
-            }
-            walls_2d_all["pages"].append(page)
+    for page_number in list(set(page_to_model_2d_minimal.keys()) - set([page["page_number"] for page in walls_2d_all["pages"]])):
+        page = {
+            "plan_id": plan_id,
+            "page_number": page_number,
+            "page_section_number": page_to_model_2d_minimal[page_number]["page_section_number"],
+            "scale": page_to_model_2d_minimal[page_number]["scale"],
+            "walls_2d": page_to_model_2d_minimal[page_number]["walls_2d"],
+            "polygons": page_to_model_2d_minimal[page_number]["polygons"],
+            **page_to_model_2d_minimal[page_number]["metadata"],
+        }
+        walls_2d_all["pages"].append(page)
 
     return respond_with_UI_payload(walls_2d_all)
 
