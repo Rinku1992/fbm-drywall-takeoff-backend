@@ -1480,7 +1480,7 @@ SCALE_AND_CEILING_HEIGHT_DETECTOR = """
             1/4" = 1'-0"  →  0.25``:1`0``
             1/8" = 1'-0"  →  0.125``:1`0``
       - SUPPORTED `Architectural Scales` are:
-          {supported_scales_architectural}
+        {supported_scales_architectural}
       - STRICT DRAWING ASSOCIATION RULES:
         Only extract a scale if it is explicitly associated with the highlighted target drawing by one or more of the following:
           • Located directly adjacent to the highlighted drawing title
