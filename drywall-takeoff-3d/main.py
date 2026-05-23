@@ -2093,6 +2093,28 @@ async def compute_takeoff(request: Request):
     return respond_with_UI_payload(drywall_takeoff)
 
 
+@app.post("/compute_takeoff_all")
+async def compute_takeoff_all(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    project_id = parameters.get("project_id") or body.get("project_id")
+    plan_id = parameters.get("plan_id") or body.get("plan_id")
+    logging.info("SYSTEM: Received Total Drywall Takeoff computation Request")
+
+    GBQ_query = f"SELECT page_number, page_section_number, scale, waste_average, takeoff FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
+    query_job = bigquery_run(CREDENTIALS, bigquery_client, GBQ_query)
+    drywall_takeoff_all = list()
+    for row in query_job.result():
+        drywall_takeoff = dict(row)
+        drywall_takeoff_all.append(drywall_takeoff)
+
+    return respond_with_UI_payload(jsonable_encoder({"drywall_takeoff_all": drywall_takeoff_all}))
+
+
 @app.get("/insert_templates")
 async def insert_templates():
     def parse_fire_rating(description: str):
