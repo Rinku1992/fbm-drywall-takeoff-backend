@@ -322,6 +322,7 @@ def insert_takeoff(
     takeoff,
     waste_factor_average,
     page_number,
+    page_section_number,
     plan_id,
     user_id,
     project_id,
@@ -340,6 +341,7 @@ def insert_takeoff(
         LOWER(project_id) = LOWER(@project_id)
         AND LOWER(plan_id) = LOWER(@plan_id)
         AND page_number = @page_number
+        AND page_section_number = @page_section_number
     """
     job_config = dict(
         query_parameters=[
@@ -347,6 +349,7 @@ def insert_takeoff(
             bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
             bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
             bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
+            bigquery.ScalarQueryParameter("page_section_number", "STRING", page_section_number),
             bigquery.ScalarQueryParameter("takeoff", "JSON", takeoff),
             bigquery.ScalarQueryParameter("waste_average", "FLOAT64", waste_factor_average)
         ]
@@ -363,6 +366,7 @@ def insert_takeoff(
             LOWER(project_id) = LOWER(@project_id)
             AND LOWER(plan_id) = LOWER(@plan_id)
             AND page_number = @page_number
+            AND page_section_number = @page_section_number
             AND revision_number = @revision_number
         """
         job_config = dict(
@@ -371,6 +375,7 @@ def insert_takeoff(
                 bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
                 bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
                 bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
+                bigquery.ScalarQueryParameter("page_section_number", "STRING", page_section_number),
                 bigquery.ScalarQueryParameter("takeoff", "JSON", takeoff),
                 bigquery.ScalarQueryParameter("revision_number", "INT64", revision_number)
             ]
@@ -1912,10 +1917,11 @@ async def load_waste_average(request: Request):
     walls_2d_JSON = parameters.get("walls_2d", list()) or body.get("walls_2d", list())
     polygons_JSON = parameters.get("polygons", list()) or body.get("polygons", list())
     page_number = parameters.get("page_number") or body.get("page_number")
+    page_section_number = parameters.get("page_section_number") or body.get("page_section_number")
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
 
-    GBQ_query = f"SELECT waste_average FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number};"
+    GBQ_query = f"SELECT waste_average FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number} AND page_section_number = '{page_section_number}';"
     query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
     waste_average = query_output.waste_average
     if waste_average:
@@ -1942,6 +1948,7 @@ async def compute_takeoff(request: Request):
     polygons_JSON = parameters.get("polygons", list()) or body.get("polygons", list())
     waste_factor_average = parameters.get("waste_factor_average") or body.get("waste_factor_average") or None
     index = parameters.get("page_number") or body.get("page_number")
+    page_section_number = parameters.get("page_section_number") or body.get("page_section_number")
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     user_id = parameters.get("user_id") or body.get("user_id")
@@ -1949,7 +1956,7 @@ async def compute_takeoff(request: Request):
     load_preview = parameters.get("load_preview") or body.get("load_preview") or False
     logging.info("SYSTEM: Received a Drywall Takeoff computation Request")
 
-    GBQ_query = f"SELECT scale FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index};"
+    GBQ_query = f"SELECT scale FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index} AND page_section_number = '{page_section_number}';"
     query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
     scale = query_output.scale
     pdf_path = Path("/tmp/floor_plan.PDF")
@@ -1957,10 +1964,10 @@ async def compute_takeoff(request: Request):
 
     if not walls_2d_JSON:
         if revision_number:
-            GBQ_query = f"SELECT model.walls_2d FROM `{CREDENTIALS["GBQServer"]["table_name_model_revisions_2d"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index} AND revision_number = {revision_number};"
+            GBQ_query = f"SELECT model.walls_2d FROM `{CREDENTIALS["GBQServer"]["table_name_model_revisions_2d"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index} AND page_section_number = '{page_section_number}' AND revision_number = {revision_number};"
             walls_2d_JSON = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0].walls_2d
         else:
-            GBQ_query = f"SELECT model_2d.walls_2d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index};"
+            GBQ_query = f"SELECT model_2d.walls_2d FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index} AND page_section_number = '{page_section_number}';"
             walls_2d_JSON = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0].walls_2d
     
         if walls_2d_JSON is None:
@@ -1968,10 +1975,10 @@ async def compute_takeoff(request: Request):
 
     if not polygons_JSON:
         if revision_number:
-            GBQ_query = f"SELECT model.polygons FROM `{CREDENTIALS["GBQServer"]["table_name_model_revisions_2d"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index} AND revision_number = {revision_number};"
+            GBQ_query = f"SELECT model.polygons FROM `{CREDENTIALS["GBQServer"]["table_name_model_revisions_2d"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index} AND page_section_number = '{page_section_number}' AND revision_number = {revision_number};"
             polygons_JSON = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0].polygons
         else:
-            GBQ_query = f"SELECT model_2d.polygons FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index};"
+            GBQ_query = f"SELECT model_2d.polygons FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index} AND page_section_number = '{page_section_number}';"
             polygons_JSON = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0].polygons
     
         if polygons_JSON is None:
@@ -1996,7 +2003,7 @@ async def compute_takeoff(request: Request):
         drywall_templates=DRYWALL_TEMPLATES
     )
     if not waste_factor_average:
-        GBQ_query = f"SELECT waste_average FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index};"
+        GBQ_query = f"SELECT waste_average FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index} AND page_section_number = '{page_section_number}';"
         query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
         waste_factor_average = query_output.waste_average
     if waste_factor_average:
@@ -2087,7 +2094,7 @@ async def compute_takeoff(request: Request):
 
     if load_preview == False:
         waste_factor_average = waste_factor_average if waste_factor_average else waste_standard
-        insert_takeoff(drywall_takeoff, waste_factor_average, index, plan_id, user_id, project_id, revision_number, bigquery_client, CREDENTIALS)
+        insert_takeoff(drywall_takeoff, waste_factor_average, index, page_section_number, plan_id, user_id, project_id, revision_number, bigquery_client, CREDENTIALS)
         logging.info("SYSTEM: Drywall Takeoff computation saved")
     logging.info("SYSTEM: Drywall Takeoff Computed Successfully for the provided Floorplan")
     return respond_with_UI_payload(drywall_takeoff)
