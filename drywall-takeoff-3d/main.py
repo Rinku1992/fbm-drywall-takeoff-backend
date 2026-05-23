@@ -556,6 +556,7 @@ def floorplan_to_structured_2d(
     mask_factor,
     bounding_box_offsets,
     elevation_pages,
+    architectural_scale,
 ):
     headers = {
         "Authorization": f"Bearer {id_token}",
@@ -572,6 +573,7 @@ def floorplan_to_structured_2d(
             mask_factor=mask_factor,
             bounding_box_offsets=bounding_box_offsets,
             elevation_pages=elevation_pages,
+            architectural_scale=architectural_scale
         ),
     )
     return response.raise_for_status()
@@ -1226,6 +1228,7 @@ async def floorplan_to_2d(request: Request):
                     page_metadata["mask_factor"],
                     page_metadata["bounding_box_offsets"],
                     elevation_pages,
+                    page_metadata.get("architectural_scale")
                 )
             query_payloads = [dict(project_id=project_id, plan_id=plan_id, page_number=page_metadata["page_number"]) for page_metadata in pages_metadata]
             timeout = from_unix_epoch() + 7200
