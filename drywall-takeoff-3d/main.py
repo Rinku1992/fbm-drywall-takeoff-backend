@@ -2093,8 +2093,8 @@ async def compute_takeoff(request: Request):
     return respond_with_UI_payload(drywall_takeoff)
 
 
-@app.post("/compute_takeoff_all")
-async def compute_takeoff_all(request: Request):
+@app.post("/summarize_takeoff_all")
+async def summarize_takeoff_all(request: Request):
     enable_logging_on_stdout()
     parameters = dict(request.query_params)
     try:
