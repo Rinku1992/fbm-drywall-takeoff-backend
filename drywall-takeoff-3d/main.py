@@ -255,7 +255,7 @@ def insert_model_3d(
     return query_output
 
 
-def delete_floorplan(project_id, plan_id, user_id, bigquery_client, credentials):
+def delete_floorplan(project_id, plan_id, bigquery_client, credentials):
     GBQ_query = """
     DELETE FROM `drywall_takeoff.pages`
     WHERE
@@ -274,14 +274,12 @@ def delete_floorplan(project_id, plan_id, user_id, bigquery_client, credentials)
     DELETE FROM `drywall_takeoff.plans`
     WHERE
         LOWER(project_id) = LOWER(@project_id)
-        AND LOWER(plan_id) = LOWER(@plan_id)
-        AND LOWER(user_id) = LOWER(@user_id);
+        AND LOWER(plan_id) = LOWER(@plan_id);
     """
     job_config = dict(
         query_parameters=[
             bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
             bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
-            bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
         ]
     )
     bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
@@ -312,7 +310,7 @@ def delete_floorplan(project_id, plan_id, user_id, bigquery_client, credentials)
 
     client = CloudStorageClient()
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
-    prefix = f"{project_id.lower()}/{plan_id.lower()}/{user_id.lower()}/"
+    prefix = f"{project_id.lower()}/{plan_id.lower()}/"
     blobs = list(bucket.list_blobs(prefix=prefix))
     if blobs:
         bucket.delete_blobs(blobs)
@@ -1901,7 +1899,7 @@ async def remove_floorplan(request: Request):
     query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())
     if not query_output:
         return respond_with_UI_payload(dict(status="FAILED", message="Plan: {} cannot be deleted".format(plan_id)))
-    delete_floorplan(project_id, plan_id, user_id, bigquery_client, CREDENTIALS)
+    delete_floorplan(project_id, plan_id, bigquery_client, CREDENTIALS)
     logging.info("SYSTEM: Plan Deleted Successfully")
     return respond_with_UI_payload(dict(status="SUCCESS", message=f"Plan: {plan_id} Deleted Successfully"))
 
