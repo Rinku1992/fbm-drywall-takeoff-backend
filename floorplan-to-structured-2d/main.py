@@ -186,7 +186,10 @@ def page_to_structured_2d(
         bigquery_client,
         credentials,
     )
-    logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} and SECTION: {page_section_number} Generated Successfully")
+    if floor_plan_modeller_2d.is_scale_detected:
+        logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} and SECTION: {page_section_number} Generated Successfully")
+    else:
+        logging.warning(f"SYSTEM: Architectural Scale not detected for PAGE: {page_number} and SECTION: {page_section_number}. Waiting for Architectural Scale input from the user")
     return floor_plan_modeller_2d.is_scale_detected
 
 
