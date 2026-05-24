@@ -2039,7 +2039,7 @@ async def compute_takeoff(request: Request):
             for opening in wall["openings"]:
                 drywall_negate_area += opening["count"] * opening["length"] * opening["height"]
             if drywall_negate_opening_area_threshold is not None and drywall_negate_area < drywall_negate_opening_area_threshold:
-                    drywall_negate_area = 0
+                drywall_negate_area = 0
         for drywall in wall["polygons_drywall"]:
             surface_area = (drywall["height"] * wall["length"]) - drywall_negate_area
             if not drywall["enabled"]:
