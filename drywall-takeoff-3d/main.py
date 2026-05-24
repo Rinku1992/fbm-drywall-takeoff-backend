@@ -1934,6 +1934,25 @@ async def load_waste_average(request: Request):
     return respond_with_UI_payload(dict(waste_average_in_percentage=waste_average))
 
 
+@app.post("/load_drywall_negate_opening_area_threshold")
+async def load_drywall_negate_opening_area_threshold(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    page_number = parameters.get("page_number") or body.get("page_number")
+    page_section_number = parameters.get("page_section_number") or body.get("page_section_number")
+    project_id = parameters.get("project_id") or body.get("project_id")
+    plan_id = parameters.get("plan_id") or body.get("plan_id")
+
+    GBQ_query = f"SELECT drywall_negate_opening_area_threshold FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number} AND page_section_number = '{page_section_number}';"
+    query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
+    drywall_negate_opening_area_threshold = query_output.drywall_negate_opening_area_threshold
+    return respond_with_UI_payload(dict(drywall_negate_opening_area_threshold=drywall_negate_opening_area_threshold))
+
+
 @app.post("/compute_takeoff")
 async def compute_takeoff(request: Request):
     enable_logging_on_stdout()
@@ -1945,6 +1964,7 @@ async def compute_takeoff(request: Request):
     walls_2d_JSON = parameters.get("walls_2d", list()) or body.get("walls_2d", list())
     polygons_JSON = parameters.get("polygons", list()) or body.get("polygons", list())
     waste_factor_average = parameters.get("waste_factor_average") or body.get("waste_factor_average") or None
+    drywall_negate_opening_area_threshold = parameters.get("drywall_negate_opening_area_threshold") or body.get("drywall_negate_opening_area_threshold") or None
     index = parameters.get("page_number") or body.get("page_number")
     page_section_number = parameters.get("page_section_number") or body.get("page_section_number")
     project_id = parameters.get("project_id") or body.get("project_id")
@@ -2009,9 +2029,19 @@ async def compute_takeoff(request: Request):
     else:
         waste_factor_average_delta = 0
     normalization_variance_aware = sum(w**2 for w in drywall_weights.values())
+    if drywall_negate_opening_area_threshold is None:
+        GBQ_query = f"SELECT drywall_negate_opening_area_threshold FROM `{CREDENTIALS["GBQServer"]["table_name_models"]}` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {index} AND page_section_number = '{page_section_number}';"
+        query_output = list(bigquery_run(CREDENTIALS, bigquery_client, GBQ_query).result())[0]
+        drywall_negate_opening_area_threshold = query_output.drywall_negate_opening_area_threshold
     for wall in walls_2d_JSON:
+        drywall_negate_area = 0
+        if wall["openings"]:
+            for opening in wall["openings"]:
+                drywall_negate_area += opening["count"] * opening["length"] * opening["height"]
+            if drywall_negate_opening_area_threshold is not None and drywall_negate_area < drywall_negate_opening_area_threshold:
+                    drywall_negate_area = 0
         for drywall in wall["polygons_drywall"]:
-            surface_area = drywall["height"] * wall["length"]
+            surface_area = (drywall["height"] * wall["length"]) - drywall_negate_area
             if not drywall["enabled"]:
                 continue
             if drywall["type_stacked"]:
