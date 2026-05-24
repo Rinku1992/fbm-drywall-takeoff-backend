@@ -1235,6 +1235,10 @@ class FloorPlan2D(FloorPlan):
             if not ceiling_height:
                 ceiling_height_and_scale["ceiling_height"] = self._height_in_feet
         except Exception as e:
+            if architectural_scale:
+                scale = normalize_scale(architectural_scale)
+                self._scale = scale
+                self._is_scale_detected = True
             logging.warning(f"SYSTEM: Standard Scale and Ceiling Height detection failed with error: {e}")
             ceiling_height_and_scale = dict(ceiling_height=self._height_in_feet, scale=self._scale)
 
