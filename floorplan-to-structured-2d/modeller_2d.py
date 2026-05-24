@@ -2148,6 +2148,12 @@ class FloorPlan2D(FloorPlan):
             imperial_scale_X, imperial_scale_Y = self.compute_imperial_scale_from_DPI(self._scale)
         drywall_skus = [drywall_template["sku_variant"] for drywall_template in self._drywall_templates]
         for wall in walls_2d[:]:
+            if wall["openings"]:
+                walls_openings_normalized = list()
+                for opening in wall["openings"]:
+                    if opening["count"] != 0 and opening["length"] != 0 and opening["height"] != 0:
+                        walls_openings_normalized.append(opening)
+                wall["openings"] = walls_openings_normalized
             for opening in wall["openings"][:]:
                 opening_types_levenshtein = list(map(lambda opening_type_choice: Levenshtein.distance(opening["opening_type"], opening_type_choice), OPENING_TYPE_CHOICES.keys()))
                 target_opening_type_index = opening_types_levenshtein.index(min(opening_types_levenshtein))
