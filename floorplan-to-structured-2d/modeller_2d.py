@@ -1239,7 +1239,9 @@ class FloorPlan2D(FloorPlan):
                 scale = normalize_scale(architectural_scale)
                 self._scale = scale
                 self._is_scale_detected = True
-            logging.warning(f"SYSTEM: Standard Scale and Ceiling Height detection failed with error: {e}")
+                logging.warning(f"SYSTEM: Standard Ceiling Height detection failed with error: {e}")
+            else:
+                logging.warning(f"SYSTEM: Standard Scale and Ceiling Height detection failed with error: {e}")
             ceiling_height_and_scale = dict(ceiling_height=self._height_in_feet, scale=self._scale)
 
         new_pixel_aspect_ratio_to_feet = self.compute_pixel_aspect_ratio(ceiling_height_and_scale["scale"], self._hyperparameters["pixel_aspect_ratio_to_feet"])
