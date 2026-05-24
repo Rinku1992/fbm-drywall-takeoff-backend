@@ -2151,7 +2151,7 @@ class FloorPlan2D(FloorPlan):
             if wall["openings"]:
                 walls_openings_normalized = list()
                 for opening in wall["openings"]:
-                    if opening["count"] != 0 and opening["length"] != 0 and opening["height"] != 0:
+                    if opening["count"] != 0 or opening["length"] != 0 or opening["height"] != 0:
                         walls_openings_normalized.append(opening)
                 wall["openings"] = walls_openings_normalized
             for opening in wall["openings"][:]:
