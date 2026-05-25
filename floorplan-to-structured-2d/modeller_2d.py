@@ -2794,6 +2794,8 @@ class FloorPlan2D(FloorPlan):
             transcription_block_with_centroids,
             architectural_scale=architectural_scale
         )["ceiling_height"]
+        if not self._is_scale_detected:
+            return None, None, None, None
         wall_lines = self._patch_to_line(image_GRAY, floor_plan_path, offset, (scale_x, scale_y))
         if not wall_lines:
             return None, None, None, None
@@ -2915,6 +2917,8 @@ class FloorPlan2D(FloorPlan):
             transcription_block_with_centroids,
             architectural_scale=architectural_scale
         )["ceiling_height"]
+        if not self._is_scale_detected:
+            return None, None, None, None
         wall_lines = self._patch_to_line(image_GRAY, floor_plan_path, offset, (scale_x, scale_y))
         if not wall_lines:
             return None, None, None, None
