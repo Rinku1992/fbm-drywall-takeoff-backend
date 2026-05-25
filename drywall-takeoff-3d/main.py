@@ -319,6 +319,7 @@ def delete_floorplan(project_id, plan_id, bigquery_client, credentials):
 def insert_takeoff(
     takeoff,
     waste_factor_average,
+    drywall_negate_opening_area_threshold,
     page_number,
     page_section_number,
     plan_id,
@@ -333,6 +334,7 @@ def insert_takeoff(
     SET
         takeoff = @takeoff,
         waste_average = @waste_average,
+        drywall_negate_opening_area_threshold = @drywall_negate_opening_area_threshold,
         updated_at = CURRENT_TIMESTAMP(),
         user_id = @user_id
     WHERE
@@ -349,7 +351,8 @@ def insert_takeoff(
             bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
             bigquery.ScalarQueryParameter("page_section_number", "STRING", page_section_number),
             bigquery.ScalarQueryParameter("takeoff", "JSON", takeoff),
-            bigquery.ScalarQueryParameter("waste_average", "FLOAT64", waste_factor_average)
+            bigquery.ScalarQueryParameter("waste_average", "FLOAT64", waste_factor_average),
+            bigquery.ScalarQueryParameter("drywall_negate_opening_area_threshold", "FLOAT64", drywall_negate_opening_area_threshold)
         ]
     )
     query_output_takeoff_insert = bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
@@ -2122,7 +2125,19 @@ async def compute_takeoff(request: Request):
 
     if load_preview == False:
         waste_factor_average = waste_factor_average if waste_factor_average else waste_standard
-        insert_takeoff(drywall_takeoff, waste_factor_average, index, page_section_number, plan_id, user_id, project_id, revision_number, bigquery_client, CREDENTIALS)
+        insert_takeoff(
+            drywall_takeoff,
+            waste_factor_average,
+            drywall_negate_opening_area_threshold,
+            index,
+            page_section_number,
+            plan_id,
+            user_id,
+            project_id,
+            revision_number,
+            bigquery_client,
+            CREDENTIALS
+        )
         logging.info("SYSTEM: Drywall Takeoff computation saved")
     logging.info("SYSTEM: Drywall Takeoff Computed Successfully for the provided Floorplan")
     return respond_with_UI_payload(drywall_takeoff)
