@@ -328,7 +328,7 @@ def insert_takeoff(
     revision_number,
     bigquery_client,
     credentials
-    ):
+):
     GBQ_query = """
     UPDATE `drywall_takeoff.models` t
     SET
