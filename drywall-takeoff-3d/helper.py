@@ -907,7 +907,9 @@ def load_drywall_weights(walls_2d_JSON, polygons_JSON, compute_waste_average_sta
         weights_drywall[drywall_type] /= drywall_count
 
     if compute_waste_average_standard:
-        waste_average = waste_factor_total / drywall_count
+        waste_average = 0
+        if drywall_count != 0:
+            waste_average = waste_factor_total / drywall_count
         return weights_drywall, waste_average, drywall_count
     return weights_drywall, drywall_count
 
