@@ -14,8 +14,8 @@ class FloorPlan:
 
     def __init__(self, hyperparameters):
         self.hyperparameters = hyperparameters
-        self.tolerance_vertical = self.hyperparameters["modelling"]["tolerance_vertical"]
-        self.tolerance_horizontal = self.hyperparameters["modelling"]["tolerance_horizontal"]
+        self.tolerance_angle = self.hyperparameters["modelling"]["tolerance_angle"]
+        self._lines_classified = dict()
         self._perimeter_lines = list()
 
     def read_floor_plan(self, image_path, resize=None):
