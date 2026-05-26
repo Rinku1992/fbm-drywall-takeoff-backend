@@ -62,12 +62,22 @@ from helper import (
 from prompts import ARCHITECTURAL_DRAWING_CLASSIFIER, VISUAL_GROUNDING_DETECTOR
 
 
-def respond_with_UI_payload(payload, status_code=200):
+def respond_with_UI_payload(payload, status_code=200, disable_caching=False):
+    if disable_caching:
+        return JSONResponse(
+            content=json.loads(json.dumps(payload)),
+            status_code=status_code,
+            media_type="application/json",
+            headers={
+                "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
+                "Pragma": "no-cache",
+                "Expires": "0"
+            }
+        )
     return JSONResponse(
         content=json.loads(json.dumps(payload)),
         status_code=status_code,
-        media_type="application/json",
-        headers={"Cache-Control": "no-cache"}
+        media_type="application/json"
     )
 
 
@@ -1630,7 +1640,7 @@ async def update_floorplan_to_2d(request: Request):
     insert_model_2d(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), scale, index, plan_id, user_id, project_id, None, None, bigquery_client, CREDENTIALS, page_section_number=page_section_number)
     insert_model_2d_revision(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), scale, index, plan_id, user_id, project_id, bigquery_client, CREDENTIALS, page_section_number=page_section_number)
     logging.info("SYSTEM: Floorplan 2D Model Updated Successfully")
-    return respond_with_UI_payload(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON))
+    return respond_with_UI_payload(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), disable_caching=True)
 
 
 @app.post("/update_scale")
@@ -1670,7 +1680,7 @@ async def update_scale(request: Request):
         logging.info(f"SYSTEM: Walls 2D and Polygons computed with scale: {scale}")
         insert_model_2d(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), scale, page_number, plan_id, user_id, project_id, None, None, bigquery_client, CREDENTIALS, page_section_number=page_section_number)
         insert_model_2d_revision(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), scale, page_number, plan_id, user_id, project_id, bigquery_client, CREDENTIALS, page_section_number=page_section_number)
-        return respond_with_UI_payload(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON))
+        return respond_with_UI_payload(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), disable_caching=True)
 
 
 @app.post("/load_scale")
