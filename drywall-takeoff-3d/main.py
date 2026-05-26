@@ -32,6 +32,7 @@ import numpy as np
 import math
 import cv2
 from pdf2image.pdf2image import pdfinfo_from_path
+import Levenshtein
 
 from extrapolate_3d import Extrapolate3D
 from floor_plan import FloorPlan
@@ -1609,6 +1610,22 @@ async def update_floorplan_to_2d(request: Request):
     page_section_number = parameters.get("page_section_number") or body.get("page_section_number")
     logging.info("SYSTEM: Received a Floorplan 2D Model Update Request")
 
+    hyperparameters = load_hyperparameters()
+    plan = FloorPlan(hyperparameters)
+    wall_lines = [[[wall_2d["wall_line"][0]['x'], wall_2d["wall_line"][0]['y'], wall_2d["wall_line"][1]['x'], wall_2d["wall_line"][1]['y']]] for wall_2d in walls_2d_JSON]
+    wall_line_ids = [wall_2d["id"] for wall_2d in walls_2d_JSON]
+    for polygon in polygons_JSON:
+        if not polygon["polygon_ids_drywall_interior"]:
+            perimeter_lines_contour = plan.load_perimeter(polygon["vertices"], wall_lines)
+            perimeter_wall_line_ids = [wall_line_ids[wall_lines.index(perimeter_line_contour)] for perimeter_line_contour in perimeter_lines_contour]
+            polygon_ids_drywall_interior = list()
+            for perimeter_wall_line_id in perimeter_wall_line_ids:
+                for wall_2d in walls_2d_JSON:
+                    if wall_2d["id"] == perimeter_wall_line_id:
+                        for drywall_index, polygon_drywall in zip(('a', 'b'), wall_2d["polygons_drywall"]):
+                            if Levenshtein.distance(polygon_drywall["room_name"].upper().strip(), polygon["room_name"].upper().strip()) < 5:
+                                polygon_ids_drywall_interior.append(f"{perimeter_wall_line_id}.{drywall_index}")
+            polygon["polygon_ids_drywall_interior"] = polygon_ids_drywall_interior
     insert_model_2d(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), scale, index, plan_id, user_id, project_id, None, None, bigquery_client, CREDENTIALS, page_section_number=page_section_number)
     insert_model_2d_revision(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), scale, index, plan_id, user_id, project_id, bigquery_client, CREDENTIALS, page_section_number=page_section_number)
     logging.info("SYSTEM: Floorplan 2D Model Updated Successfully")
