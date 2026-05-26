@@ -16,6 +16,7 @@ pypdf
 pdf2image
 pydantic
 python-multipart
+python-Levenshtein
 roman
 pandas
 openpyxl
