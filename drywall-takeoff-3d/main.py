@@ -67,6 +67,7 @@ def respond_with_UI_payload(payload, status_code=200):
         content=json.loads(json.dumps(payload)),
         status_code=status_code,
         media_type="application/json",
+        headers={"Cache-Control": "no-cache"}
     )
 
 
