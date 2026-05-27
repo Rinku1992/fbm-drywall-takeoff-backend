@@ -26,7 +26,14 @@ import google.auth.transport.requests
 from google.oauth2.service_account import IDTokenCredentials
 from google.oauth2 import service_account
 from google.cloud.pubsub_v1 import SubscriberClient
-from google.api_core.exceptions import ResourceExhausted, ServiceUnavailable, DeadlineExceeded
+from google.api_core.exceptions import (
+    BadRequest,
+    ResourceExhausted,
+    ServiceUnavailable,
+    DeadlineExceeded,
+    InternalServerError,
+    TooManyRequests
+)
 import vertexai
 from vertexai.generative_models import GenerativeModel
 from vertexai.generative_models import Content, Part
@@ -48,15 +55,107 @@ def load_bigquery_client(credentials):
     bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
     return bigquery_client
 
-def bigquery_run(credentials, bigquery_client, GBQ_query, job_config=dict()):
-    job_config = bigquery.QueryJobConfig(
+def bigquery_run(
+    credentials,
+    bigquery_client,
+    GBQ_query,
+    job_config=dict(),
+    max_retries=5,
+    initial_backoff=1.0,
+    max_backoff=30.0
+):
+    query_job_config = bigquery.QueryJobConfig(
         destination_encryption_configuration=bigquery.EncryptionConfiguration(
             kms_key_name=credentials["GBQServer"]["KMS_key"]
         ),
         **job_config
     )
-    query_output = bigquery_client.query(GBQ_query, job_config=job_config)
-    return query_output
+
+    for attempt in range(max_retries):
+        try:
+            query_output = bigquery_client.query(
+                GBQ_query,
+                job_config=query_job_config
+            )
+
+            return query_output
+
+        except (
+            ResourceExhausted,
+            ServiceUnavailable,
+            DeadlineExceeded,
+            InternalServerError,
+            TooManyRequests
+        ) as e:
+
+            sleep_time = min(
+                initial_backoff * (2 ** attempt) + random.uniform(0, 1),
+                max_backoff
+            )
+
+            logging.warning(
+                f"SYSTEM: Transient BigQuery error "
+                f"({type(e).__name__}) "
+                f"attempt={attempt + 1}/{max_retries}. "
+                f"Retrying in {sleep_time:.2f}s"
+            )
+
+            sleep(sleep_time)
+
+        except BadRequest as e:
+            error_message = str(e)
+
+            if "Could not serialize access to table" in error_message:
+
+                sleep_time = min(
+                    initial_backoff * (2 ** attempt) + random.uniform(0, 1),
+                    max_backoff
+                )
+
+                logging.warning(
+                    f"SYSTEM: BigQuery concurrent update conflict "
+                    f"attempt={attempt + 1}/{max_retries}. "
+                    f"Retrying in {sleep_time:.2f}s"
+                )
+
+                sleep(sleep_time)
+                continue
+
+            raise
+
+        except Exception as e:
+            error_message = str(e).lower()
+
+            retryable_terms = [
+                "connection reset",
+                "connection aborted",
+                "timed out",
+                "temporarily unavailable",
+                "network is unreachable",
+                "broken pipe"
+            ]
+
+            if any(term in error_message for term in retryable_terms):
+                sleep_time = min(
+                    initial_backoff * (2 ** attempt) + random.uniform(0, 1),
+                    max_backoff
+                )
+
+                logging.warning(
+                    f"SYSTEM: Network-related BigQuery failure "
+                    f"attempt={attempt + 1}/{max_retries}. "
+                    f"Retrying in {sleep_time:.2f}s"
+                )
+
+                sleep(sleep_time)
+                continue
+
+            raise
+
+    raise RuntimeError(
+        f"SYSTEM: BigQuery query failed after "
+        f"{max_retries} retries."
+    )
 
 def sha256(path, chunk_size=8192):
     sha256 = hashlib.sha256()
