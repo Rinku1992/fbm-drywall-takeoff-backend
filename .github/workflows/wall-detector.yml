@@ -81,6 +81,12 @@ jobs:
           echo "Downloaded model folders:"
           find models
 
+      # Cleanup Docker cache before build
+      - name: 'Cleanup Docker'
+        run: |
+          docker system prune -a -f --volumes
+          docker builder prune -a -f
+
       # Build the Docker image for Cloud Run
       - name: 'Build Docker Image'
         run: |
