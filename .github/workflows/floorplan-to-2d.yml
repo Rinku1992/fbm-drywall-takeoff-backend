@@ -22,7 +22,7 @@ jobs:
     environment: ${{ github.event.inputs.environment }}
     defaults:
       run:
-        working-directory: floorplan-to-structure-2d
+        working-directory: floorplan-to-structured-2d
 
     steps:
       - name: 'Checkout Code'
