@@ -34,6 +34,15 @@ from google.api_core.exceptions import (
     InternalServerError,
     TooManyRequests
 )
+from google.auth.transport.requests import Request
+from google.cloud.sql.connector import Connector, IPTypes
+from sqlalchemy.pool import QueuePool
+from sqlalchemy.exc import (
+    OperationalError,
+    InterfaceError,
+    TimeoutError,
+    DBAPIError
+)
 import vertexai
 from vertexai.generative_models import GenerativeModel
 from vertexai.generative_models import Content, Part
@@ -50,6 +59,194 @@ from prompts import (
 )
 from preprocessing import preprocess
 
+
+_pg_pool = None
+_connector = None
+
+def load_pg_pool(credentials):
+    global _pg_pool, _connector
+
+    if _pg_pool is not None:
+        return _pg_pool
+
+    if _connector is None:
+        _connector = Connector()
+
+    pg = credentials["CloudSQL"]
+    instance_connection_name = pg["connection_name"]
+    db_name = pg["database_name"]
+    sa_key = pg["service_account_key"]
+    with open(sa_key, "r") as f:
+        sa_payload = json.load(f)
+    user = sa_payload["client_email"]
+
+    def get_conn():
+        creds = service_account.Credentials.from_service_account_file(
+            sa_key,
+            scopes=[
+                "https://www.googleapis.com/auth/cloud-platform"
+            ]
+        )
+        creds.refresh(Request())
+
+        conn = _connector.connect(
+            instance_connection_name,
+            pg["driver"],
+            user=user,
+            password=creds.token,
+            db=db_name,
+            enable_iam_auth=True,
+            ip_type=IPTypes.PRIVATE
+        )
+
+        conn.autocommit = True
+        return conn
+
+    _pg_pool = QueuePool(
+        creator=get_conn,
+        pool_size=pg.get("min_pool_size", 3),
+        max_overflow=max(
+            pg.get("max_pool_size", 10)
+            - pg.get("min_pool_size", 3),
+            0
+        ),
+        timeout=30,
+        recycle=3000
+    )
+
+    return _pg_pool
+
+def pg_run(
+    connection_pool,
+    query,
+    params=None,
+    fetch=False,
+    max_retries=5,
+    initial_backoff=1.0,
+    max_backoff=30.0
+):
+    if params is None:
+        params = tuple()
+
+    for attempt in range(max_retries):
+        conn = None
+        cursor = None
+
+        try:
+            conn = connection_pool.connect()
+            cursor = conn.cursor()
+            cursor.execute(query, params)
+            result = None
+
+            if fetch:
+                rows = cursor.fetchall()
+                columns = [d[0] for d in cursor.description]
+                result = [
+                    dict(zip(columns, row))
+                    for row in rows
+                ]
+            conn.commit()
+
+            return result
+
+        except DBAPIError as e:
+            error_message = str(e).lower()
+            retryable_db_terms = [
+                "deadlock detected",
+                "serialization failure",
+                "could not serialize access",
+                "lock not available",
+                "too many connections",
+            ]
+
+            retryable_network_terms = [
+                "connection reset",
+                "connection aborted",
+                "server closed the connection",
+                "could not connect",
+                "timeout expired",
+                "broken pipe",
+                "ssl syscall error",
+                "terminating connection",
+                "network is unreachable",
+            ]
+            should_retry = (
+                any(t in error_message for t in retryable_db_terms)
+                or any(t in error_message for t in retryable_network_terms)
+            )
+            if conn:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+
+            if should_retry:
+                sleep_time = min(
+                    initial_backoff * (2 ** attempt)
+                    + random.uniform(0, 1),
+                    max_backoff
+                )
+                logging.warning(
+                    f"SYSTEM: PostgreSQL failure "
+                    f"attempt={attempt + 1}/{max_retries}. "
+                    f"Retrying in {sleep_time:.2f}s. "
+                    f"Error={type(e).__name__}: {e}"
+                )
+                sleep(sleep_time)
+                continue
+
+            raise
+
+        except (
+            OperationalError,
+            InterfaceError,
+            TimeoutError
+        ) as e:
+            if conn:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+            sleep_time = min(
+                initial_backoff * (2 ** attempt)
+                + random.uniform(0, 1),
+                max_backoff
+            )
+            logging.warning(
+                f"SYSTEM: PostgreSQL connection failure "
+                f"({type(e).__name__}) "
+                f"attempt={attempt + 1}/{max_retries}. "
+                f"Retrying in {sleep_time:.2f}s"
+            )
+
+            sleep(sleep_time)
+            continue
+
+        except Exception:
+            if conn:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+            raise
+
+        finally:
+            if cursor:
+                try:
+                    cursor.close()
+                except Exception:
+                    pass
+
+            if conn:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+    raise RuntimeError(
+        f"SYSTEM: PostgreSQL query failed after "
+        f"{max_retries} retries."
+    )
 
 def load_bigquery_client(credentials):
     bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
