@@ -1,4 +1,4 @@
-name: 'Manual DRYWALL-TAKEOFF-3D Cloud Run Build and Deploy'
+name: 'Manual DRYWALL-FLOORPLAN-2D Cloud Run Build and Deploy'
 
 on:
   # Manual trigger for the Cloud Run deployment
@@ -22,7 +22,7 @@ jobs:
     environment: ${{ github.event.inputs.environment }}
     defaults:
       run:
-        working-directory: drywall-takeoff-3d
+        working-directory: floorplan-to-structure-2d
 
     steps:
       - name: 'Checkout Code'
@@ -54,14 +54,14 @@ jobs:
       # Build the Docker image for Cloud Run
       - name: 'Build Docker Image'
         run: |
-         docker build \
-         -t gcr.io/${{ env.GCP_PROJECT_ID }}/drywall-takeoff-3d \
-         .
-
+           docker build \
+           -t gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-to-structure-2d \
+            .
       # Docker Authentication with Artifact Registry
       - name: Docker Authentication
         run: |
           gcloud auth configure-docker gcr.io --quiet
+ 
 
       # Set up VPC Access Connector
       - name: "Set VPC Access Connector"
@@ -75,14 +75,13 @@ jobs:
       # Push the Docker image to Google Container Registry
       - name: 'Push Docker Image to GCR'
         run: |
-          docker push \
-          gcr.io/${{ env.GCP_PROJECT_ID }}/drywall-takeoff-3d
-
+           docker push \
+             gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-to-structure-2d
       # Deploy to Cloud Run
       - name: 'Deploy to Cloud Run'
         run: |
-          gcloud run deploy drywall-takeoff-3d-fbm \
-            --image gcr.io/${{ env.GCP_PROJECT_ID }}/drywall-takeoff-3d \
+           gcloud run deploy floorplan-to-structure-2d-fbm \
+            --image gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-to-structure-2d \
             --platform managed \
             --region us-central1 \
             --project ${{ env.GCP_PROJECT_ID }} \
@@ -94,7 +93,7 @@ jobs:
             --concurrency 1 \
             --execution-environment gen2 \
             --timeout 1800 \
-            --ingress internal-and-cloud-load-balancing \
+            --ingress internal \
             --vpc-connector ${{ env.VPC_ACCESS_CONNECTOR }} \
             --vpc-egress all-traffic \
             --no-allow-unauthenticated

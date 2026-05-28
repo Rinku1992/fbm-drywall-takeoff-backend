@@ -37,3 +37,9 @@ diffusers
 python-multipart
 # --upgrade diffusers[torch]
 # -U kaleido
+cloud-sql-python-connector[pg8000]
+requests
+SQLAlchemy
+pg8000
+google-api-core
+google-cloud-aiplatform

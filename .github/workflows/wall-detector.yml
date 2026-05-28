@@ -1,4 +1,4 @@
-name: 'Manual DRYWALL-TAKEOFF-3D Cloud Run Build and Deploy'
+name: 'Manual DRYWALL-WALL-DETECTOR Cloud Run Build and Deploy'
 
 on:
   # Manual trigger for the Cloud Run deployment
@@ -22,7 +22,7 @@ jobs:
     environment: ${{ github.event.inputs.environment }}
     defaults:
       run:
-        working-directory: drywall-takeoff-3d
+        working-directory: wall-detector
 
     steps:
       - name: 'Checkout Code'
@@ -51,17 +51,48 @@ jobs:
           project_id: ${{ env.GCP_PROJECT_ID }}
           # export_default_credentials: true
 
+      
+      # Set model paths based on environment
+      - name: "Set Model Paths"
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
+            echo "MODEL_BUCKET=${{ vars.MODEL_BUCKET_QA }}" >> $GITHUB_ENV
+            echo "FINETUNED_MODEL_PATH=${{ vars.FINETUNED_MODEL_PATH_QA }}" >> $GITHUB_ENV
+            echo "BASE_MODEL_PATH=${{ vars.BASE_MODEL_PATH_QA }}" >> $GITHUB_ENV
+          else
+            echo "MODEL_BUCKET=${{ vars.MODEL_BUCKET_DEV }}" >> $GITHUB_ENV
+            echo "FINETUNED_MODEL_PATH=${{ vars.FINETUNED_MODEL_PATH_DEV }}" >> $GITHUB_ENV
+            echo "BASE_MODEL_PATH=${{ vars.BASE_MODEL_PATH_DEV }}" >> $GITHUB_ENV
+          fi
+
+      # Download model weights from GCS before Docker build
+      - name: 'Download Model Folders'
+        run: |
+          mkdir -p models
+
+          gsutil -m cp -r \
+            gs://${{ env.MODEL_BUCKET }}/${{ env.FINETUNED_MODEL_PATH }} \
+            models/
+
+          gsutil -m cp -r \
+            gs://${{ env.MODEL_BUCKET }}/${{ env.BASE_MODEL_PATH }} \
+            models/
+
+          echo "Downloaded model folders:"
+          find models
+
       # Build the Docker image for Cloud Run
       - name: 'Build Docker Image'
         run: |
-         docker build \
-         -t gcr.io/${{ env.GCP_PROJECT_ID }}/drywall-takeoff-3d \
-         .
+          docker build \
+            -t gcr.io/${{ env.GCP_PROJECT_ID }}/wall-detector \
+            .
 
       # Docker Authentication with Artifact Registry
       - name: Docker Authentication
         run: |
-          gcloud auth configure-docker gcr.io --quiet
+         gcloud auth configure-docker gcr.io --quiet
+ 
 
       # Set up VPC Access Connector
       - name: "Set VPC Access Connector"
@@ -76,13 +107,13 @@ jobs:
       - name: 'Push Docker Image to GCR'
         run: |
           docker push \
-          gcr.io/${{ env.GCP_PROJECT_ID }}/drywall-takeoff-3d
+           gcr.io/${{ env.GCP_PROJECT_ID }}/wall-detector
 
       # Deploy to Cloud Run
       - name: 'Deploy to Cloud Run'
         run: |
-          gcloud run deploy drywall-takeoff-3d-fbm \
-            --image gcr.io/${{ env.GCP_PROJECT_ID }}/drywall-takeoff-3d \
+           gcloud run deploy wall-detector \
+            --image gcr.io/${{ env.GCP_PROJECT_ID }}/wall-detector \
             --platform managed \
             --region us-central1 \
             --project ${{ env.GCP_PROJECT_ID }} \
@@ -94,7 +125,7 @@ jobs:
             --concurrency 1 \
             --execution-environment gen2 \
             --timeout 1800 \
-            --ingress internal-and-cloud-load-balancing \
+            --ingress internal \
             --vpc-connector ${{ env.VPC_ACCESS_CONNECTOR }} \
             --vpc-egress all-traffic \
             --no-allow-unauthenticated
