@@ -31,3 +31,9 @@ pygltflib
 pillow
 fastapi
 uvicorn
+cloud-sql-python-connector[pg8000]
+requests
+SQLAlchemy
+pg8000
+google-api-core
+google-cloud-aiplatform
