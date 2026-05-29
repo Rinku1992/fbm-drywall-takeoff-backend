@@ -14,7 +14,8 @@ import numpy as np
 import math
 import random
 random.seed(0)
-import cv2
+from functools import partial
+from fastapi.concurrency import run_in_threadpool
 
 import geoip2.database as geoip2_database
 import vertexai
@@ -31,6 +32,15 @@ from google.api_core.exceptions import (
     DeadlineExceeded,
     InternalServerError,
     TooManyRequests
+)
+from google.auth.transport.requests import Request
+from google.cloud.sql.connector import Connector, IPTypes
+from sqlalchemy.pool import QueuePool
+from sqlalchemy.exc import (
+    OperationalError,
+    InterfaceError,
+    TimeoutError,
+    DBAPIError
 )
 from vertexai.generative_models import Content, Part
 from vertexai.caching import CachedContent
@@ -135,7 +145,7 @@ def load_gcp_credentials() -> dict:
     yaml = YAML(typ="safe", pure=True)
     with open("gcp.yaml", 'r') as f:
         credentials = yaml.load(f)
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials["service_drywall_account_key"]
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials["service_drywall_account_key"]
 
     return credentials
 
@@ -179,6 +189,198 @@ def download_segmented_walls(plan_id, project_id, index, credentials, destinatio
     destination_path.parent.mkdir(parents=True, exist_ok=True)
     blob.download_to_filename(destination_path)
     return destination_path
+
+_pg_pool = None
+_connector = None
+
+def load_pg_pool(credentials):
+    global _pg_pool, _connector
+
+    if _pg_pool is not None:
+        return _pg_pool
+
+    if _connector is None:
+        _connector = Connector()
+
+    pg = credentials["CloudSQL"]
+    instance_connection_name = pg["connection_name"]
+    db_name = pg["database_name"]
+    sa_key = pg["service_account_key"]
+    with open(sa_key, "r") as f:
+        sa_payload = json.load(f)
+    user = sa_payload["client_email"]
+
+    def get_conn():
+        creds = service_account.Credentials.from_service_account_file(
+            sa_key,
+            scopes=[
+                "https://www.googleapis.com/auth/cloud-platform"
+            ]
+        )
+        creds.refresh(Request())
+
+        conn = _connector.connect(
+            instance_connection_name,
+            pg["driver"],
+            user=user,
+            password=creds.token,
+            db=db_name,
+            enable_iam_auth=True,
+            ip_type=IPTypes.PRIVATE
+        )
+
+        conn.autocommit = True
+        return conn
+
+    _pg_pool = QueuePool(
+        creator=get_conn,
+        pool_size=pg.get("min_pool_size", 3),
+        max_overflow=max(
+            pg.get("max_pool_size", 10)
+            - pg.get("min_pool_size", 3),
+            0
+        ),
+        timeout=30,
+        recycle=3000
+    )
+
+    return _pg_pool
+
+def pg_run(
+    connection_pool,
+    query,
+    params=None,
+    fetch=False,
+    max_retries=5,
+    initial_backoff=1.0,
+    max_backoff=30.0,
+    execute_many=False,
+):
+    if params is None:
+        params = tuple()
+
+    for attempt in range(max_retries):
+        conn = None
+        cursor = None
+
+        try:
+            conn = connection_pool.connect()
+            cursor = conn.cursor()
+            if execute_many:
+                cursor.executemany(query, params)
+            else:
+                cursor.execute(query, params)
+            result = None
+
+            if fetch:
+                rows = cursor.fetchall()
+                columns = [d[0] for d in cursor.description]
+                result = [
+                    dict(zip(columns, row))
+                    for row in rows
+                ]
+            conn.commit()
+
+            return result
+
+        except DBAPIError as e:
+            error_message = str(e).lower()
+            retryable_db_terms = [
+                "deadlock detected",
+                "serialization failure",
+                "could not serialize access",
+                "lock not available",
+                "too many connections",
+            ]
+
+            retryable_network_terms = [
+                "connection reset",
+                "connection aborted",
+                "server closed the connection",
+                "could not connect",
+                "timeout expired",
+                "broken pipe",
+                "ssl syscall error",
+                "terminating connection",
+                "network is unreachable",
+            ]
+            should_retry = (
+                any(t in error_message for t in retryable_db_terms)
+                or any(t in error_message for t in retryable_network_terms)
+            )
+            if conn:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+
+            if should_retry:
+                sleep_time = min(
+                    initial_backoff * (2 ** attempt)
+                    + random.uniform(0, 1),
+                    max_backoff
+                )
+                logging.warning(
+                    f"SYSTEM: PostgreSQL failure "
+                    f"attempt={attempt + 1}/{max_retries}. "
+                    f"Retrying in {sleep_time:.2f}s. "
+                    f"Error={type(e).__name__}: {e}"
+                )
+                sleep(sleep_time)
+                continue
+
+            raise
+
+        except (
+            OperationalError,
+            InterfaceError,
+            TimeoutError
+        ) as e:
+            if conn:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+            sleep_time = min(
+                initial_backoff * (2 ** attempt)
+                + random.uniform(0, 1),
+                max_backoff
+            )
+            logging.warning(
+                f"SYSTEM: PostgreSQL connection failure "
+                f"({type(e).__name__}) "
+                f"attempt={attempt + 1}/{max_retries}. "
+                f"Retrying in {sleep_time:.2f}s"
+            )
+
+            sleep(sleep_time)
+            continue
+
+        except Exception:
+            if conn:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
+            raise
+
+        finally:
+            if cursor:
+                try:
+                    cursor.close()
+                except Exception:
+                    pass
+
+            if conn:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+
+    raise RuntimeError(
+        f"SYSTEM: PostgreSQL query failed after "
+        f"{max_retries} retries."
+    )
 
 def load_bigquery_client(credentials):
     bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
@@ -286,14 +488,14 @@ def bigquery_run(
         f"{max_retries} retries."
     )
 
-def insert_page(
+async def insert_page(
     plan_id,
     user_id,
     project_id,
     page_number,
     extracted,
     status,
-    bigquery_client,
+    pg_pool,
     credentials,
     plan_type=dict(),
     GCS_URL_page=None,
@@ -302,84 +504,60 @@ def insert_page(
     bounding_box_offsets=dict(),
     is_floorplan=None,
 ):
-    GBQ_query = """
-    MERGE `drywall_takeoff.pages` t
-    USING (
-        SELECT
-            @plan_id AS plan_id,
-            @project_id AS project_id,
-            @user_id AS user_id,
-            @page_number AS page_number,
-            @mask_factor AS mask_factor,
-            @bounding_box_offsets AS bounding_box_offsets,
-            @source AS source,
-            @thumbnail AS thumbnail,
-            @plan_type AS plan_type,
-            @extracted AS extracted,
-            @status AS status,
-            @is_floorplan AS is_floorplan
-    ) s
-    ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id) AND t.page_number = s.page_number
-    WHEN MATCHED THEN
-    UPDATE SET
-        extracted = s.extracted,
-        updated_at = CURRENT_TIMESTAMP(),
-        status = s.status
-    WHEN NOT MATCHED THEN
-    INSERT (
+    query = f"""
+        INSERT INTO {credentials["CloudSQL"]["table_name_pages"]} (
+            plan_id,
+            project_id,
+            user_id,
+            page_number,
+            mask_factor,
+            bounding_box_offsets,
+            source,
+            thumbnail,
+            plan_type,
+            extracted,
+            status,
+            is_floorplan,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            CURRENT_TIMESTAMP,
+            CURRENT_TIMESTAMP
+        )
+        ON CONFLICT (project_id, plan_id, page_number) DO UPDATE SET
+            extracted = EXCLUDED.extracted,
+            updated_at = CURRENT_TIMESTAMP,
+            status = EXCLUDED.status
+    """
+    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(
         plan_id,
         project_id,
         user_id,
-        page_number,
-        mask_factor,
-        bounding_box_offsets,
-        source,
-        thumbnail,
-        plan_type,
+        int(page_number),
+        json.dumps(mask_factor),
+        json.dumps(bounding_box_offsets),
+        GCS_URL_page,
+        GCS_URL_page_thumbnail,
+        json.dumps(plan_type),
         extracted,
         status,
-        is_floorplan,
-        created_at,
-        updated_at
-    )
-    VALUES (
-        s.plan_id,
-        s.project_id,
-        s.user_id,
-        s.page_number,
-        s.mask_factor,
-        s.bounding_box_offsets,
-        s.source,
-        s.thumbnail,
-        s.plan_type,
-        s.extracted,
-        s.status,
-        s.is_floorplan,
-        CURRENT_TIMESTAMP(),
-        CURRENT_TIMESTAMP()
-    );
-    """
-    job_config = dict(
-        query_parameters=[
-            bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
-            bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
-            bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
-            bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
-            bigquery.ScalarQueryParameter("mask_factor", "JSON", mask_factor),
-            bigquery.ScalarQueryParameter("bounding_box_offsets", "JSON", bounding_box_offsets),
-            bigquery.ScalarQueryParameter("source", "STRING", GCS_URL_page),
-            bigquery.ScalarQueryParameter("thumbnail", "STRING", GCS_URL_page_thumbnail),
-            bigquery.ScalarQueryParameter("plan_type", "JSON", plan_type),
-            bigquery.ScalarQueryParameter("extracted", "BOOL", extracted),
-            bigquery.ScalarQueryParameter("status", "STRING", status),
-            bigquery.ScalarQueryParameter("is_floorplan", "BOOL", is_floorplan)
-        ]
-    )
+        is_floorplan
+    )))
 
-    query_output = bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
-    return query_output
-
-def insert_model_2d(
+async def insert_model_2d(
     model_2d,
     scale,
     page_number,
@@ -389,78 +567,57 @@ def insert_model_2d(
     user_id,
     project_id,
     target_drywalls,
-    bigquery_client,
+    pg_pool,
     credentials
     ):
-    GBQ_query = """
-    MERGE `drywall_takeoff.models` t
-    USING (
-        SELECT
-            @plan_id AS plan_id,
-            @project_id AS project_id,
-            @user_id AS user_id,
-            @page_number AS page_number,
-            @page_sections AS page_sections,
-            @page_section_number AS page_section_number,
-            @model_2d AS model_2d,
-            @scale AS scale,
-            @target_drywalls AS target_drywalls,
-    ) s
-    ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id) AND t.page_number = s.page_number and t.page_section_number = s.page_section_number
-    WHEN MATCHED THEN
-    UPDATE SET
-        model_2d = s.model_2d,
-        scale = COALESCE(NULLIF(s.scale, ''), t.scale),
-        user_id = @user_id,
-        updated_at = CURRENT_TIMESTAMP()
-    WHEN NOT MATCHED THEN
-    INSERT (
+    query = f"""
+        INSERT INTO {credentials["CloudSQL"]["table_name_models"]} AS t (
+            plan_id,
+            project_id,
+            user_id,
+            page_number,
+            page_sections,
+            page_section_number,
+            scale,
+            model_2d,
+            model_3d,
+            takeoff,
+            target_drywalls,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s::jsonb,
+            '{{}}'::jsonb,
+            '{{}}'::jsonb,
+            %s,
+            CURRENT_TIMESTAMP,
+            CURRENT_TIMESTAMP
+        )
+        ON CONFLICT (project_id, plan_id, page_number, page_section_number) DO UPDATE SET
+            model_2d = EXCLUDED.model_2d,
+            scale = COALESCE(NULLIF(EXCLUDED.scale, ''), t.scale),
+            user_id = EXCLUDED.user_id,
+            updated_at = CURRENT_TIMESTAMP
+    """
+    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(
         plan_id,
         project_id,
         user_id,
-        page_number,
-        page_sections,
+        int(page_number),
+        int(page_sections),
         page_section_number,
         scale,
-        model_2d,
-        model_3d,
-        takeoff,
+        json.dumps(model_2d),
         target_drywalls,
-        created_at,
-        updated_at
-    )
-    VALUES (
-        s.plan_id,
-        s.project_id,
-        s.user_id,
-        s.page_number,
-        s.page_sections,
-        s.page_section_number,
-        s.scale,
-        s.model_2d,
-        JSON '{}',
-        JSON '{}',
-        s.target_drywalls,
-        CURRENT_TIMESTAMP(),
-        CURRENT_TIMESTAMP()
-    );
-    """
-    job_config = dict(
-        query_parameters=[
-            bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
-            bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
-            bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
-            bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
-            bigquery.ScalarQueryParameter("page_sections", "INT64", page_sections),
-            bigquery.ScalarQueryParameter("page_section_number", "STRING", page_section_number),
-            bigquery.ScalarQueryParameter("scale", "STRING", scale),
-            bigquery.ScalarQueryParameter("model_2d", "JSON", model_2d),
-            bigquery.ScalarQueryParameter("target_drywalls", "STRING", target_drywalls),
-        ]
-    )
-
-    query_output = bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
-    return query_output
+    )))
 
 def insert_model_2d_batch(rows, bigquery_client, credentials):
     GBQ_query = """
@@ -534,9 +691,9 @@ def insert_model_2d_batch(rows, bigquery_client, credentials):
     query_output = bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
     return query_output
 
-def load_templates(bigquery_client, credentials):
-    GBQ_query = f"SELECT * FROM `{credentials["GBQServer"]["table_name_sku"]}`"
-    product_templates = list(bigquery_run(credentials, bigquery_client, GBQ_query).result())
+async def load_templates(pg_pool, credentials):
+    query = f"SELECT * FROM {credentials["CloudSQL"]["table_name_sku"]}"
+    product_templates = await run_in_threadpool(partial(pg_run, pg_pool, query, fetch=True))
 
     logging.info("SYSTEM: Product Templates retrieved successfully")
     product_templates_target = list()
@@ -658,9 +815,9 @@ def load_publisher_client(credentials):
 
      return publisher_client
 
-def trigger_email_notification(
+async def trigger_email_notification(
     credentials,
-    bigquery_client,
+    pg_pool,
     status,
     project_id,
     plan_id,
@@ -669,35 +826,35 @@ def trigger_email_notification(
     notify_group=False,
 ):
     message = f"Plan: {plan_id} | Page Number: {page_number} | Extraction: {status}"
-    GBQ_query = f"select group_id from drywall_takeoff.users, UNNEST(group_ids) AS group_id where LOWER(user_id) = LOWER('{user_id}')"
-    query_output = bigquery_run(credentials, bigquery_client, GBQ_query).result()
-    group_ids = [row.group_id for row in query_output]
+    query = f"SELECT group_id FROM {credentials["CloudSQL"]["table_name_users"]}, unnest(COALESCE(group_ids, ARRAY[]::text[])) AS group_id WHERE LOWER(user_id) = LOWER(%s)"
+    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(user_id,), fetch=True))
+    group_ids = [row["group_id"] for row in query_output]
     group_id = " | ".join(group_ids)
     if notify_group:
-        GBQ_query = f"""WITH current_user AS (
-                SELECT '{user_id}' AS user_id
+        query = f"""
+            WITH current_user_cte AS (
+                SELECT %s AS user_id
             ),
 
             current_user_groups AS (
                 SELECT DISTINCT group_id
-                FROM `drywall_takeoff.users` u,
-                UNNEST(IFNULL(u.group_ids, [])) AS group_id
-                JOIN current_user cu
+                FROM {credentials["CloudSQL"]["table_name_users"]} u
+                CROSS JOIN unnest(COALESCE(u.group_ids, ARRAY[]::text[])) AS group_id
+                JOIN current_user_cte cu
                     ON LOWER(u.user_id) = LOWER(cu.user_id)
             ),
 
             matching_users AS (
                 SELECT DISTINCT
                     g.user_id
-                FROM `drywall_takeoff.groups` g
+                FROM {credentials["CloudSQL"]["table_name_groups"]} g
                 JOIN current_user_groups cug
                     ON g.group_id = cug.group_id
             ),
 
             fallback_user AS (
                 SELECT cu.user_id
-                FROM current_user cu
-                CROSS JOIN UNNEST([1]) dummy
+                FROM current_user_cte cu
                 WHERE NOT EXISTS (
                     SELECT 1
                     FROM current_user_groups
@@ -707,8 +864,8 @@ def trigger_email_notification(
             final_users AS (
                 SELECT user_id
                 FROM matching_users
- 
-                UNION DISTINCT
+
+                UNION
 
                 SELECT user_id
                 FROM fallback_user
@@ -716,10 +873,9 @@ def trigger_email_notification(
 
             SELECT LOWER(user_id) AS user_id
             FROM final_users
-        );
         """
-        query_output = bigquery_run(credentials, bigquery_client, GBQ_query).result()
-        user_ids_group = [row.user_id_id for row in query_output]
+        query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(user_id,), fetch=True))
+        user_ids_group = [row["user_id"] for row in query_output]
         for user_id_group in user_ids_group:
             trigger(
                 credentials,
