@@ -5,10 +5,12 @@ import requests
 from requests.adapters import HTTPAdapter
 from requests.exceptions import ConnectionError, ReadTimeout, ChunkedEncodingError
 from time import sleep
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from concurrent.futures import ThreadPoolExecutor
+import asyncio
 
 import random
 random.seed(0)
@@ -28,8 +30,7 @@ from helper import (
     download_floorplan,
     download_segmented_walls,
     insert_model_2d,
-    insert_model_2d_batch,
-    load_bigquery_client,
+    load_pg_pool,
     load_templates,
     load_section_from_page,
     apply_pixel_margin_to_bounding_box,
@@ -103,8 +104,9 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, m
     return Path(output_path)
 
 
-def page_to_structured_2d(
+async def page_to_structured_2d(
     credentials,
+    pg_pool,
     floor_plan_modeller_2d,
     project_id,
     plan_id,
@@ -121,7 +123,7 @@ def page_to_structured_2d(
     elevation_processed_paths,
     predict_drywall,
     architectural_scale,
-    ):
+):
     floor_plan_modeller_2d.reload()
     wall_segmented_sectioned_path = load_section_from_page(
         wall_segmented_path,
@@ -173,7 +175,7 @@ def page_to_structured_2d(
         scales_architectural=floor_plan_modeller_2d.scales_architectural,
         drywall_choices_color_codes=floor_plan_modeller_2d.drywall_choices_color_codes,
     )
-    insert_model_2d(
+    await insert_model_2d(
         dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
         floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale),
         page_number,
@@ -183,7 +185,7 @@ def page_to_structured_2d(
         user_id,
         project_id,
         floorplan_baseline_page_source,
-        bigquery_client,
+        pg_pool,
         credentials,
     )
     if floor_plan_modeller_2d.is_scale_detected:
@@ -211,7 +213,27 @@ def load_elevation_pages(pdf_path, elevation_page_numbers):
     return elevation_paths_preprocessed
 
 
-app = FastAPI(title="Floorplan-to-Structured-2D (Cloud Run)")
+pg_pool = None
+DRYWALL_TEMPLATES = None
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global DRYWALL_TEMPLATES
+    global pg_pool
+
+    pg_pool = load_pg_pool(CREDENTIALS)
+
+    DRYWALL_TEMPLATES = await load_templates(
+        pg_pool,
+        CREDENTIALS
+    )
+
+    yield
+
+    if pg_pool:
+        pg_pool.dispose()
+
+app = FastAPI(title="Floorplan-to-Structured-2D (Cloud Run)", lifespan=lifespan)
 
 CREDENTIALS = load_gcp_credentials()
 app.add_middleware(
@@ -221,8 +243,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-bigquery_client = load_bigquery_client(CREDENTIALS)
-DRYWALL_TEMPLATES = load_templates(bigquery_client, CREDENTIALS)
 
 @app.post("/floorplan_to_structured_2d")
 async def floorplan_to_structured_2d(request: Request):
@@ -265,19 +285,19 @@ async def floorplan_to_structured_2d(request: Request):
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
         future.result()
         logging.warning(f"SYSTEM: Floorplan extraction has failed for Page Number: {page_number} with Error: {e}")
-        insert_page(
+        await insert_page(
             plan_id,
             user_id,
             project_id,
             page_number,
             True,
             "FAILED",
-            bigquery_client,
+            pg_pool,
             CREDENTIALS,
         )
-        trigger_email_notification(
+        await trigger_email_notification(
             CREDENTIALS,
-            bigquery_client,
+            pg_pool,
             "FAILED",
             project_id,
             plan_id,
@@ -304,7 +324,7 @@ async def floorplan_to_structured_2d(request: Request):
             scales_architectural=FloorPlan2D.scales_architectural,
             drywall_choices_color_codes=list(),
         )
-        insert_model_2d(
+        await insert_model_2d(
             dict(walls_2d=list(), polygons=list(), metadata=metadata),
             "0.25``:1`0``",
             page_number,
@@ -314,25 +334,25 @@ async def floorplan_to_structured_2d(request: Request):
             user_id,
             project_id,
             floorplan_baseline_page_source,
-            bigquery_client,
+            pg_pool,
             CREDENTIALS,
         )
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
         future.result()
         logging.warning(f"SYSTEM: NO valid Floorplan layout observed: Page Number: {page_number}")
-        insert_page(
+        await insert_page(
             plan_id,
             user_id,
             project_id,
             page_number,
             True,
             "COMPLETED",
-            bigquery_client,
+            pg_pool,
             CREDENTIALS,
         )
-        trigger_email_notification(
+        await trigger_email_notification(
             CREDENTIALS,
-            bigquery_client,
+            pg_pool,
             "COMPLETED",
             project_id,
             plan_id,
@@ -379,7 +399,7 @@ async def floorplan_to_structured_2d(request: Request):
                 scales_architectural=FloorPlan2D.scales_architectural,
                 drywall_choices_color_codes=list(),
             )
-            insert_model_2d(
+            await insert_model_2d(
                 dict(walls_2d=list(), polygons=list(), metadata=metadata),
                 "0.25``:1`0``",
                 page_number,
@@ -389,25 +409,25 @@ async def floorplan_to_structured_2d(request: Request):
                 user_id,
                 project_id,
                 floorplan_baseline_page_source,
-                bigquery_client,
+                pg_pool,
                 CREDENTIALS,
             )
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
         future.result()
         logging.warning(f"SYSTEM: Floorplan Segmentation FAILED: Page Number: {page_number}")
-        insert_page(
+        await insert_page(
             plan_id,
             user_id,
             project_id,
             page_number,
             True,
             "COMPLETED",
-            bigquery_client,
+            pg_pool,
             CREDENTIALS,
         )
-        trigger_email_notification(
+        await trigger_email_notification(
             CREDENTIALS,
-            bigquery_client,
+            pg_pool,
             "COMPLETED",
             project_id,
             plan_id,
@@ -419,63 +439,62 @@ async def floorplan_to_structured_2d(request: Request):
         futures = list()
         vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES)
         scale_detected = True
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            for bounding_box_offset in bounding_box_offsets:
-                logging.info(f"SYSTEM: Extracting structured model from SECTION: {bounding_box_offset["title"]} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
-                floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES)
-                floor_plan_modeller_2d.from_vertex_ai_clients(*vertex_ai_clients)
-                futures.append(
-                    executor.submit(
-                        page_to_structured_2d,
-                        CREDENTIALS,
-                        floor_plan_modeller_2d,
-                        project_id,
-                        plan_id,
-                        user_id,
-                        page_number,
-                        len(bounding_box_offsets),
-                        bounding_box_offset["title"],
-                        wall_segmented_path,
-                        floor_plan_processed_path,
-                        bounding_box_offset,
-                        transcription_block_with_centroids,
-                        floorplan_page_statistics,
-                        floorplan_baseline_page_source,
-                        elevation_processed_paths,
-                        predict_drywall,
-                        architectural_scale,
-                    )
+        for bounding_box_offset in bounding_box_offsets:
+            logging.info(f"SYSTEM: Extracting structured model from SECTION: {bounding_box_offset["title"]} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
+            floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES)
+            floor_plan_modeller_2d.from_vertex_ai_clients(*vertex_ai_clients)
+            futures.append(
+                page_to_structured_2d(
+                    CREDENTIALS,
+                    pg_pool,
+                    floor_plan_modeller_2d,
+                    project_id,
+                    plan_id,
+                    user_id,
+                    page_number,
+                    len(bounding_box_offsets),
+                    bounding_box_offset["title"],
+                    wall_segmented_path,
+                    floor_plan_processed_path,
+                    bounding_box_offset,
+                    transcription_block_with_centroids,
+                    floorplan_page_statistics,
+                    floorplan_baseline_page_source,
+                    elevation_processed_paths,
+                    predict_drywall,
+                    architectural_scale,
                 )
-            for future in futures:
-                is_scale_detected = future.result()
-                scale_detected = scale_detected and is_scale_detected
+            )
+        results = await asyncio.gather(*futures, return_exceptions=False)
+        for is_scale_detected in results:
+            scale_detected = (scale_detected and is_scale_detected)
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
         future.result()
     if scale_detected:
-        insert_page(
+        await insert_page(
             plan_id,
             user_id,
             project_id,
             page_number,
             True,
             "COMPLETED",
-            bigquery_client,
+            pg_pool,
             CREDENTIALS,
         )
     else:
-        insert_page(
+        await insert_page(
             plan_id,
             user_id,
             project_id,
             page_number,
             True,
             "SCALE_NOT_DETECTED",
-            bigquery_client,
+            pg_pool,
             CREDENTIALS,
         )
-    trigger_email_notification(
+    await trigger_email_notification(
         CREDENTIALS,
-        bigquery_client,
+        pg_pool,
         "COMPLETED",
         project_id,
         plan_id,
