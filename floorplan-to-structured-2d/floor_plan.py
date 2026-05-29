@@ -1,11 +1,13 @@
 from copy import deepcopy
+from collections import defaultdict
 import re
 
 from fractions import Fraction
 import math
 import numpy as np
-from scipy.spatial import cKDTree
 import cv2
+from scipy.spatial import cKDTree
+from scipy import stats
 
 __all__ = ["FloorPlan"]
 
@@ -35,7 +37,7 @@ class FloorPlan:
     def read_floor_plan(self, image_path, resize=None):
         image = cv2.imread(image_path).copy()
         if resize:
-            image = cv2.resize(image, resize, interpolation=cv2.INTER_LANCZOS4)
+            image = cv2.resize(image, resize)
 
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         return gray
@@ -204,6 +206,7 @@ class FloorPlan:
         return inside
 
     def classify_line(self, x1, y1, x2, y2):
+        """Classify a line as horizontal, vertical, or inclined."""
         line_id = str([x1, y1, x2, y2])
         if line_id in self._lines_classified:
             return self._lines_classified[line_id]
@@ -216,6 +219,13 @@ class FloorPlan:
             orientation = "inclined"
         self._lines_classified[line_id] = orientation
         return orientation
+        #if abs(x2 - x1) > self.tolerance_horizontal and abs(y2 - y1) <= self.tolerance_vertical:
+        #    return "horizontal"
+        #elif abs(x2 - x1) <= self.tolerance_horizontal and abs(y2 - y1) > self.tolerance_vertical:
+        #    return "vertical"
+        #elif abs(x2 - x1) > self.tolerance_horizontal and abs(y2 - y1) > self.tolerance_vertical:
+        #    return "inclined"
+        #return "invalid"
 
     def normalize(self, lines):
         if lines is None:
@@ -310,7 +320,6 @@ class FloorPlan:
         if min(id_to_distance.values()) <= tolerance:
             index_minimum_id_to_distance = list(id_to_distance.values()).index(min(id_to_distance.values()))
             nearest_neighbor = id_to_line[list(id_to_distance.keys())[index_minimum_id_to_distance]]
-
             return nearest_neighbor
 
     def disconnected_shapes(self, wall_lines, tolerance=10):
@@ -346,6 +355,30 @@ class FloorPlan:
 
         return disconnected_shapes
 
+    def vertex_intersects_segment(self, x, y, x1, y1, x2, y2, threshold):
+        dx = x2 - x1
+        dy = y2 - y1
+
+        seg_len_sq = dx * dx + dy * dy
+
+        if seg_len_sq == 0:
+            return math.hypot(x - x1, y - y1) <= threshold
+
+        t = ((x - x1) * dx + (y - y1) * dy) / seg_len_sq
+
+        if 0 <= t <= 1:
+            proj_x = x1 + t * dx
+            proj_y = y1 + t * dy
+        else:
+            if t < 0:
+                proj_x, proj_y = x1, y1
+            else:
+                proj_x, proj_y = x2, y2
+
+        distance = math.hypot(x - proj_x, y - proj_y)
+
+        return distance <= threshold
+
     def load_perimeter(self, coordinates, wall_lines, tolerance=10, bound_capture=True, scale=None):
         if scale:
             scale_x, scale_y = scale
@@ -372,6 +405,27 @@ class FloorPlan:
                     if orientation == "vertical" and orientation_target == "vertical":
                         if abs(np.median([X1, X2]) - np.median([target_X1, target_X2])) <= tolerance and target_Y1 - Y1 >= -tolerance and target_Y2 - Y2 <= tolerance:
                             perimeter_segments.append(wall_line)
+                    #if orientation == "inclined":
+                    #    if target_X1 - X1 >= -tolerance and target_X2 - X2 <= tolerance and target_Y1 - Y1 >= -tolerance and target_Y2 - Y2 <= tolerance:
+                    #        perimeter_segments.append(wall_line)
+                    #if orientation == "inclined":
+                    #    dx = X2 - X1
+                    #    dy = Y2 - Y1
+                    #    angle = math.degrees(math.atan2(dy, dx))
+                    #    angle = abs(angle)
+                    #    orientation_projected = "inclined"
+                    #    if angle < 45:
+                    #        orientation_projected = "horizontal"
+                    #        Y1 = Y2 = round(np.median([Y1, Y2]))
+                    #    if angle > 45:
+                    #        orientation_projected = "vertical"
+                    #        X1 = X2 = round(np.median([X1, X2]))
+                    #    if orientation_projected == "horizontal" and orientation_target == "horizontal":
+                    #        if abs(np.median([Y1, Y2]) - np.median([target_Y1, target_Y2])) <= tolerance and target_X1 - X1 >= -tolerance and target_X2 - X2 <= tolerance:
+                    #            perimeter_segments.append(wall_line)
+                    #    if orientation_projected == "vertical" and orientation_target == "vertical":
+                    #        if abs(np.median([X1, X2]) - np.median([target_X1, target_X2])) <= tolerance and target_Y1 - Y1 >= -tolerance and target_Y2 - Y2 <= tolerance:
+                    #            perimeter_segments.append(wall_line)
 
                     if abs(target_X1 - X1) <= tolerance and abs(target_Y1 - Y1) <= tolerance and abs(target_X2 - X2) <= tolerance and abs(target_Y2 - Y2) <= tolerance:
                         perimeter_line_found = True
@@ -392,6 +446,55 @@ class FloorPlan:
                         perimeter_lines.append(wall_line)
 
         return perimeter_lines
+
+    def load_perimeter_(self, coordinates, wall_lines):
+        perimeter_lines =list()
+        for wall_line in wall_lines:
+            X1, Y1, X2, Y2 = wall_line[0]
+            if self.classify_line(X1, Y1, X2, Y2) == "horizontal":
+                centroid_perimeter_line = (round((X1 + X2) / 2), round(np.median([Y1, Y2])))
+                if self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] - 100), coordinates) or self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] + 100), coordinates):
+                    perimeter_lines.append(wall_line)
+            if self.classify_line(X1, Y1, X2, Y2) == "vertical":
+                centroid_perimeter_line = (round(np.median([X1, X2])), round((Y1 + Y2) / 2))
+                if self.is_inside_polygon((centroid_perimeter_line[0] - 100, centroid_perimeter_line[1]), coordinates) or self.is_inside_polygon((centroid_perimeter_line[0] + 100, centroid_perimeter_line[1]), coordinates):
+                    perimeter_lines.append(wall_line)
+            if self.classify_line(X1, Y1, X2, Y2) == "inclined":
+                dx = X2 - X1
+                dy = Y2 - Y1
+                length = math.hypot(dx, dy)
+
+                nx = -dy / length
+                ny =  dx / length
+
+                mx = (X1 + X2) / 2
+                my = (Y1 + Y2) / 2
+
+                if self.is_inside_polygon((round(mx + nx * 100), round(my + ny * 100)), coordinates) or self.is_inside_polygon((round(mx - nx * 100), round(my - ny * 100)), coordinates):
+                    perimeter_lines.append(wall_line)
+
+        return perimeter_lines
+
+    def load_perimeter_from_smoothened_polygon(self, coordinates, wall_lines, tolerance=100):
+        perimeter_lines = list()
+        polygon_smoothened = set()
+        for wall_line in wall_lines:
+            X1, Y1, X2, Y2 = wall_line[0]
+            for coordinate in coordinates:
+                if self.vertex_intersects_segment(coordinate[0], coordinate[1], X1, Y1, X2, Y2, tolerance):
+                    if wall_line not in perimeter_lines:
+                        perimeter_lines.append(wall_line)
+                    if all([math.hypot(X1 - polygon_coordinate[0], Y1 - polygon_coordinate[1]) > 10 for polygon_coordinate in list(polygon_smoothened)]):
+                        polygon_smoothened.add((X1, Y1))
+                    if all([math.hypot(X2 - polygon_coordinate[0], Y2 - polygon_coordinate[1]) > 10 for polygon_coordinate in list(polygon_smoothened)]):
+                        polygon_smoothened.add((X2, Y2))
+
+        polygon_smoothened = list(polygon_smoothened)
+        centroid_x = sum(coordinate[0] for coordinate in polygon_smoothened) / len(polygon_smoothened)
+        centroid_y = sum(coordinate[1] for coordinate in polygon_smoothened) / len(polygon_smoothened)
+        polygon_smoothened = sorted(polygon_smoothened, key=lambda coordinate: math.atan2(coordinate[1] - centroid_y, coordinate[0] - centroid_x))
+
+        return perimeter_lines, polygon_smoothened
 
     def perimeter_lines(self, lines, resolution=(1080, 1920)):
         canvas = np.ones(resolution, dtype=np.uint8) * 255
@@ -522,7 +625,6 @@ class FloorPlan:
 
         if not polygonized:
             return polygonized, perimeter_lines_contours, list()
-
         coordinates_all = np.vstack([polygon[1] for polygon in polygonized])
         hull_external = cv2.convexHull(coordinates_all)
         epsilon = max(2, 0.005 * cv2.arcLength(hull_external, True))
@@ -539,7 +641,6 @@ class FloorPlan:
         external_contour_normalized = self._smoothen_polygon(external_contour.reshape(-1, 2).tolist())
         return external_contour_normalized
 
-    ## TODO
     def topology_guided_endpoint_snapping(self, lines):
         def nearest_endpoint(reference_line, end_type, target_line):
             X1_reference, Y1_reference, X2_reference, Y2_reference = reference_line[0]
@@ -553,40 +654,39 @@ class FloorPlan:
                     return (X1_target, Y1_target)
                 return (X2_target, Y2_target)
 
-        for line in lines[:]:
+        lines_snapped = list()
+        for line in lines:
             X1, Y1, X2, Y2 = line[0]
             orientation = self.classify_line(*line[0])
             for end_type in ['A', 'B']:
-                nearest_neighbors = self.nearest_neighbor(line, end_type, lines, tolerance=20, top_k=5)
+                nearest_neighbors = self.nearest_neighbor(line, end_type, lines, tolerance=20, top_k=3)
                 if nearest_neighbors:
                     nearest_neighbor = nearest_neighbors[-1]
                     endpoint_X, endpoint_Y = nearest_endpoint(line, end_type, nearest_neighbor)
                     if orientation == "horizontal":
                         if end_type == 'A':
                             line_target = [[endpoint_X, Y1, X2, Y2]]
-                            lines.remove(line)
-                            lines.append(line_target)
-                            line = line_target
-                            X1, Y1, X2, Y2 = line[0]
+                            #lines.remove(line)
+                            lines_snapped.append(line_target)
+                            X1, Y1, X2, Y2 = line_target[0]
                         if end_type == 'B':
                             line_target = [[X1, Y1, endpoint_X, Y2]]
-                            lines.remove(line)
-                            lines.append(line_target)
-                            line = line_target
-                            X1, Y1, X2, Y2 = line[0]
+                            #lines.remove(line)
+                            lines_snapped.append(line_target)
+                            X1, Y1, X2, Y2 = line_target[0]
                     if orientation == "vertical":
                         if end_type == 'A':
                             line_target = [[X1, endpoint_Y, X2, Y2]]
-                            lines.remove(line)
-                            lines.append(line_target)
-                            line = line_target
-                            X1, Y1, X2, Y2 = line[0]
+                            #lines.remove(line)
+                            lines_snapped.append(line_target)
+                            #line = line_target
+                            X1, Y1, X2, Y2 = line_target[0]
                         if end_type == 'B':
                             line_target = [[X1, Y1, X2, endpoint_Y]]
-                            lines.remove(line)
-                            lines.append(line_target)
-                            line = line_target
-                            X1, Y1, X2, Y2 = line[0]
+                            #lines.remove(line)
+                            lines_snapped.append(line_target)
+                            #line = line_target
+                            X1, Y1, X2, Y2 = line_target[0]
                     if orientation == "inclined":
                         dx = X2 - X1
                         dy = Y2 - Y1
@@ -604,10 +704,10 @@ class FloorPlan:
                             new_Y1 = int(round(Y1 + t * uy))
 
                             line_target = [[new_X1, new_Y1, X2, Y2]]
-                            lines.remove(line)
-                            lines.append(line_target)
-                            line = line_target
-                            X1, Y1, X2, Y2 = line[0]
+                            #lines.remove(line)
+                            lines_snapped.append(line_target)
+                            #line = line_target
+                            X1, Y1, X2, Y2 = line_target[0]
 
                         if end_type == 'B':
                             t = (endpoint_X - X2) * ux + (endpoint_Y - Y2) * uy
@@ -615,14 +715,16 @@ class FloorPlan:
                             new_Y2 = int(round(Y2 + t * uy))
 
                             line_target = [[X1, Y1, new_X2, new_Y2]]
-                            lines.remove(line)
-                            lines.append(line_target)
-                            line = line_target
-                            X1, Y1, X2, Y2 = line[0]
+                            #lines.remove(line)
+                            lines_snapped.append(line_target)
+                            #line = line_target
+                            X1, Y1, X2, Y2 = line_target[0]
+                else:
+                    if line not in lines_snapped:
+                        lines_snapped.append(line)
 
-        return lines
+        return lines_snapped
 
-    ## TODO
     def lines_to_topology(self, lines):
         def grid_key(p, tolerance=20):
             return (int(p[0] // tolerance), int(p[1] // tolerance))
