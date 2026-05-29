@@ -6,7 +6,6 @@ import math
 import json
 import logging
 import xml.etree.ElementTree as ET
-from base64 import b64encode
 from PIL import Image
 from pathlib import Path
 from collections import defaultdict
@@ -580,7 +579,6 @@ class FloorPlan2D(FloorPlan):
                 if is_valid and len(shape) > 4:
                     lines.extend(self._merge_nearest_neighbor(shape))
 
-        #lines = self.topology_guided_endpoint_snapping(lines)
         return lines
 
     def _is_shape_valid(self, lines, scale, floor_plan_path):
@@ -605,6 +603,7 @@ class FloorPlan2D(FloorPlan):
             cv2.line(canvas_to_overlay, (round(scale_x * X1), round(scale_y * Y1)), (round(scale_x * X2), round(scale_y * Y2)), (0, 0, 255), 2)
             canvas = cv2.addWeighted(canvas_to_overlay, 0.7, canvas, 0.3, 0)
             wall_lines_structured.append(dict(wall=[{'x': round(scale_x * X1), 'y': round(scale_y * Y1)}, {'x': round(scale_x * X2), 'y': round(scale_y * Y2)}]))
+
         _, canvas_buffer_array = cv2.imencode(".png", canvas)
         bytes_canvas = canvas_buffer_array.tobytes()
         query = Content(role="user", parts=[
@@ -698,6 +697,7 @@ class FloorPlan2D(FloorPlan):
                         pixel_value = canvas[Y2+1:, X - tolerance: X + tolerance].mean(axis=1)[np.argmin(canvas[Y2+1:, X - tolerance: X + tolerance].mean(axis=1))]
                         if target_Y2 < 1080  and pixel_value != 255 and abs(target_Y2 - Y2) <= maximum_length:
                             wall_lines_closed_dead_end.append([[X, Y2, X, target_Y2]])
+                
                 wall_lines_closed_dead_end.append(wall_line)
             else:
                 wall_lines_closed_dead_end.append(wall_line)
@@ -742,7 +742,7 @@ class FloorPlan2D(FloorPlan):
  
                 ux = dx / norm
                 uy = dy / norm
- 
+
                 for n_pixels in range(extension_maximum):
                     step = n_pixels + 1
  
@@ -1242,6 +1242,7 @@ class FloorPlan2D(FloorPlan):
                 logging.warning(f"SYSTEM: Standard Ceiling Height detection failed with error: {e}")
             else:
                 logging.warning(f"SYSTEM: Standard Scale and Ceiling Height detection failed with error: {e}")
+
             ceiling_height_and_scale = dict(ceiling_height=self._height_in_feet, scale=self._scale)
 
         new_pixel_aspect_ratio_to_feet = self.compute_pixel_aspect_ratio(ceiling_height_and_scale["scale"], self._hyperparameters["pixel_aspect_ratio_to_feet"])
@@ -1284,6 +1285,16 @@ class FloorPlan2D(FloorPlan):
         canvas_to_overlay = canvas.copy()
         cv2.line(canvas_to_overlay, (X1, Y1), (X2, Y2), (0, 0, 255), 2)
         canvas = cv2.addWeighted(canvas_to_overlay, 0.7, canvas, 0.3, 0)
+
+        from google.cloud.storage import Client as CloudStorageClient
+        client = CloudStorageClient()
+        plan_path = f"/tmp/wall_valid_{np.random.randint(999)}.png"
+        cv2.imwrite(plan_path, canvas)
+        bucket = client.bucket(self._credentials["CloudStorage"]["bucket_name"])
+        blob_path = f"tmp/wall/{Path(plan_path).name}"
+        blob = bucket.blob(blob_path)
+        blob.upload_from_filename(plan_path)
+
         _, canvas_buffer_array = cv2.imencode(".png", canvas)
         bytes_canvas = canvas_buffer_array.tobytes()
         wall_line_structured = dict(wall=dict(X1=int(X1), Y1=int(Y1), X2=int(X2), Y2=int(Y2)))
@@ -1359,7 +1370,6 @@ class FloorPlan2D(FloorPlan):
                 area_pixels = cv2.contourArea(np.array(vertices_normalized, dtype=np.float32))
                 self._imperial_scales_sampled['A'].append(area_polygon_predicted / area_pixels)
                 return round(area_polygon_predicted, 3)
-
             return round(area_polygon_target, 3)
 
         def verify_tolerance_height(height_predicted, confidence_score):
@@ -1424,6 +1434,7 @@ class FloorPlan2D(FloorPlan):
             Part.from_text(json.dumps(polygon)),
             Part.from_data(data=bytes_canvas, mime_type="image/png")
         ]+parts_elevations)
+
         try:
             if predict:
                 if self._is_cached["POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA"]:
@@ -1869,6 +1880,68 @@ class FloorPlan2D(FloorPlan):
             )
         )
         self._polygons.append(polygon)
+
+    def _add_drywalls_polygon(
+        self,
+        polygon,
+        floor_plan_path,
+        offset
+    ):
+        def load_wall_payload(drywall_index):
+            for wall_2d in self._walls_2d[:]:
+                for polygon_drywall in wall_2d["polygons_drywall"]:
+                    if polygon_drywall["id"] == drywall_index:
+                        return wall_2d
+
+        def load_drywall_polygon(drywall_index):
+            for wall_2d in self._walls_2d[:]:
+                for polygon_drywall in wall_2d["polygons_drywall"][:]:
+                    if polygon_drywall["id"] == drywall_index:
+                        return polygon_drywall
+
+        def load_polygon_payload(polygon_index):
+            for polygon in self._polygons[:]:
+                if polygon["id"] == polygon_index:
+                    return polygon
+
+        perimeter_walls, polygons_pts = list(), list()
+        for drywall_index in polygon["polygon_ids_drywall_interior"]:
+            polygon_drywall = load_drywall_polygon(drywall_index)
+            pts = np.array([
+                [polygon_drywall["polygon"][0]['x'], polygon_drywall["polygon"][0]['y']],
+                [polygon_drywall["polygon"][1]['x'], polygon_drywall["polygon"][1]['y']],
+                [polygon_drywall["polygon"][2]['x'], polygon_drywall["polygon"][2]['y']],
+                [polygon_drywall["polygon"][3]['x'], polygon_drywall["polygon"][3]['y']]
+            ], np.int32)
+            polygons_pts.append(pts)
+            payload_wall = load_wall_payload(drywall_index)
+            X1, Y1, X2, Y2 = payload_wall["wall_line"][0]['x'], payload_wall["wall_line"][0]['y'], payload_wall["wall_line"][1]['x'], payload_wall["wall_line"][1]['y']
+            perimeter_walls.append([[X1, Y1, X2, Y2]])
+
+        predict_polygon = self._predict_polygon(polygon["vertices"], perimeter_walls, polygons_pts, floor_plan_path, offset)
+        payload_polygon = load_polygon_payload(polygon["id"])
+        payload_polygon["polygon_drywall"] = dict(
+            type=predict_polygon["ceiling"]["drywall_assembly"]["material"],
+            color=tuple(predict_polygon["ceiling"]["drywall_assembly"]["color_code"]),
+            thickness=predict_polygon["ceiling"]["drywall_assembly"]["thickness"],
+            layers=predict_polygon["ceiling"]["drywall_assembly"]["layers"],
+            fire_rating=predict_polygon["ceiling"]["drywall_assembly"]["fire_rating"],
+            recommendation=predict_polygon["ceiling"]["recommendation"],
+            waste_factor=predict_polygon["ceiling"]["drywall_assembly"]["waste_factor"],
+            enabled=True,
+        )
+        for index, drywall_index in enumerate(polygon["polygon_ids_drywall_interior"]):
+            polygon_drywall = load_drywall_polygon(drywall_index)
+            polygon_drywall["type"]=predict_polygon["wall_parameters"][index]["drywall_assembly"]["material"],
+            polygon_drywall["color"]=list(predict_polygon["wall_parameters"][index]["drywall_assembly"]["color_code"]),
+            polygon_drywall["type_stacked"]=predict_polygon["wall_parameters"][index]["drywall_assembly"]["materials_vertically_stacked"],
+            polygon_drywall["color_stacked"]=list(predict_polygon["wall_parameters"][index]["drywall_assembly"]["color_codes_stacked"]),
+            polygon_drywall["thickness"]=predict_polygon["wall_parameters"][index]["drywall_assembly"]["thickness"],
+            polygon_drywall["layers"]=predict_polygon["wall_parameters"][index]["drywall_assembly"]["layers"],
+            polygon_drywall["fire_rating"]=predict_polygon["wall_parameters"][index]["drywall_assembly"]["fire_rating"],
+            polygon_drywall["recommendation"]=predict_polygon["wall_parameters"][index]["recommendation"],
+            polygon_drywall["waste_factor"]=predict_polygon["wall_parameters"][index]["drywall_assembly"]["waste_factor"],
+            polygon_drywall["enabled"]=(False if predict_polygon["wall_parameters"][index]["drywall_assembly"]["material"].upper() == "DISABLED" else True),
 
     def _add_wall_perimeter(
         self,
