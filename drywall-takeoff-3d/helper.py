@@ -12,6 +12,8 @@ import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 import subprocess
 from collections import defaultdict
+from functools import partial
+from fastapi.concurrency import run_in_threadpool
 
 import math
 import random
@@ -62,6 +64,10 @@ from preprocessing import preprocess
 
 _pg_pool = None
 _connector = None
+
+def load_bigquery_client(credentials):
+    bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
+    return bigquery_client
 
 def load_pg_pool(credentials):
     global _pg_pool, _connector
@@ -123,7 +129,8 @@ def pg_run(
     fetch=False,
     max_retries=5,
     initial_backoff=1.0,
-    max_backoff=30.0
+    max_backoff=30.0,
+    execute_many=False,
 ):
     if params is None:
         params = tuple()
@@ -135,7 +142,10 @@ def pg_run(
         try:
             conn = connection_pool.connect()
             cursor = conn.cursor()
-            cursor.execute(query, params)
+            if execute_many:
+                cursor.executemany(query, params)
+            else:
+                cursor.execute(query, params)
             result = None
 
             if fetch:
@@ -247,10 +257,6 @@ def pg_run(
         f"SYSTEM: PostgreSQL query failed after "
         f"{max_retries} retries."
     )
-
-def load_bigquery_client(credentials):
-    bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
-    return bigquery_client
 
 def bigquery_run(
     credentials,
@@ -384,7 +390,7 @@ def upload_floorplan(plan_path, plan_id, project_id, credentials, index=None, di
     blob.upload_from_filename(plan_path)
     return f"gs://{credentials["CloudStorage"]["bucket_name"]}/{blob_path}"
 
-def insert_model_2d(
+async def insert_model_2d(
     model_2d,
     scale,
     page_number,
@@ -393,7 +399,7 @@ def insert_model_2d(
     project_id,
     GCS_URL_floorplan_page,
     GCS_URL_target_drywalls_page,
-    bigquery_client,
+    pg_pool,
     credentials,
     page_section_number=None,
     page_sections=None,
@@ -401,104 +407,82 @@ def insert_model_2d(
     if not page_section_number:
         page_section_number = 'I'
     if not page_sections:
-        GBQ_query = f"SELECT page_sections FROM `drywall_takeoff.models` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number} AND page_section_number = '{page_section_number}';"
-        query_output = bigquery_run(credentials, bigquery_client, GBQ_query).result()
-        page_sections = list(query_output)[0].page_sections
+        query = f"SELECT page_sections FROM {credentials["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
+        query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, int(page_number), page_section_number,), fetch=True))
+        page_sections = query_output[0]["page_sections"]
     if not model_2d.get("metadata", None):
-        GBQ_query = f"SELECT model_2d.metadata FROM `drywall_takeoff.models` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}') AND page_number = {page_number} AND page_section_number = '{page_section_number}';"
-        query_output = bigquery_run(credentials, bigquery_client, GBQ_query).result()
-        metadata = list(query_output)[0].metadata
+        query = f"SELECT model_2d->'metadata' AS metadata FROM {credentials["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s"
+        query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, int(page_number), page_section_number,), fetch=True))
+        metadata = query_output[0]["metadata"]
         metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
         model_2d["metadata"] = metadata
-    GBQ_query = """
-    MERGE `drywall_takeoff.models` t
-    USING (
-        SELECT
-            @plan_id AS plan_id,
-            @project_id AS project_id,
-            @user_id AS user_id,
-            @page_number AS page_number,
-            @page_sections AS page_sections,
-            @page_section_number AS page_section_number,
-            @model_2d AS model_2d,
-            @source AS source,
-            @target_drywalls AS target_drywalls,
-            @scale AS scale,
-    ) s
-    ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id) AND t.page_number = s.page_number AND t.page_section_number = s.page_section_number
-    WHEN MATCHED THEN
-    UPDATE SET
-        model_2d = s.model_2d,
-        scale = COALESCE(NULLIF(s.scale, ''), t.scale),
-        user_id = @user_id,
-        updated_at = CURRENT_TIMESTAMP()
-    WHEN NOT MATCHED THEN
-    INSERT (
+    query = f"""
+        INSERT INTO {credentials["CloudSQL"]["table_name_models"]} AS t (
+            plan_id,
+            project_id,
+            user_id,
+            page_number,
+            page_sections,
+            page_section_number,
+            scale,
+            model_2d,
+            model_3d,
+            takeoff,
+            source,
+            target_drywalls,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s::jsonb,
+            '{{}}'::jsonb,
+            '{{}}'::jsonb,
+            %s,
+            %s,
+            CURRENT_TIMESTAMP,
+            CURRENT_TIMESTAMP
+        )
+        ON CONFLICT (project_id, plan_id, page_number, page_section_number) DO UPDATE SET
+            model_2d = EXCLUDED.model_2d,
+            scale = COALESCE(NULLIF(EXCLUDED.scale, ''), t.scale),
+            user_id = EXCLUDED.user_id,
+            updated_at = CURRENT_TIMESTAMP
+    """
+    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(
         plan_id,
         project_id,
         user_id,
-        page_number,
-        page_sections,
+        int(page_number),
+        int(page_sections),
         page_section_number,
         scale,
-        model_2d,
-        model_3d,
-        takeoff,
-        source,
-        target_drywalls,
-        created_at,
-        updated_at
-    )
-    VALUES (
-        s.plan_id,
-        s.project_id,
-        s.user_id,
-        s.page_number,
-        s.page_sections,
-        s.page_section_number,
-        s.scale,
-        s.model_2d,
-        JSON '{}',
-        JSON '{}',
-        s.source,
-        s.target_drywalls,
-        CURRENT_TIMESTAMP(),
-        CURRENT_TIMESTAMP()
-    );
-    """
-    job_config = dict(
-        query_parameters=[
-            bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
-            bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
-            bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
-            bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
-            bigquery.ScalarQueryParameter("page_sections", "INT64", page_sections),
-            bigquery.ScalarQueryParameter("page_section_number", "STRING", page_section_number),
-            bigquery.ScalarQueryParameter("scale", "STRING", scale),
-            bigquery.ScalarQueryParameter("model_2d", "JSON", model_2d),
-            bigquery.ScalarQueryParameter("source", "STRING", GCS_URL_floorplan_page),
-            bigquery.ScalarQueryParameter("target_drywalls", "STRING", GCS_URL_target_drywalls_page)
-        ]
-    )
+        json.dumps(model_2d),
+        GCS_URL_floorplan_page,
+        GCS_URL_target_drywalls_page
+    )))
 
-    query_output = bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
-    return query_output
-
-def is_duplicate(bigquery_client, credentials, pdf_path, project_id):
+async def is_duplicate(pg_pool, credentials, pdf_path, project_id):
     sha_256 = sha256(pdf_path)
-    GBQ_query = f"SELECT plan_id, sha256, status FROM `drywall_takeoff.plans` WHERE LOWER(project_id) = LOWER('{project_id}');"
-    query_output = bigquery_run(credentials, bigquery_client, GBQ_query).result()
+    query = f"SELECT plan_id, sha256, status FROM {credentials["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s)"
+    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id,), fetch=True))
     for plan_target in list(query_output):
-        if plan_target.sha256 == sha_256:
-            if plan_target.status == "FAILED":
-                delete_plan(credentials, bigquery_client, plan_target.plan_id, project_id)
+        if plan_target["sha256"] == sha_256:
+            if plan_target["status"] == "FAILED":
+                await delete_plan(credentials, pg_pool, plan_target["plan_id"], project_id)
                 return False
-            return plan_target.plan_id
+            return plan_target["plan_id"]
     return False
 
-def delete_plan(credentials, bigquery_client, plan_id, project_id):
-    GBQ_query = f"DELETE FROM `drywall_takeoff.plans` WHERE LOWER(project_id) = LOWER('{project_id}') AND LOWER(plan_id) = LOWER('{plan_id}');"
-    query_output = bigquery_run(credentials, bigquery_client, GBQ_query).result()
+async def delete_plan(credentials, pg_pool, plan_id, project_id):
+    query = f"DELETE FROM {credentials["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);"
+    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id,)))
     return query_output
 
 def load_floorplan_to_structured_2d_ID_token(credentials):
@@ -521,9 +505,9 @@ def load_floorplan_to_preview_ID_token(credentials):
     id_token = service_account_credentials.token
     return id_token
 
-def load_templates(bigquery_client, credentials):
-    GBQ_query = f"SELECT * FROM `{credentials["GBQServer"]["table_name_sku"]}`"
-    product_templates = list(bigquery_run(credentials, bigquery_client, GBQ_query).result())
+async def load_templates(pg_pool, credentials):
+    query = f"SELECT * FROM {credentials["CloudSQL"]["table_name_sku"]}"
+    product_templates = await run_in_threadpool(partial(pg_run, pg_pool, query, fetch=True))
 
     logging.info("SYSTEM: Product Templates retrieved successfully")
     product_templates_target = list()
@@ -861,7 +845,7 @@ def plan_to_preview(
     plan_types = response.json()
     return plan_types
 
-def floorplan_to_pages(credentials, bigquery_client, project_id, plan_id, user_id, pdf_path, n_pages, batch_size=10):
+async def floorplan_to_pages(credentials, pg_pool, project_id, plan_id, user_id, pdf_path, n_pages, batch_size=10):
     plan_types = plan_to_preview(credentials, project_id, plan_id, user_id)
     pages_to_insert = list()
     for page in plan_types["pages"]:
@@ -879,9 +863,9 @@ def floorplan_to_pages(credentials, bigquery_client, project_id, plan_id, user_i
             "status": "NOT STARTED",
             "is_floorplan": "FLOOR" in page["plan_type"].upper(),
         })
-    insert_pages_batch(
+    await insert_pages_batch(
         pages_to_insert,
-        bigquery_client,
+        pg_pool,
         credentials,
     )
     page_batches = [list(range(batch_index * batch_size, batch_index * batch_size + batch_size)) for batch_index in range(n_pages // batch_size)]
@@ -929,14 +913,14 @@ def page_to_svg(
 
     return Path(svg_path)
 
-def insert_page(
+async def insert_page(
     plan_id,
     user_id,
     project_id,
     page_number,
     extracted,
     status,
-    bigquery_client,
+    pg_pool,
     credentials,
     plan_type=dict(),
     GCS_URL_page=None,
@@ -945,224 +929,132 @@ def insert_page(
     bounding_box_offsets=dict(),
     is_floorplan=None,
 ):
-    GBQ_query = """
-    MERGE `drywall_takeoff.pages` t
-    USING (
-        SELECT
-            @plan_id AS plan_id,
-            @project_id AS project_id,
-            @user_id AS user_id,
-            @page_number AS page_number,
-            @mask_factor AS mask_factor,
-            @bounding_box_offsets AS bounding_box_offsets,
-            @source AS source,
-            @thumbnail AS thumbnail,
-            @plan_type AS plan_type,
-            @extracted AS extracted,
-            @status AS status,
-            @is_floorplan AS is_floorplan
-    ) s
-    ON LOWER(t.project_id) = LOWER(s.project_id) AND LOWER(t.plan_id) = LOWER(s.plan_id) AND t.page_number = s.page_number
-    WHEN MATCHED THEN
-    UPDATE SET
-        extracted = s.extracted,
-        updated_at = CURRENT_TIMESTAMP(),
-        status = s.status
-    WHEN NOT MATCHED THEN
-    INSERT (
+    query = f"""
+        INSERT INTO {credentials["CloudSQL"]["table_name_pages"]} (
+            plan_id,
+            project_id,
+            user_id,
+            page_number,
+            mask_factor,
+            bounding_box_offsets,
+            source,
+            thumbnail,
+            plan_type,
+            extracted,
+            status,
+            is_floorplan,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            CURRENT_TIMESTAMP,
+            CURRENT_TIMESTAMP
+        )
+        ON CONFLICT (project_id, plan_id, page_number) DO UPDATE SET
+            extracted = EXCLUDED.extracted,
+            updated_at = CURRENT_TIMESTAMP,
+            status = EXCLUDED.status
+    """
+    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(
         plan_id,
         project_id,
         user_id,
-        page_number,
-        mask_factor,
-        bounding_box_offsets,
-        source,
-        thumbnail,
-        plan_type,
+        int(page_number),
+        json.dumps(mask_factor),
+        json.dumps(bounding_box_offsets),
+        GCS_URL_page,
+        GCS_URL_page_thumbnail,
+        json.dumps(plan_type),
         extracted,
         status,
-        is_floorplan,
-        created_at,
-        updated_at
-    )
-    VALUES (
-        s.plan_id,
-        s.project_id,
-        s.user_id,
-        s.page_number,
-        s.mask_factor,
-        s.bounding_box_offsets,
-        s.source,
-        s.thumbnail,
-        s.plan_type,
-        s.extracted,
-        s.status,
-        s.is_floorplan,
-        CURRENT_TIMESTAMP(),
-        CURRENT_TIMESTAMP()
-    );
-    """
-    job_config = dict(
-        query_parameters=[
-            bigquery.ScalarQueryParameter("plan_id", "STRING", plan_id),
-            bigquery.ScalarQueryParameter("project_id", "STRING", project_id),
-            bigquery.ScalarQueryParameter("user_id", "STRING", user_id),
-            bigquery.ScalarQueryParameter("page_number", "INT64", page_number),
-            bigquery.ScalarQueryParameter("mask_factor", "JSON", mask_factor),
-            bigquery.ScalarQueryParameter("bounding_box_offsets", "JSON", bounding_box_offsets),
-            bigquery.ScalarQueryParameter("source", "STRING", GCS_URL_page),
-            bigquery.ScalarQueryParameter("thumbnail", "STRING", GCS_URL_page_thumbnail),
-            bigquery.ScalarQueryParameter("plan_type", "JSON", plan_type),
-            bigquery.ScalarQueryParameter("extracted", "BOOL", extracted),
-            bigquery.ScalarQueryParameter("status", "STRING", status),
-            bigquery.ScalarQueryParameter("is_floorplan", "BOOL", is_floorplan)
-        ]
-    )
+        is_floorplan
+    )))
 
-    query_output = bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
-    return query_output
-
-def insert_pages_batch(
+async def insert_pages_batch(
     pages,
-    bigquery_client,
+    pg_pool,
     credentials,
 ):
     if not pages:
         return None
 
-    GBQ_query = """
-    MERGE `drywall_takeoff.pages` t
-    USING (
-        SELECT *
-        FROM UNNEST(@pages)
-    ) s
-    ON LOWER(t.project_id) = LOWER(s.project_id)
-    AND LOWER(t.plan_id) = LOWER(s.plan_id)
-    AND t.page_number = s.page_number
-
-    WHEN MATCHED THEN
-    UPDATE SET
-        extracted = s.extracted,
-        updated_at = CURRENT_TIMESTAMP(),
-        status = s.status,
-        plan_type = s.plan_type,
-        source = s.source,
-        thumbnail = s.thumbnail,
-        mask_factor = s.mask_factor,
-        bounding_box_offsets = s.bounding_box_offsets,
-        is_floorplan = s.is_floorplan
-
-    WHEN NOT MATCHED THEN
-    INSERT (
-        plan_id,
-        project_id,
-        user_id,
-        page_number,
-        mask_factor,
-        bounding_box_offsets,
-        source,
-        thumbnail,
-        plan_type,
-        extracted,
-        status,
-        is_floorplan,
-        created_at,
-        updated_at
-    )
-    VALUES (
-        s.plan_id,
-        s.project_id,
-        s.user_id,
-        s.page_number,
-        s.mask_factor,
-        s.bounding_box_offsets,
-        s.source,
-        s.thumbnail,
-        s.plan_type,
-        s.extracted,
-        s.status,
-        s.is_floorplan,
-        CURRENT_TIMESTAMP(),
-        CURRENT_TIMESTAMP()
-    )
+    query = f"""
+        INSERT INTO {credentials["CloudSQL"]["table_name_pages"]} (
+            plan_id,
+            project_id,
+            user_id,
+            page_number,
+            mask_factor,
+            bounding_box_offsets,
+            source,
+            thumbnail,
+            plan_type,
+            extracted,
+            status,
+            is_floorplan,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            CURRENT_TIMESTAMP,
+            CURRENT_TIMESTAMP
+        )
+        ON CONFLICT (project_id, plan_id, page_number) DO UPDATE SET
+            extracted = EXCLUDED.extracted,
+            updated_at = CURRENT_TIMESTAMP,
+            status = EXCLUDED.status,
+            plan_type = EXCLUDED.plan_type,
+            source = EXCLUDED.source,
+            thumbnail = EXCLUDED.thumbnail,
+            mask_factor = EXCLUDED.mask_factor,
+            bounding_box_offsets = EXCLUDED.bounding_box_offsets,
+            is_floorplan = EXCLUDED.is_floorplan
     """
-
-    page_struct_type = bigquery.StructQueryParameterType(
-        bigquery.ScalarQueryParameterType("STRING", name="plan_id"),
-        bigquery.ScalarQueryParameterType("STRING", name="project_id"),
-        bigquery.ScalarQueryParameterType("STRING", name="user_id"),
-        bigquery.ScalarQueryParameterType("INT64", name="page_number"),
-        bigquery.ScalarQueryParameterType("JSON", name="mask_factor"),
-        bigquery.ScalarQueryParameterType("JSON", name="bounding_box_offsets"),
-        bigquery.ScalarQueryParameterType("STRING", name="source"),
-        bigquery.ScalarQueryParameterType("STRING", name="thumbnail"),
-        bigquery.ScalarQueryParameterType("JSON", name="plan_type"),
-        bigquery.ScalarQueryParameterType("BOOL", name="extracted"),
-        bigquery.ScalarQueryParameterType("STRING", name="status"),
-        bigquery.ScalarQueryParameterType("BOOL", name="is_floorplan"),
-    )
 
     page_rows = list()
     for page in pages:
         page_rows.append(
-            bigquery.StructQueryParameter(
-                None,
-                bigquery.ScalarQueryParameter(
-                    "plan_id", "STRING", page["plan_id"]
-                ),
-                bigquery.ScalarQueryParameter(
-                    "project_id", "STRING", page["project_id"]
-                ),
-                bigquery.ScalarQueryParameter(
-                    "user_id", "STRING", page["user_id"]
-                ),
-                bigquery.ScalarQueryParameter(
-                    "page_number", "INT64", page["page_number"]
-                ),
-                bigquery.ScalarQueryParameter(
-                    "mask_factor", "JSON", page.get("mask_factor", dict())
-                ),
-                bigquery.ScalarQueryParameter(
-                    "bounding_box_offsets",
-                    "JSON",
-                    page.get("bounding_box_offsets", dict())
-                ),
-                bigquery.ScalarQueryParameter(
-                    "source", "STRING", page.get("source", '')
-                ),
-                bigquery.ScalarQueryParameter(
-                    "thumbnail", "STRING", page.get("thumbnail", '')
-                ),
-                bigquery.ScalarQueryParameter(
-                    "plan_type", "JSON", page.get("plan_type", dict())
-                ),
-                bigquery.ScalarQueryParameter(
-                    "extracted", "BOOL", page["extracted"]
-                ),
-                bigquery.ScalarQueryParameter(
-                    "status", "STRING", page["status"]
-                ),
-                bigquery.ScalarQueryParameter(
-                    "is_floorplan", "BOOL", page["is_floorplan"]
-                ),
+            (
+                page["plan_id"],
+                page["project_id"],
+                page["user_id"],
+                int(page["page_number"]),
+                json.dumps(page.get("mask_factor", dict())),
+                json.dumps(page.get("bounding_box_offsets", dict())),
+                page.get("source", ''),
+                page.get("thumbnail", ''),
+                json.dumps(page.get("plan_type", list())),
+                page["extracted"],
+                page["status"],
+                page["is_floorplan"],
             )
         )
-    job_config = dict(
-        query_parameters=[
-            bigquery.ArrayQueryParameter(
-                "pages",
-                page_struct_type,
-                page_rows
-            )
-        ]
-    )
 
-    return bigquery_run(
-        credentials,
-        bigquery_client,
-        GBQ_query,
-        job_config=job_config
-    ).result()
+    await run_in_threadpool(partial(pg_run, pg_pool, query, params=page_rows, execute_many=True))
 
 def load_drywall_weights(walls_2d_JSON, polygons_JSON, compute_waste_average_standard=False, drywall_templates=None):
     weights_drywall = defaultdict(lambda: 0)
