@@ -14,7 +14,7 @@ modelling:
   pixel_aspect_ratio: *pixel_aspect_ratio_to_feet
   HoughLinesTransformation:
     rho: 1
-    theta: 0.017453292519943295
+    theta: 0.008726646259971648
     threshold: 40
     minLineLength: 8
     maxLineGap: 10
