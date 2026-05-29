@@ -5,6 +5,7 @@ from pathlib import Path
 import math
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+from scipy.spatial import cKDTree
 
 from floor_plan import FloorPlan
 from gltf_generator import load_gltf
@@ -348,7 +349,7 @@ class Extrapolate3D(FloorPlan):
 
     def _extrude_roof_3d(self, vertices, slope, tilt_axis, height_in_pixels, width_in_pixels):
         half_width = width_in_pixels // 2
- 
+
         if slope is None or slope == 0 or tilt_axis not in ("horizontal", "vertical"):
             front_face = [dict(x=x, y=y, z=height_in_pixels - half_width) for x, y in vertices]
             back_face  = [dict(x=x, y=y, z=height_in_pixels + half_width) for x, y in vertices]
