@@ -1053,12 +1053,12 @@ async def floorplan_to_2d(request: Request):
     GCS_URL_floorplan = download_floorplan(plan_id, project_id, CREDENTIALS, destination_path=pdf_path)
     logging.info("SYSTEM: Floorplan Downloaded")
 
-    client = CloudStorageClient()
-    bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
-    blob_path = f"tmp/{user_id.lower()}/{project_id.lower()}/{plan_id.lower()}/floorplan_structured_2d.json"
-    blob = bucket.blob(blob_path)
-    if blob.exists():
-        blob.delete()
+    #client = CloudStorageClient()
+    #bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
+    #blob_path = f"tmp/{user_id.lower()}/{project_id.lower()}/{plan_id.lower()}/floorplan_structured_2d.json"
+    #blob = bucket.blob(blob_path)
+    #if blob.exists():
+    #    blob.delete()
 
     size_in_bytes = Path(pdf_path).stat().st_size
     n_pages = pdfinfo_from_path(pdf_path)["Pages"]
@@ -1190,9 +1190,9 @@ async def floorplan_to_2d(request: Request):
         n_pages=n_pages,
     )
 
-    with open("/tmp/floorplan_structured_2d.json", 'w') as f:
-        json.dump(walls_2d_all, f, indent=4)
-    blob.upload_from_filename("/tmp/floorplan_structured_2d.json")
+    #with open("/tmp/floorplan_structured_2d.json", 'w') as f:
+    #    json.dump(walls_2d_all, f, indent=4)
+    #blob.upload_from_filename("/tmp/floorplan_structured_2d.json")
     return respond_with_UI_payload(walls_2d_all)
 
 
