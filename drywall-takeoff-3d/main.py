@@ -80,6 +80,11 @@ def respond_with_UI_payload(payload, status_code=200, disable_caching=False):
         media_type="application/json"
     )
 
+def load_parameter_first_not_none(*values):
+    return next(
+        (v for v in values if v is not None),
+        None
+    )
 
 async def insert_model_2d_revision(
     model_2d,
@@ -1832,15 +1837,15 @@ async def compute_takeoff(request: Request):
         body = dict()
     walls_2d_JSON = parameters.get("walls_2d", list()) or body.get("walls_2d", list())
     polygons_JSON = parameters.get("polygons", list()) or body.get("polygons", list())
-    waste_factor_average = parameters.get("waste_factor_average") or body.get("waste_factor_average") or None
-    drywall_negate_opening_area_threshold = parameters.get("drywall_negate_opening_area_threshold") or body.get("drywall_negate_opening_area_threshold") or None
+    waste_factor_average = load_parameter_first_not_none(parameters.get("waste_factor_average"), body.get("waste_factor_average"))
+    drywall_negate_opening_area_threshold = load_parameter_first_not_none(parameters.get("drywall_negate_opening_area_threshold"), body.get("drywall_negate_opening_area_threshold"))
     index = parameters.get("page_number") or body.get("page_number")
     page_section_number = parameters.get("page_section_number") or body.get("page_section_number")
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     user_id = parameters.get("user_id") or body.get("user_id")
     revision_number = parameters.get("revision_number", '') or body.get("revision_number", '')
-    load_preview = parameters.get("load_preview") or body.get("load_preview") or False
+    load_preview = load_parameter_first_not_none(parameters.get("load_preview"), body.get("load_preview"))
     logging.info("SYSTEM: Received a Drywall Takeoff computation Request")
 
     query = f"SELECT scale FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
@@ -1891,12 +1896,12 @@ async def compute_takeoff(request: Request):
         compute_waste_average_standard=True,
         drywall_templates=DRYWALL_TEMPLATES
     )
-    if not waste_factor_average:
+    if waste_factor_average is None:
         query = f"SELECT waste_average FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
         query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
 
         waste_factor_average = query_output[0]["waste_average"]
-    if waste_factor_average:
+    if waste_factor_average is not None:
         waste_factor_average_delta = float(waste_factor_average) - waste_standard
     else:
         waste_factor_average_delta = 0
@@ -1911,6 +1916,8 @@ async def compute_takeoff(request: Request):
             for opening in wall["openings"]:
                 drywall_negate_area += opening["count"] * opening["length"] * opening["height"]
             if drywall_negate_opening_area_threshold is not None and drywall_negate_area < drywall_negate_opening_area_threshold:
+                drywall_negate_area = 0
+            if drywall_negate_opening_area_threshold is None:
                 drywall_negate_area = 0
         for drywall in wall["polygons_drywall"]:
             surface_area = (drywall["height"] * wall["length"]) - drywall_negate_area
@@ -1935,6 +1942,7 @@ async def compute_takeoff(request: Request):
                         total_sqft=round(drywall_takeoff["per_drywall"]["wall"][drywall_type]["total_sqft"]+total_sqft, 2),
                         net_sqft=round(drywall_takeoff["per_drywall"]["wall"][drywall_type]["net_sqft"]+net_sqft, 2),
                         waste_percentage=round(waste_factor*100, 2),
+                        drywall_negation_area_in_SQFT=round(drywall_takeoff["per_drywall"]["wall"][drywall_type]["drywall_negation_area_in_SQFT"]+drywall_negate_area, 2),
                         sheet_size=sheet_size,
                         sheets_required_total=drywall_takeoff["per_drywall"]["wall"][drywall_type]["sheets_required_total"]+sheets_required_total,
                         sheets_required_no_waste=drywall_takeoff["per_drywall"]["wall"][drywall_type]["sheets_required_no_waste"]+sheets_required_no_waste
@@ -1956,6 +1964,7 @@ async def compute_takeoff(request: Request):
                     total_sqft=round(drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["total_sqft"]+total_sqft, 2),
                     net_sqft=round(drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["net_sqft"]+net_sqft, 2),
                     waste_percentage=round(waste_factor*100, 2),
+                    drywall_negation_area_in_SQFT=round(drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["drywall_negation_area_in_SQFT"]+drywall_negate_area, 2),
                     sheet_size=sheet_size,
                     sheets_required_total=drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["sheets_required_total"]+sheets_required_total,
                     sheets_required_no_waste=drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["sheets_required_no_waste"]+sheets_required_no_waste
