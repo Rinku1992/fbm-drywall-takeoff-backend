@@ -31,6 +31,7 @@ from helper import (
     download_segmented_walls,
     insert_model_2d,
     load_pg_pool,
+    close_pg_pool,
     load_templates,
     load_section_from_page,
     apply_pixel_margin_to_bounding_box,
@@ -231,7 +232,7 @@ async def lifespan(app: FastAPI):
     yield
 
     if pg_pool:
-        pg_pool.dispose()
+        close_pg_pool()
 
 app = FastAPI(title="Floorplan-to-Structured-2D (Cloud Run)", lifespan=lifespan)
 
