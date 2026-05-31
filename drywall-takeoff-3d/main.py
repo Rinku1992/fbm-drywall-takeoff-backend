@@ -2003,7 +2003,7 @@ async def compute_takeoff(request: Request):
     drywall_takeoff["total"]["wall"] = round(drywall_takeoff["total"]["wall"], 2)
     drywall_takeoff["total"]["roof"] = round(drywall_takeoff["total"]["roof"], 2)
 
-    if load_preview == False:
+    if load_preview == False or load_preview is None:
         waste_factor_average = waste_factor_average if waste_factor_average else waste_standard
         await insert_takeoff(
             drywall_takeoff,
@@ -2035,7 +2035,7 @@ async def summarize_takeoff_all(request: Request):
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     logging.info("SYSTEM: Received Total Drywall Takeoff computation Request")
 
-    query = f"SELECT page_number, page_section_number, scale, waste_average, takeoff FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);"
+    query = f"SELECT page_number, page_section_number, scale, waste_average, drywall_negate_opening_area_threshold, takeoff FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);"
     rows = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id), fetch=True))
     drywall_takeoff_all = list()
     for row in rows:
