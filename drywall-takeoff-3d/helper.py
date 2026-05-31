@@ -1126,8 +1126,8 @@ async def load_visual_grounding(
             continue
         pages_metadata_filtered.append(page_metadata)
     n_pages = len(pages_metadata_filtered)
-    page_batches = [list(map(lambda page_metadata: page_metadata["page_number"], pages_metadata[batch_index * batch_size: batch_index * batch_size + batch_size])) for batch_index in range(n_pages // batch_size)]
-    page_batches += [list(map(lambda page_metadata: page_metadata["page_number"], pages_metadata[n_pages - (n_pages % batch_size): n_pages]))]
+    page_batches = [list(map(lambda page_metadata: page_metadata["page_number"], pages_metadata_filterd[batch_index * batch_size: batch_index * batch_size + batch_size])) for batch_index in range(n_pages // batch_size)]
+    page_batches += [list(map(lambda page_metadata: page_metadata["page_number"], pages_metadata_filtered[n_pages - (n_pages % batch_size): n_pages]))]
 
     plan_paths = dict()
     for page_metadata in pages_metadata_filtered:
