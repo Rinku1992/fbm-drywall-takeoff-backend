@@ -647,7 +647,7 @@ def phoenix_call(generate_content_lambda, max_retry=5, base_delay=1.0, pydantic_
                 raise e
             sleep_time = base_delay * (2 ** (n_iterations - 1)) + random.uniform(0, 0.5)
             sleep(sleep_time)
-            logging.warning(f"SYSTEM: {e}: RETRYING ...")
+            logging.warning(f"SYSTEM: Vertex AI Gemini: {e}: RETRYING ...")
         except Exception as e:
             n_iterations += 1
             if n_iterations >= max_retry:
