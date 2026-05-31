@@ -38,6 +38,7 @@ from extrapolate_3d import Extrapolate3D
 from floor_plan import FloorPlan
 from helper import (
     load_pg_pool,
+    close_pg_pool,
     pg_run,
     load_vertex_ai_client,
     sha256,
@@ -599,7 +600,7 @@ async def lifespan(app: FastAPI):
     yield
 
     if pg_pool:
-        pg_pool.dispose()
+        close_pg_pool()
 
 app = FastAPI(title="Drywall Takeoff (Cloud Run)", lifespan=lifespan)
 
