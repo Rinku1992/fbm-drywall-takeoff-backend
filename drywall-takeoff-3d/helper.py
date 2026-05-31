@@ -1101,8 +1101,9 @@ def load_drywall_weights(walls_2d_JSON, polygons_JSON, compute_waste_average_sta
         return weights_drywall, waste_average, drywall_count
     return weights_drywall, drywall_count
 
-def load_visual_grounding(
+async def load_visual_grounding(
     credentials,
+    pg_pool,
     project_id,
     plan_id,
     ip_address,
@@ -1112,12 +1113,24 @@ def load_visual_grounding(
     vertex_ai_generation_config=None,
     is_cached=None
 ):
-    n_pages = len(pages_metadata)
+    pages_metadata_filtered = list()
+    for page_metadata in pages_metadata[:]:
+        query = f"SELECT mask_factor, bounding_box_offsets FROM {credentials["CloudSQL"]["table_name_pages"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
+        query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, int(page_metadata["page_number"]),), fetch=True))
+        mask_factor, bounding_box_offsets = query_output[0]["mask_factor"], query_output[0]["bounding_box_offsets"]
+        mask_factor = json.loads(mask_factor) if isinstance(mask_factor, str) else mask_factor
+        bounding_box_offsets = json.loads(bounding_box_offsets) if isinstance(bounding_box_offsets, str) else bounding_box_offsets
+        if mask_factor and bounding_box_offsets:
+            page_metadata["mask_factor"] = mask_factor
+            page_metadata["bounding_box_offsets"] = bounding_box_offsets
+            continue
+        pages_metadata_filtered.append(page_metadata)
+    n_pages = len(pages_metadata_filtered)
     page_batches = [list(map(lambda page_metadata: page_metadata["page_number"], pages_metadata[batch_index * batch_size: batch_index * batch_size + batch_size])) for batch_index in range(n_pages // batch_size)]
     page_batches += [list(map(lambda page_metadata: page_metadata["page_number"], pages_metadata[n_pages - (n_pages % batch_size): n_pages]))]
 
     plan_paths = dict()
-    for page_metadata in pages_metadata:
+    for page_metadata in pages_metadata_filtered:
         index = str(page_metadata["page_number"]).zfill(4)
         destination_path = f"/tmp/floor_plan_{index}.png"
         blob_name = "floor_plan.png"
@@ -1134,7 +1147,7 @@ def load_visual_grounding(
             is_cached=is_cached
         )
         for bounding_box in bounding_boxes["pages"]:
-            for page_metadata in pages_metadata:
+            for page_metadata in pages_metadata[:]:
                 if bounding_box["page_number"] == page_metadata["page_number"]:
                     page_metadata["mask_factor"] = bounding_box["mask_factor"]
                     page_metadata["bounding_box_offsets"] = bounding_box["bounding_box_offsets"]
