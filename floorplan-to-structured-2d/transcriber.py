@@ -60,7 +60,7 @@ class Transcriber:
                     raise e
                 sleep_time = base_delay * (2 ** (n_iterations - 1)) + uniform(0, 0.5)
                 sleep(sleep_time)
-                logging.warning(f"SYSTEM: {e}: RETRYING ...")
+                logging.warning(f"SYSTEM: Vertex AI Vision: {e}: RETRYING ...")
             except Exception as e:
                 n_iterations += 1
                 if n_iterations >= max_retry:
