@@ -122,6 +122,17 @@ def load_pg_pool(credentials):
 
     return _pg_pool
 
+def close_pg_pool():
+    global _pg_pool, _connector
+
+    if _pg_pool:
+        _pg_pool.dispose()
+        _pg_pool = None
+
+    if _connector:
+        _connector.close()
+        _connector = None
+
 def pg_run(
     connection_pool,
     query,
