@@ -1091,8 +1091,9 @@ async def floorplan_to_2d(request: Request):
         prompts=[VISUAL_GROUNDING_DETECTOR]
     )
     elevation_map = map_floorplan_to_multipage_elevation(CREDENTIALS, ip_address, pdf_path)
-    pages_metadata = load_visual_grounding(
+    pages_metadata = await load_visual_grounding(
         CREDENTIALS,
+        pg_pool,
         project_id,
         plan_id,
         ip_address,
