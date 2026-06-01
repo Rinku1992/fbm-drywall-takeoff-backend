@@ -582,6 +582,7 @@ def load_hyperparameters() -> dict:
     return hyperparameters
 
 
+CREDENTIALS = load_gcp_credentials()
 pg_pool = None
 DRYWALL_TEMPLATES = None
 
@@ -603,8 +604,6 @@ async def lifespan(app: FastAPI):
         close_pg_pool()
 
 app = FastAPI(title="Drywall Takeoff (Cloud Run)", lifespan=lifespan)
-
-CREDENTIALS = load_gcp_credentials()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CREDENTIALS["CloudRun"]["origins_cors"],
