@@ -1505,6 +1505,8 @@ async def update_floorplan_to_2d(request: Request):
     wall_lines = [[[wall_2d["wall_line"][0]['x'], wall_2d["wall_line"][0]['y'], wall_2d["wall_line"][1]['x'], wall_2d["wall_line"][1]['y']]] for wall_2d in walls_2d_JSON]
     wall_line_ids = [wall_2d["id"] for wall_2d in walls_2d_JSON]
     for polygon in polygons_JSON:
+        if not polygon.get("room_name"):
+            continue
         if not polygon["polygon_ids_drywall_interior"]:
             perimeter_lines_contour = plan.load_perimeter(polygon["vertices"], wall_lines)
             perimeter_wall_line_ids = [wall_line_ids[wall_lines.index(perimeter_line_contour)] for perimeter_line_contour in perimeter_lines_contour]
@@ -1513,6 +1515,8 @@ async def update_floorplan_to_2d(request: Request):
                 for wall_2d in walls_2d_JSON:
                     if wall_2d["id"] == perimeter_wall_line_id:
                         for drywall_index, polygon_drywall in zip(('a', 'b'), wall_2d["polygons_drywall"]):
+                            if not polygon_drywall.get("room_name"):
+                                continue
                             if Levenshtein.distance(polygon_drywall["room_name"].upper().strip(), polygon["room_name"].upper().strip()) < 5:
                                 polygon_ids_drywall_interior.append(f"{perimeter_wall_line_id}.{drywall_index}")
             polygon["polygon_ids_drywall_interior"] = polygon_ids_drywall_interior
