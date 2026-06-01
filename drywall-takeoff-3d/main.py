@@ -1901,7 +1901,7 @@ async def compute_takeoff(request: Request):
         compute_waste_average_standard=True,
         drywall_templates=DRYWALL_TEMPLATES
     )
-    if waste_factor_average is None:
+    if waste_factor_average is None and load_preview is None:
         query = f"SELECT waste_average FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
         query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
 
@@ -1911,7 +1911,7 @@ async def compute_takeoff(request: Request):
     else:
         waste_factor_average_delta = 0
     normalization_variance_aware = sum(w**2 for w in drywall_weights.values())
-    if drywall_negate_opening_area_threshold is None:
+    if drywall_negate_opening_area_threshold is None and load_preview is None:
         query = f"SELECT drywall_negate_opening_area_threshold FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
         query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
         drywall_negate_opening_area_threshold = query_output[0]["drywall_negate_opening_area_threshold"]
@@ -2006,7 +2006,7 @@ async def compute_takeoff(request: Request):
     drywall_takeoff["total"]["wall"] = round(drywall_takeoff["total"]["wall"], 2)
     drywall_takeoff["total"]["roof"] = round(drywall_takeoff["total"]["roof"], 2)
 
-    if load_preview == False or load_preview is None:
+    if load_preview == False:
         waste_factor_average = waste_factor_average if waste_factor_average else waste_standard
         await insert_takeoff(
             drywall_takeoff,
