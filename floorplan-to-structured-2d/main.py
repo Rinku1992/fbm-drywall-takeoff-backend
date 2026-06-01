@@ -214,6 +214,7 @@ def load_elevation_pages(pdf_path, elevation_page_numbers):
     return elevation_paths_preprocessed
 
 
+CREDENTIALS = load_gcp_credentials()
 pg_pool = None
 DRYWALL_TEMPLATES = None
 
@@ -235,8 +236,6 @@ async def lifespan(app: FastAPI):
         close_pg_pool()
 
 app = FastAPI(title="Floorplan-to-Structured-2D (Cloud Run)", lifespan=lifespan)
-
-CREDENTIALS = load_gcp_credentials()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CREDENTIALS["CloudRun"]["origins_cors"],
