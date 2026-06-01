@@ -668,7 +668,7 @@ async def load_projects(request: Request):
         ),
 
         current_user_groups AS (
-            SELECT DISTINCT group_id
+            SELECT DISTINCT LOWER(group_id) AS group_id
             FROM {CREDENTIALS["CloudSQL"]["table_name_users"]} u
             CROSS JOIN unnest(
                 COALESCE(u.group_ids, ARRAY[]::text[])
@@ -677,11 +677,21 @@ async def load_projects(request: Request):
                 ON LOWER(u.user_id) = LOWER(cu.user_id)
         ),
 
+        is_admin AS (
+            SELECT EXISTS (
+                SELECT 1
+                FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
+                JOIN current_user_groups cug
+                    ON LOWER(g.group_id) = cug.group_id
+                WHERE COALESCE(g.is_admin, FALSE) = TRUE
+            ) AS is_admin
+        ),
+
         matching_users AS (
             SELECT DISTINCT g.user_id
             FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
             JOIN current_user_groups cug
-                ON g.group_id = cug.group_id
+                ON LOWER(g.group_id) = cug.group_id
         ),
 
         fallback_user AS (
@@ -722,10 +732,14 @@ async def load_projects(request: Request):
         ) pc
         ON LOWER(p.project_id) = pc.project_id
 
-        WHERE LOWER(p.created_by) IN (
-        SELECT LOWER(user_id)
-            FROM final_users
-        )
+        WHERE
+            (
+                (SELECT is_admin FROM is_admin)
+                OR LOWER(p.created_by) IN (
+                    SELECT LOWER(user_id)
+                    FROM final_users
+                )
+            )
     """
     projects = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(user_id,), fetch=True))
 
@@ -749,59 +763,80 @@ async def load_project_plans(request: Request):
     user_id = parameters.get("user_id") or body.get("user_id")
 
     query = f"""
+        WITH current_user_cte AS (
+            SELECT %s AS user_id
+        ),
+
+        current_user_groups AS (
+            SELECT DISTINCT LOWER(group_id) AS group_id
+            FROM {CREDENTIALS["CloudSQL"]["table_name_users"]} u
+            CROSS JOIN unnest(
+                COALESCE(u.group_ids, ARRAY[]::text[])
+            ) AS group_id
+            JOIN current_user_cte cu
+                ON LOWER(u.user_id) = LOWER(cu.user_id)
+        ),
+
+        is_admin AS (
+            SELECT EXISTS (
+                SELECT 1
+                FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
+                JOIN current_user_groups cug
+                    ON LOWER(g.group_id) = cug.group_id
+                WHERE COALESCE(g.is_admin, FALSE) = TRUE
+            ) AS is_admin
+        ),
+
+        matching_users AS (
+            SELECT DISTINCT g.user_id
+            FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
+            JOIN current_user_groups cug
+                ON LOWER(g.group_id) = cug.group_id
+        ),
+
+        fallback_user AS (
+            SELECT cu.user_id
+            FROM current_user_cte cu
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM current_user_groups
+            )
+        ),
+
+        final_users AS (
+            SELECT user_id
+            FROM matching_users
+
+            UNION
+
+            SELECT user_id
+            FROM fallback_user
+        )
+
         SELECT
             p.*,
             (
-                SELECT COALESCE(jsonb_agg(to_jsonb(pl)), '[]'::jsonb)
+                SELECT COALESCE(
+                    jsonb_agg(to_jsonb(pl)),
+                    '[]'::jsonb
+                )
                 FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} pl
                 WHERE LOWER(pl.project_id) = LOWER(p.project_id)
             ) AS project_plans
+
         FROM projects p
-        WHERE LOWER(p.project_id) = LOWER(%s) AND LOWER(p.created_by) IN (
-            WITH current_user_cte AS (
-                SELECT %s AS user_id
-            ),
 
-            current_user_groups AS (
-                SELECT DISTINCT group_id
-                FROM {CREDENTIALS["CloudSQL"]["table_name_users"]} u
-                CROSS JOIN unnest(COALESCE(u.group_ids, ARRAY[]::text[])) AS group_id
-                JOIN current_user_cte cu
-                    ON LOWER(u.user_id) = LOWER(cu.user_id)
-            ),
-
-            matching_users AS (
-                SELECT DISTINCT
-                    g.user_id
-                FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
-                JOIN current_user_groups cug
-                    ON g.group_id = cug.group_id
-            ),
-
-            fallback_user AS (
-                SELECT cu.user_id
-                FROM current_user_cte cu
-                WHERE NOT EXISTS (
-                    SELECT 1
-                    FROM current_user_groups
+        WHERE
+            LOWER(p.project_id) = LOWER(%s)
+            AND (
+                (SELECT is_admin FROM is_admin)
+                OR LOWER(p.created_by) IN (
+                    SELECT LOWER(user_id)
+                    FROM final_users
                 )
-            ),
-
-            final_users AS (
-                SELECT user_id
-                FROM matching_users
-
-                UNION
-
-                SELECT user_id
-                FROM fallback_user
             )
-
-            SELECT LOWER(user_id)
-            FROM final_users
-        )
     """
-    rows = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, user_id,), fetch=True))
+    rows = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(user_id, project_id,), fetch=True))
 
     if not rows:
         return respond_with_UI_payload(dict(project_metadata=dict(), project_plans=list()))
@@ -895,51 +930,70 @@ async def load_plan_pages(request: Request):
     user_id = parameters.get("user_id") or body.get("user_id")
 
     query = f"""
-        SELECT * FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND LOWER(user_id) IN (
-            WITH current_user_cte AS (
-                SELECT %s AS user_id
-            ),
+        WITH current_user_cte AS (
+            SELECT %s AS user_id
+        ),
 
-            current_user_groups AS (
-                SELECT DISTINCT group_id
-                FROM {CREDENTIALS["CloudSQL"]["table_name_users"]} u
-                CROSS JOIN unnest(COALESCE(u.group_ids, ARRAY[]::text[])) AS group_id
-                JOIN current_user_cte cu
-                    ON LOWER(u.user_id) = LOWER(cu.user_id)
-            ),
+        current_user_groups AS (
+            SELECT DISTINCT LOWER(group_id) AS group_id
+            FROM {CREDENTIALS["CloudSQL"]["table_name_users"]} u
+            CROSS JOIN unnest(
+                COALESCE(u.group_ids, ARRAY[]::text[])
+            ) AS group_id
+            JOIN current_user_cte cu
+                ON LOWER(u.user_id) = LOWER(cu.user_id)
+        ),
 
-            matching_users AS (
-                SELECT DISTINCT
-                    g.user_id
+        is_admin AS (
+            SELECT EXISTS (
+                SELECT 1
                 FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
                 JOIN current_user_groups cug
-                    ON g.group_id = cug.group_id
-            ),
+                    ON LOWER(g.group_id) = cug.group_id
+                WHERE COALESCE(g.is_admin, FALSE) = TRUE
+            ) AS is_admin
+        ),
 
-            fallback_user AS (
-                SELECT cu.user_id
-                FROM current_user_cte cu
-                WHERE NOT EXISTS (
-                    SELECT 1
-                    FROM current_user_groups
-                )
-            ),
+        matching_users AS (
+            SELECT DISTINCT g.user_id
+            FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
+            JOIN current_user_groups cug
+                ON LOWER(g.group_id) = cug.group_id
+        ),
 
-            final_users AS (
-                SELECT user_id
-                FROM matching_users
-
-                UNION
-
-                SELECT user_id
-                FROM fallback_user
+        fallback_user AS (
+            SELECT cu.user_id
+            FROM current_user_cte cu
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM current_user_groups
             )
+        ),
 
-            SELECT LOWER(user_id)
-            FROM final_users
+        final_users AS (
+            SELECT user_id
+            FROM matching_users
+
+            UNION
+
+            SELECT user_id
+            FROM fallback_user
         )
+
+        SELECT *
+        FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]}
+        WHERE
+            LOWER(project_id) = LOWER(%s)
+            AND LOWER(plan_id) = LOWER(%s)
+            AND (
+                (SELECT is_admin FROM is_admin)
+                OR LOWER(user_id) IN (
+                    SELECT LOWER(user_id)
+                    FROM final_users
+                )
+            )
     """
-    rows = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, user_id,), fetch=True))
+    rows = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(user_id, project_id, plan_id,), fetch=True))
 
     if not rows:
         return respond_with_UI_payload(dict(plan_metadata=dict(), plan_pages=list()))
@@ -1262,25 +1316,35 @@ async def load_2d_all(request: Request):
     if load_lazy == "false":
         status = "IN PROGRESS"
         query = f"""
-            SELECT pages FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND LOWER(user_id) IN (
             WITH current_user_cte AS (
                 SELECT %s AS user_id
             ),
 
             current_user_groups AS (
-                SELECT DISTINCT group_id
+                SELECT DISTINCT LOWER(group_id) AS group_id
                 FROM {CREDENTIALS["CloudSQL"]["table_name_users"]} u
-                CROSS JOIN unnest(COALESCE(u.group_ids, ARRAY[]::text[])) AS group_id
+                CROSS JOIN unnest(
+                    COALESCE(u.group_ids, ARRAY[]::text[])
+                ) AS group_id
                 JOIN current_user_cte cu
                     ON LOWER(u.user_id) = LOWER(cu.user_id)
             ),
 
+            is_admin AS (
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
+                    JOIN current_user_groups cug
+                        ON LOWER(g.group_id) = cug.group_id
+                    WHERE COALESCE(g.is_admin, FALSE) = TRUE
+                ) AS is_admin
+            ),
+
             matching_users AS (
-                SELECT DISTINCT
-                    g.user_id
+                SELECT DISTINCT g.user_id
                 FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
                 JOIN current_user_groups cug
-                    ON g.group_id = cug.group_id
+                    ON LOWER(g.group_id) = cug.group_id
             ),
 
             fallback_user AS (
@@ -1302,11 +1366,20 @@ async def load_2d_all(request: Request):
                 FROM fallback_user
             )
 
-            SELECT LOWER(user_id)
-            FROM final_users
-        )
+            SELECT pages
+            FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]}
+            WHERE
+                LOWER(project_id) = LOWER(%s)
+                AND LOWER(plan_id) = LOWER(%s)
+                AND (
+                    (SELECT is_admin FROM is_admin)
+                    OR LOWER(user_id) IN (
+                        SELECT LOWER(user_id)
+                        FROM final_users
+                    )
+                )
         """
-        query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, user_id,), fetch=True))
+        query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(user_id, project_id, plan_id,), fetch=True))
         if not query_output:
             return respond_with_UI_payload(dict(error="Floor Plan already exists"))
         n_pages = query_output[0]["pages"]
@@ -1327,6 +1400,56 @@ async def load_2d_all(request: Request):
     walls_2d_all = dict(pages=list())
     if page_number != '':
         query = f"""
+            WITH current_user_cte AS (
+                SELECT %s AS user_id
+            ),
+
+            current_user_groups AS (
+                SELECT DISTINCT LOWER(group_id) AS group_id
+                FROM {CREDENTIALS["CloudSQL"]["table_name_users"]} u
+                CROSS JOIN unnest(
+                    COALESCE(u.group_ids, ARRAY[]::text[])
+                ) AS group_id
+                JOIN current_user_cte cu
+                    ON LOWER(u.user_id) = LOWER(cu.user_id)
+            ),
+
+            is_admin AS (
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
+                    JOIN current_user_groups cug
+                        ON LOWER(g.group_id) = cug.group_id
+                    WHERE COALESCE(g.is_admin, FALSE) = TRUE
+                ) AS is_admin
+            ),
+
+            matching_users AS (
+                SELECT DISTINCT g.user_id
+                FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
+                JOIN current_user_groups cug
+                    ON LOWER(g.group_id) = cug.group_id
+            ),
+
+            fallback_user AS (
+                SELECT cu.user_id
+                FROM current_user_cte cu
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM current_user_groups
+                )
+            ),
+
+            final_users AS (
+                SELECT user_id
+                FROM matching_users
+
+                UNION
+
+                SELECT user_id
+                FROM fallback_user
+            )
+
             SELECT
                 page_number,
                 page_section_number,
@@ -1337,54 +1460,68 @@ async def load_2d_all(request: Request):
                 LOWER(project_id) = LOWER(%s)
                 AND LOWER(plan_id) = LOWER(%s)
                 AND page_number = %s
-                AND LOWER(user_id) IN (
-                    WITH current_user_cte AS (
-                        SELECT %s AS user_id
-                    ),
-
-                    current_user_groups AS (
-                        SELECT DISTINCT group_id
-                        FROM {CREDENTIALS["CloudSQL"]["table_name_users"]} u
-                        CROSS JOIN unnest(COALESCE(u.group_ids, ARRAY[]::text[])) AS group_id
-                        JOIN current_user_cte cu
-                            ON LOWER(u.user_id) = LOWER(cu.user_id)
-                    ),
-
-                    matching_users AS (
-                        SELECT DISTINCT
-                            g.user_id
-                        FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
-                        JOIN current_user_groups cug
-                            ON g.group_id = cug.group_id
-                    ),
-
-                    fallback_user AS (
-                        SELECT cu.user_id
-                        FROM current_user_cte cu
-                        WHERE NOT EXISTS (
-                            SELECT 1
-                            FROM current_user_groups
-                        )
-                    ),
-
-                    final_users AS (
-                        SELECT user_id
-                        FROM matching_users
-
-                        UNION
-
-                        SELECT user_id
-                        FROM fallback_user
+                AND (
+                    (SELECT is_admin FROM is_admin)
+                    OR LOWER(user_id) IN (
+                        SELECT LOWER(user_id)
+                        FROM final_users
                     )
-
-                    SELECT LOWER(user_id)
-                    FROM final_users
                 )
             ORDER BY page_number
         """
-        params = (project_id, plan_id, int(page_number), user_id,)
+        params = (user_id, project_id, plan_id, int(page_number),)
     else:
         query = f"""
+            WITH current_user_cte AS (
+                SELECT %s AS user_id
+            ),
+
+            current_user_groups AS (
+                SELECT DISTINCT LOWER(group_id) AS group_id
+                FROM {CREDENTIALS["CloudSQL"]["table_name_users"]} u
+                CROSS JOIN unnest(
+                    COALESCE(u.group_ids, ARRAY[]::text[])
+                ) AS group_id
+                JOIN current_user_cte cu
+                    ON LOWER(u.user_id) = LOWER(cu.user_id)
+            ),
+
+            is_admin AS (
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
+                    JOIN current_user_groups cug
+                        ON LOWER(g.group_id) = cug.group_id
+                    WHERE COALESCE(g.is_admin, FALSE) = TRUE
+                ) AS is_admin
+            ),
+
+            matching_users AS (
+                SELECT DISTINCT g.user_id
+                FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
+                JOIN current_user_groups cug
+                    ON LOWER(g.group_id) = cug.group_id
+            ),
+
+            fallback_user AS (
+                SELECT cu.user_id
+                FROM current_user_cte cu
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM current_user_groups
+                )
+            ),
+
+            final_users AS (
+                SELECT user_id
+                FROM matching_users
+
+                UNION
+
+                SELECT user_id
+                FROM fallback_user
+            )
+
             SELECT
                 page_number,
                 page_section_number,
@@ -1394,52 +1531,16 @@ async def load_2d_all(request: Request):
             WHERE
                 LOWER(project_id) = LOWER(%s)
                 AND LOWER(plan_id) = LOWER(%s)
-                AND LOWER(user_id) IN (
-                    WITH current_user_cte AS (
-                        SELECT %s AS user_id
-                    ),
-
-                    current_user_groups AS (
-                        SELECT DISTINCT group_id
-                        FROM {CREDENTIALS["CloudSQL"]["table_name_users"]} u
-                        CROSS JOIN unnest(COALESCE(u.group_ids, ARRAY[]::text[])) AS group_id
-                        JOIN current_user_cte cu
-                            ON LOWER(u.user_id) = LOWER(cu.user_id)
-                    ),
-
-                    matching_users AS (
-                        SELECT DISTINCT
-                            g.user_id
-                        FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
-                        JOIN current_user_groups cug
-                            ON g.group_id = cug.group_id
-                    ),
-
-                    fallback_user AS (
-                        SELECT cu.user_id
-                        FROM current_user_cte cu
-                        WHERE NOT EXISTS (
-                            SELECT 1
-                            FROM current_user_groups
-                        )
-                    ),
-
-                    final_users AS (
-                        SELECT user_id
-                        FROM matching_users
-
-                        UNION
-
-                        SELECT user_id
-                        FROM fallback_user
+                AND (
+                    (SELECT is_admin FROM is_admin)
+                    OR LOWER(user_id) IN (
+                        SELECT LOWER(user_id)
+                        FROM final_users
                     )
-
-                    SELECT LOWER(user_id)
-                    FROM final_users
                 )
             ORDER BY page_number
         """
-        params = (project_id, plan_id, user_id,)
+        params = (user_id, project_id, plan_id,)
     rows = await run_in_threadpool(partial(pg_run, pg_pool, query, params=params, fetch=True))
 
     page_to_model_2d_minimal = dict()
