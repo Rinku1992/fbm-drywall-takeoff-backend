@@ -2033,14 +2033,20 @@ async def summarize_takeoff_all(request: Request):
         body = dict()
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
-    logging.info("SYSTEM: Received Total Drywall Takeoff computation Request")
+    logging.info("SYSTEM: Received Total Drywall Takeoff summarization Request")
 
-    query = f"SELECT page_number, page_section_number, scale, waste_average, drywall_negate_opening_area_threshold, takeoff FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);"
+    query = f"SELECT page_number, page_section_number, scale, waste_average, drywall_negate_opening_area_threshold, takeoff, model_2d FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);"
     rows = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id), fetch=True))
     drywall_takeoff_all = list()
     for row in rows:
         drywall_takeoff = dict(row)
-        drywall_takeoff_all.append(drywall_takeoff)
+        if not drywall_takeoff["model_2d"]:
+            continue
+
+        walls_2d = json.loads(drywall_takeoff["model_2d"]) if isinstance(drywall_takeoff["model_2d"], str) else drywall_takeoff["model_2d"]
+        if walls_2d["walls_2d"] and walls_2d["polygons"]:
+            drywall_takeoff.pop("model_2d")
+            drywall_takeoff_all.append(drywall_takeoff)
 
     return respond_with_UI_payload(jsonable_encoder({"drywall_takeoff_all": drywall_takeoff_all}))
 
