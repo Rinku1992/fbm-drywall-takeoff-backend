@@ -1,0 +1,20 @@
+# ─── ML runtime ───────────────────────────────────────────────
+# torch installed separately from PyTorch CUDA index in Dockerfile
+torch==2.5.1
+torchvision==0.20.1
+timm==1.0.11
+numpy==1.26.4
+Pillow==10.4.0
+
+# ─── Web service ──────────────────────────────────────────────
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+pydantic==2.9.2
+
+# Required for FastAPI multipart/form-data parsing (UploadFile)
+python-multipart==0.0.12
+
+# ─── GCS + PDF handling ───────────────────────────────────────
+google-cloud-storage==2.18.2
+pdf2image==1.17.0
+PyYAML==6.0.2

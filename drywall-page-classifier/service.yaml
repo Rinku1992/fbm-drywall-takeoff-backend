@@ -1,0 +1,80 @@
+# Cloud Run service definition — drywall-page-classifier
+#
+# Apply with:
+#   gcloud run services replace service.yaml \
+#       --project=prj-fbm-drywall-dev \
+#       --region=us-central1
+#
+# Mirrors patterns from wall-detector/service.yaml (1× L4 GPU, gen2 env,
+# CPU non-throttled, GCS-mount removed because we bake model into the image).
+#
+# IAM requirements (NOT enforced by this YAML — operator must verify):
+#   The serviceAccountName below must have:
+#     - roles/storage.objectViewer on gs://drywall-takeoff-artifacts-dev
+#       (the service downloads PDFs from this bucket)
+#   The drywall-takeoff-3d service account (whose ID token is used as
+#   the bearer token on inbound requests) must have:
+#     - roles/run.invoker on this service
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: drywall-page-classifier
+  annotations:
+    run.googleapis.com/launch-stage: BETA
+    # Internal only — called by drywall-takeoff-3d via signed ID token
+    run.googleapis.com/ingress: internal-and-cloud-load-balancing
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/execution-environment: gen2
+        run.googleapis.com/gpu-zonal-redundancy-disabled: 'true'
+        run.googleapis.com/cpu-throttling: 'false'
+        run.googleapis.com/startup-cpu-boost: 'true'
+        # Autoscaling: keep 1 warm, scale up to 3 on spike
+        autoscaling.knative.dev/maxScale: '3'
+        autoscaling.knative.dev/minScale: '1'
+    spec:
+      # One request per instance at a time — GPU saturates on tile-max
+      containerConcurrency: 1
+      # 30 minutes per call — covers GCS download + render-all-pages + classify-all
+      timeoutSeconds: 1800
+      # SA used for both inbound auth (Cloud Run identity) and outbound GCS access
+      # (PDF downloads from drywall-takeoff-artifacts-dev — see IAM block at top)
+      serviceAccountName: 460679066182-compute@developer.gserviceaccount.com
+      containers:
+      - image: gcr.io/prj-fbm-drywall-dev/drywall-page-classifier:latest
+        ports:
+        - name: http1
+          containerPort: 8080
+        env:
+        - name: PORT
+          value: '8080'
+        - name: MODEL_CHECKPOINT_PATH
+          value: /app/checkpoints/best.pth
+        - name: FP_THRESHOLD
+          value: '0.85'
+        - name: MAX_IMAGES_PER_REQUEST
+          value: '10'
+        resources:
+          limits:
+            memory: 16Gi
+            cpu: '4'
+            nvidia.com/gpu: '1'
+        # Startup probe: poll /healthz until model is loaded
+        startupProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 0
+          periodSeconds: 5
+          failureThreshold: 24    # 24 * 5s = 120s startup budget
+          timeoutSeconds: 3
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          failureThreshold: 3
+          timeoutSeconds: 5
