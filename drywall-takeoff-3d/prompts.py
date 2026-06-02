@@ -491,3 +491,18 @@ FEEDBACK_GENERATOR = """
     {exceptions}
     STRICTY confirm no previous error remains before producing the final output.
 """
+
+SLOPED_CEILING_CHOICES = [
+    "Single-sloped",
+    "Gable",
+    "Tray",
+    "Barrel vault",
+    "Combination",
+    "Soffit",
+    "Cove",
+    "Cloister Vault",
+    "Knee-Wall",
+    "Cathedral with Flat Center",
+    "Angled-Plane",
+    "Boxed-Beam"
+]
