@@ -1652,7 +1652,7 @@ async def update_scale(request: Request):
     if walls_2d_JSON and polygons_JSON:
         hyperparameters = load_hyperparameters()
         plan = FloorPlan(hyperparameters)
-        walls_2d_JSON, polygons_JSON = plan.update_walls_2d_and_polygons(walls_2d_JSON, polygons_JSON, scale)
+        walls_2d_JSON, polygons_JSON = plan.scale_walls_2d_and_polygons(walls_2d_JSON, polygons_JSON, scale)
         logging.info(f"SYSTEM: Walls 2D and Polygons computed with scale: {scale}")
         await insert_model_2d(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), scale, page_number, plan_id, user_id, project_id, None, None, pg_pool, CREDENTIALS, page_section_number=page_section_number)
         await insert_model_2d_revision(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), scale, page_number, plan_id, user_id, project_id, pg_pool, CREDENTIALS, page_section_number=page_section_number)
@@ -1978,7 +1978,7 @@ async def compute_takeoff(request: Request):
 
     hyperparameters = load_hyperparameters()
     plan = FloorPlan(hyperparameters)
-    walls_2d_JSON, polygons_JSON = plan.update_walls_2d_and_polygons(walls_2d_JSON, polygons_JSON, scale)
+    walls_2d_JSON, polygons_JSON = plan.scale_walls_2d_and_polygons(walls_2d_JSON, polygons_JSON, scale)
     drywall_takeoff = dict(
         total=dict(roof=0, wall=0),
         per_drywall=dict(
