@@ -2242,6 +2242,8 @@ class FloorPlan2D(FloorPlan):
             length_X = (X2 - X1) * imperial_scale_X
             length_Y = (Y2 - Y1) * imperial_scale_Y
             wall["length"] = round(math.hypot(length_X, length_Y), 3)
+            for polygon_drywall in wall["polygons_drywall"][:]:
+                polygon_drywall["layers"] = 1
             if impute_drywall_disabled and len(wall["polygons_drywall"]) == 2:
                 if not wall["polygons_drywall"][0]["enabled"] or not wall["polygons_drywall"][1]["enabled"]:
                     centroid_A = (round(sum([vertex['x'] for vertex in wall["polygons_drywall"][0]["polygon"]]) / 4), round(sum([vertex['y'] for vertex in wall["polygons_drywall"][0]["polygon"]]) / 4))
@@ -2526,6 +2528,7 @@ class FloorPlan2D(FloorPlan):
             polygon_area_shoelace = cv2.contourArea(np.array(polygon["vertices"], dtype=np.float32))
             polygon["polygon_area_shoelace"] = polygon_area_shoelace
             perimeter_wall_missing = False
+            polygon["polygon_drywall"]["layers"] = 1
             for drywall_id in polygon["polygon_ids_drywall_interior"]:
                 wall_id = int(drywall_id.split('.')[0])
                 if wall_id not in walls_2d_ids:
