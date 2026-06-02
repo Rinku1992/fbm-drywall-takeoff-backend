@@ -1651,16 +1651,8 @@ async def update_scale(request: Request):
 
     if walls_2d_JSON and polygons_JSON:
         hyperparameters = load_hyperparameters()
-        floor_plan = FloorPlan(hyperparameters)
-        imperial_scale_X, imperial_scale_Y = floor_plan.compute_imperial_scale_from_DPI(scale)
-        imperial_scale_A = imperial_scale_X * imperial_scale_Y
-        for polygon in polygons_JSON:
-            polygon["area"] = polygon["polygon_area_shoelace"] * imperial_scale_A
-        for wall in walls_2d_JSON:
-            X1, Y1, X2, Y2 = wall["wall_line"][0]['x'], wall["wall_line"][0]['y'], wall["wall_line"][1]['x'], wall["wall_line"][1]['y']
-            length_X = (X2 - X1) * imperial_scale_X
-            length_Y = (Y2 - Y1) * imperial_scale_Y
-            wall["length"] = round(math.hypot(length_X, length_Y), 3)
+        plan = FloorPlan(hyperparameters)
+        walls_2d_JSON, polygons_JSON = plan.update_walls_2d_and_polygons(walls_2d_JSON, polygons_JSON, scale)
         logging.info(f"SYSTEM: Walls 2D and Polygons computed with scale: {scale}")
         await insert_model_2d(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), scale, page_number, plan_id, user_id, project_id, None, None, pg_pool, CREDENTIALS, page_section_number=page_section_number)
         await insert_model_2d_revision(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), scale, page_number, plan_id, user_id, project_id, pg_pool, CREDENTIALS, page_section_number=page_section_number)
@@ -1986,15 +1978,7 @@ async def compute_takeoff(request: Request):
 
     hyperparameters = load_hyperparameters()
     plan = FloorPlan(hyperparameters)
-    imperial_scale_X, imperial_scale_Y = plan.compute_imperial_scale_from_DPI(scale)
-    imperial_scale_A = imperial_scale_X * imperial_scale_Y
-    for polygon in polygons_JSON:
-        polygon["area"] = polygon["polygon_area_shoelace"] * imperial_scale_A
-    for wall in walls_2d_JSON:
-        X1, Y1, X2, Y2 = wall["wall_line"][0]['x'], wall["wall_line"][0]['y'], wall["wall_line"][1]['x'], wall["wall_line"][1]['y']
-        length_X = (X2 - X1) * imperial_scale_X
-        length_Y = (Y2 - Y1) * imperial_scale_Y
-        wall["length"] = round(math.hypot(length_X, length_Y), 3)
+    walls_2d_JSON, polygons_JSON = plan.update_walls_2d_and_polygons(walls_2d_JSON, polygons_JSON, scale)
     drywall_takeoff = dict(
         total=dict(roof=0, wall=0),
         per_drywall=dict(
