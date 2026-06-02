@@ -60,7 +60,7 @@ from helper import (
     load_drywall_weights,
     download_floorplan
 )
-from prompts import VISUAL_GROUNDING_DETECTOR
+from prompts import VISUAL_GROUNDING_DETECTOR, SLOPED_CEILING_CHOICES
 
 
 def respond_with_UI_payload(payload, status_code=200, disable_caching=False):
