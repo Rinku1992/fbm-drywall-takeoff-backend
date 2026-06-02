@@ -1986,9 +1986,15 @@ async def compute_takeoff(request: Request):
 
     hyperparameters = load_hyperparameters()
     plan = FloorPlan(hyperparameters)
-    if scale != "1/4``=1`0``":
-        pixel_aspect_ratio_new = plan.compute_pixel_aspect_ratio(scale, hyperparameters["pixel_aspect_ratio_to_feet"])
-        walls_2d_JSON, polygons_JSON = plan.recompute_dimensions_walls_and_polygons(walls_2d_JSON, polygons_JSON, pixel_aspect_ratio_new, pdf_path)
+    imperial_scale_X, imperial_scale_Y = plan.compute_imperial_scale_from_DPI(scale)
+    imperial_scale_A = imperial_scale_X * imperial_scale_Y
+    for polygon in polygons_JSON:
+        polygon["area"] = polygon["polygon_area_shoelace"] * imperial_scale_A
+    for wall in walls_2d_JSON:
+        X1, Y1, X2, Y2 = wall["wall_line"][0]['x'], wall["wall_line"][0]['y'], wall["wall_line"][1]['x'], wall["wall_line"][1]['y']
+        length_X = (X2 - X1) * imperial_scale_X
+        length_Y = (Y2 - Y1) * imperial_scale_Y
+        wall["length"] = round(math.hypot(length_X, length_Y), 3)
     drywall_takeoff = dict(
         total=dict(roof=0, wall=0),
         per_drywall=dict(
@@ -2026,7 +2032,8 @@ async def compute_takeoff(request: Request):
             if drywall_negate_opening_area_threshold is None:
                 drywall_negate_area = 0
         for drywall in wall["polygons_drywall"]:
-            surface_area = (drywall["height"] * wall["length"]) - drywall_negate_area
+            surface_area_original = (drywall["height"] * wall["length"])
+            surface_area = surface_area_original - drywall_negate_area
             if not drywall["enabled"]:
                 continue
             if drywall["type_stacked"]:
@@ -2037,8 +2044,9 @@ async def compute_takeoff(request: Request):
                         continue
                     waste_factor_delta = waste_factor_average_delta * (drywall_weights[drywall_type] / normalization_variance_aware)
                     waste_factor = max(0, float(drywall_template["waste"]) + waste_factor_delta) / 100
-                    net_sqft = drywall["layers"] * (surface_area / stack_length)
-                    total_sqft = net_sqft * (1 + waste_factor)
+                    net_sqft = (surface_area_original / stack_length)
+                    drywall_area = max(1, drywall["layers"]) * (surface_area / stack_length)
+                    total_sqft = drywall_area * (1 + waste_factor)
                     drywall_takeoff["total"]["wall"] += total_sqft
                     sheet_size = drywall_template["sheet_size"]
                     sheet_area_sqft = int(sheet_size.split('x')[0]) * int(sheet_size.split('x')[1])
@@ -2059,8 +2067,9 @@ async def compute_takeoff(request: Request):
                     continue
                 waste_factor_delta = waste_factor_average_delta * (drywall_weights[drywall["type"]] / normalization_variance_aware)
                 waste_factor = max(0, float(drywall_template["waste"]) + waste_factor_delta) / 100
-                net_sqft = drywall["layers"] * surface_area
-                total_sqft = net_sqft * (1 + waste_factor)
+                net_sqft = surface_area_original
+                drywall_area = max(1, drywall["layers"]) * surface_area
+                total_sqft = drywall_area * (1 + waste_factor)
                 drywall_takeoff["total"]["wall"] += total_sqft
                 sheet_size = drywall_template["sheet_size"]
                 sheet_area_sqft = int(sheet_size.split('x')[0]) * int(sheet_size.split('x')[1])
@@ -2079,17 +2088,20 @@ async def compute_takeoff(request: Request):
         if not polygon["polygon_drywall"]["enabled"] or polygon["polygon_drywall"]["type"] == "DISABLED":
             polygon["polygon_drywall"]["enabled"] = False
             continue
-        surface_area = plan.compute_sloped_area_polygon(
-            polygon["area"],
-            polygon["slope"],
-        )
         drywall_template = query_drywall(polygon["polygon_drywall"]["type"], DRYWALL_TEMPLATES)
         if not drywall_template:
             continue
+        surface_area_flat, surface_area_sloped = polygon["area"], polygon["area"]
+        if polygon["type"] in SLOPED_CEILING_CHOICES:
+            surface_area_sloped = plan.compute_sloped_area_polygon(
+                polygon["area"],
+                polygon["slope"],
+            )
         waste_factor_delta = waste_factor_average_delta * (drywall_weights[polygon["polygon_drywall"]["type"]] / normalization_variance_aware)
         waste_factor = max(0, float(drywall_template["waste"]) + waste_factor_delta) / 100
-        net_sqft = polygon["polygon_drywall"]["layers"] * surface_area
-        total_sqft = net_sqft * (1 + waste_factor)
+        net_sqft = surface_area_flat
+        drywall_area = max(1, polygon["polygon_drywall"]["layers"]) * surface_area_sloped
+        total_sqft = drywall_area * (1 + waste_factor)
         sheet_size = drywall_template["sheet_size"]
         sheet_area_sqft = int(sheet_size.split('x')[0]) * int(sheet_size.split('x')[1])
         sheets_required_total = math.ceil(total_sqft / sheet_area_sqft)
