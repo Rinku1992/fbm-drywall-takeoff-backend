@@ -32,6 +32,18 @@ class FloorPlan:
         imperial = DPI * scale_on_paper_length
         return (1 / imperial, 1 / imperial)
 
+    def update_walls_2d_and_polygons(self, walls_2d_JSON, polygons_JSON, scale):
+        imperial_scale_X, imperial_scale_Y = self.compute_imperial_scale_from_DPI(scale)
+        imperial_scale_A = imperial_scale_X * imperial_scale_Y
+        for polygon in polygons_JSON[:]:
+            polygon["area"] = polygon["polygon_area_shoelace"] * imperial_scale_A
+        for wall in walls_2d_JSON[:]:
+            X1, Y1, X2, Y2 = wall["wall_line"][0]['x'], wall["wall_line"][0]['y'], wall["wall_line"][1]['x'], wall["wall_line"][1]['y']
+            length_X = (X2 - X1) * imperial_scale_X
+            length_Y = (Y2 - Y1) * imperial_scale_Y
+            wall["length"] = round(math.hypot(length_X, length_Y), 3)
+        return walls_2d_JSON, polygons_JSON
+
     def compute_pixel_aspect_ratio(self, scale_new, pixel_aspect_ratio_standard):
         scale_new_unnormalized = f"{round(float(Fraction(scale_new.split('=')[0].strip('`'))), 2)}``:1`0``"
         scale_new_on_paper_length = float(scale_new_unnormalized.split(':')[0].strip('`"'))
