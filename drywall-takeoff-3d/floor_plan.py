@@ -32,7 +32,7 @@ class FloorPlan:
         imperial = DPI * scale_on_paper_length
         return (1 / imperial, 1 / imperial)
 
-    def update_walls_2d_and_polygons(self, walls_2d_JSON, polygons_JSON, scale):
+    def scale_walls_2d_and_polygons(self, walls_2d_JSON, polygons_JSON, scale):
         imperial_scale_X, imperial_scale_Y = self.compute_imperial_scale_from_DPI(scale)
         imperial_scale_A = imperial_scale_X * imperial_scale_Y
         for polygon in polygons_JSON[:]:
