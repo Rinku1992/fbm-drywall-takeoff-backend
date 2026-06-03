@@ -42,6 +42,10 @@ from sqlalchemy.exc import (
     TimeoutError,
     DBAPIError
 )
+from pg8000.dbapi import (
+    InterfaceError as InterfaceErrorPG8000,
+    DatabaseError as DatabaseErrorPG8000,
+)
 from vertexai.generative_models import Content, Part
 from vertexai.caching import CachedContent
 from google.oauth2 import service_account
@@ -294,7 +298,7 @@ def pg_run(
 
             return result
 
-        except DBAPIError as e:
+        except (DBAPIError, DatabaseErrorPG8000) as e:
             error_message = str(e).lower()
             retryable_db_terms = [
                 "deadlock detected",
@@ -314,6 +318,7 @@ def pg_run(
                 "ssl syscall error",
                 "terminating connection",
                 "network is unreachable",
+                "network error",
             ]
             should_retry = (
                 any(t in error_message for t in retryable_db_terms)
@@ -321,7 +326,7 @@ def pg_run(
             )
             if conn:
                 try:
-                    conn.rollback()
+                    conn.invalidate()
                 except Exception:
                     pass
 
@@ -345,11 +350,12 @@ def pg_run(
         except (
             OperationalError,
             InterfaceError,
-            TimeoutError
+            TimeoutError,
+            InterfaceErrorPG8000
         ) as e:
             if conn:
                 try:
-                    conn.rollback()
+                    conn.invalidate()
                 except Exception:
                     pass
             sleep_time = min(
