@@ -665,7 +665,13 @@ def phoenix_call(generate_content_lambda, max_retry=5, base_delay=1.0, pydantic_
             logging.warning(f"SYSTEM: Vertex AI Gemini: Response Generation/Parsing failed with ERROR: {e}: RETRYING ...")
             logging.warning(f"SYSTEM: RETRYING with TEMPERATURE: {temperature}")
 
-def map_floorplan_to_multipage_elevation(credentials, client_ip_address, pdf_path):
+async def map_floorplan_to_multipage_elevation(credentials, pg_pool, project_id, plan_id, client_ip_address, pdf_path):
+    query = f"SELECT multipage_elevation_map FROM {credentials["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);"
+    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id,), fetch=True))
+    elevation_map = json.loads(query_output[0]["multipage_elevation_map"]) if isinstance(query_output[0]["multipage_elevation_map"], str) else query_output[0]["multipage_elevation_map"]
+    if elevation_map:
+        return elevation_map
+
     vertex_ai_client, vertex_ai_generation_config, is_cached = load_vertex_ai_client(
         credentials,
         client_ip_address,
