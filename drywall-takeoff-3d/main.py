@@ -2042,7 +2042,7 @@ async def compute_takeoff(request: Request):
                     total_sqft = drywall_area * (1 + waste_factor)
                     drywall_takeoff["total"]["wall"] += total_sqft
                     sheet_size = drywall_template["sheet_size"]
-                    sheet_area_sqft = int(sheet_size.split('x')[0]) * int(sheet_size.split('x')[1])
+                    sheet_area_sqft = float(sheet_size.split('x')[0]) * float(sheet_size.split('x')[1])
                     sheets_required_total = math.ceil(total_sqft / sheet_area_sqft)
                     sheets_required_no_waste = math.ceil(net_sqft / sheet_area_sqft)
                     drywall_takeoff["per_drywall"]["wall"][drywall_type] = dict(
@@ -2065,7 +2065,7 @@ async def compute_takeoff(request: Request):
                 total_sqft = drywall_area * (1 + waste_factor)
                 drywall_takeoff["total"]["wall"] += total_sqft
                 sheet_size = drywall_template["sheet_size"]
-                sheet_area_sqft = int(sheet_size.split('x')[0]) * int(sheet_size.split('x')[1])
+                sheet_area_sqft = float(sheet_size.split('x')[0]) * float(sheet_size.split('x')[1])
                 sheets_required_total = math.ceil(total_sqft / sheet_area_sqft)
                 sheets_required_no_waste = math.ceil(net_sqft / sheet_area_sqft)
                 drywall_takeoff["per_drywall"]["wall"][drywall["type"]] = dict(
@@ -2096,7 +2096,7 @@ async def compute_takeoff(request: Request):
         drywall_area = max(1, polygon["polygon_drywall"]["layers"]) * surface_area_sloped
         total_sqft = drywall_area * (1 + waste_factor)
         sheet_size = drywall_template["sheet_size"]
-        sheet_area_sqft = int(sheet_size.split('x')[0]) * int(sheet_size.split('x')[1])
+        sheet_area_sqft = float(sheet_size.split('x')[0]) * float(sheet_size.split('x')[1])
         sheets_required_total = math.ceil(total_sqft / sheet_area_sqft)
         sheets_required_no_waste = math.ceil(net_sqft / sheet_area_sqft)
         drywall_takeoff["per_drywall"]["roof"][polygon["polygon_drywall"]["type"]] = dict(
