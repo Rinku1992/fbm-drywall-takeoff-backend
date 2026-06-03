@@ -8,7 +8,7 @@
 ### Fully Managed Relational Database - Cloud SQL for PostgreSQL
 <b>Database Name: </b> <b><i>drywall_takeoff</i></b><br>
 
-<b>1. Table Names</b><br>
+<b>Table Names</b><br>
 1. <b><i>plans</i></b>
 ```sql
 CREATE TABLE plans (
