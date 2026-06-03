@@ -171,3 +171,26 @@ CREATE TABLE model_revisions_3d (
     )
 );
 ```
+
+7. <b><i>users</i></b>
+```sql
+CREATE TABLE users (
+    user_id TEXT PRIMARY KEY,
+
+    group_ids TEXT[] DEFAULT ARRAY[]::TEXT[],
+
+    organization_id TEXT
+);
+```
+
+8. <b><i>groups</i></b>
+```sql
+CREATE TABLE groups (
+    group_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+
+    is_admin BOOLEAN DEFAULT FALSE,
+
+    PRIMARY KEY (group_id, user_id)
+);
+```
