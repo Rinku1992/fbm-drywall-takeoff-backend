@@ -50,3 +50,67 @@ CREATE TABLE plans (
     multipage_elevation_map JSONB DEFAULT '{}'::jsonb
 );
 ```
+
+3. <b><i>pages</i></b>
+```sql
+CREATE TABLE pages (
+    plan_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    user_id TEXT,
+
+    page_number INTEGER NOT NULL,
+
+    mask_factor JSONB,
+    bounding_box_offsets JSONB,
+
+    source TEXT,
+    thumbnail TEXT,
+    plan_type TEXT,
+
+    extracted BOOLEAN DEFAULT FALSE,
+    status TEXT,
+
+    is_floorplan BOOLEAN DEFAULT FALSE,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (project_id, plan_id, page_number)
+);
+```
+
+4. <b><i>models</i></b>
+```sql
+CREATE TABLE models (
+    plan_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    user_id TEXT,
+
+    page_number INTEGER NOT NULL,
+    page_section_number INTEGER NOT NULL DEFAULT 0,
+    page_sections INTEGER DEFAULT 1,
+
+    scale TEXT,
+
+    model_2d JSONB DEFAULT '{}'::jsonb,
+    model_3d JSONB DEFAULT '{}'::jsonb,
+    takeoff JSONB DEFAULT '{}'::jsonb,
+    metadata JSONB DEFAULT '{}'::jsonb,
+
+    source TEXT,
+    target_drywalls TEXT,
+
+    waste_average DOUBLE PRECISION,
+    drywall_negate_opening_area_threshold DOUBLE PRECISION,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (
+        project_id,
+        plan_id,
+        page_number,
+        page_section_number
+    )
+);
+```
