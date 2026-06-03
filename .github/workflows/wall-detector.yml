@@ -58,34 +58,32 @@ jobs:
           if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
             echo "MODEL_BUCKET=${{ vars.MODEL_BUCKET_QA }}" >> $GITHUB_ENV
             echo "FINETUNED_MODEL_PATH=${{ vars.FINETUNED_MODEL_PATH_QA }}" >> $GITHUB_ENV
-            echo "BASE_MODEL_PATH=${{ vars.BASE_MODEL_PATH_QA }}" >> $GITHUB_ENV
           else
             echo "MODEL_BUCKET=${{ vars.MODEL_BUCKET_DEV }}" >> $GITHUB_ENV
             echo "FINETUNED_MODEL_PATH=${{ vars.FINETUNED_MODEL_PATH_DEV }}" >> $GITHUB_ENV
-            echo "BASE_MODEL_PATH=${{ vars.BASE_MODEL_PATH_DEV }}" >> $GITHUB_ENV
           fi
 
       # Download model weights from GCS before Docker build
-      - name: 'Download Model Folders'
-        run: |
-          mkdir -p models
+      # - name: 'Download Model Folders'
+      #   run: |
+      #     mkdir -p models
 
-          gsutil -m cp -r \
-            gs://${{ env.MODEL_BUCKET }}/${{ env.FINETUNED_MODEL_PATH }} \
-            models/
+      #     gsutil -m cp -r \
+           
+      #       models/
 
-          gsutil -m cp -r \
-            gs://${{ env.MODEL_BUCKET }}/${{ env.BASE_MODEL_PATH }} \
-            models/
+      #     gsutil -m cp -r \
+      #     
+      #       models/
 
-          echo "Downloaded model folders:"
-          find models
+      #     echo "Downloaded model folders:"
+      #     find models
 
-      # Cleanup Docker cache before build
-      - name: 'Cleanup Docker'
-        run: |
-          docker system prune -a -f --volumes
-          docker builder prune -a -f
+      # # Cleanup Docker cache before build
+      # - name: 'Cleanup Docker'
+      #   run: |
+      #     docker system prune -a -f --volumes
+      #     docker builder prune -a -f
 
       # Build the Docker image for Cloud Run
       - name: 'Build Docker Image'
