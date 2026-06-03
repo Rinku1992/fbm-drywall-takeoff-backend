@@ -6,7 +6,8 @@
 
 ## Installation
 ### Fully Managed Relational Database - Cloud SQL for PostgreSQL
-<b>Database: </b> <b><i>drywall_takeoff</i></b> <b>Table: </b> <b><i>plans</i></b>
+<b>Database Name: </b> <b><i>drywall_takeoff</i></b>
+<b>Table Name: </b> <b><i>plans</i></b>
 ```sql
 CREATE TABLE plans (
     plan_id TEXT PRIMARY KEY,
