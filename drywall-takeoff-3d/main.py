@@ -1611,10 +1611,39 @@ async def update_floorplan_to_2d(request: Request):
     logging.info("SYSTEM: Received a Floorplan 2D Model Update Request")
 
     hyperparameters = load_hyperparameters()
+
+    for wall in walls_2d_JSON[:]:
+        for drywall in wall["polygons_drywall"][:]:
+            if not drywall["enabled"] or drywall["type"].upper() == "DISABLED":
+                drywall["color"] = [255, 0, 0]
+                continue
+            if drywall["type_stacked"]:
+                color_stacked = list()
+                for drywall_type in drywall["type_stacked"]:
+                    drywall_template = query_drywall(drywall_type, DRYWALL_TEMPLATES)
+                    if not drywall_template:
+                        continue
+                    color_stacked.append(drywall_template["color_code"][::-1])
+                drywall["color_stacked"] = color_stacked
+            else:
+                drywall_template = query_drywall(drywall["type"], DRYWALL_TEMPLATES)
+                if not drywall_template:
+                    continue
+                drywall["color"] = drywall_template["color_code"][::-1]
+    for polygon in polygons_JSON[:]:
+        if not polygon["polygon_drywall"]["enabled"] or polygon["polygon_drywall"]["type"].upper() == "DISABLED":
+            polygon["polygon_drywall"]["color"] = [255, 0, 0]
+            continue
+        drywall_template = query_drywall(polygon["polygon_drywall"]["type"], DRYWALL_TEMPLATES)
+        if not drywall_template:
+            continue
+        polygon["polygon_drywall"]["color"] = drywall_template["color_code"][::-1]
+
     plan = FloorPlan(hyperparameters)
     wall_lines = [[[wall_2d["wall_line"][0]['x'], wall_2d["wall_line"][0]['y'], wall_2d["wall_line"][1]['x'], wall_2d["wall_line"][1]['y']]] for wall_2d in walls_2d_JSON]
     wall_line_ids = [wall_2d["id"] for wall_2d in walls_2d_JSON]
-    for polygon in polygons_JSON:
+
+    for polygon in polygons_JSON[:]:
         if not polygon.get("room_name"):
             continue
         if not polygon["polygon_ids_drywall_interior"]:
