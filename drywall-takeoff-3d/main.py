@@ -1144,7 +1144,14 @@ async def floorplan_to_2d(request: Request):
         ip_address,
         prompts=[VISUAL_GROUNDING_DETECTOR]
     )
-    elevation_map = map_floorplan_to_multipage_elevation(CREDENTIALS, ip_address, pdf_path)
+    elevation_map = await map_floorplan_to_multipage_elevation(
+        CREDENTIALS,
+        pg_pool,
+        project_id,
+        plan_id,
+        ip_address,
+        pdf_path
+    )
     pages_metadata = await load_visual_grounding(
         CREDENTIALS,
         pg_pool,
@@ -1167,6 +1174,8 @@ async def floorplan_to_2d(request: Request):
     session.mount("http://", adapter)
     session.mount("https://", adapter)
     subscriber_client = load_subscriber_client(CREDENTIALS)
+    query = f"UPDATE {CREDENTIALS["CloudSQL"]["table_name_plans"]} SET multipage_elevation_map = %s WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);"
+    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(json.dumps(elevation_map), project_id, plan_id)))
     try:
         with ThreadPoolExecutor(max_workers=20) as executor:
             for index, page_metadata in enumerate(pages_metadata):
