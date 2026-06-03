@@ -1903,7 +1903,7 @@ async def load_waste_average(request: Request):
     query = f"SELECT waste_average FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
     query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number, page_section_number,), fetch=True))
     waste_average = query_output[0]["waste_average"]
-    if waste_average:
+    if waste_average is not None:
         return respond_with_UI_payload(dict(waste_average_in_percentage=waste_average))
 
     _, waste_average, _ = load_drywall_weights(
