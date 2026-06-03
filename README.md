@@ -194,3 +194,29 @@ CREATE TABLE groups (
     PRIMARY KEY (group_id, user_id)
 );
 ```
+
+9. <b><i>sku</i></b>
+```sql
+CREATE TABLE sku (
+    sku_id TEXT PRIMARY KEY,
+
+    sku_description TEXT NOT NULL,
+
+    product_cat_code INTEGER,
+    product_cat_description TEXT,
+
+    thickness_inches DOUBLE PRECISION
+        CHECK (thickness_inches > 0),
+
+    fire_rating TEXT,
+
+    is_lightweight BOOLEAN NOT NULL DEFAULT FALSE,
+    is_wide_stretch BOOLEAN NOT NULL DEFAULT FALSE,
+
+    color_code JSONB DEFAULT '{}'::jsonb,
+
+    waste TEXT,
+
+    sheet_size TEXT NOT NULL
+);
+```
