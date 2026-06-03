@@ -2113,7 +2113,7 @@ async def compute_takeoff(request: Request):
     drywall_takeoff["total"]["roof"] = round(drywall_takeoff["total"]["roof"], 2)
 
     if load_preview == False or load_preview is None:
-        waste_factor_average = waste_factor_average if waste_factor_average else waste_standard
+        waste_factor_average = waste_factor_average if waste_factor_average is not None else waste_standard
         await insert_takeoff(
             drywall_takeoff,
             waste_factor_average,
