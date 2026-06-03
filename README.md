@@ -8,8 +8,25 @@
 ### Fully Managed Relational Database - Cloud SQL for PostgreSQL
 <b>Database Name: </b> <b><i>drywall_takeoff</i></b><br>
 
-<b>Table Names</b><br>
-1. <b><i>plans</i></b>
+<b>Table Names,</b><br>
+1. <b><i>projects</i></b>
+```sql
+CREATE TABLE projects (
+    project_id TEXT PRIMARY KEY,
+
+    project_name TEXT,
+    project_location TEXT,
+    FBM_branch TEXT,
+    project_type TEXT,
+    project_area TEXT,
+    contractor_name TEXT,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by TEXT
+);
+```
+
+2. <b><i>plans</i></b>
 ```sql
 CREATE TABLE plans (
     plan_id TEXT PRIMARY KEY,
