@@ -114,3 +114,60 @@ CREATE TABLE models (
     )
 );
 ```
+
+5. <b><i>model_revisions_2d</i></b>
+```sql
+CREATE TABLE model_revisions_2d (
+    plan_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    user_id TEXT,
+
+    page_number INTEGER NOT NULL,
+    page_section_number INTEGER NOT NULL DEFAULT 0,
+
+    revision_number INTEGER NOT NULL,
+
+    scale TEXT,
+
+    model JSONB NOT NULL DEFAULT '{}'::jsonb,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (
+        project_id,
+        plan_id,
+        page_number,
+        page_section_number,
+        revision_number
+    )
+);
+```
+
+6. <b><i>model_revisions_3d</i></b>
+```sql
+CREATE TABLE model_revisions_3d (
+    plan_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    user_id TEXT,
+
+    page_number INTEGER NOT NULL,
+    page_section_number INTEGER NOT NULL DEFAULT 0,
+
+    revision_number INTEGER NOT NULL,
+
+    scale TEXT,
+
+    model JSONB NOT NULL DEFAULT '{}'::jsonb,
+    takeoff JSONB DEFAULT '{}'::jsonb,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (
+        project_id,
+        plan_id,
+        page_number,
+        page_section_number,
+        revision_number
+    )
+);
+```
