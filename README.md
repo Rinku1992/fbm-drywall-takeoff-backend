@@ -5,7 +5,7 @@
 <img width="1600" height="900" alt="image" src="https://github.com/user-attachments/assets/106274e5-d12f-44c9-9eee-5fcbdb40dfb1" />
 
 ## Installation
-### Database - Postgres
+### Fully Managed Relational Database - Cloud SQL for PostgreSQL
 <b>Database: </b> <b><i>drywall_takeoff</i></b> <b>Table: </b> <b><i>plans</i></b>
 ```sql
 CREATE TABLE plans (
