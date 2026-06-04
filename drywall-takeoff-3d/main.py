@@ -1997,7 +1997,7 @@ async def compute_takeoff(request: Request):
         else:
             query = f"SELECT model_2d->'walls_2d' FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
             query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
-        walls_2d_JSON = query_output[0]["walls_2d"]
+        walls_2d_JSON = query_output[0].get("walls_2d")
     
         if walls_2d_JSON is None:
             walls_2d_JSON = list()
@@ -2009,7 +2009,7 @@ async def compute_takeoff(request: Request):
         else:
             query = f"SELECT model_2d->'polygons' FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
             query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
-        polygons_JSON = query_output[0]["polygons"]
+        polygons_JSON = query_output[0].get("polygons")
 
         if polygons_JSON is None:
             polygons_JSON = list()
