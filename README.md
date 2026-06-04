@@ -7,6 +7,9 @@
 ## Installation
 ### Fully Managed Relational Database - Cloud SQL for PostgreSQL
 <b>Database Name: </b> <b><i>drywall_takeoff</i></b><br>
+```sql
+CREATE DATABASE drywall_takeoff;
+```
 
 <b>Table Names,</b><br>
 1. <b><i>projects</i></b>
