@@ -1,4 +1,4 @@
-name: 'Manual DRYWALL-FLOORPLAN-2D Cloud Run Build and Deploy'
+name: 'Manual DRYWALL-TAKEOFF-3D Cloud Run Build and Deploy'
 
 on:
   # Manual trigger for the Cloud Run deployment
@@ -24,7 +24,7 @@ jobs:
     environment: ${{ github.event.inputs.environment }}
     defaults:
       run:
-        working-directory: floorplan-to-structured-2d
+        working-directory: drywall-takeoff-3d
 
     steps:
       - name: 'Checkout Code'
@@ -54,7 +54,7 @@ jobs:
       - name: "Set Cloud Run instance limits"
         run: |
           if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
-            echo "MIN_INSTANCES=10" >> $GITHUB_ENV
+            echo "MIN_INSTANCES=1" >> $GITHUB_ENV
             echo "MAX_INSTANCES=100" >> $GITHUB_ENV
           elif [ "${{ github.event.inputs.environment }}" == "uat" ]; then
             echo "MIN_INSTANCES=10" >> $GITHUB_ENV
@@ -77,9 +77,9 @@ jobs:
       # Build the Docker image for Cloud Run
       - name: 'Build Docker Image'
         run: |
-           docker build \
-           -t gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-to-structure-2d \
-           .
+         docker build \
+         -t gcr.io/${{ env.GCP_PROJECT_ID }}/drywall-takeoff-3d \
+         .
 
       # Docker Authentication with Artifact Registry
       - name: Docker Authentication
@@ -102,14 +102,14 @@ jobs:
       # Push the Docker image to Google Container Registry
       - name: 'Push Docker Image to GCR'
         run: |
-           docker push \
-             gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-to-structure-2d
+          docker push \
+          gcr.io/${{ env.GCP_PROJECT_ID }}/drywall-takeoff-3d
 
       # Deploy to Cloud Run
       - name: 'Deploy to Cloud Run'
         run: |
-           gcloud run deploy floorplan-to-structure-2d-fbm \
-            --image gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-to-structure-2d \
+          gcloud run deploy drywall-takeoff-3d-fbm \
+            --image gcr.io/${{ env.GCP_PROJECT_ID }}/drywall-takeoff-3d \
             --platform managed \
             --region us-central1 \
             --project ${{ env.GCP_PROJECT_ID }} \
@@ -121,7 +121,7 @@ jobs:
             --concurrency 1 \
             --execution-environment gen2 \
             --timeout 1800 \
-            --ingress internal \
+            --ingress internal-and-cloud-load-balancing \
             --vpc-connector ${{ env.VPC_ACCESS_CONNECTOR }} \
             --vpc-egress all-traffic \
             --no-allow-unauthenticated
