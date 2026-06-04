@@ -481,6 +481,15 @@ async def floorplan_to_structured_2d(request: Request):
             pg_pool,
             CREDENTIALS,
         )
+        await trigger_email_notification(
+            CREDENTIALS,
+            pg_pool,
+            "COMPLETED",
+            project_id,
+            plan_id,
+            user_id,
+            page_number=page_number
+        )
     else:
         await insert_page(
             plan_id,
@@ -492,13 +501,13 @@ async def floorplan_to_structured_2d(request: Request):
             pg_pool,
             CREDENTIALS,
         )
-    await trigger_email_notification(
-        CREDENTIALS,
-        pg_pool,
-        "COMPLETED",
-        project_id,
-        plan_id,
-        user_id,
-        page_number=page_number
-    )
+        await trigger_email_notification(
+            CREDENTIALS,
+            pg_pool,
+            "SCALE_NOT_DETECTED",
+            project_id,
+            plan_id,
+            user_id,
+            page_number=page_number
+        )
     return respond_with_UI_payload(dict(status="SUCCESS", message="Floor Plan extraction completed"))
