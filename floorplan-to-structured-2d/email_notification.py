@@ -55,17 +55,25 @@ def trigger(
             "floor plan extraction failed",
         }
         partial = (message or "").strip().lower() in {
-            "",
-            "failure",
-            "floor plan extraction failed",
+            "partial",
+            "incomplete",
+            "scale not detected",
         }
         if failed:
             subject = f"Floor Plan Processing Failed - {plan_name} | Page Number - {page_number}"
             status_paragraph = (
-                f"Your floor plan <b>{plan_name}</b> could not be processed successfully."
+                f"Your floor plan <b>{plan_name}</b> has failed to process successfully."
             )
             details_paragraph = (
                 "The drywall takeoff output is not available because the extraction workflow failed."
+            )
+        elif partial:
+            subject = f"Floor Plan Processing is Incomplete - {plan_name} | Page Number - {page_number}"
+            status_paragraph = (
+                f"Your floor plan <b>{plan_name}</b> could not be processed successfully due to missing architectural scale."
+            )
+            details_paragraph = (
+                "Floor plan is waiting for the architectural scale input from the user to extract the quantity estimates."
             )
         else:
             subject = f"Floor Plan Processing Completed - {plan_name} | Page Number - {page_number}"
