@@ -39,6 +39,7 @@ from helper import (
     insert_page,
     trigger_email_notification,
 )
+from prompts import CEILING_CHOICES, WALL_CHOICES
 
 
 def respond_with_UI_payload(payload, status_code=200):
@@ -175,6 +176,8 @@ async def page_to_structured_2d(
         contour_root_vertices=external_contour,
         scales_architectural=floor_plan_modeller_2d.scales_architectural,
         drywall_choices_color_codes=floor_plan_modeller_2d.drywall_choices_color_codes,
+        wall_choices=WALL_CHOICES,
+        ceiling_choices=CEILING_CHOICES
     )
     await insert_model_2d(
         dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
@@ -323,6 +326,8 @@ async def floorplan_to_structured_2d(request: Request):
             contour_root_vertices=list(),
             scales_architectural=FloorPlan2D.scales_architectural,
             drywall_choices_color_codes=list(),
+            wall_choices=WALL_CHOICES,
+            ceiling_choices=CEILING_CHOICES
         )
         await insert_model_2d(
             dict(walls_2d=list(), polygons=list(), metadata=metadata),
@@ -398,6 +403,8 @@ async def floorplan_to_structured_2d(request: Request):
                 contour_root_vertices=list(),
                 scales_architectural=FloorPlan2D.scales_architectural,
                 drywall_choices_color_codes=list(),
+                wall_choices=WALL_CHOICES,
+                ceiling_choices=CEILING_CHOICES
             )
             await insert_model_2d(
                 dict(walls_2d=list(), polygons=list(), metadata=metadata),
