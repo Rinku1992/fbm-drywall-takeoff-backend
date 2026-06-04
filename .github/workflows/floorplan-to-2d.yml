@@ -5,12 +5,14 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Select environment (dev or prod)'
+        description: 'Select environment (dev, QA, uat, or prod)'
         required: true
         type: choice
         options:
           - dev
           - QA
+          - uat
+          - prod
 
 jobs:
   build-and-deploy:
@@ -32,16 +34,37 @@ jobs:
       - name: 'Authenticate to Google Cloud'
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ github.event.inputs.environment == 'QA' && vars.WIF_PROVIDER_QA || vars.WIF_PROVIDER_DEV }}
-          service_account: ${{ github.event.inputs.environment == 'QA' && vars.SERVICE_ACCOUNT_QA || vars.SERVICE_ACCOUNT_DEV }}
+          workload_identity_provider: ${{ github.event.inputs.environment == 'QA' && vars.WIF_PROVIDER_QA || github.event.inputs.environment == 'uat' && vars.WIF_PROVIDER_UAT || github.event.inputs.environment == 'prod' && vars.WIF_PROVIDER_PROD || vars.WIF_PROVIDER_DEV }}
+          service_account: ${{ github.event.inputs.environment == 'QA' && vars.SERVICE_ACCOUNT_QA || github.event.inputs.environment == 'uat' && vars.SERVICE_ACCOUNT_UAT || github.event.inputs.environment == 'prod' && vars.SERVICE_ACCOUNT_PROD || vars.SERVICE_ACCOUNT_DEV }}
       
       # Set up GCP Project ID 
       - name: "Set GCP Project ID"
         run: |
           if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
             echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_QA }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "uat" ]; then
+            echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_UAT }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+            echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_PROD }}" >> $GITHUB_ENV
           else
             echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_DEV }}" >> $GITHUB_ENV
+          fi
+
+      # Set dynamic min and max instances based on environment
+      - name: "Set Cloud Run instance limits"
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
+            echo "MIN_INSTANCES=10" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=100" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "uat" ]; then
+            echo "MIN_INSTANCES=10" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=100" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+            echo "MIN_INSTANCES=10" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=100" >> $GITHUB_ENV
+          else
+            echo "MIN_INSTANCES=1" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=100" >> $GITHUB_ENV
           fi
 
       # Set up Google Cloud SDK
@@ -56,18 +79,22 @@ jobs:
         run: |
            docker build \
            -t gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-to-structure-2d \
-            .
+           .
+
       # Docker Authentication with Artifact Registry
       - name: Docker Authentication
         run: |
           gcloud auth configure-docker gcr.io --quiet
- 
 
       # Set up VPC Access Connector
       - name: "Set VPC Access Connector"
         run: |
           if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
             echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_QA }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "uat" ]; then
+            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_UAT }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_PROD }}" >> $GITHUB_ENV
           else
             echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_DEV }}" >> $GITHUB_ENV
           fi
@@ -77,6 +104,7 @@ jobs:
         run: |
            docker push \
              gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-to-structure-2d
+
       # Deploy to Cloud Run
       - name: 'Deploy to Cloud Run'
         run: |
@@ -85,11 +113,11 @@ jobs:
             --platform managed \
             --region us-central1 \
             --project ${{ env.GCP_PROJECT_ID }} \
-            --service-account ${{ github.event.inputs.environment == 'QA' && vars.SERVICE_ACCOUNT_QA || vars.SERVICE_ACCOUNT_DEV }} \
+            --service-account ${{ github.event.inputs.environment == 'QA' && vars.SERVICE_ACCOUNT_QA || github.event.inputs.environment == 'uat' && vars.SERVICE_ACCOUNT_UAT || github.event.inputs.environment == 'prod' && vars.SERVICE_ACCOUNT_PROD || vars.SERVICE_ACCOUNT_DEV }} \
             --cpu 8 \
             --memory 32Gi \
-            --min-instances 1 \
-            --max-instances 100 \
+            --min-instances ${{ env.MIN_INSTANCES }} \
+            --max-instances ${{ env.MAX_INSTANCES }} \
             --concurrency 1 \
             --execution-environment gen2 \
             --timeout 1800 \
