@@ -265,6 +265,38 @@ class FloorPlan:
 
         return disconnected_shapes
 
+    def direction_polygon_interior(self, coordinates, wall_line):
+        X1, Y1, X2, Y2 = wall_line[0]
+        orientation = self.classify_line(X1, Y1, X2, Y2)
+        if orientation == "horizontal":
+            centroid_wall_line = (round((X1 + X2) / 2), round(np.median([Y1, Y2])))
+            if self.is_inside_polygon((centroid_wall_line[0], centroid_wall_line[1] - 50), coordinates):
+                return 'a'
+            return 'b'
+        if orientation == "vertical":
+            centroid_wall_line = (round(np.median([X1, X2])), round((Y1 + Y2) / 2))
+            if self.is_inside_polygon((centroid_wall_line[0] - 50, centroid_wall_line[1]), coordinates):
+                return 'a'
+            return 'b'
+        if orientation == "inclined":
+            dx = X2 - X1
+            dy = Y2 - Y1
+            length = math.hypot(dx, dy)
+
+            nx = -dy / length
+            ny =  dx / length
+
+            mx = (X1 + X2) / 2
+            my = (Y1 + Y2) / 2
+
+            test_coordinate = (
+                round(mx + nx * 50),
+                round(my + ny * 50)
+            )
+            if self.is_inside_polygon(test_coordinate, coordinates):
+                return 'a'
+            return 'b'
+
     def load_perimeter(self, coordinates, wall_lines, tolerance=10, bound_capture=True, scale=None):
         tolerance_x, tolerance_y = tolerance, tolerance
         if scale:
