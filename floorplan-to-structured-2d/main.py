@@ -428,7 +428,7 @@ async def floorplan_to_structured_2d(request: Request):
         await trigger_email_notification(
             CREDENTIALS,
             pg_pool,
-            "COMPLETED",
+            "FAILED",
             project_id,
             plan_id,
             user_id,
