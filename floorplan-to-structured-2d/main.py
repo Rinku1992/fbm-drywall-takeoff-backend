@@ -504,7 +504,7 @@ async def floorplan_to_structured_2d(request: Request):
         await trigger_email_notification(
             CREDENTIALS,
             pg_pool,
-            "SCALE_NOT_DETECTED",
+            "SCALE NOT DETECTED",
             project_id,
             plan_id,
             user_id,
