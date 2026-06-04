@@ -32,7 +32,6 @@ import numpy as np
 import math
 import cv2
 from pdf2image.pdf2image import pdfinfo_from_path
-import Levenshtein
 
 from extrapolate_3d import Extrapolate3D
 from floor_plan import FloorPlan
@@ -1643,21 +1642,29 @@ async def update_floorplan_to_2d(request: Request):
     wall_lines = [[[wall_2d["wall_line"][0]['x'], wall_2d["wall_line"][0]['y'], wall_2d["wall_line"][1]['x'], wall_2d["wall_line"][1]['y']]] for wall_2d in walls_2d_JSON]
     wall_line_ids = [wall_2d["id"] for wall_2d in walls_2d_JSON]
 
+    query = f"SELECT model_2d->'metadata' AS metadata FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
+    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
+    metadata = query_output[0]["metadata"]
+    metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
+    height, width = metadata["height_in_pixels"], metadata["width_in_pixels"]
+    scale_x = width / 1920
+    scale_y = height / 1080
+    scale = (scale_x, scale_y,)
+
     for polygon in polygons_JSON[:]:
         if not polygon.get("room_name"):
             continue
         if not polygon["polygon_ids_drywall_interior"]:
-            perimeter_lines_contour = plan.load_perimeter(polygon["vertices"], wall_lines)
+            perimeter_lines_contour = plan.load_perimeter(polygon["vertices"], wall_lines, scale=scale)
             perimeter_wall_line_ids = [wall_line_ids[wall_lines.index(perimeter_line_contour)] for perimeter_line_contour in perimeter_lines_contour]
             polygon_ids_drywall_interior = list()
             for perimeter_wall_line_id in perimeter_wall_line_ids:
                 for wall_2d in walls_2d_JSON:
                     if wall_2d["id"] == perimeter_wall_line_id:
-                        for drywall_index, polygon_drywall in zip(('a', 'b'), wall_2d["polygons_drywall"]):
-                            if not polygon_drywall.get("room_name"):
-                                continue
-                            if Levenshtein.distance(polygon_drywall["room_name"].upper().strip(), polygon["room_name"].upper().strip()) < 5:
-                                polygon_ids_drywall_interior.append(f"{perimeter_wall_line_id}.{drywall_index}")
+                        wall_line = [[wall_2d["wall_line"][0]['x'], wall_2d["wall_line"][0]['y'], wall_2d["wall_line"][1]['x'], wall_2d["wall_line"][1]['y']]]
+                        drywall_index = plan.direction_polygon_interior(polygon["vertices"], wall_line)
+                        polygon_ids_drywall_interior.append(f"{perimeter_wall_line_id}.{drywall_index}")
+                        break
             polygon["polygon_ids_drywall_interior"] = polygon_ids_drywall_interior
     await insert_model_2d(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), scale, index, plan_id, user_id, project_id, None, None, pg_pool, CREDENTIALS, page_section_number=page_section_number)
     await insert_model_2d_revision(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), scale, index, plan_id, user_id, project_id, pg_pool, CREDENTIALS, page_section_number=page_section_number)
@@ -1992,10 +1999,10 @@ async def compute_takeoff(request: Request):
 
     if not walls_2d_JSON:
         if revision_number:
-            query = f"SELECT model->'walls_2d' FROM {CREDENTIALS["CloudSQL"]["table_name_model_revisions_2d"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s AND revision_number = %s;"
+            query = f"SELECT model->'walls_2d' AS walls_2d FROM {CREDENTIALS["CloudSQL"]["table_name_model_revisions_2d"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s AND revision_number = %s;"
             query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index, page_section_number, revision_number,), fetch=True))
         else:
-            query = f"SELECT model_2d->'walls_2d' FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
+            query = f"SELECT model_2d->'walls_2d' AS walls_2d FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
             query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
         walls_2d_JSON = query_output[0].get("walls_2d")
     
