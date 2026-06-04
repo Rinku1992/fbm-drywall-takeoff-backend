@@ -49,8 +49,8 @@ def trigger(
     message="Floor Plan extraction completed",
 ):
     try:
-        failed = any(keyword in message for keyword in ["failed", "failure", "floor plan extraction failed"])
-        partial = any(keyword in message for keyword in ["partial", "incomplete", "scale not detected"])
+        failed = any(keyword in message.lower() for keyword in ["failed", "failure", "floor plan extraction failed"])
+        partial = any(keyword in message.lower() for keyword in ["partial", "incomplete", "scale not detected"])
 
         if failed:
             subject = f"Floor Plan Processing Failed - {plan_name} | Page Number - {page_number}"
