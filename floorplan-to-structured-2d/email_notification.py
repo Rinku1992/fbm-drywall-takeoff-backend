@@ -54,6 +54,11 @@ def trigger(
             "failure",
             "floor plan extraction failed",
         }
+        partial = (message or "").strip().lower() in {
+            "",
+            "failure",
+            "floor plan extraction failed",
+        }
         if failed:
             subject = f"Floor Plan Processing Failed - {plan_name} | Page Number - {page_number}"
             status_paragraph = (
