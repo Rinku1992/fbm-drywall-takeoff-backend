@@ -1649,13 +1649,13 @@ async def update_floorplan_to_2d(request: Request):
     height, width = metadata["height_in_pixels"], metadata["width_in_pixels"]
     scale_x = width / 1920
     scale_y = height / 1080
-    scale = (scale_x, scale_y,)
+    resolution_scale = (scale_x, scale_y,)
 
     for polygon in polygons_JSON[:]:
         if not polygon.get("room_name"):
             continue
         if not polygon["polygon_ids_drywall_interior"]:
-            perimeter_lines_contour = plan.load_perimeter(polygon["vertices"], wall_lines, scale=scale)
+            perimeter_lines_contour = plan.load_perimeter(polygon["vertices"], wall_lines, scale=resolution_scale)
             perimeter_wall_line_ids = [wall_line_ids[wall_lines.index(perimeter_line_contour)] for perimeter_line_contour in perimeter_lines_contour]
             polygon_ids_drywall_interior = list()
             for perimeter_wall_line_id in perimeter_wall_line_ids:
