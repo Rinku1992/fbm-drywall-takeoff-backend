@@ -55,15 +55,41 @@ jobs:
             echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_DEV }}" >> $GITHUB_ENV
           fi
 
+      - name: "Set VPC Access Connector"
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
+            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_QA }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "uat" ]; then
+            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_UAT }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_PROD }}" >> $GITHUB_ENV
+          else
+            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_DEV }}" >> $GITHUB_ENV
+          fi
+
+      - name: 'Set Model Bucket'
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
+            echo "MODEL_BUCKET=${{ vars.MODEL_BUCKET_QA }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "uat" ]; then
+            echo "MODEL_BUCKET=${{ vars.MODEL_BUCKET_UAT }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+            echo "MODEL_BUCKET=${{ vars.MODEL_BUCKET_PROD }}" >> $GITHUB_ENV
+          else
+            echo "MODEL_BUCKET=${{ vars.MODEL_BUCKET_DEV }}" >> $GITHUB_ENV
+          fi
+
       - name: 'Set Image Details'
         run: |
           IMAGE_TAG="${{ github.event.inputs.image_tag }}"
           IMAGE_NAME="drywall-page-classifier"
           SERVICE_NAME="drywall-page-classifier"
+          FINETUNED_MODEL_PATH="drywall_finetuning/page_classifier"
 
           echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
           echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
           echo "SERVICE_NAME=${SERVICE_NAME}" >> $GITHUB_ENV
+          echo "FINETUNED_MODEL_PATH=${FINETUNED_MODEL_PATH}" >> $GITHUB_ENV
           echo "IMAGE_URI=gcr.io/${{ env.GCP_PROJECT_ID }}/${IMAGE_NAME}:${IMAGE_TAG}" >> $GITHUB_ENV
 
       - name: 'Set Cloud Run instance limits'
@@ -82,7 +108,7 @@ jobs:
             echo "MAX_INSTANCES=1" >> $GITHUB_ENV
           fi
 
-        #  Set dynamic region
+       #  Set dynamic region
       - name: "Set Cloud Run region"
         run: |
           if [ "${{ github.event.inputs.environment }}" == "dev" ]; then
@@ -96,40 +122,12 @@ jobs:
         with:
           project_id: ${{ env.GCP_PROJECT_ID }}
 
-      - name: 'Docker Authentication'
+      - name: 'Submit Cloud Build'
         run: |
-          gcloud auth configure-docker gcr.io --quiet
-
-      - name: "Set VPC Access Connector"
-        run: |
-          if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
-            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_QA }}" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.environment }}" == "uat" ]; then
-            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_UAT }}" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.environment }}" == "prod" ]; then
-            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_PROD }}" >> $GITHUB_ENV
-          else
-            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_DEV }}" >> $GITHUB_ENV
-          fi
-
-      - name: 'Check Required Model Checkpoint'
-        run: |
-          if [ ! -f "checkpoints/best.pth" ]; then
-            echo "ERROR: checkpoints/best.pth not found."
-            exit 1
-          fi
-
-          echo "Checkpoint found."
-
-      - name: 'Build Docker Image'
-        run: |
-          docker build \
-            -t ${{ env.IMAGE_URI }} \
-            .
-
-      - name: 'Push Docker Image to GCR'
-        run: |
-          docker push ${{ env.IMAGE_URI }}
+          gcloud builds submit . \
+            --config cloudbuild.yaml \
+            --project ${{ env.GCP_PROJECT_ID }} \
+            --substitutions=_IMAGE_TAG=${{ env.IMAGE_TAG }},_MODEL_BUCKET=${{ env.MODEL_BUCKET }},_FINETUNED_MODEL_PATH=${{ env.FINETUNED_MODEL_PATH }},_IMAGE_NAME=${{ env.IMAGE_NAME }}
 
       - name: 'Deploy to Cloud Run'
         run: |
@@ -152,3 +150,4 @@ jobs:
             --vpc-connector ${{ env.VPC_ACCESS_CONNECTOR }} \
             --vpc-egress all-traffic \
             --no-allow-unauthenticated
+ 

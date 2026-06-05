@@ -85,10 +85,10 @@ def _load_gcp_credentials():
     if not gcp_yaml_path.exists():
         # Fallback for local dev — running from drywall-page-classifier/
         gcp_yaml_path = Path("config/gcp.yaml")
-    if gcp_yaml_path.exists():
-        with open(gcp_yaml_path, "r") as f:
-            creds = yaml.safe_load(f)
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds["service_drywall_account_key"]
+    # if gcp_yaml_path.exists():
+    #     with open(gcp_yaml_path, "r") as f:
+    #         creds = yaml.safe_load(f)
+    #     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = creds["service_drywall_account_key"]
 
 
 _load_gcp_credentials()

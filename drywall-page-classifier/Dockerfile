@@ -57,11 +57,13 @@ RUN test -f /app/checkpoints/best.pth \
 # The two SA JSON files MUST be staged at the build-context root by the
 # operator before each `docker build` (same convention as drywall-takeoff-3d).
 COPY config /app/config
-COPY prj-fbm-drywall-dev-*.json /app/
 RUN test -f /app/config/gcp.yaml \
-        || (echo "FATAL: config/gcp.yaml not found in build context" && exit 1) \
-    && test -n "$(ls /app/prj-fbm-drywall-dev-*.json 2>/dev/null)" \
-        || (echo "FATAL: no prj-fbm-drywall-dev-*.json files staged in build context" && exit 1)
+        || (echo "FATAL: config/gcp.yaml not found in build context" && exit 1)
+# COPY prj-fbm-drywall-dev-*.json /app/
+# RUN test -f /app/config/gcp.yaml \
+#         || (echo "FATAL: config/gcp.yaml not found in build context" && exit 1) \
+#     && test -n "$(ls /app/prj-fbm-drywall-dev-*.json 2>/dev/null)" \
+#         || (echo "FATAL: no prj-fbm-drywall-dev-*.json files staged in build context" && exit 1)
 
 # Cloud Run injects PORT
 ENV PORT=8080
