@@ -14,29 +14,17 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 
 # ─── System deps ──────────────────────────────────────────────
-# RUN apt-get update && apt-get install -y --no-install-recommends \
-#         python3.12 \
-#         python3.12-venv \
-#         python3-pip \
-#         libgl1 \
-#         libglib2.0-0 \
-#         poppler-utils \
-#         curl \
-#     && rm -rf /var/lib/apt/lists/* \
-#     && ln -sf /usr/bin/python3.12 /usr/local/bin/python \
-#     && ln -sf /usr/bin/python3.12 /usr/local/bin/python3
-
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3 \
-        python3-venv \
+        python3.12 \
+        python3.12-venv \
         python3-pip \
         libgl1 \
         libglib2.0-0 \
         poppler-utils \
         curl \
     && rm -rf /var/lib/apt/lists/* \
-    && ln -sf /usr/bin/python3 /usr/local/bin/python \
-    && ln -sf /usr/bin/python3 /usr/local/bin/python3
+    && ln -sf /usr/bin/python3.12 /usr/local/bin/python \
+    && ln -sf /usr/bin/python3.12 /usr/local/bin/python3
 
 # pip with --break-system-packages because the base image's Python is system-managed
 RUN python -m pip install --upgrade pip setuptools wheel --break-system-packages
