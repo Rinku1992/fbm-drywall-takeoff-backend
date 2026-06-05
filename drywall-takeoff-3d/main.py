@@ -566,7 +566,7 @@ def enable_logging_on_stdout():
 
 def load_gcp_credentials() -> dict:
     yaml = YAML(typ="safe", pure=True)
-    with open("gcp.yaml", 'r') as f:
+    with open("config/gcp.yaml", 'r') as f:
         credentials = yaml.load(f)
     os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials["service_drywall_account_key"]
 
