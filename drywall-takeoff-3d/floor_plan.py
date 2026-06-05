@@ -265,10 +265,45 @@ class FloorPlan:
 
         return disconnected_shapes
 
+    def direction_polygon_interior(self, coordinates, wall_line):
+        X1, Y1, X2, Y2 = wall_line[0]
+        orientation = self.classify_line(X1, Y1, X2, Y2)
+        if orientation == "horizontal":
+            centroid_wall_line = (round((X1 + X2) / 2), round(np.median([Y1, Y2])))
+            if self.is_inside_polygon((centroid_wall_line[0], centroid_wall_line[1] - 50), coordinates):
+                return 'a'
+            return 'b'
+        if orientation == "vertical":
+            centroid_wall_line = (round(np.median([X1, X2])), round((Y1 + Y2) / 2))
+            if self.is_inside_polygon((centroid_wall_line[0] - 50, centroid_wall_line[1]), coordinates):
+                return 'a'
+            return 'b'
+        if orientation == "inclined":
+            dx = X2 - X1
+            dy = Y2 - Y1
+            length = math.hypot(dx, dy)
+
+            nx = -dy / length
+            ny =  dx / length
+
+            mx = (X1 + X2) / 2
+            my = (Y1 + Y2) / 2
+
+            test_coordinate = (
+                round(mx + nx * 50),
+                round(my + ny * 50)
+            )
+            if self.is_inside_polygon(test_coordinate, coordinates):
+                return 'a'
+            return 'b'
+
     def load_perimeter(self, coordinates, wall_lines, tolerance=10, bound_capture=True, scale=None):
+        tolerance_x, tolerance_y = tolerance, tolerance
         if scale:
             scale_x, scale_y = scale
-            tolerance *= np.mean([scale[0], scale[1]])
+            tolerance_x *= scale_x
+            tolerance_y *= scale_y
+
         perimeter_lines = list()
         for source_coordinate in coordinates:
             for target_coordinate in coordinates:
@@ -286,13 +321,13 @@ class FloorPlan:
                     else:
                         orientation_target = self.classify_line(target_X1, target_Y1, target_X2, target_Y2)
                     if orientation == "horizontal" and orientation_target == "horizontal":
-                        if abs(np.median([Y1, Y2]) - np.median([target_Y1, target_Y2])) <= tolerance and target_X1 - X1 >= -tolerance and target_X2 - X2 <= tolerance:
+                        if abs(np.median([Y1, Y2]) - np.median([target_Y1, target_Y2])) <= tolerance_y and target_X1 - X1 >= -tolerance_x and target_X2 - X2 <= tolerance_x:
                             perimeter_segments.append(wall_line)
                     if orientation == "vertical" and orientation_target == "vertical":
-                        if abs(np.median([X1, X2]) - np.median([target_X1, target_X2])) <= tolerance and target_Y1 - Y1 >= -tolerance and target_Y2 - Y2 <= tolerance:
+                        if abs(np.median([X1, X2]) - np.median([target_X1, target_X2])) <= tolerance_x and target_Y1 - Y1 >= -tolerance_y and target_Y2 - Y2 <= tolerance_y:
                             perimeter_segments.append(wall_line)
 
-                    if abs(target_X1 - X1) <= tolerance and abs(target_Y1 - Y1) <= tolerance and abs(target_X2 - X2) <= tolerance and abs(target_Y2 - Y2) <= tolerance:
+                    if abs(target_X1 - X1) <= tolerance_x and abs(target_Y1 - Y1) <= tolerance_y and abs(target_X2 - X2) <= tolerance_x and abs(target_Y2 - Y2) <= tolerance_y:
                         perimeter_line_found = True
                         perimeter_line = [[target_X1, target_Y1, target_X2, target_Y2]]
                         if perimeter_line not in perimeter_lines:

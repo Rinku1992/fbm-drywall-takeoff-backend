@@ -2215,6 +2215,7 @@ class FloorPlan2D(FloorPlan):
         self,
         walls_2d,
         scale,
+        height_default,
         remove_drywall_disabled=False,
         impute_drywall_disabled=False,
         polygon_vertices_external=None
@@ -2244,6 +2245,8 @@ class FloorPlan2D(FloorPlan):
             wall["length"] = round(math.hypot(length_X, length_Y), 3)
             for polygon_drywall in wall["polygons_drywall"][:]:
                 polygon_drywall["layers"] = 1
+                if not polygon_drywall["height"]:
+                    polygon_drywall["height"] = height_default
             if impute_drywall_disabled and len(wall["polygons_drywall"]) == 2:
                 if not wall["polygons_drywall"][0]["enabled"] or not wall["polygons_drywall"][1]["enabled"]:
                     centroid_A = (round(sum([vertex['x'] for vertex in wall["polygons_drywall"][0]["polygon"]]) / 4), round(sum([vertex['y'] for vertex in wall["polygons_drywall"][0]["polygon"]]) / 4))
@@ -2935,7 +2938,7 @@ class FloorPlan2D(FloorPlan):
                 ))
             [future.result() for future in futures]
 
-        self._walls_2d = self._normalize_walls_2d(self._walls_2d, (scale_x, scale_y))
+        self._walls_2d = self._normalize_walls_2d(self._walls_2d, (scale_x, scale_y), height_default)
         missing_polygons, missing_polygons_perimeter_walls, self._walls_2d = self._load_missing_polygons(
             self._walls_2d,
             (scale_x, scale_y),
@@ -2964,7 +2967,7 @@ class FloorPlan2D(FloorPlan):
                     offset,
                 ))
             [future.result() for future in futures]
-        self._walls_2d = self._normalize_walls_2d(self._walls_2d, (scale_x, scale_y))
+        self._walls_2d = self._normalize_walls_2d(self._walls_2d, (scale_x, scale_y), height_default)
         self._polygons = self._normalize_polygons(self._polygons, self._walls_2d)
         if model_2d_path:
             with open(model_2d_path, 'w') as f:
@@ -3056,7 +3059,7 @@ class FloorPlan2D(FloorPlan):
                 ))
             [future.result() for future in futures]
 
-        self._walls_2d = self._normalize_walls_2d(self._walls_2d, (scale_x, scale_y))
+        self._walls_2d = self._normalize_walls_2d(self._walls_2d, (scale_x, scale_y), height_default)
         missing_polygons, missing_polygons_perimeter_walls, self._walls_2d = self._load_missing_polygons(
             self._walls_2d,
             (scale_x, scale_y),
@@ -3086,7 +3089,7 @@ class FloorPlan2D(FloorPlan):
                     predict=False,
                 ))
             [future.result() for future in futures]
-        self._walls_2d = self._normalize_walls_2d(self._walls_2d, (scale_x, scale_y))
+        self._walls_2d = self._normalize_walls_2d(self._walls_2d, (scale_x, scale_y), height_default)
         self._polygons = self._normalize_polygons(self._polygons, self._walls_2d)
         if model_2d_path:
             with open(model_2d_path, 'w') as f:
