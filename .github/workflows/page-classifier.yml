@@ -1,6 +1,5 @@
-name: 'Manual DRYWALL-TAKEOFF-3D Cloud Run Build and Deploy'
+name: 'Manual DRYWALL-PAGE-CLASSIFIER Cloud Run Build and Deploy'
 
-# Manual trigger for the Cloud Run deployment
 on:
   workflow_dispatch:
     inputs:
@@ -14,21 +13,29 @@ on:
           - uat
           - prod
 
+      image_tag:
+        description: 'Docker image tag'
+        required: false
+        default: 'latest'
+
 jobs:
   build-and-deploy:
     name: 'Build, Push, and Deploy to Cloud Run'
     runs-on: ubuntu-latest
+
     permissions:
       contents: read
       id-token: write
+
     environment: ${{ github.event.inputs.environment }}
+
     defaults:
       run:
-        working-directory: drywall-takeoff-3d
+        working-directory: drywall-page-classifier
 
     steps:
       - name: 'Checkout Code'
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: 'Authenticate to Google Cloud'
         uses: google-github-actions/auth@v2
@@ -36,8 +43,7 @@ jobs:
           workload_identity_provider: ${{ github.event.inputs.environment == 'QA' && vars.WIF_PROVIDER_QA || github.event.inputs.environment == 'uat' && vars.WIF_PROVIDER_UAT || github.event.inputs.environment == 'prod' && vars.WIF_PROVIDER_PROD || vars.WIF_PROVIDER_DEV }}
           service_account: ${{ github.event.inputs.environment == 'QA' && vars.SERVICE_ACCOUNT_QA || github.event.inputs.environment == 'uat' && vars.SERVICE_ACCOUNT_UAT || github.event.inputs.environment == 'prod' && vars.SERVICE_ACCOUNT_PROD || vars.SERVICE_ACCOUNT_DEV }}
 
-      # Set GCP Project ID 
-      - name: "Set GCP Project ID"
+      - name: 'Set GCP Project ID'
         run: |
           if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
             echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_QA }}" >> $GITHUB_ENV
@@ -49,24 +55,34 @@ jobs:
             echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_DEV }}" >> $GITHUB_ENV
           fi
 
-      # Set dynamic min and max instances
-      - name: "Set Cloud Run instance limits"
+      - name: 'Set Image Details'
+        run: |
+          IMAGE_TAG="${{ github.event.inputs.image_tag }}"
+          IMAGE_NAME="drywall-page-classifier"
+          SERVICE_NAME="drywall-page-classifier"
+
+          echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
+          echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
+          echo "SERVICE_NAME=${SERVICE_NAME}" >> $GITHUB_ENV
+          echo "IMAGE_URI=gcr.io/${{ env.GCP_PROJECT_ID }}/${IMAGE_NAME}:${IMAGE_TAG}" >> $GITHUB_ENV
+
+      - name: 'Set Cloud Run instance limits'
         run: |
           if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
             echo "MIN_INSTANCES=1" >> $GITHUB_ENV
-            echo "MAX_INSTANCES=100" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=3" >> $GITHUB_ENV
           elif [ "${{ github.event.inputs.environment }}" == "uat" ]; then
-            echo "MIN_INSTANCES=10" >> $GITHUB_ENV
-            echo "MAX_INSTANCES=100" >> $GITHUB_ENV
+            echo "MIN_INSTANCES=1" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=3" >> $GITHUB_ENV
           elif [ "${{ github.event.inputs.environment }}" == "prod" ]; then
-            echo "MIN_INSTANCES=10" >> $GITHUB_ENV
-            echo "MAX_INSTANCES=100" >> $GITHUB_ENV
+            echo "MIN_INSTANCES=1" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=3" >> $GITHUB_ENV
           else
             echo "MIN_INSTANCES=1" >> $GITHUB_ENV
-            echo "MAX_INSTANCES=100" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=1" >> $GITHUB_ENV
           fi
 
-      #  Set dynamic region
+        #  Set dynamic region
       - name: "Set Cloud Run region"
         run: |
           if [ "${{ github.event.inputs.environment }}" == "dev" ]; then
@@ -80,17 +96,10 @@ jobs:
         with:
           project_id: ${{ env.GCP_PROJECT_ID }}
 
-      - name: 'Build Docker Image'
-        run: |
-          docker build \
-          -t gcr.io/${{ env.GCP_PROJECT_ID }}/drywall-takeoff-3d \
-          .
-
-      - name: Docker Authentication
+      - name: 'Docker Authentication'
         run: |
           gcloud auth configure-docker gcr.io --quiet
 
-      # Set VPC Access Connector
       - name: "Set VPC Access Connector"
         run: |
           if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
@@ -103,27 +112,43 @@ jobs:
             echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_DEV }}" >> $GITHUB_ENV
           fi
 
+      - name: 'Check Required Model Checkpoint'
+        run: |
+          if [ ! -f "checkpoints/best.pth" ]; then
+            echo "ERROR: checkpoints/best.pth not found."
+            exit 1
+          fi
+
+          echo "Checkpoint found."
+
+      - name: 'Build Docker Image'
+        run: |
+          docker build \
+            -t ${{ env.IMAGE_URI }} \
+            .
+
       - name: 'Push Docker Image to GCR'
         run: |
-          docker push \
-          gcr.io/${{ env.GCP_PROJECT_ID }}/drywall-takeoff-3d
+          docker push ${{ env.IMAGE_URI }}
 
       - name: 'Deploy to Cloud Run'
         run: |
-          gcloud run deploy drywall-takeoff-3d-fbm \
-            --image gcr.io/${{ env.GCP_PROJECT_ID }}/drywall-takeoff-3d \
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image ${{ env.IMAGE_URI }} \
             --platform managed \
             --region ${{ env.REGION }} \
             --project ${{ env.GCP_PROJECT_ID }} \
             --service-account ${{ github.event.inputs.environment == 'QA' && vars.SERVICE_ACCOUNT_QA || github.event.inputs.environment == 'uat' && vars.SERVICE_ACCOUNT_UAT || github.event.inputs.environment == 'prod' && vars.SERVICE_ACCOUNT_PROD || vars.SERVICE_ACCOUNT_DEV }} \
             --cpu 8 \
             --memory 32Gi \
+            --gpu 1 \
+            --gpu-type nvidia-l4 \
             --min-instances ${{ env.MIN_INSTANCES }} \
             --max-instances ${{ env.MAX_INSTANCES }} \
             --concurrency 1 \
             --execution-environment gen2 \
             --timeout 1800 \
-            --ingress internal-and-cloud-load-balancing \
+            --ingress internal \
             --vpc-connector ${{ env.VPC_ACCESS_CONNECTOR }} \
             --vpc-egress all-traffic \
             --no-allow-unauthenticated

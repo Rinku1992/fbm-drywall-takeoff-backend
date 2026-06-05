@@ -1,7 +1,6 @@
 name: 'Manual DRYWALL-FLOORPLAN-2D Cloud Run Build and Deploy'
 
 on:
-  # Manual trigger for the Cloud Run deployment
   workflow_dispatch:
     inputs:
       environment:
@@ -30,14 +29,13 @@ jobs:
       - name: 'Checkout Code'
         uses: actions/checkout@v2
 
-      # Authenticate to Google Cloud
       - name: 'Authenticate to Google Cloud'
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ github.event.inputs.environment == 'QA' && vars.WIF_PROVIDER_QA || github.event.inputs.environment == 'uat' && vars.WIF_PROVIDER_UAT || github.event.inputs.environment == 'prod' && vars.WIF_PROVIDER_PROD || vars.WIF_PROVIDER_DEV }}
           service_account: ${{ github.event.inputs.environment == 'QA' && vars.SERVICE_ACCOUNT_QA || github.event.inputs.environment == 'uat' && vars.SERVICE_ACCOUNT_UAT || github.event.inputs.environment == 'prod' && vars.SERVICE_ACCOUNT_PROD || vars.SERVICE_ACCOUNT_DEV }}
-      
-      # Set up GCP Project ID 
+
+      # Set GCP Project ID 
       - name: "Set GCP Project ID"
         run: |
           if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
@@ -50,7 +48,7 @@ jobs:
             echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_DEV }}" >> $GITHUB_ENV
           fi
 
-      # Set dynamic min and max instances based on environment
+      # Set instance limits
       - name: "Set Cloud Run instance limits"
         run: |
           if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
@@ -67,26 +65,30 @@ jobs:
             echo "MAX_INSTANCES=100" >> $GITHUB_ENV
           fi
 
-      # Set up Google Cloud SDK
+      #  Set dynamic region
+      - name: "Set Cloud Run region"
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "dev" ]; then
+            echo "REGION=us-central1" >> $GITHUB_ENV
+          else
+            echo "REGION=us-east4" >> $GITHUB_ENV
+          fi
+
       - name: 'Set up Google Cloud SDK'
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.GCP_PROJECT_ID }}
-          # export_default_credentials: true
 
-      # Build the Docker image for Cloud Run
       - name: 'Build Docker Image'
         run: |
-           docker build \
-           -t gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-to-structure-2d \
-           .
+          docker build \
+          -t gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-to-structured-2d \
+          .
 
-      # Docker Authentication with Artifact Registry
       - name: Docker Authentication
         run: |
           gcloud auth configure-docker gcr.io --quiet
 
-      # Set up VPC Access Connector
       - name: "Set VPC Access Connector"
         run: |
           if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
@@ -99,19 +101,17 @@ jobs:
             echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_DEV }}" >> $GITHUB_ENV
           fi
 
-      # Push the Docker image to Google Container Registry
       - name: 'Push Docker Image to GCR'
         run: |
-           docker push \
-             gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-to-structure-2d
+          docker push \
+          gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-to-structured-2d
 
-      # Deploy to Cloud Run
       - name: 'Deploy to Cloud Run'
         run: |
-           gcloud run deploy floorplan-to-structure-2d-fbm \
-            --image gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-to-structure-2d \
+          gcloud run deploy floorplan-to-structured-2d-fbm \
+            --image gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-to-structured-2d \
             --platform managed \
-            --region us-central1 \
+            --region ${{ env.REGION }} \
             --project ${{ env.GCP_PROJECT_ID }} \
             --service-account ${{ github.event.inputs.environment == 'QA' && vars.SERVICE_ACCOUNT_QA || github.event.inputs.environment == 'uat' && vars.SERVICE_ACCOUNT_UAT || github.event.inputs.environment == 'prod' && vars.SERVICE_ACCOUNT_PROD || vars.SERVICE_ACCOUNT_DEV }} \
             --cpu 8 \
