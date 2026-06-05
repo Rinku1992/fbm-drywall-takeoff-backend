@@ -6,8 +6,7 @@
 # Build context must contain a valid trained checkpoint at:
 #     checkpoints/best.pth
 
-# FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
-FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu24.04
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -15,30 +14,62 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 
 # ─── System deps ──────────────────────────────────────────────
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#         python3.12 \
+#         python3.12-venv \
+#         python3-pip \
+#         libgl1 \
+#         libglib2.0-0 \
+#         poppler-utils \
+#         curl \
+#     && rm -rf /var/lib/apt/lists/* \
+#     && ln -sf /usr/bin/python3.12 /usr/local/bin/python \
+#     && ln -sf /usr/bin/python3.12 /usr/local/bin/python3
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3.12 \
-        python3.12-venv \
-        python3-pip \
+        build-essential \
+        wget \
+        curl \
+        ca-certificates \
+        libssl-dev \
+        zlib1g-dev \
+        libbz2-dev \
+        libreadline-dev \
+        libsqlite3-dev \
+        libffi-dev \
+        liblzma-dev \
         libgl1 \
         libglib2.0-0 \
         poppler-utils \
-        curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && ln -sf /usr/bin/python3.12 /usr/local/bin/python \
-    && ln -sf /usr/bin/python3.12 /usr/local/bin/python3
+    && cd /tmp \
+    && wget https://www.python.org/ftp/python/3.12.8/Python-3.12.8.tgz \
+    && tar -xzf Python-3.12.8.tgz \
+    && cd Python-3.12.8 \
+    && ./configure --enable-optimizations \
+    && make -j"$(nproc)" \
+    && make altinstall \
+    && ln -sf /usr/local/bin/python3.12 /usr/local/bin/python \
+    && ln -sf /usr/local/bin/python3.12 /usr/local/bin/python3 \
+    && ln -sf /usr/local/bin/pip3.12 /usr/local/bin/pip \
+    && cd / \
+    && rm -rf /tmp/Python-3.12.8 /tmp/Python-3.12.8.tgz \
+    && rm -rf /var/lib/apt/lists/*
 
 # pip with --break-system-packages because the base image's Python is system-managed
-RUN python -m pip install --upgrade pip setuptools wheel --break-system-packages
+# RUN python -m pip install --upgrade pip setuptools wheel --break-system-packages
+RUN python -m pip install --upgrade pip setuptools wheel
 
 # ─── PyTorch (CUDA 12.4 wheels) ───────────────────────────────
 # Dedicated layer so it caches across rebuilds (the wheels are huge).
-RUN pip install --no-cache-dir --break-system-packages \
+# RUN pip install --no-cache-dir --break-system-packages \
+RUN pip install --no-cache-dir \
         --index-url https://download.pytorch.org/whl/cu124 \
         torch==2.5.1 torchvision==0.20.1
 
 # ─── App dependencies ─────────────────────────────────────────
 COPY requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir --break-system-packages \
+# RUN pip install --no-cache-dir --break-system-packages \
+RUN pip install --no-cache-dir \
         -r /tmp/requirements.txt \
     && rm /tmp/requirements.txt
 
