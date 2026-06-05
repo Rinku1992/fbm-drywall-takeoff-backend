@@ -124,12 +124,10 @@ jobs:
 
       - name: 'Submit Cloud Build'
         run: |
-          BUILD_SERVICE_ACCOUNT="${{ github.event.inputs.environment == 'QA' && vars.SERVICE_ACCOUNT_QA || github.event.inputs.environment == 'uat' && vars.SERVICE_ACCOUNT_UAT || github.event.inputs.environment == 'prod' && vars.SERVICE_ACCOUNT_PROD || vars.SERVICE_ACCOUNT_DEV }}"
-      
           gcloud builds submit . \
             --config cloudbuild.yaml \
             --project "${GCP_PROJECT_ID}" \
-            --substitutions=_IMAGE_TAG="${IMAGE_TAG}",_MODEL_BUCKET="${MODEL_BUCKET}",_FINETUNED_MODEL_PATH="${FINETUNED_MODEL_PATH}",_IMAGE_NAME="${IMAGE_NAME}",_BUILD_SERVICE_ACCOUNT="${BUILD_SERVICE_ACCOUNT}"
+            --substitutions=_IMAGE_TAG="${IMAGE_TAG}",_MODEL_BUCKET="${MODEL_BUCKET}",_FINETUNED_MODEL_PATH="${FINETUNED_MODEL_PATH}",_IMAGE_NAME="${IMAGE_NAME}"
 
       - name: 'Deploy to Cloud Run'
         run: |
