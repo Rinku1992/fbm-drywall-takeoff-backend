@@ -6,7 +6,8 @@
 # Build context must contain a valid trained checkpoint at:
 #     checkpoints/best.pth
 
-FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+# FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONDONTWRITEBYTECODE=1
