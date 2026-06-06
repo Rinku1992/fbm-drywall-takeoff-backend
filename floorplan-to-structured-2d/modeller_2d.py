@@ -2227,6 +2227,7 @@ class FloorPlan2D(FloorPlan):
         else:
             imperial_scale_X, imperial_scale_Y = self.compute_imperial_scale_from_DPI(self._scale)
         drywall_skus = [drywall_template["sku_variant"] for drywall_template in self._drywall_templates]
+        drywall_sku_color_codes = [drywall_template["color_code"] for drywall_template in self._drywall_templates]
         for wall in walls_2d[:]:
             if wall["openings"]:
                 walls_openings_normalized = list()
@@ -2314,6 +2315,7 @@ class FloorPlan2D(FloorPlan):
                     skus_levenshtein = list(map(lambda drywall_sku: Levenshtein.distance(polygon_drywall["type"], drywall_sku), drywall_skus))
                     target_sku_index = skus_levenshtein.index(min(skus_levenshtein))
                     polygon_drywall["type"] = drywall_skus[target_sku_index]
+                    polygon_drywall["color"] = drywall_sku_color_codes[target_sku_index]
             wall_line_vertices = wall["wall_line"]
             X1, Y1, X2, Y2 = wall_line_vertices[0]['x'], wall_line_vertices[0]['y'], wall_line_vertices[1]['x'], wall_line_vertices[1]['y']
             orientation = self.classify_line(round(X1 / scale_x), round(Y1 / scale_y), round(X2 / scale_x), round(Y2 / scale_y))
@@ -2521,6 +2523,8 @@ class FloorPlan2D(FloorPlan):
         polygons_valid = list()
         walls_2d_ids = [wall["id"] for wall in walls_2d]
         imperial_scale_A = np.median(self._imperial_scales_sampled['A'])
+        drywall_skus = [drywall_template["sku_variant"] for drywall_template in self._drywall_templates]
+        drywall_sku_color_codes = [drywall_template["color_code"] for drywall_template in self._drywall_templates]
         for polygon in polygons:
             if self._hyperparameters["modelling"]["scale_adoption"]["imperial_sampling"]:
                 polygon_area_pixels = cv2.contourArea(np.array(polygon["vertices"], dtype=np.float32))
@@ -2532,6 +2536,13 @@ class FloorPlan2D(FloorPlan):
             polygon["polygon_area_shoelace"] = polygon_area_shoelace
             perimeter_wall_missing = False
             polygon["polygon_drywall"]["layers"] = 1
+            if polygon["polygon_drywall"]["type"] != "DISABLED" and polygon["polygon_drywall"]["type"] not in drywall_skus:
+                skus_levenshtein = list(map(lambda drywall_sku: Levenshtein.distance(polygon["polygon_drywall"]["type"], drywall_sku), drywall_skus))
+                target_sku_index = skus_levenshtein.index(min(skus_levenshtein))
+                polygon["polygon_drywall"]["type"] = drywall_skus[target_sku_index]
+                polygon["polygon_drywall"]["color"] = drywall_sku_color_codes[target_sku_index]
+            if polygon["polygon_drywall"]["type"] == "DISABLED" or not polygon["polygon_drywall"]["enabled"]:
+                polygon["polygon_drywall"]["color"] = [137, 137, 137]
             for drywall_id in polygon["polygon_ids_drywall_interior"]:
                 wall_id = int(drywall_id.split('.')[0])
                 if wall_id not in walls_2d_ids:
