@@ -1665,8 +1665,10 @@ async def update_floorplan_to_2d(request: Request):
                         drywall_index = plan.direction_polygon_interior(polygon["vertices"], wall_line)
                         polygon_ids_drywall_interior.append(f"{perimeter_wall_line_id}.{drywall_index}")
                         if drywall_index == 'a':
+                            wall_2d["polygons_drywall"][0]["id"] = f"{perimeter_wall_line_id}.{drywall_index}"
                             wall_2d["polygons_drywall"][0]["room_name"] = polygon["room_name"]
                         else:
+                            wall_2d["polygons_drywall"][1]["id"] = f"{perimeter_wall_line_id}.{drywall_index}"
                             wall_2d["polygons_drywall"][1]["room_name"] = polygon["room_name"]
                         break
             polygon["polygon_ids_drywall_interior"] = polygon_ids_drywall_interior
