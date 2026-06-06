@@ -1631,7 +1631,7 @@ async def update_floorplan_to_2d(request: Request):
                 drywall["color"] = drywall_template["color_code"][::-1]
     for polygon in polygons_JSON[:]:
         if not polygon["polygon_drywall"]["enabled"] or polygon["polygon_drywall"]["type"].upper() == "DISABLED":
-            polygon["polygon_drywall"]["color"] = [255, 0, 0]
+            polygon["polygon_drywall"]["color"] = [137, 137, 137]
             continue
         drywall_template = query_drywall(polygon["polygon_drywall"]["type"], DRYWALL_TEMPLATES)
         if not drywall_template:
