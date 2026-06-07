@@ -205,6 +205,19 @@ class FloorPlan:
 
         return inside
 
+    def sample_wall_line_test_points(self, X1, Y1, X2, Y2, test_samples=5):
+        sampled_points = list()
+
+        for i in range(1, test_samples + 1):
+            t = i / (test_samples + 1)
+
+            x = X1 + t * (X2 - X1)
+            y = Y1 + t * (Y2 - Y1)
+
+            sampled_points.append((x, y))
+
+        return sampled_points
+
     def classify_line(self, x1, y1, x2, y2):
         """Classify a line as horizontal, vertical, or inclined."""
         line_id = str([x1, y1, x2, y2])
