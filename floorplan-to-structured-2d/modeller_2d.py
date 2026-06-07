@@ -2122,8 +2122,8 @@ class FloorPlan2D(FloorPlan):
         for polygon_perimeter_line in polygon_perimeter_lines:
             X1, Y1, X2, Y2 = polygon_perimeter_line[0][0], polygon_perimeter_line[0][1], polygon_perimeter_line[0][2], polygon_perimeter_line[0][3]
             orientation = self.classify_line(round(X1 / scale_x), round(Y1 / scale_y), round(X2 / scale_x), round(Y2 / scale_y))
+            sampled_test_points = self.sample_wall_line_test_points(X1, Y1, X2, Y2)
             if orientation == "horizontal":
-                centroid_perimeter_line = (round((X1 + X2) / 2), round(np.median([Y1, Y2])))
                 polygon_up = [
                     dict(x=X1+20, y=Y1-20),
                     dict(x=X2-20, y=Y2-20),
@@ -2136,15 +2136,27 @@ class FloorPlan2D(FloorPlan):
                     dict(x=X2-60, y=Y2+60),
                     dict(x=X1+60, y=Y1+60)
                 ]
-                if self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] - 50), polygon_vertices) and self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] + 50), polygon_vertices):
+                bounded_up_down_count = dict()
+                bounded_count, up_count, down_count = 0, 0, 0
+                for test_point in sampled_test_points:
+                    X, Y = test_point
+                    if self.is_inside_polygon((X, Y - 50), polygon_vertices) and self.is_inside_polygon((X, Y + 50), polygon_vertices):
+                        bounded_count += 1
+                    elif self.is_inside_polygon((X, Y - 50), polygon_vertices):
+                        up_count += 1
+                    else:
+                        down_count += 1
+                bounded_up_down_count["bounded"] = bounded_count
+                bounded_up_down_count["up"] = up_count
+                bounded_up_down_count["down"] = down_count
+                face = list(bounded_up_down_count.keys())[list(bounded_up_down_count.values()).index(max(list(bounded_up_down_count.values())))]
+                if face == "bounded":
                     polygons.append([dict(coordinates=polygon_up, enabled=True), dict(coordinates=polygon_down, enabled=True)])
-                elif self.is_inside_polygon((centroid_perimeter_line[0], centroid_perimeter_line[1] - 50), polygon_vertices):
+                elif face == "up":
                     polygons.append(dict(coordinates=polygon_up, enabled=True))
                 else:
-                    polygons.append(dict(coordinates=polygon_down, enabled=True))
-
+                   polygons.append(dict(coordinates=polygon_down, enabled=True)) 
             if orientation == "vertical":
-                centroid_perimeter_line = (round(np.median([X1, X2])), round((Y1 + Y2) / 2))
                 polygon_left = [
                         dict(x=X1-20, y=Y1+20),
                         dict(x=X2-20, y=Y2-20),
@@ -2157,37 +2169,38 @@ class FloorPlan2D(FloorPlan):
                     dict(x=X2+60, y=Y2-60),
                     dict(x=X1+60, y=Y1+60)
                 ]
-                if self.is_inside_polygon((centroid_perimeter_line[0] - 50, centroid_perimeter_line[1]), polygon_vertices) and self.is_inside_polygon((centroid_perimeter_line[0] + 50, centroid_perimeter_line[1]), polygon_vertices):
+                bounded_left_right_count = dict()
+                bounded_count, left_count, right_count = 0, 0, 0
+                for test_point in sampled_test_points:
+                    X, Y = test_point
+                    if self.is_inside_polygon((X - 50, Y), polygon_vertices) and self.is_inside_polygon((X + 50, Y), polygon_vertices):
+                        bounded_count += 1
+                    elif self.is_inside_polygon((X - 50, Y), polygon_vertices):
+                        left_count += 1
+                    else:
+                        right_count += 1
+                bounded_left_right_count["bounded"] = bounded_count
+                bounded_left_right_count["left"] = left_count
+                bounded_left_right_count["right"] = right_count
+                face = list(bounded_left_right_count.keys())[list(bounded_left_right_count.values()).index(max(list(bounded_left_right_count.values())))]
+                if face == "bounded":
                     polygons.append([dict(coordinates=polygon_left, enabled=True), dict(coordinates=polygon_right, enabled=True)])
-                elif self.is_inside_polygon((centroid_perimeter_line[0] - 50, centroid_perimeter_line[1]), polygon_vertices):
+                elif face == "left":
                     polygons.append(dict(coordinates=polygon_left, enabled=True))
                 else:
                     polygons.append(dict(coordinates=polygon_right, enabled=True))
-
             if orientation == "inclined":
                 dx = X2 - X1
                 dy = Y2 - Y1
                 length = math.hypot(dx, dy)
                 if length == 0:
-                    return polygons
+                    continue
 
                 tx = dx / length
                 ty = dy / length
 
                 nx = -dy / length
                 ny =  dx / length
-
-                mx = (X1 + X2) / 2
-                my = (Y1 + Y2) / 2
-
-                test_coordinate_A = (
-                    round(mx + nx * 50),
-                    round(my + ny * 50)
-                )
-                test_coordinate_B = (
-                    round(mx - nx * 50),
-                    round(my - ny * 50)
-                )
 
                 polygon_A = [
                     dict(x=int(X1 + nx * 20 + tx * 20), y=int(Y1 + ny * 20 + ty * 20)),
@@ -2202,9 +2215,31 @@ class FloorPlan2D(FloorPlan):
                     dict(x=int(X1 - nx * 60 + tx * 60), y=int(Y1 - ny * 60 + ty * 60)),
                 ]
 
-                if self.is_inside_polygon(test_coordinate_A, polygon_vertices) and self.is_inside_polygon(test_coordinate_B, polygon_vertices):
+                bounded_side_A_side_B_count = dict()
+                bounded_count, side_A_count, side_B_count = 0, 0, 0
+                for test_point in sampled_test_points:
+                    X, Y = test_point
+                    test_coordinate_A = (
+                        round(X + nx * 50),
+                        round(Y + ny * 50)
+                    )
+                    test_coordinate_B = (
+                        round(X - nx * 50),
+                        round(Y - ny * 50)
+                    )
+                    if self.is_inside_polygon(test_coordinate_A, polygon_vertices) and self.is_inside_polygon(test_coordinate_B, polygon_vertices):
+                        bounded_count += 1
+                    elif self.is_inside_polygon(test_coordinate_A, polygon_vertices):
+                        side_A_count += 1
+                    else:
+                        side_B_count += 1
+                bounded_side_A_side_B_count["bounded"] = bounded_count
+                bounded_side_A_side_B_count["side_A"] = side_A_count
+                bounded_side_A_side_B_count["side_B"] = side_B_count
+                face = list(bounded_side_A_side_B_count.keys())[list(bounded_side_A_side_B_count.values()).index(max(list(bounded_side_A_side_B_count.values())))]
+                if face == "bounded":
                     polygons.append([dict(coordinates=polygon_A, enabled=True), dict(coordinates=polygon_B, enabled=True)])
-                elif self.is_inside_polygon(test_coordinate_A, polygon_vertices):
+                elif face == "side_A":
                     polygons.append(dict(coordinates=polygon_A, enabled=True))
                 else:
                     polygons.append(dict(coordinates=polygon_B, enabled=True))
