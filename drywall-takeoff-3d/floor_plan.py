@@ -278,12 +278,14 @@ class FloorPlan:
         tolerance_x, tolerance_y = tolerance, tolerance
         if scale:
             scale_x, scale_y = scale
+            tolerance *= np.mean([scale[0], scale[1]])
             tolerance_x *= scale_x
             tolerance_y *= scale_y
-
         perimeter_lines = list()
         for source_coordinate in coordinates:
             for target_coordinate in coordinates:
+                if math.hypot(target_coordinate[0] - source_coordinate[0], target_coordinate[1] - source_coordinate[1]) == 0:
+                    continue
                 perimeter_line_found = False
                 perimeter_segments = list()
                 X1, Y1, X2, Y2 = self.normalize([[[source_coordinate[0], source_coordinate[1], target_coordinate[0], target_coordinate[1]]]])[0][0]
@@ -303,6 +305,56 @@ class FloorPlan:
                     if orientation == "vertical" and orientation_target == "vertical":
                         if abs(np.median([X1, X2]) - np.median([target_X1, target_X2])) <= tolerance_x and target_Y1 - Y1 >= -tolerance_y and target_Y2 - Y2 <= tolerance_y:
                             perimeter_segments.append(wall_line)
+                    if orientation == "inclined" and orientation_target == "inclined":
+                        dx = X2 - X1
+                        dy = Y2 - Y1
+                        length = math.hypot(dx, dy)
+
+                        if length > 0:
+                            ux = dx / length
+                            uy = dy / length
+
+                            target_dx = target_X2 - target_X1
+                            target_dy = target_Y2 - target_Y1
+                            target_length = math.hypot(target_dx, target_dy)
+
+                            if target_length > 0:
+
+                                cross = abs(
+                                    ux * (target_dy / target_length)
+                                    - uy * (target_dx / target_length)
+                                )
+
+                                if cross <= 0.1:
+
+                                    def point_line_distance(px, py):
+                                        return abs(
+                                            (px - X1) * uy -
+                                            (py - Y1) * ux
+                                        )
+
+                                    d1 = point_line_distance(target_X1, target_Y1)
+                                    d2 = point_line_distance(target_X2, target_Y2)
+
+                                    if d1 <= tolerance and d2 <= tolerance:
+
+                                        ref_start = X1 * ux + Y1 * uy
+                                        ref_end = X2 * ux + Y2 * uy
+
+                                        tgt_start = target_X1 * ux + target_Y1 * uy
+                                        tgt_end = target_X2 * ux + target_Y2 * uy
+
+                                        ref_min = min(ref_start, ref_end)
+                                        ref_max = max(ref_start, ref_end)
+
+                                        tgt_min = min(tgt_start, tgt_end)
+                                        tgt_max = max(tgt_start, tgt_end)
+
+                                        if (
+                                            tgt_min >= ref_min - tolerance
+                                            and tgt_max <= ref_max + tolerance
+                                        ):
+                                            perimeter_segments.append(wall_line)
 
                     if abs(target_X1 - X1) <= tolerance_x and abs(target_Y1 - Y1) <= tolerance_y and abs(target_X2 - X2) <= tolerance_x and abs(target_Y2 - Y2) <= tolerance_y:
                         perimeter_line_found = True
