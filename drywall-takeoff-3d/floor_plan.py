@@ -1,11 +1,12 @@
 from copy import deepcopy
-from functools import reduce
 
 from fractions import Fraction
 import math
 import numpy as np
 import cv2
 from scipy.spatial import cKDTree
+from shapely.geometry import Polygon
+from shapely.ops import unary_union
 from pdf2image import convert_from_path
 
 __all__ = ["FloorPlan"]
@@ -572,12 +573,34 @@ class FloorPlan:
         def club_polygons(polygon_ids_singleton, polygons):
             for polygon_id_singleton in polygon_ids_singleton:
                 polygons_to_club = list(filter(lambda polygon: polygon["id"] in polygon_id_singleton, polygons[:]))
-                polygons_vertices = reduce(lambda vertices_A, vertices_B: vertices_A + vertices_B, list(map(lambda polygon: polygon["vertices"], polygons_to_club)))
-                coordinates_all = np.vstack(polygons_vertices)
-                hull_external = cv2.convexHull(coordinates_all)
-                epsilon = max(2, 0.005 * cv2.arcLength(hull_external, True))
-                external_contour = cv2.approxPolyDP(hull_external, epsilon, True)
-                external_contour_normalized = self._smoothen_polygon(external_contour.reshape(-1, 2).tolist())
+                shapes = list()
+
+                for polygon in polygons_to_club:
+                    vertices = polygon["vertices"]
+
+                    if vertices[0] != vertices[-1]:
+                        vertices = vertices + [vertices[0]]
+
+                    shapes.append(Polygon(vertices))
+
+                merged = unary_union(shapes)
+                if merged.geom_type == "Polygon":
+                    merged_coords = list(merged.exterior.coords)
+
+                elif merged.geom_type == "MultiPolygon":
+                    merged = max(
+                        merged.geoms,
+                        key=lambda g: g.area
+                    )
+                    merged_coords = list(
+                        merged.exterior.coords
+                    )
+
+                external_contour = [
+                    [int(round(x)), int(round(y))]
+                    for x, y in merged_coords
+                ]
+                external_contour_normalized = self._smoothen_polygon(external_contour)
                 polygons_to_club[0]["vertices"] = external_contour_normalized
                 for polygon_to_club in polygons_to_club[1:]:
                     polygons.remove(polygon_to_club)
