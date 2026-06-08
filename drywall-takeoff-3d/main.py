@@ -1640,6 +1640,7 @@ async def update_floorplan_to_2d(request: Request):
 
     plan = FloorPlan(hyperparameters)
     wall_lines = [[[wall_2d["wall_line"][0]['x'], wall_2d["wall_line"][0]['y'], wall_2d["wall_line"][1]['x'], wall_2d["wall_line"][1]['y']]] for wall_2d in walls_2d_JSON]
+    wall_lines = plan.normalize(wall_lines)
     wall_line_ids = [wall_2d["id"] for wall_2d in walls_2d_JSON]
 
     query = f"SELECT model_2d->'metadata' AS metadata FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
