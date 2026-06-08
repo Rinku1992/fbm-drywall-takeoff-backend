@@ -561,47 +561,62 @@ class FloorPlan:
         return True
 
     def reshape_polygons(self, polygons, walls_2d, scale=None):
-        def load_master_polygon(open_edge, polygon_edges_grouped, polygons):
+        def load_master_polygons(open_edge, polygon_edges_grouped, polygons):
+            master_polygons = list()
             for polygon, polygon_edges in zip(polygons, polygon_edges_grouped):
                 for polygon_edge in polygon_edges:
                     X1, Y1, X2, Y2 = self.normalize([polygon_edge])[0][0]
                     if open_edge == [[X1, Y1, X2, Y2]]:
                         continue
                     if self.in_proximity([[X1, Y1, X2, Y2]], open_edge):
-                        return polygon
+                        master_polygons.append(polygon)
+            return master_polygons
 
         def club_polygons(polygon_ids_singleton, polygons):
             for polygon_id_singleton in polygon_ids_singleton:
                 polygons_to_club = list(filter(lambda polygon: polygon["id"] in polygon_id_singleton, polygons[:]))
                 shapes = list()
+                polygon_area = 0
 
                 for polygon in polygons_to_club:
+                    polygon_area += polygon["area"]
                     vertices = polygon["vertices"]
 
                     if vertices[0] != vertices[-1]:
                         vertices = vertices + [vertices[0]]
 
-                    shapes.append(Polygon(vertices))
+                    poly = Polygon(vertices)
+                    if not poly.is_valid:
+                        poly = poly.buffer(0)
+                    poly = poly.buffer(3)
+                    shapes.append(poly)
 
                 merged = unary_union(shapes)
-                if merged.geom_type == "Polygon":
-                    merged_coords = list(merged.exterior.coords)
+                merged = merged.buffer(-3)
 
-                elif merged.geom_type == "MultiPolygon":
+                if merged.is_empty:
+                    continue
+                if merged.geom_type == "MultiPolygon":
+                    merged = unary_union(
+                        [
+                            g.buffer(3)
+                            for g in merged.geoms
+                        ]
+                    ).buffer(-3)
+                if merged.geom_type == "MultiPolygon":
                     merged = max(
                         merged.geoms,
                         key=lambda g: g.area
                     )
-                    merged_coords = list(
-                        merged.exterior.coords
-                    )
 
+                merged_coords = list(merged.exterior.coords)
                 external_contour = [
                     [int(round(x)), int(round(y))]
                     for x, y in merged_coords
                 ]
                 external_contour_normalized = self._smoothen_polygon(external_contour)
                 polygons_to_club[0]["vertices"] = external_contour_normalized
+                polygons_to_club[0]["area"] = polygon_area
                 for polygon_to_club in polygons_to_club[1:]:
                     polygons.remove(polygon_to_club)
             return polygons
@@ -627,9 +642,9 @@ class FloorPlan:
             for open_polygon, open_edges in zip(open_polygons, open_edges_grouped):
                 polygon_id_singleton = [open_polygon["id"]]
                 for open_edge in open_edges:
-                    master_polygon = load_master_polygon(open_edge, polygon_edges_grouped, polygons)
-                    if master_polygon:
-                        polygon_id_singleton.append(master_polygon["id"])
+                    master_polygons = load_master_polygons(open_edge, polygon_edges_grouped, polygons)
+                    if master_polygons:
+                        polygon_id_singleton.extend([master_polygon["id"] for master_polygon in master_polygons])
                 polygon_ids_singleton.append(polygon_id_singleton)
         polygons_clubbed = club_polygons(polygon_ids_singleton, polygons)
         return polygons_clubbed
