@@ -1652,6 +1652,7 @@ async def update_floorplan_to_2d(request: Request):
     scale_y = height / 1080
     resolution_scale = (scale_x, scale_y,)
 
+    polygons_JSON = plan.reshape_polygons(polygons_JSON, walls_2d_JSON, scale=resolution_scale)
     for polygon in polygons_JSON[:]:
         if not polygon.get("room_name"):
             continue
