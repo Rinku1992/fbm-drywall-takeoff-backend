@@ -20,6 +20,7 @@ pydantic
 python-multipart
 python-Levenshtein
 pandas
+shapely
 google-cloud-pubsub
 openpyxl
 scikit-image
