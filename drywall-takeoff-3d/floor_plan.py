@@ -1,4 +1,5 @@
 from copy import deepcopy
+from functools import reduce
 
 from fractions import Fraction
 import math
@@ -274,7 +275,15 @@ class FloorPlan:
         wall_2d["polygons_drywall"][1]["id"] = f"{wall_2d["id"]}.b"
         return 'b'
 
-    def load_perimeter(self, coordinates, wall_lines, tolerance=10, bound_capture=True, scale=None):
+    def load_perimeter(
+        self,
+        coordinates,
+        wall_lines,
+        tolerance=10,
+        bound_capture=True,
+        scale=None,
+        return_mapped_polygon_edges=False
+    ):
         tolerance_x, tolerance_y = tolerance, tolerance
         if scale:
             scale_x, scale_y = scale
@@ -282,6 +291,7 @@ class FloorPlan:
             tolerance_x *= scale_x
             tolerance_y *= scale_y
         perimeter_lines = list()
+        mapped_polygon_edges = list()
         for source_coordinate in coordinates:
             for target_coordinate in coordinates:
                 if math.hypot(target_coordinate[0] - source_coordinate[0], target_coordinate[1] - source_coordinate[1]) == 0:
@@ -301,9 +311,13 @@ class FloorPlan:
                         orientation_target = self.classify_line(target_X1, target_Y1, target_X2, target_Y2)
                     if orientation == "horizontal" and orientation_target == "horizontal":
                         if abs(np.median([Y1, Y2]) - np.median([target_Y1, target_Y2])) <= tolerance_y and target_X1 - X1 >= -tolerance_x and target_X2 - X2 <= tolerance_x:
+                            if [(X1, Y1), (X2, Y2)] not in mapped_polygon_edges:
+                                mapped_polygon_edges.append([(X1, Y1), (X2, Y2)])
                             perimeter_segments.append(wall_line)
                     if orientation == "vertical" and orientation_target == "vertical":
                         if abs(np.median([X1, X2]) - np.median([target_X1, target_X2])) <= tolerance_x and target_Y1 - Y1 >= -tolerance_y and target_Y2 - Y2 <= tolerance_y:
+                            if [(X1, Y1), (X2, Y2)] not in mapped_polygon_edges:
+                                mapped_polygon_edges.append([(X1, Y1), (X2, Y2)])
                             perimeter_segments.append(wall_line)
                     if orientation == "inclined" and orientation_target == "inclined":
                         dx = X2 - X1
@@ -354,6 +368,8 @@ class FloorPlan:
                                             tgt_min >= ref_min - tolerance
                                             and tgt_max <= ref_max + tolerance
                                         ):
+                                            if [(X1, Y1), (X2, Y2)] not in mapped_polygon_edges:
+                                                mapped_polygon_edges.append([(X1, Y1), (X2, Y2)])
                                             perimeter_segments.append(wall_line)
 
                     if abs(target_X1 - X1) <= tolerance_x and abs(target_Y1 - Y1) <= tolerance_y and abs(target_X2 - X2) <= tolerance_x and abs(target_Y2 - Y2) <= tolerance_y:
@@ -361,6 +377,8 @@ class FloorPlan:
                         perimeter_line = [[target_X1, target_Y1, target_X2, target_Y2]]
                         if perimeter_line not in perimeter_lines:
                             perimeter_lines.append([[target_X1, target_Y1, target_X2, target_Y2]])
+                        if [(X1, Y1), (X2, Y2)] not in mapped_polygon_edges:
+                            mapped_polygon_edges.append([(X1, Y1), (X2, Y2)])
                         break
                 if not perimeter_line_found:
                     for perimeter_segment in perimeter_segments:
@@ -374,6 +392,8 @@ class FloorPlan:
                     if wall_line not in perimeter_lines:
                         perimeter_lines.append(wall_line)
 
+        if return_mapped_polygon_edges:
+            return perimeter_lines, mapped_polygon_edges
         return perimeter_lines
 
     def perimeter_lines(self, lines, resolution=(1080, 1920)):
@@ -470,6 +490,126 @@ class FloorPlan:
                 polygon_smoothened.append((X2, Y1))
 
         return polygon_smoothened
+
+    def in_proximity(
+        self,
+        line_a,
+        line_b,
+        distance_tolerance=50,
+        angle_tolerance_deg=10,
+        min_overlap_ratio=0.01
+    ):
+        x1, y1, x2, y2 = line_a[0]
+        x3, y3, x4, y4 = line_b[0]
+
+        A = np.array([x1, y1], dtype=float)
+        B = np.array([x2, y2], dtype=float)
+        C = np.array([x3, y3], dtype=float)
+        D = np.array([x4, y4], dtype=float)
+
+        v1 = B - A
+        v2 = D - C
+
+        len1 = np.linalg.norm(v1)
+        len2 = np.linalg.norm(v2)
+
+        if len1 < 1e-6 or len2 < 1e-6:
+            return False
+
+        u1 = v1 / len1
+        u2 = v2 / len2
+
+        dot = np.clip(np.dot(u1, u2), -1, 1)
+
+        angle_deg = math.degrees(math.acos(abs(dot)))
+
+        if angle_deg > angle_tolerance_deg:
+            return False
+
+        normal = np.array([-u1[1], u1[0]])
+
+        dist_c = abs(np.dot(C - A, normal))
+        dist_d = abs(np.dot(D - A, normal))
+
+        avg_distance = (dist_c + dist_d) / 2
+
+        if avg_distance > distance_tolerance:
+            return False
+
+        a0 = 0
+        a1 = np.dot(B - A, u1)
+
+        b0 = np.dot(C - A, u1)
+        b1 = np.dot(D - A, u1)
+
+        a_min, a_max = min(a0, a1), max(a0, a1)
+        b_min, b_max = min(b0, b1), max(b0, b1)
+
+        overlap = min(a_max, b_max) - max(a_min, b_min)
+
+        if overlap <= 0:
+            return False
+
+        shorter_length = min(len1, len2)
+
+        overlap_ratio = overlap / shorter_length
+
+        if overlap_ratio < min_overlap_ratio:
+            return False
+
+        return True
+
+    def reshape_polygons(self, polygons, walls_2d, scale=None):
+        def load_master_polygon(open_edge, polygon_edges_grouped, polygons):
+            for polygon, polygon_edges in zip(polygons, polygon_edges_grouped):
+                for polygon_edge in polygon_edges:
+                    X1, Y1, X2, Y2 = self.normalize([polygon_edge])[0][0]
+                    if open_edge == [[X1, Y1, X2, Y2]]:
+                        continue
+                    if self.in_proximity([[X1, Y1, X2, Y2]], open_edge):
+                        return polygon
+
+        def club_polygons(polygon_ids_singleton, polygons):
+            for polygon_id_singleton in polygon_ids_singleton:
+                polygons_to_club = list(filter(lambda polygon: polygon["id"] in polygon_id_singleton, polygons[:]))
+                polygons_vertices = reduce(lambda vertices_A, vertices_B: vertices_A + vertices_B, list(map(lambda polygon: polygon["vertices"], polygons_to_club)))
+                coordinates_all = np.vstack(polygons_vertices)
+                hull_external = cv2.convexHull(coordinates_all)
+                epsilon = max(2, 0.005 * cv2.arcLength(hull_external, True))
+                external_contour = cv2.approxPolyDP(hull_external, epsilon, True)
+                external_contour_normalized = self._smoothen_polygon(external_contour.reshape(-1, 2).tolist())
+                polygons_to_club[0]["vertices"] = external_contour_normalized
+                for polygon_to_club in polygons_to_club[1:]:
+                    polygons.remove(polygon_to_club)
+            return polygons
+
+        open_polygons, open_edges_grouped = list(), list()
+        polygon_edges_grouped = list()
+        wall_lines = [[[wall_2d["wall_line"][0]['x'], wall_2d["wall_line"][0]['y'], wall_2d["wall_line"][1]['x'], wall_2d["wall_line"][1]['y']]] for wall_2d in walls_2d]
+        for polygon in polygons[:]:
+            open_edges = list()
+            polygon_edges = list()
+            _, mapped_polygon_edges = self.load_perimeter(polygon["vertices"], wall_lines, scale=scale, return_mapped_polygon_edges=True)
+            for edge in zip(polygon["vertices"][:-1], polygon["vertices"][1:]):
+                X1, Y1, X2, Y2 = self.normalize([[[edge[0][0], edge[0][1], edge[1][0], edge[1][1]]]])[0][0]
+                polygon_edges.append([[X1, Y1, X2, Y2]])
+                if [(X1, Y1), (X2, Y2)] not in mapped_polygon_edges:
+                    open_edges.append([[X1, Y1, X2, Y2]])
+            polygon_edges_grouped.append(polygon_edges)
+            if open_edges:
+                open_polygons.append(polygon)
+                open_edges_grouped.append(open_edges)
+        polygon_ids_singleton = list()
+        if open_polygons:
+            for open_polygon, open_edges in zip(open_polygons, open_edges_grouped):
+                polygon_id_singleton = [open_polygon["id"]]
+                for open_edge in open_edges:
+                    master_polygon = load_master_polygon(open_edge, polygon_edges_grouped, polygons)
+                    if master_polygon:
+                        polygon_id_singleton.append(master_polygon["id"])
+                polygon_ids_singleton.append(polygon_id_singleton)
+        polygons_clubbed = club_polygons(polygon_ids_singleton, polygons)
+        return polygons_clubbed
 
     def polygonize(self, wall_lines):
         canvas = np.ones((1080, 1920), dtype=np.uint8) * 255
