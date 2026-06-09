@@ -568,13 +568,25 @@ class FloorPlan:
             if open_polygon_vertices[0] != open_polygon_vertices[-1]:
                 open_polygon_vertices = open_polygon_vertices + [open_polygon_vertices[0]]
             open_polygon = Polygon(open_polygon_vertices)
+            if not open_polygon.is_valid:
+                open_polygon = open_polygon.buffer(0)
+            if open_polygon.is_empty:
+                return overlapped_polygons
+
             for polygon in polygons:
                 polygon_vertices = polygon["vertices"]
                 if polygon_vertices[0] != polygon_vertices[-1]:
                     polygon_vertices = polygon_vertices + [polygon_vertices[0]]
                 target_polygon = Polygon(polygon_vertices)
-                if target_polygon.intersection(open_polygon).area >= 10:
-                    overlapped_polygons.append(polygon)
+                if not target_polygon.is_valid:
+                    target_polygon = target_polygon.buffer(0)
+                if target_polygon.is_empty:
+                    continue
+                try:
+                    if target_polygon.intersection(open_polygon).area >= 10:
+                        overlapped_polygons.append(polygon)
+                except:
+                    continue
             return overlapped_polygons
 
         def load_master_polygons(open_edge, polygon_edges_grouped, polygons):
@@ -604,27 +616,32 @@ class FloorPlan:
                     poly = Polygon(vertices)
                     if not poly.is_valid:
                         poly = poly.buffer(0)
-                    poly = poly.buffer(3)
+                    poly = poly.buffer(30)
                     shapes.append(poly)
 
                 merged = unary_union(shapes)
-                merged = merged.buffer(-3)
+                merged = merged.buffer(-30)
 
                 if merged.is_empty:
                     continue
                 if merged.geom_type == "MultiPolygon":
                     merged = unary_union(
                         [
-                            g.buffer(3)
+                            g.buffer(30)
                             for g in merged.geoms
                         ]
-                    ).buffer(-3)
+                    ).buffer(-30)
                 if merged.geom_type == "MultiPolygon":
-                    merged = max(
-                        merged.geoms,
-                        key=lambda g: g.area
-                    )
-
+                    merged_vertices = list()
+                    merged_polygons = list(merged.geoms)
+                    for geometry in merged_polygons:
+                        merged_coords = list(geometry.exterior.coords)
+                        contour = [
+                            [int(round(x)), int(round(y))]
+                            for x, y in merged_coords
+                        ]
+                        merged_vertices.extend(contour[:-1])
+                    merged = Polygon(merged_vertices)
                 merged_coords = list(merged.exterior.coords)
                 external_contour = [
                     [int(round(x)), int(round(y))]
@@ -653,16 +670,26 @@ class FloorPlan:
             if open_edges:
                 open_polygons.append(polygon)
                 open_edges_grouped.append(open_edges)
-        polygon_ids_singleton = list()
+        polygon_ids_grouped = list()
         if open_polygons:
             for open_polygon, open_edges in zip(open_polygons, open_edges_grouped):
-                polygon_id_singleton = [open_polygon["id"]]
+                polygon_id = [open_polygon["id"]]
                 overlapped_polygons = load_overlapped_polygons(open_polygon, polygons)
-                polygon_id_singleton.extend([overlapped_polygon["id"] for overlapped_polygon in overlapped_polygons])
+                polygon_id.extend([overlapped_polygon["id"] for overlapped_polygon in overlapped_polygons])
                 for open_edge in open_edges:
                     master_polygons = load_master_polygons(open_edge, polygon_edges_grouped, polygons)
                     if master_polygons:
-                        polygon_id_singleton.extend([master_polygon["id"] for master_polygon in master_polygons])
+                        polygon_id.extend([master_polygon["id"] for master_polygon in master_polygons])
+                polygon_id = list(set(polygon_id))
+                polygon_ids_grouped.append(polygon_id)
+        polygon_ids_singleton = list()
+        for polygon_id_source in polygon_ids_grouped:
+            polygon_id_singleton = list()
+            for polygon_id_target in polygon_ids_grouped:
+                if set(polygon_id_source).intersection(polygon_id_target):
+                    polygon_id_singleton.extend(list(set(polygon_id_source).union(polygon_id_target)))
+            polygon_id_singleton = list(set(polygon_id_singleton))
+            if polygon_id_singleton not in polygon_ids_singleton:
                 polygon_ids_singleton.append(polygon_id_singleton)
         polygons_clubbed = club_polygons(polygon_ids_singleton, polygons)
         return polygons_clubbed
