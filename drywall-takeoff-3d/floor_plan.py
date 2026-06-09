@@ -561,7 +561,7 @@ class FloorPlan:
 
         return True
 
-    def reshape_polygons(self, polygons, walls_2d, scale=None):
+    def reshape_polygons(self, polygons, walls_2d, architectural_scale=None, resolution_scale=None):
         def load_overlapped_polygons(open_polygon, polygons):
             overlapped_polygons = list()
             open_polygon_vertices = open_polygon["vertices"]
@@ -601,13 +601,13 @@ class FloorPlan:
             return master_polygons
 
         def club_polygons(polygon_ids_singleton, polygons):
+            imperial_scale_X, imperial_scale_Y = self.compute_imperial_scale_from_DPI(architectural_scale)
+            imperial_scale_A = imperial_scale_X * imperial_scale_Y
             for polygon_id_singleton in polygon_ids_singleton:
                 polygons_to_club = list(filter(lambda polygon: polygon["id"] in polygon_id_singleton, polygons[:]))
                 shapes = list()
-                polygon_area = 0
 
                 for polygon in polygons_to_club:
-                    polygon_area += polygon["area"]
                     vertices = polygon["vertices"]
 
                     if vertices[0] != vertices[-1]:
@@ -648,8 +648,9 @@ class FloorPlan:
                     for x, y in merged_coords
                 ]
                 external_contour_normalized = self._smoothen_polygon(external_contour)
+
                 polygons_to_club[0]["vertices"] = external_contour_normalized
-                polygons_to_club[0]["area"] = polygon_area
+                polygons_to_club[0]["area"] = merged.area * imperial_scale_A
                 for polygon_to_club in polygons_to_club[1:]:
                     polygons.remove(polygon_to_club)
             return polygons
@@ -660,7 +661,7 @@ class FloorPlan:
         for polygon in polygons[:]:
             open_edges = list()
             polygon_edges = list()
-            _, mapped_polygon_edges = self.load_perimeter(polygon["vertices"], wall_lines, scale=scale, return_mapped_polygon_edges=True)
+            _, mapped_polygon_edges = self.load_perimeter(polygon["vertices"], wall_lines, scale=resolution_scale, return_mapped_polygon_edges=True)
             for edge in zip(polygon["vertices"][:-1], polygon["vertices"][1:]):
                 X1, Y1, X2, Y2 = self.normalize([[[edge[0][0], edge[0][1], edge[1][0], edge[1][1]]]])[0][0]
                 polygon_edges.append([[X1, Y1, X2, Y2]])
