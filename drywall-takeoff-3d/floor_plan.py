@@ -547,8 +547,9 @@ class FloorPlan:
         b_min, b_max = min(b0, b1), max(b0, b1)
 
         overlap = min(a_max, b_max) - max(a_min, b_min)
+        gap = max(a_min, b_min) - min(a_max, b_max)
 
-        if overlap <= 0:
+        if overlap <= 0 and gap > distance_tolerance:
             return False
 
         shorter_length = min(len1, len2)
