@@ -18,7 +18,6 @@ google-cloud-pubsub
 pathlib
 pypdf
 pdf2image
-pdf2image
 pydantic
 python-Levenshtein
 python-multipart
