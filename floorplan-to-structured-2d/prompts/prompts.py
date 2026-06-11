@@ -1525,6 +1525,88 @@ class ScaleAndCeilingHeightDetectorResponse(BaseModel):
     scale: Optional[str]
     scale_confidence: float = Field(ge=0, le=1)
 
+SCALE_DETECTOR = """
+  You are an expert architectural drawing text parser
+
+  PROVIDED:
+    1. A snapshot of the full Architectural Drawing in png format with the following highlight,
+      - The target drawing of interest is enclosed with a green bounding box that encloses architectural plan(s) with a very tight aproximation.
+
+  TASK:
+    Identify the standard `scale` applied on ONLY the target architectural plan enclosed with a green bounding box mentioned in the relevant section containing the textual metadata of the enclosed floorplan.
+    INSTRUCTIONS:
+      - Identify the `scale` ONLY for the highlighted target drawing, representing the ratio between paper length and real-world length.
+      - Normalize architectural scales into:
+          "<paper_length_in_inches>``:<real_world_length_in_feet>`<real_world_length_in_inches>``"
+          Example:
+            1/4" = 1'-0"  →  0.25``:1`0``
+            1/8" = 1'-0"  →  0.125``:1`0``
+      - SUPPORTED `Architectural Scales` are:
+        {supported_scales_architectural}
+      - STRICT DRAWING ASSOCIATION RULES:
+        Only extract a scale if it is explicitly associated with the highlighted target drawing by one or more of the following:
+          • Located directly adjacent to the highlighted drawing title
+          • Inside the title block for the highlighted drawing
+          • Explicitly labeled as the scale of the highlighted drawing
+          • Unique and unambiguous on the page
+      - MULTI-SCALE / REPRODUCTION RULE:
+        If multiple scales appear for different sheet sizes, print layouts, or reproduction formats
+        (e.g., "1/4\" = 1'-0\" AT 22\"x34\" LAYOUT" and "1/8\" = 1'-0\" AT 11\"x17\" LAYOUT"),
+        DO NOT infer the target drawing scale.
+        These are print/reproduction scales and are ambiguous unless the target drawing explicitly specifies which applies.
+      - AMBIGUITY RULE:
+        Return `NULL` for `scale` when:
+          • Multiple competing scales exist
+          • The scale belongs to page layout, viewport, or print size
+          • The scale cannot be confidently tied to the highlighted drawing
+          • The page contains only sheet-level scale references
+          • The text contains phrases such as:
+            "AT 22x34 LAYOUT", "AT 11x17 LAYOUT",
+            "NOT TO SCALE", "NTS", "FOR REFERENCE ONLY"
+      - NEVER infer or guess a scale from geometry, dimensions, room sizes, wall lengths, known object sizes, or typical architectural conventions.
+      - If scale is written in a non-standard format, preserve the exact textual format.
+      - If no unambiguous target-drawing scale exists, STRICTLY return:
+        `scale = NULL`
+
+  OUTPUT:
+    Your output should be in the JSON format containing the `scale` of the floorplan.
+    **STRICTLY** Do not generate additional content apart from the designated JSON.
+    Please refer the following as a reference and ensure to replace every consecutive pair of open/closed curly braces with a single one during the generation of the output.
+    {{
+        "scale": "<Scale of the drawing mentioned in the transcriptions i.e. number_in_inches``: number_in_feet`number_in_inches`` / NULL>",
+        "scale_confidence": <confidence score in detecting the scale from the annotated text between 0 and 1 in float rounded upto 2 decimal places (e.g., 0.87)>,
+    }}
+"""
+
+class ScaleDetectorResponse(BaseModel):
+    scale: Optional[str]
+    scale_confidence: float = Field(ge=0, le=1)
+
+CEILING_HEIGHT_DETECTOR = """
+  You are an expert architectural drawing text parser
+
+  PROVIDED:
+    1. A snapshot of the full Architectural Drawing in png format with the following highlight,
+      - The target drawing of interest is enclosed with a green bounding box that encloses architectural plan(s) with a very tight aproximation.
+
+  TASK:
+    Identify the standard `ceiling_height` applied on ONLY the target architectural plan enclosed with a green bounding box mentioned in the relevant section containing the textual metadata of the enclosed floorplan.
+    INSTRUCTIONS:
+      - Look for a keyword matching `ceiling height` in the highlighted drawing title section and extract the nearest numerical value.
+      - If multiple ceiling heights exist, prefer the standard/typical ceiling height.
+      - If ceiling height is not present, return `NULL`.
+
+  OUTPUT:
+    Your output should be in the JSON format containing the standard `ceiling_height` of the floorplan.
+    **STRICTLY** Do not generate additional content apart from the designated JSON.
+    {
+        "ceiling_height": <Standard ceiling height mentioned in the transcriptions converted to feet in float, or NULL>
+    }
+"""
+
+class CeilingHeightDetectorResponse(BaseModel):
+    ceiling_height: Optional[Union[float, int]]
+
 CEILING_CHOICES = [
     "Flat",
     "Single-sloped",
