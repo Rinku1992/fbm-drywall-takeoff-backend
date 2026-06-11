@@ -921,30 +921,25 @@ async def trigger_email_notification(
 
 async def load_metadata_from_vector_pdf(credentials, pg_pool, pdf_path, project_id, plan_id, page_number):
     query = (
-        f"SELECT is_vector FROM {credentials["CloudSQL"]["table_name_plans"]} "
-        f"WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);"
+        f"SELECT is_vector, vector_scale, vector_ceiling_height FROM {credentials["CloudSQL"]["table_name_pages"]} "
+        f"WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
     )
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id,), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number,), fetch=True))
     if query_output and query_output[0]["is_vector"] is not None:
         is_vector_pdf = query_output[0]["is_vector"]
         metadata = dict()
         if is_vector_pdf:
-            query = (
-                f"SELECT vector_scale, vector_ceiling_height FROM {credentials["CloudSQL"]["table_name_pages"]} "
-                f"WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
-            )
-            query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number,), fetch=True))
             metadata["scale"] = query_output[0]["vector_scale"]
             metadata["ceiling_height"] = query_output[0]["vector_ceiling_height"]
         return is_vector_pdf, metadata.get("scale"), metadata.get("ceiling_height")
 
     is_vector_pdf = is_vector(pdf_path, project_id, plan_id, page_number)
     query = (
-        f"UPDATE {credentials["CloudSQL"]["table_name_plans"]} "
+        f"UPDATE {credentials["CloudSQL"]["table_name_pages"]} "
         f"SET is_vector = %s "
-        f"WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);"
+        f"WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
     )
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(is_vector_pdf, project_id, plan_id,)))
+    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(is_vector_pdf, project_id, plan_id, page_number,)))
 
     metadata = dict()
     if is_vector_pdf:
