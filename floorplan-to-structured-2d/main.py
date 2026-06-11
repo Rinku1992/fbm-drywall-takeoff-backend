@@ -127,6 +127,7 @@ async def page_to_structured_2d(
     predict_drywall,
     architectural_scale,
     standard_ceiling_height,
+    allow_none_scale=False,
 ):
     floor_plan_modeller_2d.reload()
     wall_segmented_sectioned_path = load_section_from_page(
@@ -145,7 +146,8 @@ async def page_to_structured_2d(
             floor_plan_path=floor_plan_processed_path,
             transcription_block_with_centroids=transcription_block_with_centroids,
             architectural_scale=architectural_scale,
-            standard_ceiling_height=standard_ceiling_height
+            standard_ceiling_height=standard_ceiling_height,
+            allow_none_scale=allow_none_scale
         )
     else:
         walls_2d, polygons, _, external_contour = floor_plan_modeller_2d.model(
@@ -156,7 +158,8 @@ async def page_to_structured_2d(
             floor_plan_path=floor_plan_processed_path,
             transcription_block_with_centroids=transcription_block_with_centroids,
             architectural_scale=architectural_scale,
-            standard_ceiling_height=standard_ceiling_height
+            standard_ceiling_height=standard_ceiling_height,
+            allow_none_scale=allow_none_scale
         )
     if walls_2d and polygons:
         floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons)
@@ -451,9 +454,8 @@ async def floorplan_to_structured_2d(request: Request):
         vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES)
         scale_detected = True
         is_vector, scale, standard_ceiling_height = await load_metadata_from_vector_pdf(CREDENTIALS, pg_pool, pdf_path, project_id, plan_id, page_number)
-        if not architectural_scale:
-            if is_vector and scale:
-                architectural_scale = scale
+        if not architectural_scale and is_vector:
+            architectural_scale = scale
         for bounding_box_offset in bounding_box_offsets:
             logging.info(f"SYSTEM: Extracting structured model from SECTION: {bounding_box_offset["title"]} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
             floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES)
@@ -479,6 +481,7 @@ async def floorplan_to_structured_2d(request: Request):
                     predict_drywall,
                     architectural_scale,
                     standard_ceiling_height,
+                    allow_none_scale=is_vector,
                 )
             )
         results = await asyncio.gather(*futures, return_exceptions=False)
