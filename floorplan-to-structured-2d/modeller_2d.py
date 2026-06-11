@@ -1170,20 +1170,13 @@ class FloorPlan2D(FloorPlan):
         architectural_scale=None,
         standard_ceiling_height=None,
     ):
-        def normalize_scale(scale):
-            if scale.find(':') != -1:
-                on_paper, real_world = scale.split(':')
-            if scale.find('=') != -1:
-                on_paper, real_world = scale.split('=')
-            return f"{round(float(Fraction(on_paper.strip('`"'))), 2)}``:{real_world.replace("'", '`').replace('"', "``")}"
-
         def load_least_scale(scales):
             if not scales:
                 return
             scales_on_paper_length = list()
             scales_normalized = list()
             for scale in scales:
-                scales_normalized.append(normalize_scale(scale))
+                scales_normalized.append(self.scale_canonical(scale))
                 scales_on_paper_length.append(float(Fraction(scale.split('=')[0].strip('`'))))
             least_scale_index = scales_on_paper_length.index(min(scales_on_paper_length))
             return scales_normalized[least_scale_index]
@@ -1224,7 +1217,7 @@ class FloorPlan2D(FloorPlan):
 
         scale, ceiling_height = None, None
         if architectural_scale and standard_ceiling_height:
-            scale = normalize_scale(architectural_scale)
+            scale = self.scale_canonical(architectural_scale)
             ceiling_height = standard_ceiling_height
         elif not architectural_scale and standard_ceiling_height:
             try:
@@ -1249,7 +1242,7 @@ class FloorPlan2D(FloorPlan):
                 if response.scale.upper() == "NULL":
                     scale = None
                 if response.scale:
-                    scale = normalize_scale(response.scale)
+                    scale = self.scale_canonical(response.scale)
                 if response.scale_confidence < 0.95:
                     scale = load_scale_from_OCR(LEFT, RIGHT, TOP, BOTTOM)
                 ceiling_height = standard_ceiling_height
@@ -1275,7 +1268,7 @@ class FloorPlan2D(FloorPlan):
                         max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
                         pydantic_model=CeilingHeightDetectorResponse,
                     )
-                scale = normalize_scale(architectural_scale)
+                scale = self.scale_canonical(architectural_scale)
                 ceiling_height = response.ceiling_height
             except Exception as e:
                 logging.warning(f"SYSTEM: Standard Ceiling Height detection failed with error: {e}")
@@ -1303,7 +1296,7 @@ class FloorPlan2D(FloorPlan):
                 if response.scale.upper() == "NULL":
                     scale = None
                 if response.scale:
-                    scale = normalize_scale(response.scale)
+                    scale = self.scale_canonical(response.scale)
                 if response.scale_confidence < 0.95:
                     scale = load_scale_from_OCR(LEFT, RIGHT, TOP, BOTTOM)
             except Exception as e:
@@ -2978,6 +2971,7 @@ class FloorPlan2D(FloorPlan):
         transcription_block_with_centroids=dict(),
         architectural_scale=None,
         standard_ceiling_height=None,
+        allow_none_scale=False,
     ):
         image_GRAY = self.read_floor_plan(image_path)
 
@@ -2985,13 +2979,19 @@ class FloorPlan2D(FloorPlan):
         height, width, _ = canvas.shape
         scale_x = width / 1920
         scale_y = height / 1080
-        height_default = self._load_ceiling_height_and_scale(
-            offset,
-            canvas,
-            transcription_block_with_centroids,
-            architectural_scale=architectural_scale,
-            standard_ceiling_height=standard_ceiling_height
-        )["ceiling_height"]
+        if not allow_none_scale:
+            height_default = self._load_ceiling_height_and_scale(
+                offset,
+                canvas,
+                transcription_block_with_centroids,
+                architectural_scale=architectural_scale,
+                standard_ceiling_height=standard_ceiling_height
+            )["ceiling_height"]
+        else:
+            height_default = standard_ceiling_height if standard_ceiling_height else self._height_in_feet
+            if architectural_scale:
+                self._scale = self.scale_canonical(architectural_scale)
+                self._is_scale_detected = True
         if not self._is_scale_detected:
             return None, None, None, None
         wall_lines = self._patch_to_line(image_GRAY, floor_plan_path, offset, (scale_x, scale_y))
@@ -3103,6 +3103,7 @@ class FloorPlan2D(FloorPlan):
         transcription_block_with_centroids=dict(),
         architectural_scale=None,
         standard_ceiling_height=None,
+        allow_none_scale=False,
     ):
         image_GRAY = self.read_floor_plan(image_path)
 
@@ -3110,13 +3111,19 @@ class FloorPlan2D(FloorPlan):
         height, width, _ = canvas.shape
         scale_x = width / 1920
         scale_y = height / 1080
-        height_default = self._load_ceiling_height_and_scale(
-            offset,
-            canvas,
-            transcription_block_with_centroids,
-            architectural_scale=architectural_scale,
-            standard_ceiling_height=standard_ceiling_height
-        )["ceiling_height"]
+        if not allow_none_scale:
+            height_default = self._load_ceiling_height_and_scale(
+                offset,
+                canvas,
+                transcription_block_with_centroids,
+                architectural_scale=architectural_scale,
+                standard_ceiling_height=standard_ceiling_height
+            )["ceiling_height"]
+        else:
+            height_default = standard_ceiling_height if standard_ceiling_height else self._height_in_feet
+            if architectural_scale:
+                self._scale = self.scale_canonical(architectural_scale)
+                self._is_scale_detected = True
         if not self._is_scale_detected:
             return None, None, None, None
         wall_lines = self._patch_to_line(image_GRAY, floor_plan_path, offset, (scale_x, scale_y))
