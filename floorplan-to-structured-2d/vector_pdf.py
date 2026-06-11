@@ -191,7 +191,7 @@ VECTOR_TEXT_MIN_CHARS = 100   # a real drawing's text layer easily exceeds this
 VECTOR_SAMPLE_PAGES = 3       # max pages to sample before deciding
 
 
-def detect_is_vector(pdf_path, project_id, plan_id) -> bool:
+def is_vector(pdf_path, project_id, plan_id) -> bool:
     """True if the PDF has an extractable text layer (fast, text-first)."""
     context = ctx(project_id, plan_id)
     with timed("[VECTOR]", context, "is_vector detection"):
