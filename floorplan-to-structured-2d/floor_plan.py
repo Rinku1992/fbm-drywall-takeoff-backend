@@ -59,6 +59,14 @@ class FloorPlan:
             if round(float(Fraction(scale_architecture.split('=')[0].strip('`'))), 2) == scale_on_paper_length:
                 return scale_architecture
 
+    @classmethod
+    def scale_canonical(cls, scale):
+        if scale.find(':') != -1:
+            on_paper, real_world = scale.split(':')
+        if scale.find('=') != -1:
+            on_paper, real_world = scale.split('=')
+        return f"{round(float(Fraction(on_paper.strip('`"'))), 2)}``:{real_world.replace("'", '`').replace('"', "``")}"        
+
     def compute_pixel_aspect_ratio(self, scale_new, pixel_aspect_ratio_standard):
         scale_new_on_paper_length = float(scale_new.split(':')[0].strip('`'))
         scale_new_real_world_length_in_feet_and_inches_ = scale_new.split(':')[1].strip('`"')
