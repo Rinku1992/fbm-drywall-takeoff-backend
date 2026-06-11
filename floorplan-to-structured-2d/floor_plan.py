@@ -240,13 +240,6 @@ class FloorPlan:
             orientation = "inclined"
         self._lines_classified[line_id] = orientation
         return orientation
-        #if abs(x2 - x1) > self.tolerance_horizontal and abs(y2 - y1) <= self.tolerance_vertical:
-        #    return "horizontal"
-        #elif abs(x2 - x1) <= self.tolerance_horizontal and abs(y2 - y1) > self.tolerance_vertical:
-        #    return "vertical"
-        #elif abs(x2 - x1) > self.tolerance_horizontal and abs(y2 - y1) > self.tolerance_vertical:
-        #    return "inclined"
-        #return "invalid"
 
     def normalize(self, lines):
         if lines is None:
