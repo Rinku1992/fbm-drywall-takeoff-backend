@@ -52,7 +52,7 @@ from google.oauth2 import service_account
 from google.cloud.pubsub_v1 import PublisherClient
 
 from transcriber import Transcriber
-from vector_pdf import is_vector, extract_scales_for_pages
+from vector_pdf import is_vector, extract_scales_for_page
 from prompts import FEEDBACK_GENERATOR
 from email_notification import trigger
 
@@ -938,7 +938,7 @@ async def load_metadata_from_vector_pdf(credentials, pg_pool, pdf_path, project_
             metadata["ceiling_height"] = query_output[0]["vector_ceiling_height"]
         return is_vector_pdf, metadata.get("scale"), metadata.get("ceiling_height")
 
-    is_vector_pdf = is_vector(pdf_path, project_id, plan_id)
+    is_vector_pdf = is_vector(pdf_path, project_id, plan_id, page_number)
     query = (
         f"UPDATE {credentials["CloudSQL"]["table_name_plans"]} "
         f"SET is_vector = %s "
@@ -948,10 +948,9 @@ async def load_metadata_from_vector_pdf(credentials, pg_pool, pdf_path, project_
 
     metadata = dict()
     if is_vector_pdf:
-        vector_scales = extract_scales_for_pages(
-            pdf_path, [page_number], project_id, plan_id
+        metadata = extract_scales_for_page(
+            pdf_path, page_number, project_id, plan_id
         )
-        metadata = vector_scales[page_number]
         if metadata.get("scale"):
             query = (
                 f"UPDATE {credentials["CloudSQL"]["table_name_pages"]} "
