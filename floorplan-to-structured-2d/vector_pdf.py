@@ -22,7 +22,6 @@ import time
 from fractions import Fraction
 from collections import Counter
 from contextlib import contextmanager
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import fitz  # PyMuPDF
 
@@ -240,31 +239,19 @@ def _extract_one(pdf_path, page_number, project_id, plan_id):
         return page_number, {"scale": None, "ceiling_height": None}
 
 
-def extract_scales_for_pages(pdf_path, page_numbers, project_id, plan_id, max_workers=8):
+def extract_scales_for_page(pdf_path, page_number, project_id, plan_id):
     """
     Extract scale + ceiling for each (0-indexed) page in parallel.
     Returns {page_number: {"scale": str|None, "ceiling_height": float|None}}.
     Never raises.
     """
     context = ctx(project_id, plan_id)
-    results = {}
-    if not page_numbers:
-        logger.info(f"[VECTOR_SCALE] [{context}] no floor-plan pages to process")
-        return results
     with timed("[VECTOR_SCALE]", context,
-               f"scale extraction for floor_plan pages {sorted(page_numbers)}"):
-        workers = min(max_workers, len(page_numbers))
-        with ThreadPoolExecutor(max_workers=workers) as executor:
-            futures = [executor.submit(_extract_one, pdf_path, pn, project_id, plan_id)
-                       for pn in page_numbers]
-            for fut in as_completed(futures):
-                page_number, info = fut.result()
-                results[page_number] = info
-    found_scale = sum(1 for v in results.values() if v["scale"])
-    found_ceiling = sum(1 for v in results.values() if v["ceiling_height"] is not None)
-    logger.info(f"[VECTOR_SCALE] [{context}] summary: scale {found_scale}/"
-                f"{len(page_numbers)}, ceiling {found_ceiling}/{len(page_numbers)}")
-    return results
+               f"scale extraction for floor_plan page {page_number}"):
+        _, info = _extract_one(pdf_path, page_number, project_id, plan_id)
+    logger.info(f"[VECTOR_SCALE] [{context}] summary: scale {info["scale"]},/"
+                f"ceiling {info["ceiling_height"]}")
+    return info
 
 
 # ─────────────────────────── self-test ───────────────────────────────────────
