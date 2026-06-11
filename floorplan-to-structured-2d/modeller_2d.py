@@ -26,6 +26,8 @@ from prompts import (
     POLYGON_DETECTOR_FEW_SHOT,
     DRYWALL_PREDICTOR_CALIFORNIA,
     SCALE_AND_CEILING_HEIGHT_DETECTOR,
+    SCALE_DETECTOR,
+    CEILING_HEIGHT_DETECTOR,
     WALL_RECTIFIER,
     WALL_RECTIFIER_FEW_SHOT,
     SHAPE_RECTIFIER,
@@ -37,6 +39,8 @@ from prompts import (
     PolygonDetectorResponse,
     DrywallPredictorCaliforniaResponse,
     ScaleAndCeilingHeightDetectorResponse,
+    ScaleDetectorResponse,
+    CeilingHeightDetectorResponse,
     WallRectifierResponse,
     ShapeRectifierResponse,
 )
@@ -88,6 +92,18 @@ class FloorPlan2D(FloorPlan):
             prompts=[SCALE_AND_CEILING_HEIGHT_DETECTOR.format(supported_scales_architectural=cls.scales_architectural)]
         )
         is_cached["SCALE_AND_CEILING_HEIGHT_DETECTOR"] = cache_enabled
+        vertex_ai_client_metadata_scale_extraction, _, cache_enabled = load_vertex_ai_client(
+            credentials,
+            client_ip_address,
+            prompts=[SCALE_DETECTOR.format(supported_scales_architectural=cls.scales_architectural)]
+        )
+        is_cached["SCALE_DETECTOR"] = cache_enabled
+        vertex_ai_client_metadata_ceiling_height_extraction, _, cache_enabled = load_vertex_ai_client(
+            credentials,
+            client_ip_address,
+            prompts=[CEILING_HEIGHT_DETECTOR]
+        )
+        is_cached["CEILING_HEIGHT_DETECTOR"] = cache_enabled
         vertex_ai_client_polygon_detection, generation_config, cache_enabled = load_vertex_ai_client(
             credentials,
             client_ip_address,
@@ -115,6 +131,8 @@ class FloorPlan2D(FloorPlan):
         vertex_ai_clients = (
             vertex_ai_client_polygon_detection_and_drywall_prediction,
             vertex_ai_client_metadata_extraction,
+            vertex_ai_client_metadata_scale_extraction,
+            vertex_ai_client_metadata_ceiling_height_extraction,
             vertex_ai_client_polygon_detection,
             vertex_ai_client_drywall_prediction,
             vertex_ai_client_wall_rectification,
@@ -127,10 +145,12 @@ class FloorPlan2D(FloorPlan):
         self._is_cached = is_cached
         self._vertex_ai_client_polygon_detection_and_drywall_prediction = vertex_ai_clients[0]
         self._vertex_ai_client_metadata_extraction = vertex_ai_clients[1]
-        self._vertex_ai_client_polygon_detection = vertex_ai_clients[2]
-        self._vertex_ai_client_drywall_prediction = vertex_ai_clients[3]
-        self._vertex_ai_client_wall_rectification = vertex_ai_clients[4]
-        self._vertex_ai_client_shape_rectification = vertex_ai_clients[5]
+        self._vertex_ai_client_metadata_scale_extraction = vertex_ai_clients[2]
+        self._vertex_ai_client_metadata_ceiling_height_extraction = vertex_ai_clients[3]
+        self._vertex_ai_client_polygon_detection = vertex_ai_clients[4]
+        self._vertex_ai_client_drywall_prediction = vertex_ai_clients[5]
+        self._vertex_ai_client_wall_rectification = vertex_ai_clients[6]
+        self._vertex_ai_client_shape_rectification = vertex_ai_clients[7]
 
     def _close_jagged_openings(
         self,
@@ -1147,7 +1167,8 @@ class FloorPlan2D(FloorPlan):
         offset,
         plan_BGR,
         transcription_block_with_centroids,
-        architectural_scale=None
+        architectural_scale=None,
+        standard_ceiling_height=None,
     ):
         def normalize_scale(scale):
             if scale.find(':') != -1:
@@ -1167,6 +1188,21 @@ class FloorPlan2D(FloorPlan):
             least_scale_index = scales_on_paper_length.index(min(scales_on_paper_length))
             return scales_normalized[least_scale_index]
 
+        def load_scale_from_OCR(offset_LEFT, offset_RIGHT, offset_TOP, offset_BOTTOM):
+            scales_possible = list()
+            nearest_transcription_blocks = self._load_nearest_transcription_blocks(((offset_LEFT + offset_RIGHT) / 2, (offset_TOP + offset_BOTTOM) / 2), transcription_block_with_centroids)
+            for transcription, _ in nearest_transcription_blocks.items():
+                scale_possible = self.load_scale_from_text(transcription)
+                if scale_possible:
+                    scales_possible.append(scale_possible)
+            if not scales_possible:
+                for transcription, _ in transcription_block_with_centroids.items():
+                    scale_possible = self.load_scale_from_text(transcription)
+                    if scale_possible:
+                        scales_possible.append(scale_possible)
+            scale = load_least_scale(scales_possible)
+            return scale
+
         height_in_pixels, width_in_pixels, _ = plan_BGR.shape
         (offset_top_left_X, offset_top_left_Y), (offset_bottom_right_X, offset_bottom_right_Y) = offset
         margin_X, margin_Y = 10 * round(width_in_pixels / 1920), 10 * round(height_in_pixels / 1080)
@@ -1184,66 +1220,101 @@ class FloorPlan2D(FloorPlan):
         _, canvas_buffer_array = cv2.imencode(".png", canvas)
         bytes_canvas = canvas_buffer_array.tobytes()
         query = Content(role="user", parts=[Part.from_data(data=bytes_canvas, mime_type="image/png")])
-        try:
-            if self._is_cached["SCALE_AND_CEILING_HEIGHT_DETECTOR"]:
-                response, ceiling_height_and_scale = phoenix_call(
-                    lambda feedback_prompt, temperature: self._vertex_ai_client_metadata_extraction.generate_content(
-                        contents=[feedback_prompt, query] if feedback_prompt else [query],
-                        generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
-                    ),
-                    max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
-                    pydantic_model=ScaleAndCeilingHeightDetectorResponse,
-                )
-            else:
-                response, ceiling_height_and_scale = phoenix_call(
-                    lambda feedback_prompt, temperature: self._vertex_ai_client_metadata_extraction(SCALE_AND_CEILING_HEIGHT_DETECTOR.format(supported_scales_architectural=self.scales_architectural)).generate_content(
-                        contents=[feedback_prompt, query] if feedback_prompt else [query],
-                        generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
-                    ),
-                    max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
-                    pydantic_model=ScaleAndCeilingHeightDetectorResponse,
-                )
-            ceiling_height = response.ceiling_height
-            if architectural_scale:
-                scale = normalize_scale(architectural_scale)
-            else:
+        ceiling_height_and_scale = dict(ceiling_height=self._height_in_feet, scale=self._scale)
+
+        scale, ceiling_height = None, None
+        if architectural_scale and standard_ceiling_height:
+            scale = normalize_scale(architectural_scale)
+            ceiling_height = standard_ceiling_height
+        elif not architectural_scale and standard_ceiling_height:
+            try:
+                if self._is_cached["SCALE_DETECTOR"]:
+                    response, _ = phoenix_call(
+                        lambda feedback_prompt, temperature: self._vertex_ai_client_metadata_scale_extraction.generate_content(
+                            contents=[feedback_prompt, query] if feedback_prompt else [query],
+                            generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
+                        ),
+                        max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
+                        pydantic_model=ScaleDetectorResponse,
+                    )
+                else:
+                    response, _ = phoenix_call(
+                        lambda feedback_prompt, temperature: self._vertex_ai_client_metadata_scale_extraction(SCALE_DETECTOR.format(supported_scales_architectural=self.scales_architectural)).generate_content(
+                            contents=[feedback_prompt, query] if feedback_prompt else [query],
+                            generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
+                        ),
+                        max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
+                        pydantic_model=ScaleDetectorResponse,
+                    )
                 if response.scale.upper() == "NULL":
                     scale = None
                 if response.scale:
                     scale = normalize_scale(response.scale)
-
                 if response.scale_confidence < 0.95:
-                    scales_possible = list()
-                    nearest_transcription_blocks = self._load_nearest_transcription_blocks(((LEFT + RIGHT) / 2, (TOP + BOTTOM) / 2), transcription_block_with_centroids)
-                    for transcription, _ in nearest_transcription_blocks.items():
-                        scale_possible = self.load_scale_from_text(transcription)
-                        if scale_possible:
-                            scales_possible.append(scale_possible)
-                    if not scales_possible:
-                        for transcription, _ in transcription_block_with_centroids.items():
-                            scale_possible = self.load_scale_from_text(transcription)
-                            if scale_possible:
-                                scales_possible.append(scale_possible)
-                    scale = load_least_scale(scales_possible)
-
-            if scale:
-                self._scale = scale
-                ceiling_height_and_scale["scale"] = scale
-                self._is_scale_detected = True
-            else:
-                ceiling_height_and_scale["scale"] = self._scale
-            if not ceiling_height:
-                ceiling_height_and_scale["ceiling_height"] = self._height_in_feet
-        except Exception as e:
-            if architectural_scale:
+                    scale = load_scale_from_OCR(LEFT, RIGHT, TOP, BOTTOM)
+                ceiling_height = standard_ceiling_height
+            except Exception as e:
+                logging.warning(f"SYSTEM: Standard Scale detection failed with error: {e}")
+        elif architectural_scale and not standard_ceiling_height:
+            try:
+                if self._is_cached["CEILING_HEIGHT_DETECTOR"]:
+                    response, _ = phoenix_call(
+                        lambda feedback_prompt, temperature: self._vertex_ai_client_metadata_ceiling_height_extraction.generate_content(
+                            contents=[feedback_prompt, query] if feedback_prompt else [query],
+                            generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
+                        ),
+                        max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
+                        pydantic_model=CeilingHeightDetectorResponse,
+                    )
+                else:
+                    response, _ = phoenix_call(
+                        lambda feedback_prompt, temperature: self._vertex_ai_client_metadata_ceiling_height_extraction(CEILING_HEIGHT_DETECTOR).generate_content(
+                            contents=[feedback_prompt, query] if feedback_prompt else [query],
+                            generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
+                        ),
+                        max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
+                        pydantic_model=CeilingHeightDetectorResponse,
+                    )
                 scale = normalize_scale(architectural_scale)
-                self._scale = scale
-                self._is_scale_detected = True
+                ceiling_height = response.ceiling_height
+            except Exception as e:
                 logging.warning(f"SYSTEM: Standard Ceiling Height detection failed with error: {e}")
-            else:
+        else:
+            try:
+                if self._is_cached["SCALE_AND_CEILING_HEIGHT_DETECTOR"]:
+                    response, _ = phoenix_call(
+                        lambda feedback_prompt, temperature: self._vertex_ai_client_metadata_extraction.generate_content(
+                            contents=[feedback_prompt, query] if feedback_prompt else [query],
+                            generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
+                        ),
+                        max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
+                        pydantic_model=ScaleAndCeilingHeightDetectorResponse,
+                    )
+                else:
+                    response, _ = phoenix_call(
+                        lambda feedback_prompt, temperature: self._vertex_ai_client_metadata_extraction(SCALE_AND_CEILING_HEIGHT_DETECTOR.format(supported_scales_architectural=self.scales_architectural)).generate_content(
+                            contents=[feedback_prompt, query] if feedback_prompt else [query],
+                            generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
+                        ),
+                        max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
+                        pydantic_model=ScaleAndCeilingHeightDetectorResponse,
+                    )
+                ceiling_height = response.ceiling_height
+                if response.scale.upper() == "NULL":
+                    scale = None
+                if response.scale:
+                    scale = normalize_scale(response.scale)
+                if response.scale_confidence < 0.95:
+                    scale = load_scale_from_OCR(LEFT, RIGHT, TOP, BOTTOM)
+            except Exception as e:
                 logging.warning(f"SYSTEM: Standard Scale and Ceiling Height detection failed with error: {e}")
 
-            ceiling_height_and_scale = dict(ceiling_height=self._height_in_feet, scale=self._scale)
+        if scale:
+            self._scale = scale
+            ceiling_height_and_scale["scale"] = scale
+            self._is_scale_detected = True
+        if ceiling_height:
+            ceiling_height_and_scale["ceiling_height"] = ceiling_height
 
         new_pixel_aspect_ratio_to_feet = self.compute_pixel_aspect_ratio(ceiling_height_and_scale["scale"], self._hyperparameters["pixel_aspect_ratio_to_feet"])
         self._hyperparameters["pixel_aspect_ratio_to_feet"] = new_pixel_aspect_ratio_to_feet
@@ -2906,6 +2977,7 @@ class FloorPlan2D(FloorPlan):
         floor_plan_path="/tmp/floor_plan.png",
         transcription_block_with_centroids=dict(),
         architectural_scale=None,
+        standard_ceiling_height=None,
     ):
         image_GRAY = self.read_floor_plan(image_path)
 
@@ -2917,7 +2989,8 @@ class FloorPlan2D(FloorPlan):
             offset,
             canvas,
             transcription_block_with_centroids,
-            architectural_scale=architectural_scale
+            architectural_scale=architectural_scale,
+            standard_ceiling_height=standard_ceiling_height
         )["ceiling_height"]
         if not self._is_scale_detected:
             return None, None, None, None
@@ -3029,6 +3102,7 @@ class FloorPlan2D(FloorPlan):
         floor_plan_path="/tmp/floor_plan.png",
         transcription_block_with_centroids=dict(),
         architectural_scale=None,
+        standard_ceiling_height=None,
     ):
         image_GRAY = self.read_floor_plan(image_path)
 
@@ -3040,7 +3114,8 @@ class FloorPlan2D(FloorPlan):
             offset,
             canvas,
             transcription_block_with_centroids,
-            architectural_scale=architectural_scale
+            architectural_scale=architectural_scale,
+            standard_ceiling_height=standard_ceiling_height
         )["ceiling_height"]
         if not self._is_scale_detected:
             return None, None, None, None
