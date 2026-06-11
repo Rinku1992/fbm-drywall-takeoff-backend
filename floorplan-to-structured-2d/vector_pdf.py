@@ -188,10 +188,9 @@ def timed(prefix: str, context: str, message: str):
 # since a cover / site / survey page can be image-only in an otherwise vector
 # set) and short-circuit as soon as one page clears the text threshold.
 VECTOR_TEXT_MIN_CHARS = 100   # a real drawing's text layer easily exceeds this
-VECTOR_SAMPLE_PAGES = 3       # max pages to sample before deciding
 
 
-def is_vector(pdf_path, project_id, plan_id) -> bool:
+def is_vector(pdf_path, project_id, plan_id, page_number) -> bool:
     """True if the PDF has an extractable text layer (fast, text-first)."""
     context = ctx(project_id, plan_id)
     with timed("[VECTOR]", context, "is_vector detection"):
@@ -206,17 +205,14 @@ def is_vector(pdf_path, project_id, plan_id) -> bool:
             if n == 0:
                 logger.info(f"[VECTOR] [{context}] pages=0 => is_vector=False")
                 return False
-            sample = min(VECTOR_SAMPLE_PAGES, n)
-            max_text = 0
-            for i in range(sample):
-                text_len = len((doc.load_page(i).get_text("text") or "").strip())
-                max_text = max(max_text, text_len)
-                if text_len >= VECTOR_TEXT_MIN_CHARS:
-                    logger.info(f"[VECTOR] [{context}] pages={n} sampled={i + 1} "
-                                f"text_chars={text_len} => is_vector=True")
-                    return True   # short-circuit; no need to check more pages
-            logger.info(f"[VECTOR] [{context}] pages={n} sampled={sample} "
-                        f"max_text_chars={max_text} => is_vector=False")
+
+            text_len = len((doc.load_page(page_number).get_text("text") or "").strip())
+            if text_len >= VECTOR_TEXT_MIN_CHARS:
+                logger.info(f"[VECTOR] [{context}] pages={n} sampled={page_number + 1} "
+                            f"text_chars={text_len} => is_vector=True")
+                return True   # short-circuit; no need to check more pages
+            logger.info(f"[VECTOR] [{context}] pages={n} sampled={page_number} "
+                        f"max_text_chars={text_len} => is_vector=False")
             return False
         finally:
             doc.close()
