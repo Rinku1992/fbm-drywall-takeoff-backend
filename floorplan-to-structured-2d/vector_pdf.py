@@ -44,7 +44,7 @@ SCALE_RE = re.compile(
         (?:\s*/\s*\d+)?
         (?:\s+\d+\s*/\s*\d+)?
     )
-    \s* {_INCH}? \s* = \s*
+    [^\S\n]* {_INCH}? [^\S\n]* = [^\S\n]*
     (?P<feet>\d+) \s* {_FOOT}
     (?:
         [^\S\n]* -? [^\S\n]*
@@ -56,6 +56,12 @@ SCALE_RE = re.compile(
 )
 
 _LABEL_RE = re.compile(r"scale", re.IGNORECASE)
+
+# Source of truth: floorplan-to-structured-2d/floor_plan.py:17 scales_architectural.
+# Keep in sync if that list changes (cross-service, can't import directly).
+_VALID_SCALE_DECIMALS = {
+    0.046875, 0.03125, 0.0625, 0.09375, 0.125, 0.1875, 0.25, 0.375, 0.5, 0.75, 1.0
+}
 
 
 def _paper_decimal(left: str) -> float:
@@ -81,6 +87,9 @@ def find_scales(text: str):
         return []
     results = []
     for m in SCALE_RE.finditer(text):
+        paper = _paper_decimal(m.group("left"))
+        if not any(abs(paper - v) < 1e-6 for v in _VALID_SCALE_DECIMALS):
+            continue  # left value not a supported architectural scale -> reject
         canonical = to_canonical(m.group("left"), m.group("feet"), m.group("inches"))
         look_back = text[max(0, m.start() - 20): m.start()]
         results.append({
@@ -182,7 +191,7 @@ VECTOR_TEXT_MIN_CHARS = 100   # a real drawing's text layer easily exceeds this
 VECTOR_SAMPLE_PAGES = 3       # max pages to sample before deciding
 
 
-def is_vector(pdf_path, project_id, plan_id) -> bool:
+def detect_is_vector(pdf_path, project_id, plan_id) -> bool:
     """True if the PDF has an extractable text layer (fast, text-first)."""
     context = ctx(project_id, plan_id)
     with timed("[VECTOR]", context, "is_vector detection"):
@@ -268,7 +277,7 @@ if __name__ == "__main__":
         ('GROUND FLOOR PLAN\nSCALE:  1/4" = 1\'\nA1', "0.25``:1`0``"),
         ('SCALE: 1/8"=1\'0"', "0.125``:1`0``"),
         ('3/16" = 1\'-0"', "0.1875``:1`0``"),
-        ('1 1/2" = 1\'-0"', "1.5``:1`0``"),
+        ('1 1/2" = 1\'-0"', None),          # 1.5 not in scales_architectural -> reject
         ('29\'-0" dimension only', None),   # must NOT match (no '=')
     ]
     ok = 0
@@ -277,6 +286,13 @@ if __name__ == "__main__":
         ok += (got == exp)
         print(f"[{'PASS' if got==exp else 'FAIL'}] {txt!r:40s} -> {got!r} (exp {exp!r})")
     print(f"{ok}/{len(SAMPLES)} passed")
+
+    # reject out-of-set left values; keep valid ones (incl. small valid scale)
+    assert best_scale("310\" = 1'-0\"")  is None
+    assert best_scale("2026\" = 1'-0\"") is None
+    assert best_scale("1/4\" = 1'-0\"")  == "0.25``:1`0``"
+    assert best_scale("3/32\" = 1'-0\"") == "0.09375``:1`0``"
+    print("scale rejection checks passed")
 
     from collections import Counter as _C  # ensure import present
     assert best_ceiling("LIVING 10' CEILING KITCHEN 10' CEILING BED 9' CEILING") == 10.0
