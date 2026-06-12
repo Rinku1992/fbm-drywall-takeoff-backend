@@ -75,6 +75,10 @@ CREATE TABLE pages (
 
     is_floorplan BOOLEAN DEFAULT FALSE,
 
+    is_vector BOOLEAN,
+    vector_scale TEXT,
+    vector_ceiling_height DOUBLE PRECISION,
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
