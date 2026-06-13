@@ -373,6 +373,40 @@ async def floorplan_to_structured_2d(request: Request):
         )
         return respond_with_UI_payload(dict(status="SUCCESS", message="NO Floor Plan layout observed"))
 
+    is_vector, scale, standard_ceiling_height = await load_metadata_from_vector_pdf(
+        CREDENTIALS,
+        pg_pool,
+        pdf_path,
+        project_id,
+        plan_id,
+        page_number
+    )
+    if not architectural_scale and is_vector:
+        architectural_scale = scale
+    if is_vector and not architectural_scale:
+        future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
+        future.result()
+        await insert_page(
+            plan_id,
+            user_id,
+            project_id,
+            page_number,
+            True,
+            "SCALE_NOT_DETECTED",
+            pg_pool,
+            CREDENTIALS,
+        )
+        await trigger_email_notification(
+            CREDENTIALS,
+            pg_pool,
+            "SCALE NOT DETECTED",
+            project_id,
+            plan_id,
+            user_id,
+            page_number=page_number
+        )
+        return respond_with_UI_payload(dict(status="SUCCESS", message="NO Architectural Scale detected"))
+
     futures = dict()
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures["floorplan_to_walls"] = executor.submit(
@@ -453,9 +487,6 @@ async def floorplan_to_structured_2d(request: Request):
         futures = list()
         vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES)
         scale_detected = True
-        is_vector, scale, standard_ceiling_height = await load_metadata_from_vector_pdf(CREDENTIALS, pg_pool, pdf_path, project_id, plan_id, page_number)
-        if not architectural_scale and is_vector:
-            architectural_scale = scale
         for bounding_box_offset in bounding_box_offsets:
             logging.info(f"SYSTEM: Extracting structured model from SECTION: {bounding_box_offset["title"]} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
             floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES)
