@@ -1611,6 +1611,11 @@ async def update_floorplan_to_2d(request: Request):
 
     hyperparameters = load_hyperparameters()
 
+    query = f"SELECT model_2d->'walls_2d' AS walls_2d FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
+    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
+    walls_2d = query_output[0]["walls_2d"]
+    walls_2d_JSON_outdated = json.loads(walls_2d) if isinstance(walls_2d, str) else walls_2d
+
     for wall in walls_2d_JSON[:]:
         for drywall in wall["polygons_drywall"][:]:
             if not drywall["enabled"] or drywall["type"].upper() == "DISABLED":
@@ -1670,6 +1675,8 @@ async def update_floorplan_to_2d(request: Request):
                         wall_2d["polygons_drywall"][1]["room_name"] = polygon["room_name"]
                     break
         polygon["polygon_ids_drywall_interior"] = polygon_ids_drywall_interior
+
+    walls_2d_JSON = plan.detect_and_recover_from_polygon_drywall_anomaly(walls_2d_JSON, walls_2d_JSON_outdated)
     await insert_model_2d(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), scale, index, plan_id, user_id, project_id, None, None, pg_pool, CREDENTIALS, page_section_number=page_section_number)
     await insert_model_2d_revision(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), scale, index, plan_id, user_id, project_id, pg_pool, CREDENTIALS, page_section_number=page_section_number)
     logging.info("SYSTEM: Floorplan 2D Model Updated Successfully")
