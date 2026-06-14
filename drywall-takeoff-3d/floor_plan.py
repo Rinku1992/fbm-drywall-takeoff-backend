@@ -763,3 +763,16 @@ class FloorPlan:
             return area
         theta = math.radians(slope)
         return round(area / math.cos(theta), 2)
+
+    @classmethod
+    def detect_and_recover_from_polygon_drywall_anomaly(cls, walls_2d_JSON_updated, walls_2d_JSON_outdated):
+        walls_2d_JSON_outdated = sorted(walls_2d_JSON_outdated, key=lambda wall_2d: wall_2d["id"])
+        walls_2d_JSON_updated = sorted(walls_2d_JSON_updated, key=lambda wall_2d: wall_2d["id"])
+        for wall_2d_outdated, wall_2d_updated in zip(walls_2d_JSON_outdated, walls_2d_JSON_updated[:]):
+            polygons_drywall_outdated = sorted(wall_2d_outdated["polygons_drywall"], key=lambda polygon_drywall: polygon_drywall["id"])
+            polygons_drywall_updated = sorted(wall_2d_updated["polygons_drywall"][:], key=lambda polygon_drywall: polygon_drywall["id"])
+            for polygon_drywall_outdated, polygon_drywall_updated in zip(polygons_drywall_outdated, polygons_drywall_updated[:]):
+                polygon_drywall_updated["polygon"] = polygon_drywall_outdated["polygon"]
+            wall_2d_updated["polygons_drywall"] = polygons_drywall_updated
+
+        return walls_2d_JSON_updated
