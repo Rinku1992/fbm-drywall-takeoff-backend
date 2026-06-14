@@ -773,6 +773,7 @@ class FloorPlan:
             polygons_drywall_updated = sorted(wall_2d_updated["polygons_drywall"][:], key=lambda polygon_drywall: polygon_drywall["id"])
             for polygon_drywall_outdated, polygon_drywall_updated in zip(polygons_drywall_outdated, polygons_drywall_updated[:]):
                 polygon_drywall_updated["polygon"] = polygon_drywall_outdated["polygon"]
+                polygon_drywall_updated["color"] = polygon_drywall_outdated["color"]
             wall_2d_updated["polygons_drywall"] = polygons_drywall_updated
 
         return walls_2d_JSON_updated
