@@ -765,10 +765,12 @@ class FloorPlan:
         return round(area / math.cos(theta), 2)
 
     @classmethod
-    def detect_and_recover_from_polygon_drywall_anomaly(cls, walls_2d_JSON_updated, walls_2d_JSON_outdated):
+    def detect_and_recover_from_polygon_drywall_anomaly(cls, walls_2d_JSON_updated, polygons_JSON_updated, walls_2d_JSON_outdated, polygons_JSON_outdated):
         walls_2d_JSON_outdated = sorted(walls_2d_JSON_outdated, key=lambda wall_2d: wall_2d["id"])
         walls_2d_JSON_updated = sorted(walls_2d_JSON_updated, key=lambda wall_2d: wall_2d["id"])
         for wall_2d_outdated, wall_2d_updated in zip(walls_2d_JSON_outdated, walls_2d_JSON_updated[:]):
+            if wall_2d_updated["wall_line"] != wall_2d_outdated["wall_line"]:
+                continue
             polygons_drywall_outdated = sorted(wall_2d_outdated["polygons_drywall"], key=lambda polygon_drywall: polygon_drywall["id"])
             polygons_drywall_updated = sorted(wall_2d_updated["polygons_drywall"][:], key=lambda polygon_drywall: polygon_drywall["id"])
             for polygon_drywall_outdated, polygon_drywall_updated in zip(polygons_drywall_outdated, polygons_drywall_updated[:]):
@@ -776,4 +778,10 @@ class FloorPlan:
                 polygon_drywall_updated["color"] = polygon_drywall_outdated["color"]
             wall_2d_updated["polygons_drywall"] = polygons_drywall_updated
 
-        return walls_2d_JSON_updated
+        polygons_JSON_outdated = sorted(polygons_JSON_outdated, key=lambda polygon: polygon["id"])
+        polygons_JSON_updated = sorted(polygons_JSON_updated, key=lambda polygon: polygon["id"])
+        for polygon_outdated, polygon_updated in zip(polygons_JSON_outdated, polygons_JSON_updated[:]):
+            if polygon_updated["vertices"] == polygon_outdated["vertices"]:
+                polygon_updated["polygon_ids_drywall_interior"] = polygon_outdated["polygon_ids_drywall_interior"]
+
+        return walls_2d_JSON_updated, polygons_JSON_updated
