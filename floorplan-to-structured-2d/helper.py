@@ -919,7 +919,17 @@ async def trigger_email_notification(
             message=message,
         )
 
-async def load_metadata_from_vector_pdf(credentials, pg_pool, pdf_path, project_id, plan_id, page_number):
+async def load_metadata_from_vector_pdf(
+    credentials,
+    pg_pool,
+    pdf_path,
+    project_id,
+    plan_id,
+    page_number,
+    bounding_box_offsets
+):
+    vector_scales = [None for _ in bounding_box_offsets]
+    vector_ceiling_heights = [None for _ in bounding_box_offsets]
     query = (
         f"SELECT is_vector, vector_scale, vector_ceiling_height FROM {credentials["CloudSQL"]["table_name_pages"]} "
         f"WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
@@ -927,11 +937,12 @@ async def load_metadata_from_vector_pdf(credentials, pg_pool, pdf_path, project_
     query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number,), fetch=True))
     if query_output and query_output[0]["is_vector"] is not None:
         is_vector_pdf = query_output[0]["is_vector"]
-        metadata = dict()
         if is_vector_pdf:
-            metadata["scale"] = query_output[0]["vector_scale"]
-            metadata["ceiling_height"] = query_output[0]["vector_ceiling_height"]
-        return is_vector_pdf, metadata.get("scale"), metadata.get("ceiling_height")
+            vector_scales = query_output[0]["vector_scale"]
+            vector_scales = json.loads(vector_scales) if isinstance(vector_scales, str) else vector_scales
+            vector_ceiling_heights = query_output[0]["vector_ceiling_height"]
+            vector_ceiling_heights = json.loads(vector_ceiling_heights) if isinstance(vector_ceiling_heights, str) else vector_ceiling_heights
+        return is_vector_pdf, vector_scales, vector_ceiling_heights
 
     is_vector_pdf = is_vector(pdf_path, project_id, plan_id, page_number)
     query = (
@@ -941,31 +952,30 @@ async def load_metadata_from_vector_pdf(credentials, pg_pool, pdf_path, project_
     )
     await run_in_threadpool(partial(pg_run, pg_pool, query, params=(is_vector_pdf, project_id, plan_id, page_number,)))
 
-    metadata = dict()
     if is_vector_pdf:
-        metadata = extract_scales_for_page(
-            pdf_path, page_number, project_id, plan_id
+        metadata = extract_scales_from_sections_of_a_page(
+            pdf_path, page_number, bounding_box_offsets, project_id, plan_id, apply_pixel_margin_to_bounding_box
         )
-        if metadata.get("scale"):
-            query = (
-                f"UPDATE {credentials["CloudSQL"]["table_name_pages"]} "
-                f"SET vector_scale = %s "
-                f"WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) "
-                f"AND page_number = %s;"
-            )
-            await run_in_threadpool(partial(
-                pg_run, pg_pool, query,
-                params=(metadata["scale"], project_id, plan_id, int(page_number),)
-            ))
-        if metadata.get("ceiling_height") is not None:
-            query = (
-                f"UPDATE {credentials["CloudSQL"]["table_name_pages"]} "
-                f"SET vector_ceiling_height = %s "
-                f"WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) "
-                f"AND page_number = %s;"
-            )
-            await run_in_threadpool(partial(
-                pg_run, pg_pool, query,
-                params=(float(metadata["ceiling_height"]), project_id, plan_id, int(page_number),)
-            ))
-    return is_vector_pdf, metadata.get("scale"), metadata.get("ceiling_height")
+        vector_scales = [data["scale"] for data in metadata]
+        query = (
+            f"UPDATE {credentials["CloudSQL"]["table_name_pages"]} "
+            f"SET vector_scale = %s "
+            f"WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) "
+            f"AND page_number = %s;"
+        )
+        await run_in_threadpool(partial(
+            pg_run, pg_pool, query,
+            params=(json.dumps(vector_scales), project_id, plan_id, int(page_number),)
+        ))
+        vector_ceiling_heights = [data["ceiling_height"] for data in metadata]
+        query = (
+            f"UPDATE {credentials["CloudSQL"]["table_name_pages"]} "
+            f"SET vector_ceiling_height = %s "
+            f"WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) "
+            f"AND page_number = %s;"
+        )
+        await run_in_threadpool(partial(
+            pg_run, pg_pool, query,
+            params=(json.dumps(vector_ceiling_heights), project_id, plan_id, int(page_number),)
+        ))
+    return is_vector_pdf, vector_scales, vector_ceiling_heights
