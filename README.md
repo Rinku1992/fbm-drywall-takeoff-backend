@@ -76,8 +76,8 @@ CREATE TABLE pages (
     is_floorplan BOOLEAN DEFAULT FALSE,
 
     is_vector BOOLEAN,
-    vector_scale TEXT,
-    vector_ceiling_height DOUBLE PRECISION,
+    vector_scale JSONB DEFAULT '{}'::jsonb,
+    vector_ceiling_height JSONB DEFAULT '{}'::jsonb,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
