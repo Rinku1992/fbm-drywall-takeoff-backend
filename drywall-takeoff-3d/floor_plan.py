@@ -775,7 +775,8 @@ class FloorPlan:
         for wall_2d_outdated, wall_2d_updated in zip(walls_2d_JSON_outdated, walls_2d_JSON_updated[:]):
             wall_line_updated = [[wall_2d_updated["wall_line"][0]['x'], wall_2d_updated["wall_line"][0]['y'], wall_2d_updated["wall_line"][1]['x'], wall_2d_updated["wall_line"][1]['y']]]
             wall_line_outdated = [[wall_2d_outdated["wall_line"][0]['x'], wall_2d_outdated["wall_line"][0]['y'], wall_2d_outdated["wall_line"][1]['x'], wall_2d_outdated["wall_line"][1]['y']]]
-            wall_line_updated, wall_line_outdated = cls.normalize([wall_line_updated, wall_line_outdated])
+            wall_line_updated = cls.normalize([wall_line_updated])[0]
+            wall_line_outdated = cls.normalize([wall_line_outdated])[0]
             if wall_line_updated != wall_line_outdated:
                 continue
             polygons_drywall_outdated = sorted(wall_2d_outdated["polygons_drywall"], key=lambda polygon_drywall: polygon_drywall["id"])
