@@ -373,16 +373,17 @@ async def floorplan_to_structured_2d(request: Request):
         )
         return respond_with_UI_payload(dict(status="SUCCESS", message="NO Floor Plan layout observed"))
 
-    is_vector, scale, standard_ceiling_height = await load_metadata_from_vector_pdf(
+    is_vector, scales, standard_ceiling_heights = await load_metadata_from_vector_pdf(
         CREDENTIALS,
         pg_pool,
         pdf_path,
         project_id,
         plan_id,
-        page_number
+        page_number,
+        bounding_box_offsets,
     )
     if not architectural_scale and is_vector:
-        architectural_scale = scale
+        architectural_scale = scales
     if is_vector and not architectural_scale:
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
         future.result()
@@ -487,7 +488,9 @@ async def floorplan_to_structured_2d(request: Request):
         futures = list()
         vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES)
         scale_detected = True
-        for bounding_box_offset in bounding_box_offsets:
+        architectural_scales = architectural_scale
+        architectural_scales = architectural_scales if isinstance(architectural_scales, list) else [architectural_scales for _ in bounding_box_offsets]
+        for bounding_box_offset, architectural_scale, standard_ceiling_height in zip(bounding_box_offsets, architectural_scales, standard_ceiling_heights):
             logging.info(f"SYSTEM: Extracting structured model from SECTION: {bounding_box_offset["title"]} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
             floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES)
             floor_plan_modeller_2d.from_vertex_ai_clients(*vertex_ai_clients)
