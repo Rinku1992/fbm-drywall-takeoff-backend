@@ -148,7 +148,8 @@ class FloorPlan:
         self._lines_classified[line_id] = orientation
         return orientation
 
-    def normalize(self, lines):
+    @classmethod
+    def normalize(cls, lines):
         if lines is None:
             return lines
         normalized_lines = list()
@@ -772,7 +773,10 @@ class FloorPlan:
         walls_2d_JSON_outdated = sorted(walls_2d_JSON_outdated, key=lambda wall_2d: json.dumps(wall_2d["wall_line"]))
         walls_2d_JSON_updated = sorted(walls_2d_JSON_updated, key=lambda wall_2d: json.dumps(wall_2d["wall_line"]))
         for wall_2d_outdated, wall_2d_updated in zip(walls_2d_JSON_outdated, walls_2d_JSON_updated[:]):
-            if wall_2d_updated["wall_line"] != wall_2d_outdated["wall_line"]:
+            wall_line_updated = [[wall_2d_updated["wall_line"][0]['x'], wall_2d_updated["wall_line"][0]['y'], wall_2d_updated["wall_line"][1]['x'], wall_2d_updated["wall_line"][1]['y']]]
+            wall_line_outdated = [[wall_2d_outdated["wall_line"][0]['x'], wall_2d_outdated["wall_line"][0]['y'], wall_2d_outdated["wall_line"][1]['x'], wall_2d_outdated["wall_line"][1]['y']]]
+            wall_line_updated, wall_line_outdated = cls.normalize([wall_line_updated, wall_line_outdated])
+            if wall_line_updated != wall_line_outdated:
                 continue
             polygons_drywall_outdated = sorted(wall_2d_outdated["polygons_drywall"], key=lambda polygon_drywall: polygon_drywall["id"])
             polygons_drywall_updated = sorted(wall_2d_updated["polygons_drywall"][:], key=lambda polygon_drywall: polygon_drywall["id"])
