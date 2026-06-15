@@ -767,6 +767,8 @@ class FloorPlan:
 
     @classmethod
     def detect_and_recover_from_polygon_drywall_anomaly(cls, walls_2d_JSON_updated, polygons_JSON_updated, walls_2d_JSON_outdated, polygons_JSON_outdated):
+        if not walls_2d_JSON_updated or not walls_2d_JSON_outdated or not polygons_JSON_updated or not polygons_JSON_outdated:
+            return list(), list()
         walls_2d_JSON_outdated = sorted(walls_2d_JSON_outdated, key=lambda wall_2d: json.dumps(wall_2d["wall_line"]))
         walls_2d_JSON_updated = sorted(walls_2d_JSON_updated, key=lambda wall_2d: json.dumps(wall_2d["wall_line"]))
         for wall_2d_outdated, wall_2d_updated in zip(walls_2d_JSON_outdated, walls_2d_JSON_updated[:]):
