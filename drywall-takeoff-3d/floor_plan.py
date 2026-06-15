@@ -768,28 +768,38 @@ class FloorPlan:
 
     @classmethod
     def detect_and_recover_from_polygon_drywall_anomaly(cls, walls_2d_JSON_updated, polygons_JSON_updated, walls_2d_JSON_outdated, polygons_JSON_outdated):
+        def load_matched_wall_drywall(wall_line):
+            for wall_2d_outdated in walls_2d_JSON_outdated:
+                wall_line_outdated = [[wall_2d_outdated["wall_line"][0]['x'], wall_2d_outdated["wall_line"][0]['y'], wall_2d_outdated["wall_line"][1]['x'], wall_2d_outdated["wall_line"][1]['y']]]
+                wall_line_outdated = cls.normalize([wall_line_outdated])[0]
+                if wall_line == wall_line_outdated:
+                    return wall_2d_outdated["polygons_drywall"]
+
+        def load_matched_polygon_drywall_interior(polygon_vertices):
+            for polygon_outdated in polygons_JSON_outdated:
+                if polygon_vertices == polygon_outdated["vertices"]:
+                    return polygon_outdated["polygon_ids_drywall_interior"]
+
         if not walls_2d_JSON_updated or not walls_2d_JSON_outdated or not polygons_JSON_updated or not polygons_JSON_outdated:
             return list(), list()
-        walls_2d_JSON_outdated = sorted(walls_2d_JSON_outdated, key=lambda wall_2d: json.dumps(wall_2d["wall_line"]))
         walls_2d_JSON_updated = sorted(walls_2d_JSON_updated, key=lambda wall_2d: json.dumps(wall_2d["wall_line"]))
-        for wall_2d_outdated, wall_2d_updated in zip(walls_2d_JSON_outdated, walls_2d_JSON_updated[:]):
+        for wall_2d_updated in walls_2d_JSON_updated[:]:
             wall_line_updated = [[wall_2d_updated["wall_line"][0]['x'], wall_2d_updated["wall_line"][0]['y'], wall_2d_updated["wall_line"][1]['x'], wall_2d_updated["wall_line"][1]['y']]]
-            wall_line_outdated = [[wall_2d_outdated["wall_line"][0]['x'], wall_2d_outdated["wall_line"][0]['y'], wall_2d_outdated["wall_line"][1]['x'], wall_2d_outdated["wall_line"][1]['y']]]
             wall_line_updated = cls.normalize([wall_line_updated])[0]
-            wall_line_outdated = cls.normalize([wall_line_outdated])[0]
-            if wall_line_updated != wall_line_outdated:
+            polygons_drywall_outdated = load_matched_wall_drywall(wall_line_updated)
+            if not polygons_drywall_outdated:
                 continue
-            polygons_drywall_outdated = sorted(wall_2d_outdated["polygons_drywall"], key=lambda polygon_drywall: polygon_drywall["id"])
+            polygons_drywall_outdated = sorted(polygons_drywall_outdated, key=lambda polygon_drywall: polygon_drywall["id"])
             polygons_drywall_updated = sorted(wall_2d_updated["polygons_drywall"][:], key=lambda polygon_drywall: polygon_drywall["id"])
             for polygon_drywall_outdated, polygon_drywall_updated in zip(polygons_drywall_outdated, polygons_drywall_updated[:]):
                 polygon_drywall_updated["polygon"] = polygon_drywall_outdated["polygon"]
                 polygon_drywall_updated["color"] = polygon_drywall_outdated["color"]
             wall_2d_updated["polygons_drywall"] = polygons_drywall_updated
 
-        polygons_JSON_outdated = sorted(polygons_JSON_outdated, key=lambda polygon: json.dumps(polygon["vertices"]))
         polygons_JSON_updated = sorted(polygons_JSON_updated, key=lambda polygon: json.dumps(polygon["vertices"]))
-        for polygon_outdated, polygon_updated in zip(polygons_JSON_outdated, polygons_JSON_updated[:]):
-            if polygon_updated["vertices"] == polygon_outdated["vertices"]:
-                polygon_updated["polygon_ids_drywall_interior"] = polygon_outdated["polygon_ids_drywall_interior"]
+        for polygon_updated in polygons_JSON_updated[:]:
+            polygon_ids_drywall_interior_outdated = load_matched_polygon_drywall_interior(polygon_updated["vertices"])
+            if polygon_ids_drywall_interior_outdated:
+                polygon_updated["polygon_ids_drywall_interior"] = polygon_ids_drywall_interior_outdated
 
         return walls_2d_JSON_updated, polygons_JSON_updated
