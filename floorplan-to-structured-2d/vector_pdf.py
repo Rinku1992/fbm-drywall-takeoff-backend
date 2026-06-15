@@ -25,6 +25,7 @@ from contextlib import contextmanager
 
 import fitz  # PyMuPDF
 
+
 logger = logging.getLogger("vector_scale")
 
 # ─────────────────────────── scale parser ────────────────────────────────────
@@ -180,6 +181,12 @@ def timed(prefix: str, context: str, message: str):
                     f"{time.perf_counter() - t0:.3f}s")
 
 
+def _clip_rect_for_box(page, bounding_box_offset, apply_pixel_margin_to_bounding_box_helper, margin=100):
+    """fitz.Rect (PDF points) for one box, matching load_section_from_page's ±0.05 margin."""
+
+    (left, top), (right, bottom) = apply_pixel_margin_to_bounding_box_helper(bounding_box_offset, margin_offset=margin)
+    W, H = page.rect.width, page.rect.height
+    return fitz.Rect(left * W, top * H, right * W, bottom * H)
 # ─────────────────────── vector detection (fast, text-first) ─────────────────
 # "Vector" = the PDF has an extractable text layer. That is the cheap, reliable
 # signal: get_text() returns plenty of text for vector PDFs and ~nothing for
@@ -217,41 +224,50 @@ def is_vector(pdf_path, project_id, plan_id, page_number) -> bool:
             doc.close()
 
 
-def _extract_one(pdf_path, page_number, project_id, plan_id):
-    """Open the PDF, read one page's text, parse scale + ceiling.
-    Returns (page, {"scale": ..., "ceiling_height": ...})."""
+def extract_scales_from_sections_of_a_page(pdf_path, page_number, bounding_box_offsets, project_id, plan_id, apply_pixel_margin_to_bounding_box_helper):
+    """
+    Open the PDF ONCE and extract scale + ceiling per bounding box via clip=rect.
+    Returns a list aligned 1:1 with bounding_box_offsets:
+        [{"scale": str|None, "ceiling_height": float|None}, ...]
+    Never raises: any failure (open/load/degenerate box) degrades that box — or all
+    boxes — to {"scale": None, "ceiling_height": None}.
+    """
     context = ctx(project_id, plan_id, page_number)
+    results = [{"scale": None, "ceiling_height": None} for _ in bounding_box_offsets]
+    if not bounding_box_offsets:
+        return results
     try:
-        with timed("[VECTOR_SCALE]", context, "extract"):
+        with timed("[VECTOR_SCALE]", context,
+                   f"per-box extraction ({len(bounding_box_offsets)} boxes)"):
             doc = fitz.open(pdf_path)
             try:
-                text = doc.load_page(page_number).get_text("text") or ""
+                page = doc.load_page(page_number)
+                for index, bounding_box_offset in enumerate(bounding_box_offsets):
+                    try:
+                        clip = _clip_rect_for_box(page, bounding_box_offset, apply_pixel_margin_to_bounding_box_helper)
+                        text = page.get_text("text", clip=clip) or ""
+                        scale = best_scale(text)
+                        ceiling_height = best_ceiling(text)
+                        if not scale:
+                            text = page.get_text("text") or ""
+                            scale = best_scale(text)
+                        if not ceiling_height:
+                            text = page.get_text("text") or ""
+                            ceiling_height = best_ceiling(text)
+                        results[index] = {"scale": scale, "ceiling_height": ceiling_height}
+                    except Exception as e:
+                        logger.warning(f"[VECTOR_SCALE] [{context}] box {index} extraction failed: {e}; "
+                                       f"section falls back to LLM")
             finally:
                 doc.close()
-            scale = best_scale(text)
-            ceiling = best_ceiling(text)
-            logger.info(f"[VECTOR_SCALE] [{context}] scale={scale!r} "
-                        f"ceiling_height={ceiling!r}")
-            return page_number, {"scale": scale, "ceiling_height": ceiling}
     except Exception as e:
-        logger.warning(f"[VECTOR_SCALE] [{context}] extraction failed: {e}; "
-                       f"page will fall back to existing flow")
-        return page_number, {"scale": None, "ceiling_height": None}
-
-
-def extract_scales_for_page(pdf_path, page_number, project_id, plan_id):
-    """
-    Extract scale + ceiling for each (0-indexed) page in parallel.
-    Returns {page_number: {"scale": str|None, "ceiling_height": float|None}}.
-    Never raises.
-    """
-    context = ctx(project_id, plan_id)
-    with timed("[VECTOR_SCALE]", context,
-               f"scale extraction for floor_plan page {page_number}"):
-        _, info = _extract_one(pdf_path, page_number, project_id, plan_id)
-    logger.info(f"[VECTOR_SCALE] [{context}] summary: scale {info["scale"]},/"
-                f"ceiling {info["ceiling_height"]}")
-    return info
+        logger.warning(f"[VECTOR_SCALE] [{context}] per-box extraction failed: {e}; "
+                       f"all sections fall back to LLM")
+    found_scale = sum(1 for r in results if r["scale"])
+    found_ceiling = sum(1 for r in results if r["ceiling_height"] is not None)
+    logger.info(f"[VECTOR_SCALE] [{context}] per-box summary: scale {found_scale}/"
+                f"{len(bounding_box_offsets)}, ceiling {found_ceiling}/{len(bounding_box_offsets)}")
+    return results
 
 
 # ─────────────────────────── self-test ───────────────────────────────────────
