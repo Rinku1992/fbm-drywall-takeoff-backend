@@ -385,7 +385,7 @@ async def floorplan_to_structured_2d(request: Request):
     scale_vector_is_none = not architectural_scale
     if not architectural_scale and is_vector:
         architectural_scale = scales
-        scale_vector_is_none = [scale is None for scale in scales]
+        scale_vector_is_none = sum([scale is None for scale in scales])
     if is_vector and scale_vector_is_none:
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
         future.result()
