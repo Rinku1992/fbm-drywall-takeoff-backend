@@ -371,8 +371,27 @@ VISUAL_GROUNDING_DETECTOR = """
         3. For EACH detected drawing:
             - classify the drawing type,
             - identify its title,
-            - compute a tight normalized bounding box,
+            - Compute a DRAWING EXTENT bounding box.
+                A drawing extent bounding box MUST include:
+                    - wall geometry,
+                    - all associated dimension lines,
+                    - leaders,
+                    - annotations,
+                    - drawing title,
+                    - nearby architectural symbols,
+                    - extension lines connected to the drawing.
+                The box MUST tightly enclose the OUTERMOST drawing-related marks.
+                DO NOT crop to room geometry only.
+                DO NOT crop to walls only.
+                For architectural floor plans, the bounding box is expected to extend beyond the walls to include dimension chains and title text.
+                If dimension lines exist, they MUST be inside the box.
             - associate nearby annotations and dimension lines with the drawing.
+            - VALIDATION RULE:
+                For FLOOR_PLAN pages:
+                    - bounding box width should generally exceed the wall footprint by 10-30%.
+                    - drawing title MUST lie inside the box.
+                    - outermost dimension strings MUST lie inside the box.
+                    - a floor plan bounding box that excludes dimension chains is INVALID.
 
         4. Detect page-level metadata/title-block regions typically located:
             - on the right side,
