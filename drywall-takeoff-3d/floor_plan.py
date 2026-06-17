@@ -564,7 +564,7 @@ class FloorPlan:
         return True
 
     def reshape_polygons(self, polygons, walls_2d, architectural_scale=None, resolution_scale=None):
-        def load_overlapped_polygons(open_polygon, polygons):
+        def load_overlapped_polygons(open_polygon, polygons, open_edges_flagged_grouped):
             overlapped_polygons = list()
             open_polygon_vertices = open_polygon["vertices"]
             if open_polygon_vertices[0] != open_polygon_vertices[-1]:
@@ -575,7 +575,9 @@ class FloorPlan:
             if open_polygon.is_empty:
                 return overlapped_polygons
 
-            for polygon in polygons:
+            for polygon, open_edges_flagged in zip(polygons, open_edges_flagged_grouped):
+                if not sum(open_edges_flagged):
+                    continue
                 polygon_vertices = polygon["vertices"]
                 if polygon_vertices[0] != polygon_vertices[-1]:
                     polygon_vertices = polygon_vertices + [polygon_vertices[0]]
@@ -685,7 +687,7 @@ class FloorPlan:
         if open_polygons:
             for open_polygon, open_edges in zip(open_polygons, open_edges_grouped):
                 polygon_id = [open_polygon["id"]]
-                overlapped_polygons = load_overlapped_polygons(open_polygon, polygons)
+                overlapped_polygons = load_overlapped_polygons(open_polygon, polygons, open_edges_flagged_grouped)
                 polygon_id.extend([overlapped_polygon["id"] for overlapped_polygon in overlapped_polygons])
                 for open_edge in open_edges:
                     master_polygons = load_master_polygons(open_edge, polygon_edges_grouped, polygons, open_edges_flagged_grouped)
