@@ -15,6 +15,7 @@ google-auth
 google-oauth
 pathlib
 pypdf
+pymupdf
 pdf2image
 pydantic
 python-multipart
