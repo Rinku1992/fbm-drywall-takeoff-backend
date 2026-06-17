@@ -64,6 +64,8 @@ from prompts import (
     FEEDBACK_GENERATOR
 )
 from preprocessing import preprocess
+from email_notification import trigger
+from vector_pdf import is_vector, extract_scale
 
 
 _pg_pool = None
@@ -1188,3 +1190,137 @@ def download_floorplan(plan_id, project_id, credentials, index=None, blob_name="
 
     blob.download_to_filename(destination_path)
     return f"gs://{credentials["CloudStorage"]["bucket_name"]}/{blob_path}"
+
+async def trigger_email_notification(
+    credentials,
+    pg_pool,
+    status,
+    project_id,
+    plan_id,
+    user_id,
+    page_number,
+    notify_group=False,
+):
+    message = f"Plan: {plan_id} | Page Number: {page_number} | Extraction: {status}"
+    query = f"SELECT group_id FROM {credentials["CloudSQL"]["table_name_users"]}, unnest(COALESCE(group_ids, ARRAY[]::text[])) AS group_id WHERE LOWER(user_id) = LOWER(%s)"
+    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(user_id,), fetch=True))
+    group_ids = [row["group_id"] for row in query_output]
+    group_id = " | ".join(group_ids)
+    if notify_group:
+        query = f"""
+            WITH current_user_cte AS (
+                SELECT %s AS user_id
+            ),
+
+            current_user_groups AS (
+                SELECT DISTINCT group_id
+                FROM {credentials["CloudSQL"]["table_name_users"]} u
+                CROSS JOIN unnest(COALESCE(u.group_ids, ARRAY[]::text[])) AS group_id
+                JOIN current_user_cte cu
+                    ON LOWER(u.user_id) = LOWER(cu.user_id)
+            ),
+
+            matching_users AS (
+                SELECT DISTINCT
+                    g.user_id
+                FROM {credentials["CloudSQL"]["table_name_groups"]} g
+                JOIN current_user_groups cug
+                    ON g.group_id = cug.group_id
+            ),
+
+            fallback_user AS (
+                SELECT cu.user_id
+                FROM current_user_cte cu
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM current_user_groups
+                )
+            ),
+
+            final_users AS (
+                SELECT user_id
+                FROM matching_users
+
+                UNION
+
+                SELECT user_id
+                FROM fallback_user
+            )
+
+            SELECT LOWER(user_id) AS user_id
+            FROM final_users
+        """
+        query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(user_id,), fetch=True))
+        user_ids_group = [row["user_id"] for row in query_output]
+        for user_id_group in user_ids_group:
+            trigger(
+                credentials,
+                user_id,
+                user_id_group,
+                user_id_group,
+                plan_id,
+                project_id,
+                page_number,
+                group_id,
+                message=message,
+            )
+    else:
+        trigger(
+            credentials,
+            user_id,
+            user_id,
+            user_id,
+            plan_id,
+            project_id,
+            page_number,
+            group_id,
+            message=message,
+        )
+
+async def enforce_early_stopping(credentials, pg_pool, project_id, plan_id, user_id, pdf_path, pages_metadata):
+    pages_metadata_unleashed = list()
+    for page_metadata in pages_metadata:
+        page_number = page_metadata["page_number"]
+        logging.info(f"SYSTEM: Vector scale check STARTED for PAGE {page_number}")
+        scale_value, scale_source = None, None
+        if page_metadata.get("architectural_scale"):
+            scale_value, scale_source = page_metadata["architectural_scale"], "frontend"
+            pages_metadata_unleashed.append(page_metadata)
+        else:
+            query = f"SELECT scale FROM {credentials["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s"
+            architectural_scales = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number,), fetch=True))
+            if architectural_scales:
+                for architectural_scale in architectural_scales:
+                    if architectural_scale["scale"]:
+                        page_metadata["architectural_scale"] = architectural_scale["scale"]
+                        scale_value, scale_source = architectural_scale["scale"], "db"
+            if is_vector(pdf_path, project_id, plan_id, page_number):
+                vector_scale = extract_scale(pdf_path, page_number, project_id, plan_id)
+                if vector_scale:
+                    scale_value, scale_source = vector_scale, "vector"
+                    pages_metadata_unleashed.append(page_metadata)
+                else:
+                    await insert_page(
+                        plan_id,
+                        user_id,
+                        project_id,
+                        page_number,
+                        False,
+                        "SCALE_NOT_DETECTED",
+                        pg_pool,
+                        credentials,
+                    )
+                    logging.info(f"SYSTEM: Scale NOT detected (vector, whole-page, pre-grounding) - pages.status SCALE_NOT_DETECTED for PAGE: {page_number}")
+                    await trigger_email_notification(
+                        credentials,
+                        pg_pool,
+                        "SCALE NOT DETECTED",
+                        project_id,
+                        plan_id,
+                        user_id,
+                        page_number=page_number,
+                    )
+            else:
+                pages_metadata_unleashed.append(page_metadata)
+            logging.info(f"SYSTEM: Scale check result PAGE {page_number}: {scale_value or 'none'} (source: {scale_source or 'none'})")
+    return pages_metadata_unleashed
