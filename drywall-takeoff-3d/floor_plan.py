@@ -498,7 +498,7 @@ class FloorPlan:
         self,
         line_a,
         line_b,
-        distance_tolerance=50,
+        distance_tolerance=2,
         angle_tolerance_deg=10,
         min_overlap_ratio=0.01
     ):
