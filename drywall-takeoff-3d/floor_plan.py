@@ -591,12 +591,14 @@ class FloorPlan:
                     continue
             return overlapped_polygons
 
-        def load_master_polygons(open_edge, polygon_edges_grouped, polygons):
+        def load_master_polygons(open_edge, polygon_edges_grouped, polygons, open_edges_flagged_grouped):
             master_polygons = list()
-            for polygon, polygon_edges in zip(polygons, polygon_edges_grouped):
-                for polygon_edge in polygon_edges:
+            for polygon, polygon_edges, open_edges_flagged in zip(polygons, polygon_edges_grouped, open_edges_flagged_grouped):
+                for polygon_edge, open_edge_flagged in zip(polygon_edges, open_edges_flagged):
                     X1, Y1, X2, Y2 = self.normalize([polygon_edge])[0][0]
                     if open_edge == [[X1, Y1, X2, Y2]]:
+                        continue
+                    if not open_edge_flagged:
                         continue
                     if self.in_proximity([[X1, Y1, X2, Y2]], open_edge):
                         master_polygons.append(polygon)
@@ -659,17 +661,23 @@ class FloorPlan:
 
         open_polygons, open_edges_grouped = list(), list()
         polygon_edges_grouped = list()
+        open_edges_flagged_grouped = list()
         wall_lines = [[[wall_2d["wall_line"][0]['x'], wall_2d["wall_line"][0]['y'], wall_2d["wall_line"][1]['x'], wall_2d["wall_line"][1]['y']]] for wall_2d in walls_2d]
         for polygon in polygons[:]:
             open_edges = list()
             polygon_edges = list()
+            open_edges_flagged = list()
             _, mapped_polygon_edges = self.load_perimeter(polygon["vertices"], wall_lines, scale=resolution_scale, return_mapped_polygon_edges=True)
             for edge in zip(polygon["vertices"][:-1], polygon["vertices"][1:]):
                 X1, Y1, X2, Y2 = self.normalize([[[edge[0][0], edge[0][1], edge[1][0], edge[1][1]]]])[0][0]
                 polygon_edges.append([[X1, Y1, X2, Y2]])
                 if [(X1, Y1), (X2, Y2)] not in mapped_polygon_edges:
                     open_edges.append([[X1, Y1, X2, Y2]])
+                    open_edges_flagged.append(True)
+                else:
+                    open_edges_flagged.append(False)
             polygon_edges_grouped.append(polygon_edges)
+            open_edges_flagged_grouped.append(open_edges_flagged)
             if open_edges:
                 open_polygons.append(polygon)
                 open_edges_grouped.append(open_edges)
@@ -680,7 +688,7 @@ class FloorPlan:
                 overlapped_polygons = load_overlapped_polygons(open_polygon, polygons)
                 polygon_id.extend([overlapped_polygon["id"] for overlapped_polygon in overlapped_polygons])
                 for open_edge in open_edges:
-                    master_polygons = load_master_polygons(open_edge, polygon_edges_grouped, polygons)
+                    master_polygons = load_master_polygons(open_edge, polygon_edges_grouped, polygons, open_edges_flagged_grouped)
                     if master_polygons:
                         polygon_id.extend([master_polygon["id"] for master_polygon in master_polygons])
                 polygon_id = list(set(polygon_id))
