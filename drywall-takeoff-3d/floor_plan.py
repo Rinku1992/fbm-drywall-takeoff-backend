@@ -272,11 +272,15 @@ class FloorPlan:
     def direction_polygon_interior(self, coordinates, wall_2d):
         polygon_centroid_X_0 = round(sum([coordinate['x'] for coordinate in wall_2d["polygons_drywall"][0]["polygon"]]) / 4)
         polygon_centroid_Y_0 = round(sum([coordinate['y'] for coordinate in wall_2d["polygons_drywall"][0]["polygon"]]) / 4)
+        polygon_centroid_X_1 = round(sum([coordinate['x'] for coordinate in wall_2d["polygons_drywall"][1]["polygon"]]) / 4)
+        polygon_centroid_Y_1 = round(sum([coordinate['y'] for coordinate in wall_2d["polygons_drywall"][1]["polygon"]]) / 4)
+        if self.is_inside_polygon((polygon_centroid_X_0, polygon_centroid_Y_0), coordinates) and self.is_inside_polygon((polygon_centroid_X_1, polygon_centroid_Y_1), coordinates):
+            return ['a', 'b']
         if self.is_inside_polygon((polygon_centroid_X_0, polygon_centroid_Y_0), coordinates):
             wall_2d["polygons_drywall"][0]["id"] = f"{wall_2d["id"]}.a"
-            return 'a'
+            return ['a']
         wall_2d["polygons_drywall"][1]["id"] = f"{wall_2d["id"]}.b"
-        return 'b'
+        return ['b']
 
     def load_perimeter(
         self,
