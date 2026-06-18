@@ -1295,6 +1295,14 @@ async def enforce_early_stopping(credentials, pg_pool, project_id, plan_id, user
                         page_metadata["architectural_scale"] = architectural_scale["scale"]
                         scale_value, scale_source = architectural_scale["scale"], "db"
             if is_vector(pdf_path, project_id, plan_id, page_number):
+                query = (
+                    f"SELECT vector_scale FROM {credentials["CloudSQL"]["table_name_pages"]} "
+                    f"WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
+                )
+                query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number,), fetch=True))
+                if query_output and query_output[0]["vector_scale"]:
+                    pages_metadata_unleashed.append(page_metadata)
+                    continue
                 vector_scale = extract_scale(pdf_path, page_number, project_id, plan_id)
                 if vector_scale:
                     scale_value, scale_source = vector_scale, "vector"
