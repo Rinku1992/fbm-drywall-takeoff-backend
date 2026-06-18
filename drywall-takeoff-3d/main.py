@@ -1622,7 +1622,7 @@ async def update_floorplan_to_2d(request: Request):
 
     for wall in walls_2d_JSON[:]:
         for drywall in wall["polygons_drywall"][:]:
-            if not drywall["enabled"] or drywall["type"].upper() == "DISABLED":
+            if drywall["type"].upper() == "DISABLED":
                 drywall["color"] = [255, 0, 0]
                 continue
             if drywall["type_stacked"]:
@@ -1639,7 +1639,7 @@ async def update_floorplan_to_2d(request: Request):
                     continue
                 drywall["color"] = drywall_template["color_code"][::-1]
     for polygon in polygons_JSON[:]:
-        if not polygon["polygon_drywall"]["enabled"] or polygon["polygon_drywall"]["type"].upper() == "DISABLED":
+        if polygon["polygon_drywall"]["type"].upper() == "DISABLED":
             polygon["polygon_drywall"]["color"] = [137, 137, 137]
             continue
         drywall_template = query_drywall(polygon["polygon_drywall"]["type"], DRYWALL_TEMPLATES)
@@ -2079,7 +2079,7 @@ async def compute_takeoff(request: Request):
         for drywall in wall["polygons_drywall"]:
             surface_area_original = (drywall["height"] * wall["length"])
             surface_area = surface_area_original - drywall_negate_area
-            if not drywall["enabled"]:
+            if drywall["type"].upper() == "DISABLED":
                 continue
             if drywall["type_stacked"]:
                 stack_length = len(drywall["type_stacked"])
@@ -2130,7 +2130,7 @@ async def compute_takeoff(request: Request):
                     sheets_required_no_waste=drywall_takeoff["per_drywall"]["wall"][drywall["type"]]["sheets_required_no_waste"]+sheets_required_no_waste
                 )
     for polygon in polygons_JSON:
-        if not polygon["polygon_drywall"]["enabled"] or polygon["polygon_drywall"]["type"] == "DISABLED":
+        if polygon["polygon_drywall"]["type"].upper() == "DISABLED":
             polygon["polygon_drywall"]["enabled"] = False
             continue
         drywall_template = query_drywall(polygon["polygon_drywall"]["type"], DRYWALL_TEMPLATES)
