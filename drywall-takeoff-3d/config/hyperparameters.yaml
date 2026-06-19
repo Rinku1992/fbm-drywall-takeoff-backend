@@ -12,6 +12,7 @@ modelling:
   height_in_feet: 9.125
   scale: 0.25``:1`0``
   pixel_aspect_ratio: *pixel_aspect_ratio_to_feet
+  enable_early_stopping: false
   HoughLinesTransformation:
     rho: 1
     theta: 0.008726646259971648
