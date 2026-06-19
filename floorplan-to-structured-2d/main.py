@@ -492,7 +492,7 @@ async def floorplan_to_structured_2d(request: Request):
                     predict_drywall,
                     architectural_scale,
                     standard_ceiling_height,
-                    allow_none_scale=hyperparameters["modelling"]["enable_early_stopping"],
+                    allow_none_scale=hyperparameters["modelling"]["enable_early_stopping"] and is_vector,
                 )
             )
         results = await asyncio.gather(*futures, return_exceptions=False)
