@@ -1138,7 +1138,9 @@ async def floorplan_to_2d(request: Request):
             pg_pool,
             CREDENTIALS,
         )
-    pages_metadata_unleashed = await enforce_early_stopping(CREDENTIALS, pg_pool, project_id, plan_id, user_id, pdf_path, pages_metadata)
+    hyperparameters = load_hyperparameters()
+    if hyperparameters["modelling"]["enable_early_stopping"]:
+        pages_metadata = await enforce_early_stopping(CREDENTIALS, pg_pool, project_id, plan_id, user_id, pdf_path, pages_metadata)
     ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
     vertex_ai_client, vertex_ai_generation_config, is_cached = load_vertex_ai_client(
         CREDENTIALS,
@@ -1159,7 +1161,7 @@ async def floorplan_to_2d(request: Request):
         project_id,
         plan_id,
         ip_address,
-        pages_metadata_unleashed,
+        pages_metadata,
         vertex_ai_client=vertex_ai_client,
         vertex_ai_generation_config=vertex_ai_generation_config,
         is_cached=is_cached
@@ -1169,8 +1171,8 @@ async def floorplan_to_2d(request: Request):
     status = "COMPLETED"
     session = requests.Session()
     adapter = HTTPAdapter(
-        pool_connections=len(pages_metadata_unleashed),
-        pool_maxsize=len(pages_metadata_unleashed),
+        pool_connections=len(pages_metadata),
+        pool_maxsize=len(pages_metadata),
     )
     session.mount("http://", adapter)
     session.mount("https://", adapter)
@@ -1179,7 +1181,7 @@ async def floorplan_to_2d(request: Request):
     await run_in_threadpool(partial(pg_run, pg_pool, query, params=(json.dumps(elevation_map), project_id, plan_id)))
     try:
         with ThreadPoolExecutor(max_workers=20) as executor:
-            for index, page_metadata in enumerate(pages_metadata_unleashed):
+            for index, page_metadata in enumerate(pages_metadata):
                 page_number = page_metadata["page_number"]
                 query = f"UPDATE {CREDENTIALS["CloudSQL"]["table_name_pages"]} SET mask_factor = %s, bounding_box_offsets = %s WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
                 await run_in_threadpool(partial(pg_run, pg_pool, query, params=(json.dumps(page_metadata["mask_factor"]), json.dumps(page_metadata["bounding_box_offsets"]), project_id, plan_id, page_number)))
@@ -1208,7 +1210,7 @@ async def floorplan_to_2d(request: Request):
                     elevation_pages,
                     page_metadata.get("architectural_scale")
                 )
-            query_payloads = [dict(project_id=project_id, plan_id=plan_id, page_number=page_metadata["page_number"]) for page_metadata in pages_metadata_unleashed]
+            query_payloads = [dict(project_id=project_id, plan_id=plan_id, page_number=page_metadata["page_number"]) for page_metadata in pages_metadata]
             timeout = from_unix_epoch() + 7200
             all_pages_extracted = False
             sleep_time = 1
@@ -1222,7 +1224,7 @@ async def floorplan_to_2d(request: Request):
                 sleep(sleep_time)
             if not all_pages_extracted:
                 raise AssertionError(f"Extraction has failed for PAGE(s): {[query_payload["page_number"] for query_payload in query_payloads]}")
-            for page_metadata in pages_metadata_unleashed:
+            for page_metadata in pages_metadata:
                 page_number = page_metadata["page_number"]
                 query = f"SELECT page_section_number, model_2d, scale FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
                 query_output_sections = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number,), fetch=True))
