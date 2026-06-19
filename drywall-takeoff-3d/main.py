@@ -1155,7 +1155,7 @@ async def floorplan_to_2d(request: Request):
         ip_address,
         pdf_path
     )
-    pages_metadata_unleashed = await load_visual_grounding(
+    pages_metadata = await load_visual_grounding(
         CREDENTIALS,
         pg_pool,
         project_id,
