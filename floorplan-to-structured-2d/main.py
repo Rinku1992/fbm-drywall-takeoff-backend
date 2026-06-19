@@ -382,33 +382,8 @@ async def floorplan_to_structured_2d(request: Request):
         page_number,
         bounding_box_offsets,
     )
-    scale_vector_is_none = not architectural_scale
     if not architectural_scale and is_vector:
         architectural_scale = scales
-        scale_vector_is_none = sum([scale is None for scale in scales])
-    if is_vector and scale_vector_is_none:
-        future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
-        future.result()
-        await insert_page(
-            plan_id,
-            user_id,
-            project_id,
-            page_number,
-            True,
-            "SCALE_NOT_DETECTED",
-            pg_pool,
-            CREDENTIALS,
-        )
-        await trigger_email_notification(
-            CREDENTIALS,
-            pg_pool,
-            "SCALE NOT DETECTED",
-            project_id,
-            plan_id,
-            user_id,
-            page_number=page_number
-        )
-        return respond_with_UI_payload(dict(status="SUCCESS", message="NO Architectural Scale detected"))
 
     futures = dict()
     with ThreadPoolExecutor(max_workers=5) as executor:
@@ -517,7 +492,7 @@ async def floorplan_to_structured_2d(request: Request):
                     predict_drywall,
                     architectural_scale,
                     standard_ceiling_height,
-                    allow_none_scale=is_vector,
+                    allow_none_scale=hyperparameters["modelling"]["enable_early_stopping"],
                 )
             )
         results = await asyncio.gather(*futures, return_exceptions=False)
