@@ -8,6 +8,7 @@ modelling:
   tolerance_vertical_join: 2
   tolerance_horizontal_join: 2
   tolerance_euclidean_join: 2.82
+  enable_early_stopping: false
   width_in_feet: 1
   height_in_feet: 9.125
   scale: 0.25``:1`0``
