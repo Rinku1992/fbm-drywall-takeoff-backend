@@ -1239,9 +1239,9 @@ class FloorPlan2D(FloorPlan):
                         max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
                         pydantic_model=ScaleDetectorResponse,
                     )
-                if response.scale.upper() == "NULL":
+                if response.scale and response.scale.upper() == "NULL":
                     scale = None
-                if response.scale:
+                if response.scale and response.scale.upper() != "NULL":
                     scale = self.scale_canonical(response.scale)
                 if response.scale_confidence < 0.95:
                     scale = load_scale_from_OCR(LEFT, RIGHT, TOP, BOTTOM)
@@ -1293,9 +1293,9 @@ class FloorPlan2D(FloorPlan):
                         pydantic_model=ScaleAndCeilingHeightDetectorResponse,
                     )
                 ceiling_height = response.ceiling_height
-                if response.scale.upper() == "NULL":
+                if response.scale and response.scale.upper() == "NULL":
                     scale = None
-                if response.scale:
+                if response.scale and response.scale.upper() != "NULL":
                     scale = self.scale_canonical(response.scale)
                 if response.scale_confidence < 0.95:
                     scale = load_scale_from_OCR(LEFT, RIGHT, TOP, BOTTOM)
