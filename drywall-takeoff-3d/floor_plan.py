@@ -719,7 +719,7 @@ class FloorPlan:
             X1, Y1, X2, Y2 = wall_line[0]
             cv2.line(canvas, (X1, Y1), (X2, Y2), (0, 0, 0), 1)
         _, canvas_binary = cv2.threshold(canvas, 127, 255, cv2.THRESH_BINARY_INV)
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (10, 10))
         canvas_dilated = cv2.dilate(canvas_binary, kernel, iterations=1)
         canvas_eroded = cv2.erode(canvas_dilated, kernel, iterations=1)
         contours, hierarchy = cv2.findContours(canvas_eroded, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
