@@ -198,11 +198,30 @@ CREATE TABLE groups (
 
     is_admin BOOLEAN DEFAULT FALSE,
 
+    organization_id TEXT,
+
     PRIMARY KEY (group_id, user_id)
 );
 ```
 
-9. <b><i>sku</i></b>
+9. <b><i>organizations</i></b>
+```sql
+CREATE TABLE organizations (
+    organization_id UUID PRIMARY KEY,
+    organization_name VARCHAR(255) NOT NULL,
+    organization_slug VARCHAR(100) UNIQUE NOT NULL,
+
+    status VARCHAR(50) NOT NULL,
+
+    billing_plan VARCHAR(50),
+    subscription_status VARCHAR(50),
+
+    timezone VARCHAR(100),
+    country_code VARCHAR(10)
+);
+```
+
+10. <b><i>sku</i></b>
 ```sql
 CREATE TABLE sku (
     sku_id TEXT PRIMARY KEY,
