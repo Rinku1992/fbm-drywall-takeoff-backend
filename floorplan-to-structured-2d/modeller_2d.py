@@ -1921,13 +1921,16 @@ class FloorPlan2D(FloorPlan):
             polygon_ids_drywall_interior_filtered.append(polygon_id_drywall_interior)
             interior_wall_ids.add(wall_id)
 
+        slope = min(90, max(0, math.degrees(math.atan2(model_polygon["ceiling"]["pitch"]["rise"], model_polygon["ceiling"]["pitch"]["run"]))))
+        if slope == 90:
+            slope = 0
         polygon = dict(
             id=index,
             area=model_polygon["ceiling"]["area"],
             vertices=vertices,
             type=model_polygon["ceiling"]["ceiling_type"],
             height=model_polygon["ceiling"]["height"] if model_polygon["ceiling"]["height"] else height_default,
-            slope=math.degrees(math.atan2(model_polygon["ceiling"]["pitch"]["rise"], model_polygon["ceiling"]["pitch"]["run"])),
+            slope=slope,
             slope_enabled=model_polygon["ceiling"]["slope_enabled"],
             tilt_axis=model_polygon["ceiling"]["tilt_axis"],
             room_name=model_polygon["ceiling"]["room_name"],
