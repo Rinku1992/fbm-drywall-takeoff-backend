@@ -420,8 +420,17 @@ VISUAL_GROUNDING_DETECTOR = """
             - A page may contain one or more architectural drawings.
             - For EACH drawing:
                 - Compute bounding box offsets:
-                    - `offset_top_left` (x, y) in [0, 1]
-                    - `offset_bottom_right` (x, y) in [0, 1]
+                    - STEP 1: Locate ALL dimension chains.
+                    - STEP 2: Locate ALL drawing titles.
+                    - STEP 3: Locate ALL wall geometry.
+                    - STEP 4: Return the MINIMUM bounding box that contains the union of:
+                        wall geometry
+                        dimensions
+                        leaders
+                        title
+                    - EXPECTED OUTPUT:
+                        - `offset_top_left` (x, y) in [0, 1]
+                        - `offset_bottom_right` (x, y) in [0, 1]
                 - Origin is TOP-LEFT of the page.
                 - Bounding boxes must tightly enclose the drawing + relevant annotations (excluding page borders).
                 - REMEMBER, `TOPMOST-LEFTMOST` of the page is considered as the origin to compute the bounding box offset from.
