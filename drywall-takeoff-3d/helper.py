@@ -386,7 +386,8 @@ def sha256(path, chunk_size=8192):
             sha256.update(chunk)
     return sha256.hexdigest()
 
-def upload_floorplan(plan_path, plan_id, project_id, credentials, index=None, directory=None):
+async def upload_floorplan(plan_path, plan_id, project_id, user_id, credentials, pg_pool, index=None, directory=None):
+    organization_slug = await load_organization_slug(credentials, pg_pool, user_id)
     client = CloudStorageClient()
     page_number = Path(plan_path.stem).suffix
     if page_number:
@@ -396,14 +397,14 @@ def upload_floorplan(plan_path, plan_id, project_id, credentials, index=None, di
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
     if directory:
         if index:
-            blob_path = f"{project_id.lower()}/{plan_id.lower()}/{index}/{directory}/{blob_object_name}"
+            blob_path = f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/{index}/{directory}/{blob_object_name}"
         else:
-            blob_path = f"{project_id.lower()}/{plan_id.lower()}/{directory}/{blob_object_name}"
+            blob_path = f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/{directory}/{blob_object_name}"
     else:
         if index:
-            blob_path = f"{project_id.lower()}/{plan_id.lower()}/{index}/{blob_object_name}"
+            blob_path = f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/{index}/{blob_object_name}"
         else:
-            blob_path = f"{project_id.lower()}/{plan_id.lower()}/{blob_object_name}"
+            blob_path = f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/{blob_object_name}"
     blob = bucket.blob(blob_path)
 
     blob.upload_from_filename(plan_path)
@@ -910,7 +911,7 @@ async def floorplan_to_pages(credentials, pg_pool, project_id, plan_id, user_id,
         for future in futures:
             floor_plan_paths_preprocessed.append(future.result())
     for page_number, floor_plan_path_preprocessed in enumerate(floor_plan_paths_preprocessed):
-        upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, credentials, index=str(page_number).zfill(4))
+        await upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, user_id, credentials, pg_pool, index=str(page_number).zfill(4))
     return floor_plan_paths_preprocessed, plan_types
 
 def page_to_svg(
@@ -1131,6 +1132,7 @@ async def load_visual_grounding(
     pg_pool,
     project_id,
     plan_id,
+    user_id,
     ip_address,
     pages_metadata,
     batch_size=10,
@@ -1160,7 +1162,7 @@ async def load_visual_grounding(
         index = str(page_metadata["page_number"]).zfill(4)
         destination_path = f"/tmp/floor_plan_{index}.png"
         blob_name = "floor_plan.png"
-        download_floorplan(plan_id, project_id, credentials, index=index, blob_name=blob_name, destination_path=destination_path)
+        await download_floorplan(plan_id, project_id, user_id, credentials, pg_pool, index=index, blob_name=blob_name, destination_path=destination_path)
         plan_paths[page_metadata["page_number"]] = destination_path
     for page_batch in page_batches:
         bounding_boxes = detect_bounding_boxes(
@@ -1179,13 +1181,14 @@ async def load_visual_grounding(
                     page_metadata["bounding_box_offsets"] = bounding_box["bounding_box_offsets"]
     return pages_metadata
 
-def download_floorplan(plan_id, project_id, credentials, index=None, blob_name="floor_plan.PDF", destination_path="/tmp/floor_plan.PDF"):
+async def download_floorplan(plan_id, project_id, user_id, credentials, pg_pool, index=None, blob_name="floor_plan.PDF", destination_path="/tmp/floor_plan.PDF"):
+    organization_slug = await load_organization_slug(credentials, pg_pool, user_id)
     client = CloudStorageClient()
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
     if index:
-        blob_path = f"{project_id.lower()}/{plan_id.lower()}/{index}/{blob_name}"
+        blob_path = f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/{index}/{blob_name}"
     else:
-        blob_path = f"{project_id.lower()}/{plan_id.lower()}/{blob_name}"
+        blob_path = f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/{blob_name}"
     blob = bucket.blob(blob_path)
 
     blob.download_to_filename(destination_path)
@@ -1332,3 +1335,16 @@ async def enforce_early_stopping(credentials, pg_pool, project_id, plan_id, user
                 pages_metadata_unleashed.append(page_metadata)
             logging.info(f"SYSTEM: Scale check result PAGE {page_number}: {scale_value or 'none'} (source: {scale_source or 'none'})")
     return pages_metadata_unleashed
+
+async def load_organization_slug(credentials, pg_pool, user_id):
+    query = f"""SELECT COALESCE(o.organization_slug, 
+            NULLIF(split_part(u.user_id,'@',2),''), 
+            u.user_id) AS org_or_domain
+        FROM {credentials["CloudSQL"]["table_name_users"]} u
+        LEFT JOIN organizations o ON TEXT(u.organization_id) = TEXT(o.organization_id)
+        WHERE LOWER(u.user_id) = LOWER(%s);
+    """
+    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(user_id,), fetch=True))
+    if query_output and query_output[0]["org_or_domain"]:
+        return query_output[0]["org_or_domain"]
+    return user_id.split('@')[1]
