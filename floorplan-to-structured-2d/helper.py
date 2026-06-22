@@ -52,7 +52,7 @@ from google.oauth2 import service_account
 from google.cloud.pubsub_v1 import PublisherClient
 
 from transcriber import Transcriber
-from vector_pdf import is_vector, extract_scales_for_page
+from vector_pdf import is_vector, extract_scales_from_sections_of_a_page
 from prompts import FEEDBACK_GENERATOR
 from email_notification import trigger
 
@@ -115,7 +115,7 @@ def transcribe(credentials, hyperparameters, floor_plan_path):
     transcriber = Transcriber(credentials, hyperparameters)
     return transcriber.transcribe(floor_plan_path, [0, 1, -1, -2])
 
-def upload_floorplan(plan_path, plan_id, project_id, credentials, index=None, directory=None):
+async def upload_floorplan(plan_path, plan_id, project_id, user_id, credentials, pg_pool, index=None, directory=None):
     client = CloudStorageClient()
     page_number = Path(plan_path.stem).suffix
     if page_number:
@@ -123,16 +123,17 @@ def upload_floorplan(plan_path, plan_id, project_id, credentials, index=None, di
     else:
         blob_object_name = plan_path.name
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
+    organization_slug = await load_organization_slug(credentials, pg_pool, user_id)
     if directory:
         if index:
-            blob_path = f"{project_id.lower()}/{plan_id.lower()}/{index}/{directory}/{blob_object_name}"
+            blob_path = f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/{index}/{directory}/{blob_object_name}"
         else:
-            blob_path = f"{project_id.lower()}/{plan_id.lower()}/{directory}/{blob_object_name}"
+            blob_path = f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/{directory}/{blob_object_name}"
     else:
         if index:
-            blob_path = f"{project_id.lower()}/{plan_id.lower()}/{index}/{blob_object_name}"
+            blob_path = f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/{index}/{blob_object_name}"
         else:
-            blob_path = f"{project_id.lower()}/{plan_id.lower()}/{blob_object_name}"
+            blob_path = f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/{blob_object_name}"
     blob = bucket.blob(blob_path)
 
     blob.upload_from_filename(plan_path)
@@ -161,11 +162,12 @@ def load_hyperparameters() -> dict:
 
     return hyperparameters
 
-def download_floorplan(user_id, plan_id, project_id, credentials, index=None, destination_path="/tmp/floor_plan_wall_processed.png"):
+async def download_floorplan(user_id, plan_id, project_id, credentials, pg_pool, index=None, destination_path="/tmp/floor_plan_wall_processed.png"):
     client = CloudStorageClient()
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
+    organization_slug = await load_organization_slug(credentials, pg_pool, user_id)
     if index:
-        blob_path = f"{project_id.lower()}/{plan_id.lower()}/{index}/floor_plan.png"
+        blob_path = f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/{index}/floor_plan.png"
         blob = bucket.blob(blob_path)
 
         destination_path = Path(destination_path)
@@ -178,16 +180,17 @@ def download_floorplan(user_id, plan_id, project_id, credentials, index=None, de
     destination_path = Path(destination_path)
     destination_path = destination_path.parent.joinpath(project_id).joinpath(plan_id).joinpath(user_id).joinpath(destination_path.name)
     destination_path.parent.mkdir(parents=True, exist_ok=True)
-    blob_path = f"{project_id.lower()}/{plan_id.lower()}/floor_plan.PDF"
+    blob_path = f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/floor_plan.PDF"
     blob = bucket.blob(blob_path)
 
     blob.download_to_filename(destination_path)
     return destination_path
 
-def download_segmented_walls(plan_id, project_id, index, credentials, destination_path="/tmp/floor_plan_wall_segmented.png"):
+async def download_segmented_walls(plan_id, project_id, user_id, index, credentials, pg_pool, destination_path="/tmp/floor_plan_wall_segmented.png"):
     client = CloudStorageClient()
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
-    blob_path = f"{project_id.lower()}/{plan_id.lower()}/{index}/wall_detected.png"
+    organization_slug = await load_organization_slug(credentials, pg_pool, user_id)
+    blob_path = f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/{index}/wall_detected.png"
     blob = bucket.blob(blob_path)
 
     destination_path = Path(destination_path)
@@ -979,3 +982,16 @@ async def load_metadata_from_vector_pdf(
             params=(json.dumps(vector_ceiling_heights), project_id, plan_id, int(page_number),)
         ))
     return is_vector_pdf, vector_scales, vector_ceiling_heights
+
+async def load_organization_slug(credentials, pg_pool, user_id):
+    query = f"""SELECT COALESCE(o.organization_slug, 
+            NULLIF(split_part(u.user_id,'@',2),''), 
+            u.user_id) AS org_or_domain
+        FROM {credentials["CloudSQL"]["table_name_users"]} u
+        LEFT JOIN organizations o ON TEXT(u.organization_id) = TEXT(o.organization_id)
+        WHERE LOWER(u.user_id) = LOWER(%s);
+    """
+    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(user_id,), fetch=True))
+    if query_output and query_output[0]["org_or_domain"]:
+        return query_output[0]["org_or_domain"]
+    return user_id.split('@')[1]
