@@ -145,6 +145,7 @@ async def classify_pages(request: ClassifyPagesRequest):
         download_floorplan_pdf(
             project_id=request.project_id,
             plan_id=request.plan_id,
+            organization_slug=request.organization_slug,
             destination_path=pdf_path,
         )
         gcs_elapsed = time.time() - t0
