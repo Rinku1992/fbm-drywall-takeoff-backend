@@ -59,6 +59,7 @@ from helper import (
     load_drywall_weights,
     download_floorplan,
     enforce_early_stopping,
+    load_organization_slug,
 )
 from prompts import VISUAL_GROUNDING_DETECTOR, SLOPED_CEILING_CHOICES
 
@@ -221,7 +222,7 @@ async def insert_model_3d(
     )))
 
 
-async def delete_floorplan(project_id, plan_id, pg_pool, credentials):
+async def delete_floorplan(project_id, plan_id, user_id, pg_pool, credentials):
     query = f"""
         DELETE FROM {credentials["CloudSQL"]["table_name_pages"]}
         WHERE
@@ -264,7 +265,8 @@ async def delete_floorplan(project_id, plan_id, pg_pool, credentials):
 
     client = CloudStorageClient()
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
-    prefix = f"{project_id.lower()}/{plan_id.lower()}/"
+    organization_slug = await load_organization_slug(credentials, pg_pool, user_id)
+    prefix = f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/"
     blobs = list(bucket.list_blobs(prefix=prefix))
     if blobs:
         bucket.delete_blobs(blobs)
@@ -387,7 +389,7 @@ async def insert_plan(
     sha_256 = ''
     if plan_id:
         pdf_path = Path("/tmp/floor_plan.PDF")
-        download_floorplan(plan_id, project_id, credentials, destination_path=pdf_path)
+        download_floorplan(plan_id, project_id, user_id, credentials, pg_pool, destination_path=pdf_path)
         sha_256 = sha256(pdf_path)
     if not plan_id:
         plan_id = payload_plan.plan_id
@@ -525,7 +527,7 @@ async def floorplan_to_preview_pages(
         svg_path=Path(f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_{str(page["page_number"]).zfill(4)}.svg")
         svg_path.parent.mkdir(parents=True, exist_ok=True)
         floorplan_svg = page_to_svg(floor_plan_path=floor_plan_processed_path, svg_path=svg_path)
-        floorplan_svg_source = upload_floorplan(floorplan_svg, plan_id, project_id, credentials, index=str(page["page_number"]).zfill(4))
+        floorplan_svg_source = upload_floorplan(floorplan_svg, plan_id, project_id, user_id, credentials, pg_pool, index=str(page["page_number"]).zfill(4))
         _, _, _, blob_path = floorplan_svg_source.split('/', 3)
         blob = bucket.blob(blob_path)
         url = blob.generate_signed_url(
@@ -540,7 +542,7 @@ async def floorplan_to_preview_pages(
         cv2.imwrite(floor_plan_processed_path_thumbnail, floor_plan_processed_image)
         svg_path_thumbnail=Path(f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_thumbnail_{str(page["page_number"]).zfill(4)}.svg")
         floorplan_svg_thumbnail = page_to_svg(floor_plan_path=floor_plan_processed_path_thumbnail, svg_path=svg_path_thumbnail)
-        floorplan_svg_source_thumbnail = upload_floorplan(floorplan_svg_thumbnail, plan_id, project_id, credentials, index=str(page["page_number"]).zfill(4))
+        floorplan_svg_source_thumbnail = upload_floorplan(floorplan_svg_thumbnail, plan_id, project_id, user_id, credentials, pg_pool, index=str(page["page_number"]).zfill(4))
         _, _, _, blob_path = floorplan_svg_source_thumbnail.split('/', 3)
         blob = bucket.blob(blob_path)
         url = blob.generate_signed_url(
@@ -567,7 +569,7 @@ def enable_logging_on_stdout():
 
 def load_gcp_credentials() -> dict:
     yaml = YAML(typ="safe", pure=True)
-    with open("config/gcp.yaml", 'r') as f:
+    with open("gcp.yaml", 'r') as f:
         credentials = yaml.load(f)
     os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials["service_drywall_account_key"]
 
@@ -879,7 +881,8 @@ async def generate_floorplan_upload_signed_URL(request: Request) -> str:
 
     client = CloudStorageClient()
     bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
-    blob_path = f"{project_id.lower()}/{payload_plan.plan_id.lower()}/floor_plan.PDF"
+    organization_slug = await load_organization_slug(CREDENTIALS, pg_pool, user_id)
+    blob_path = f"{organization_slug}/{project_id.lower()}/{payload_plan.plan_id.lower()}/floor_plan.PDF"
     blob = bucket.blob(blob_path)
     url = blob.generate_signed_url(
         version="v4",
@@ -901,11 +904,13 @@ async def generate_floorplan_download_signed_URL(request: Request) -> str:
         body = dict()
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
     logging.info("SYSTEM: Received Signed Floorplan download URL generation Request")
 
     client = CloudStorageClient()
     bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
-    blob_path = f"{project_id.lower()}/{plan_id.lower()}/floor_plan.PDF"
+    organization_slug = await load_organization_slug(CREDENTIALS, pg_pool, user_id)
+    blob_path = f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/floor_plan.PDF"
     blob = bucket.blob(blob_path)
     url = blob.generate_signed_url(
         version="v4",
@@ -1057,7 +1062,7 @@ async def floorplan_to_preview(request: Request):
     logging.info("SYSTEM: Received a Floorplan Preview Generation Request")
 
     pdf_path = Path("/tmp/floor_plan.PDF")
-    download_floorplan(plan_id, project_id, CREDENTIALS, destination_path=pdf_path)
+    download_floorplan(plan_id, project_id, user_id, CREDENTIALS, pg_pool, destination_path=pdf_path)
     plan_duplicate = await is_duplicate(pg_pool, CREDENTIALS, pdf_path, project_id)
     if plan_duplicate:
         await delete_plan(CREDENTIALS, pg_pool, plan_id, project_id)
@@ -1104,7 +1109,7 @@ async def floorplan_to_2d(request: Request):
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
 
     pdf_path = Path("/tmp/floor_plan.PDF")
-    GCS_URL_floorplan = download_floorplan(plan_id, project_id, CREDENTIALS, destination_path=pdf_path)
+    GCS_URL_floorplan = download_floorplan(plan_id, project_id, user_id, CREDENTIALS, pg_pool, destination_path=pdf_path)
     logging.info("SYSTEM: Floorplan Downloaded")
 
     #client = CloudStorageClient()
@@ -1160,6 +1165,7 @@ async def floorplan_to_2d(request: Request):
         pg_pool,
         project_id,
         plan_id,
+        user_id,
         ip_address,
         pages_metadata,
         vertex_ai_client=vertex_ai_client,
@@ -1785,9 +1791,9 @@ async def floorplan_to_3d(request: Request):
     model_3d_path = floor_plan_modeller_3d.save_plot_3d(walls_3d_path, polygons_3d_path)
     model_3d_path_sectioned = model_3d_path.parent.joinpath(f"{model_3d_path.stem}_sectioned_{page_section_number.replace('/', '_')}").with_suffix(".png")
     model_3d_path.rename(model_3d_path_sectioned)
-    upload_floorplan(model_3d_path_sectioned, plan_id, project_id, CREDENTIALS, index=str(index).zfill(4))
+    upload_floorplan(model_3d_path_sectioned, plan_id, project_id, user_id, CREDENTIALS, pg_pool, index=str(index).zfill(4))
     #for gltf_path in gltf_paths:
-    #    upload_floorplan(gltf_path, plan_id, project_id, CREDENTIALS, index=str(index).zfill(4), directory="gltf")
+    #    upload_floorplan(gltf_path, plan_id, project_id, user_id, CREDENTIALS, pg_pool, index=str(index).zfill(4), directory="gltf")
     await insert_model_3d(dict(walls_3d=walls_3d, polygons=polygons_3d), scale, index, page_section_number, plan_id, user_id, project_id, pg_pool, CREDENTIALS)
     logging.info("SYSTEM: A 3D Model of the Floorplan Generated Successfully")
 
@@ -1934,7 +1940,7 @@ async def remove_floorplan(request: Request):
     query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, user_id,), fetch=True))
     if not query_output:
         return respond_with_UI_payload(dict(status="FAILED", message="Plan: {} cannot be deleted".format(plan_id)))
-    await delete_floorplan(project_id, plan_id, pg_pool, CREDENTIALS)
+    await delete_floorplan(project_id, plan_id, user_id, pg_pool, CREDENTIALS)
     logging.info("SYSTEM: Plan Deleted Successfully")
     return respond_with_UI_payload(dict(status="SUCCESS", message=f"Plan: {plan_id} Deleted Successfully"))
 
@@ -2013,7 +2019,7 @@ async def compute_takeoff(request: Request):
     query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
     scale = query_output[0]["scale"]
     pdf_path = Path("/tmp/floor_plan.PDF")
-    download_floorplan(plan_id, project_id, CREDENTIALS, destination_path=pdf_path)
+    download_floorplan(plan_id, project_id, user_id, CREDENTIALS, pg_pool, destination_path=pdf_path)
 
     if not walls_2d_JSON:
         if revision_number:
