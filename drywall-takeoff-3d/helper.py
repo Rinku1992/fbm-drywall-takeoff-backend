@@ -852,6 +852,7 @@ def plan_to_preview(
     project_id,
     plan_id,
     user_id,
+    organization_slug,
 ):
     id_token = load_floorplan_to_preview_ID_token(credentials)
     headers = {
@@ -864,7 +865,8 @@ def plan_to_preview(
         json=dict(
             project_id=project_id,
             plan_id=plan_id,
-            user_id=user_id
+            user_id=user_id,
+            organization_slug=organization_slug,
         ),
     )
     response.raise_for_status()
@@ -872,7 +874,8 @@ def plan_to_preview(
     return plan_types
 
 async def floorplan_to_pages(credentials, pg_pool, project_id, plan_id, user_id, pdf_path, n_pages, batch_size=10):
-    plan_types = plan_to_preview(credentials, project_id, plan_id, user_id)
+    organization_slug = await load_organization_slug(credentials, pg_pool, user_id)
+    plan_types = plan_to_preview(credentials, project_id, plan_id, user_id, organization_slug)
     pages_to_insert = list()
     for page in plan_types["pages"]:
         pages_to_insert.append({
