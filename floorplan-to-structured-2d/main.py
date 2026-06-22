@@ -39,6 +39,7 @@ from helper import (
     insert_page,
     trigger_email_notification,
     load_metadata_from_vector_pdf,
+    load_organization_slug,
 )
 from prompts import CEILING_CHOICES, WALL_CHOICES
 
@@ -51,7 +52,7 @@ def respond_with_UI_payload(payload, status_code=200):
     )
 
 
-def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, mask, output_path=None, max_retry=5):
+async def floorplan_to_walls(credentials, pg_pool, project_id, plan_id, user_id, page_number, mask, output_path=None, max_retry=5):
     def load_headers_with_id_token():
         auth_req = google.auth.transport.requests.Request()
         service_account_credentials = IDTokenCredentials.from_service_account_file(
@@ -79,6 +80,7 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, m
     for index in range(max_retry + 1):
         try:
             headers = load_headers_with_id_token()
+            organization_slug = await load_organization_slug(credentials, pg_pool, user_id)
             response = session.post(
                 f"{credentials["CloudRun"]["APIs"]["wall_detector"]}/detect_wall",
                 headers=headers,
@@ -86,14 +88,15 @@ def floorplan_to_walls(credentials, project_id, plan_id, user_id, page_number, m
                     project_id=project_id,
                     plan_id=plan_id,
                     user_id=user_id,
+                    organization_slug=organization_slug,
                     page_number=page_number,
-                    mask=mask
+                    mask=mask,
                 ),
                 timeout=900
             )
             if response.status_code == 200:
                 for _ in range(max_retry):
-                    output_path = download_segmented_walls(plan_id, project_id, str(page_number).zfill(4), credentials, destination_path=output_path)
+                    output_path = await download_segmented_walls(plan_id, project_id, user_id, str(page_number).zfill(4), credentials, pg_pool, destination_path=output_path)
                     if Path(output_path).exists() and Path(output_path).stat().st_size > 0:
                         break
                     sleep(20)
@@ -168,9 +171,9 @@ async def page_to_structured_2d(
         #model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path)
         #model_2d_path_sectioned = model_2d_path.parent.joinpath(f"{model_2d_path.stem}_sectioned_{page_section_number}").with_suffix(".png")
         #model_2d_path.rename(model_2d_path_sectioned)
-        #upload_floorplan(model_2d_path_sectioned, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(4))
+        #await upload_floorplan(model_2d_path_sectioned, plan_id, project_id, user_id, CREDENTIALS, pg_pool, index=str(page_number).zfill(4))
         #model_2d_path_overlay_enabled = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path, overlay_enabled=True)
-        #upload_floorplan(model_2d_path_overlay_enabled, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(4))
+        #await upload_floorplan(model_2d_path_overlay_enabled, plan_id, project_id, user_id, CREDENTIALS, pg_pool, index=str(page_number).zfill(4))
 
     metadata = dict(
         size_in_bytes=floorplan_page_statistics["size"],
@@ -206,9 +209,9 @@ async def page_to_structured_2d(
     return floor_plan_modeller_2d.is_scale_detected
 
 
-def floorplan_to_page(credentials, project_id, plan_id, pdf_path, page_number, dpi):
+async def floorplan_to_page(credentials, pg_pool, project_id, plan_id, user_id, pdf_path, page_number, dpi):
     floor_plan_path_preprocessed = preprocess(pdf_path, page_number, dpi=dpi)
-    upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, credentials, index=str(page_number).zfill(4))
+    await upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, user_id, credentials, pg_pool, index=str(page_number).zfill(4))
     return floor_plan_path_preprocessed
 
 
@@ -275,7 +278,7 @@ async def floorplan_to_structured_2d(request: Request):
     predict_drywall = predict_drywall.upper() == "TRUE"
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
 
-    pdf_path = download_floorplan(user_id, plan_id, project_id, CREDENTIALS)
+    pdf_path = await download_floorplan(user_id, plan_id, project_id, CREDENTIALS, pg_pool)
     logging.info("SYSTEM: Floorplan Downloaded for extraction")
 
     hyperparameters = load_hyperparameters()
@@ -284,8 +287,10 @@ async def floorplan_to_structured_2d(request: Request):
     try:
         floor_plan_processed_path = floorplan_to_page(
             CREDENTIALS,
+            pg_pool,
             project_id,
             plan_id,
+            user_id,
             pdf_path,
             page_number,
             hyperparameters["modelling"]["scale_adoption"]["dpi"]
@@ -320,7 +325,7 @@ async def floorplan_to_structured_2d(request: Request):
     floorplan_baseline_page_source = None
     svg_path=f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_{str(page_number).zfill(4)}.svg"
     floorplan_baseline, floorplan_page_statistics = FloorPlan2D.scale_to(floor_plan_path=floor_plan_processed_path, svg_path=svg_path)
-    floorplan_baseline_page_source = upload_floorplan(floorplan_baseline, plan_id, project_id, CREDENTIALS, index=str(page_number).zfill(4))
+    floorplan_baseline_page_source = await upload_floorplan(floorplan_baseline, plan_id, project_id, user_id, CREDENTIALS, pg_pool, index=str(page_number).zfill(4))
     if not bounding_box_offsets:
         metadata = dict(
             size_in_bytes=floorplan_page_statistics["size"],
@@ -387,9 +392,9 @@ async def floorplan_to_structured_2d(request: Request):
 
     futures = dict()
     with ThreadPoolExecutor(max_workers=5) as executor:
-        futures["floorplan_to_walls"] = executor.submit(
-            floorplan_to_walls,
+        futures["floorplan_to_walls"] = floorplan_to_walls(
             CREDENTIALS,
+            pg_pool,
             project_id,
             plan_id,
             user_id,
@@ -403,7 +408,7 @@ async def floorplan_to_structured_2d(request: Request):
             hyperparameters,
             floor_plan_processed_path,
         )
-    wall_segmented_path = futures["floorplan_to_walls"].result()
+    wall_segmented_path = await asyncio.gather(futures["floorplan_to_walls"])
     logging.info(f"SYSTEM: Wall Detection Completed from PAGE: {page_number}")
 
     transcription_block_with_centroids, _ = futures["transcriber"].result()
