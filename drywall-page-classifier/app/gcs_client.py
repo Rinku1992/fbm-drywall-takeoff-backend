@@ -21,6 +21,7 @@ logger = logging.getLogger("classifier.gcs")
 def download_floorplan_pdf(
     project_id: str,
     plan_id: str,
+    organization_slug: str,
     destination_path: Path = Path("/tmp/floor_plan.PDF"),
 ) -> Path:
     """
@@ -32,7 +33,7 @@ def download_floorplan_pdf(
     Returns the local Path the PDF was written to. Raises FileNotFoundError
     if the object doesn't exist in GCS.
     """
-    blob_path = f"{project_id.lower()}/{plan_id.lower()}/floor_plan.PDF"
+    blob_path = f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/floor_plan.PDF"
     gcs_url = f"gs://{GCS_BUCKET_NAME}/{blob_path}"
 
     logger.info(f"GCS: downloading {gcs_url} → {destination_path}")
