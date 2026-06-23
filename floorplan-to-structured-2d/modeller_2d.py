@@ -1246,6 +1246,7 @@ class FloorPlan2D(FloorPlan):
                 if response.scale_confidence < 0.95:
                     scale = load_scale_from_OCR(LEFT, RIGHT, TOP, BOTTOM)
                 ceiling_height = standard_ceiling_height
+                logging.info(f"SYSTEM: Vertex AI Gemini: Scale: {response.scale}, Confidence: {response.scale_confidence}")
             except Exception as e:
                 logging.warning(f"SYSTEM: Standard Scale detection failed with error: {e}")
         elif architectural_scale and not standard_ceiling_height:
@@ -1270,6 +1271,7 @@ class FloorPlan2D(FloorPlan):
                     )
                 scale = self.scale_canonical(architectural_scale)
                 ceiling_height = response.ceiling_height
+                logging.info(f"SYSTEM: Vertex AI Gemini: Ceiling Height: {response.ceiling_height}")
             except Exception as e:
                 logging.warning(f"SYSTEM: Standard Ceiling Height detection failed with error: {e}")
         else:
@@ -1299,6 +1301,8 @@ class FloorPlan2D(FloorPlan):
                     scale = self.scale_canonical(response.scale)
                 if response.scale_confidence < 0.95:
                     scale = load_scale_from_OCR(LEFT, RIGHT, TOP, BOTTOM)
+                logging.info(f"SYSTEM: Vertex AI Gemini: Scale: {response.scale}, Confidence: {response.scale_confidence}")
+                logging.info(f"SYSTEM: Vertex AI Gemini: Ceiling Height: {response.ceiling_height}")
             except Exception as e:
                 logging.warning(f"SYSTEM: Standard Scale and Ceiling Height detection failed with error: {e}")
 
