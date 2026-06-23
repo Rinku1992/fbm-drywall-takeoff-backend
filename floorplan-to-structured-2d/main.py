@@ -285,7 +285,7 @@ async def floorplan_to_structured_2d(request: Request):
     publish_handler = load_publisher_client(CREDENTIALS)
     ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
     try:
-        floor_plan_processed_path = floorplan_to_page(
+        floor_plan_processed_path = await floorplan_to_page(
             CREDENTIALS,
             pg_pool,
             project_id,
