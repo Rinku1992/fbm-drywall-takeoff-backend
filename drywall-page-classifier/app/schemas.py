@@ -63,3 +63,4 @@ class ClassifyPagesRequest(BaseModel):
     project_id: str = Field(..., min_length=1, description="Project ID; lowercased for GCS path lookup")
     plan_id: str = Field(..., min_length=1, description="Plan ID; lowercased for GCS path lookup")
     user_id: str = Field(..., min_length=1, description="User ID; logged but not used for path resolution")
+    organization_slug: str = Field(..., min_length=1, description="Organization Slug; used for GCS path segregation")
