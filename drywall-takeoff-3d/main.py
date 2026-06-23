@@ -1280,16 +1280,17 @@ async def load_2d_revision(request: Request):
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     page_number = parameters.get("page_number") or body.get("page_number")
+    page_section_number = parameters.get("page_section_number") or body.get("page_section_number")
     revision_number = parameters.get("revision_number") or body.get("revision_number")
     logging.info(f"SYSTEM: Received Floorplan 2D Model (Revision: {revision_number}) Load Request")
 
-    query = f"SELECT model FROM {CREDENTIALS["CloudSQL"]["table_name_model_revisions_2d"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND revision_number = %s;"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number, revision_number,), fetch=True))
-    walls_2d_JSON = dict()
+    query = f"SELECT model FROM {CREDENTIALS["CloudSQL"]["table_name_model_revisions_2d"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s AND revision_number = %s;"
+    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number, page_section_number, revision_number,), fetch=True))
+    walls_2d_JSON, polygons_JSON = list(), list()
     if query_output and query_output[0]["model"] is not None:
-        walls_2d_JSON = json.loads(query_output[0]["model"])
-
-    return respond_with_UI_payload(walls_2d_JSON)
+        walls_2d = json.loads(query_output[0]["model"]) if isinstance(query_output[0]["model"], str) else query_output[0]["model"]
+        walls_2d_JSON, polygons_JSON = walls_2d["walls_2d"], walls_2d["polygons"]
+    return respond_with_UI_payload(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), disable_caching=True)
 
 
 @app.post("/load_available_revision_numbers_2d")
@@ -1303,10 +1304,11 @@ async def load_available_revision_numbers_2d(request: Request):
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     page_number = parameters.get("page_number") or body.get("page_number")
+    page_section_number = parameters.get("page_section_number") or body.get("page_section_number")
     logging.info(f"SYSTEM: Received Available Revisions Load Request for 2D Model")
 
-    query = f"SELECT revision_number FROM {CREDENTIALS["CloudSQL"]["table_name_model_revisions_2d"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number,), fetch=True))
+    query = f"SELECT revision_number FROM {CREDENTIALS["CloudSQL"]["table_name_model_revisions_2d"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
+    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number, page_section_number,), fetch=True))
     revision_numbers = list()
     if query_output:
         for revision in query_output:
