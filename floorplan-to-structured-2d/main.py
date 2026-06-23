@@ -408,7 +408,7 @@ async def floorplan_to_structured_2d(request: Request):
             hyperparameters,
             floor_plan_processed_path,
         )
-    wall_segmented_path = await asyncio.gather(futures["floorplan_to_walls"])
+    wall_segmented_path, = await asyncio.gather(futures["floorplan_to_walls"])
     logging.info(f"SYSTEM: Wall Detection Completed from PAGE: {page_number}")
 
     transcription_block_with_centroids, _ = futures["transcriber"].result()
