@@ -246,3 +246,10 @@ CREATE TABLE sku (
     sheet_size TEXT NOT NULL
 );
 ```
+
+<b>Grant Permissions to SA: </b>
+```sql
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON ALL TABLES IN SCHEMA public
+TO "sa-drywall-api-dev@prj-fbm-drywall-dev.iam";
+```
