@@ -118,14 +118,15 @@ async def is_authenticated(credentials, pg_pool, request, user_id=None):
     if is_external[0]["is_external"]:
         query = f"""
             SELECT
-                expires_at
+                expires_at,
+                is_verified
             FROM {credentials["CloudSQL"]["table_name_otp"]}
             WHERE LOWER(email) = LOWER(%s);
         """
-        otp_expired = await run_in_threadpool(
+        otp_status = await run_in_threadpool(
             partial(pg_run, pg_pool, query, params=(user_email,), fetch=True)
         )
-        if not otp_expired:
+        if not otp_status:
             return dict(user_type="EXTERNAL", email=user_id_decoded, token="EXPIRED")
-        if otp_expired[0]["expires_at"] < datetime.now(timezone.utc):
+        if otp_status[0]["expires_at"] < datetime.now(timezone.utc) or not otp_status[0]["is_verified"]:
             return dict(user_type="EXTERNAL", email=user_id_decoded, token="EXPIRED")
