@@ -36,4 +36,5 @@ pygltflib
 pillow
 fastapi
 firebase-admin
+PyJWT
 uvicorn
