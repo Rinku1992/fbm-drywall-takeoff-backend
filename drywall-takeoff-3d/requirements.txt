@@ -35,4 +35,5 @@ matplotlib
 pygltflib
 pillow
 fastapi
+firebase-admin
 uvicorn
