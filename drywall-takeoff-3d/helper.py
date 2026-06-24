@@ -1357,7 +1357,7 @@ async def load_organization_slug(credentials, pg_pool, user_id):
 def is_firebase_authenticated(credentials, request, user_id=None):
     authorization_header = request.headers.get("Authorization", None)
     if not authorization_header:
-        return False
+        return False, user_id
     id_token = authorization_header.split()[1]
 
     credential = credentials_firebase.Certificate(credentials["service_firebase_account_key"])
