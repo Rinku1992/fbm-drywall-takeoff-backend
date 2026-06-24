@@ -96,7 +96,6 @@ async def is_authenticated(credentials, pg_pool, request, user_id=None):
     authenticated_with_firebase, user_id_decoded = is_firebase_authenticated(credentials, request, user_id=user_id)
     if not authenticated_with_firebase:
         return dict(user_type="EXTERNAL", email=user_id_decoded, token="INVALID")
-    user_id_decoded = user_id
 
     user_email = normalize_email(user_id_decoded)
     if not is_valid_email(user_email):
