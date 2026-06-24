@@ -3,7 +3,7 @@ import sys
 import re
 import logging
 import colorsys
-from datetime import timedelta
+from datetime import datetime, timezone, timedelta
 from ruamel.yaml import YAML
 from pathlib import Path
 import json
@@ -35,6 +35,19 @@ from pdf2image.pdf2image import pdfinfo_from_path
 
 from extrapolate_3d import Extrapolate3D
 from floor_plan import FloorPlan
+from otp_management import (
+    generate_otp,
+    trigger_otp_email,
+    is_authenticated,
+    load_secret_json,
+    create_external_login_jwt,
+    normalize_email,
+    is_valid_email,
+    PayloadRequestExternalOtp,
+    PayloadVerifyExternalOtp,
+    OTP_EXPIRATION_MINUTES,
+    MAX_OTP_ATTEMPTS,
+)
 from helper import (
     load_pg_pool,
     close_pg_pool,
@@ -643,6 +656,10 @@ async def generate_project(request: Request):
         payload_project = PayloadProject(**parameters)
     except ValidationError:
         payload_project = PayloadProject(**body)
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=payload_project.created_by)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {payload_project.created_by} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
     created_at = await insert_project(payload_project, pg_pool, CREDENTIALS)
     logging.info(f"SYSTEM: New Project {payload_project.project_name} generated successfully")
     return respond_with_UI_payload(
@@ -663,6 +680,10 @@ async def load_projects(request: Request):
     except Exception:
         body = dict()
     user_id = parameters.get("user_id") or body.get("user_id")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"""
         WITH current_user_cte AS (
@@ -763,6 +784,10 @@ async def load_project_plans(request: Request):
         body = dict()
     project_id = parameters.get("project_id") or body.get("project_id")
     user_id = parameters.get("user_id") or body.get("user_id")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"""
         WITH current_user_cte AS (
@@ -869,6 +894,10 @@ async def generate_floorplan_upload_signed_URL(request: Request) -> str:
     user_id = parameters.get("user_id") or body.get("user_id")
     payload_plan = PayloadPlan(**payload_plan)
     logging.info("SYSTEM: Received Signed Floorplan upload URL generation Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     await insert_plan(
         project_id,
@@ -906,6 +935,10 @@ async def generate_floorplan_download_signed_URL(request: Request) -> str:
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     user_id = parameters.get("user_id") or body.get("user_id")
     logging.info("SYSTEM: Received Signed Floorplan download URL generation Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     client = CloudStorageClient()
     bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
@@ -933,6 +966,10 @@ async def load_plan_pages(request: Request):
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     user_id = parameters.get("user_id") or body.get("user_id")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"""
         WITH current_user_cte AS (
@@ -1060,6 +1097,10 @@ async def floorplan_to_preview(request: Request):
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     user_id = parameters.get("user_id") or body.get("user_id")
     logging.info("SYSTEM: Received a Floorplan Preview Generation Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     pdf_path = Path("/tmp/floor_plan.PDF")
     await download_floorplan(plan_id, project_id, user_id, CREDENTIALS, pg_pool, destination_path=pdf_path)
@@ -1107,6 +1148,10 @@ async def floorplan_to_2d(request: Request):
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     pages_metadata = parameters.get("pages_metadata") or body.get("pages_metadata")
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     pdf_path = Path("/tmp/floor_plan.PDF")
     GCS_URL_floorplan = await download_floorplan(plan_id, project_id, user_id, CREDENTIALS, pg_pool, destination_path=pdf_path)
@@ -1278,11 +1323,16 @@ async def load_2d_revision(request: Request):
     except Exception:
         body = dict()
     project_id = parameters.get("project_id") or body.get("project_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     page_number = parameters.get("page_number") or body.get("page_number")
     page_section_number = parameters.get("page_section_number") or body.get("page_section_number")
     revision_number = parameters.get("revision_number") or body.get("revision_number")
     logging.info(f"SYSTEM: Received Floorplan 2D Model (Revision: {revision_number}) Load Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"SELECT model FROM {CREDENTIALS["CloudSQL"]["table_name_model_revisions_2d"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s AND revision_number = %s;"
     query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number, page_section_number, revision_number,), fetch=True))
@@ -1302,10 +1352,15 @@ async def load_available_revision_numbers_2d(request: Request):
     except Exception:
         body = dict()
     project_id = parameters.get("project_id") or body.get("project_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     page_number = parameters.get("page_number") or body.get("page_number")
     page_section_number = parameters.get("page_section_number") or body.get("page_section_number")
     logging.info(f"SYSTEM: Received Available Revisions Load Request for 2D Model")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"SELECT revision_number FROM {CREDENTIALS["CloudSQL"]["table_name_model_revisions_2d"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
     query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number, page_section_number,), fetch=True))
@@ -1332,6 +1387,10 @@ async def load_2d_all(request: Request):
     page_number = parameters.get("page_number", '') or body.get("page_number", '')
     load_lazy = parameters.get("load_lazy", "true") or body.get("load_lazy", "true")
     logging.info("SYSTEM: Received All Floorplan 2D Models Load Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     if load_lazy == "false":
         status = "IN PROGRESS"
@@ -1620,6 +1679,10 @@ async def update_floorplan_to_2d(request: Request):
     index = parameters.get("page_number") or body.get("page_number")
     page_section_number = parameters.get("page_section_number") or body.get("page_section_number")
     logging.info("SYSTEM: Received a Floorplan 2D Model Update Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     hyperparameters = load_hyperparameters()
 
@@ -1715,6 +1778,10 @@ async def update_scale(request: Request):
     walls_2d_JSON = parameters.get("walls_2d") or body.get("walls_2d")
     polygons_JSON = parameters.get("polygons") or body.get("polygons")
     logging.info("SYSTEM: Received a Scale Update Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"UPDATE {CREDENTIALS["CloudSQL"]["table_name_models"]} SET scale = %s WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
     await run_in_threadpool(partial(pg_run, pg_pool, query, params=(scale, project_id, plan_id, page_number, page_section_number,)))
@@ -1744,6 +1811,10 @@ async def load_scale(request: Request):
     page_number = parameters.get("page_number") or body.get("page_number")
     page_section_number = parameters.get("page_section_number") or body.get("page_section_number")
     logging.info("SYSTEM: Received a Scale Update Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"SELECT scale FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
     query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number, page_section_number), fetch=True))
@@ -1767,6 +1838,10 @@ async def floorplan_to_3d(request: Request):
     index = parameters.get("page_number") or body.get("page_number")
     page_section_number = parameters.get("page_section_number") or body.get("page_section_number")
     logging.info("SYSTEM: Received a Floorplan 3D Model Generation Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     model_2d_path = "/tmp/walls_2d.json"
     with open(model_2d_path, 'w') as f:
@@ -1795,7 +1870,7 @@ async def floorplan_to_3d(request: Request):
     model_3d_path.rename(model_3d_path_sectioned)
     await upload_floorplan(model_3d_path_sectioned, plan_id, project_id, user_id, CREDENTIALS, pg_pool, index=str(index).zfill(4))
     #for gltf_path in gltf_paths:
-    #    await upload_floorplan(gltf_path, plan_id, project_id, user_id, CREDENTIALS, pg_pool, index=str(index).zfill(4), directory="gltf")
+    #    upload_floorplan(gltf_path, plan_id, project_id, user_id, CREDENTIALS, pg_pool, index=str(index).zfill(4), directory="gltf")
     await insert_model_3d(dict(walls_3d=walls_3d, polygons=polygons_3d), scale, index, page_section_number, plan_id, user_id, project_id, pg_pool, CREDENTIALS)
     logging.info("SYSTEM: A 3D Model of the Floorplan Generated Successfully")
 
@@ -1816,6 +1891,10 @@ async def load_3d_revision(request: Request):
     page_number = parameters.get("page_number") or body.get("page_number")
     revision_number = parameters.get("revision_number") or body.get("revision_number")
     logging.info(f"SYSTEM: Received Floorplan 3D Model (Revision: {revision_number}) Load Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"SELECT model FROM {CREDENTIALS["CloudSQL"]["table_name_model_revisions_3d"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND revision_number = %s;"
     query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, int(page_number), int(revision_number),), fetch=True))
@@ -1839,6 +1918,10 @@ async def load_available_revision_numbers_3d(request: Request):
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     page_number = parameters.get("page_number") or body.get("page_number")
     logging.info(f"SYSTEM: Received Available Revisions Load Request for 3D Model")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"SELECT revision_number FROM {CREDENTIALS["CloudSQL"]["table_name_model_revisions_3d"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
     query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, int(page_number),)))
@@ -1867,6 +1950,10 @@ async def update_floorplan_to_3d(request: Request):
     scale = parameters.get("scale") or body.get("scale")
     index = parameters.get("page_number") or body.get("page_number")
     logging.info("SYSTEM: Received a Floorplan 3D Model Update Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     await insert_model_3d(dict(walls_3d=walls_3d, polygons=polygons_3d), scale, index, plan_id, user_id, project_id, pg_pool, CREDENTIALS)
     await insert_model_3d_revision(dict(walls_3d=walls_3d, polygons=polygons_3d), scale, index, plan_id, user_id, project_id, pg_pool, CREDENTIALS)
@@ -1883,9 +1970,14 @@ async def generate_drywall_overlaid_floorplan_download_signed_URL(request: Reque
         body = dict()
     index = parameters.get("page_number") or body.get("page_number")
     project_id = parameters.get("project_id") or body.get("project_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     load_lazy = parameters.get("load_lazy", "true") or body.get("load_lazy", "true")
     logging.info("SYSTEM: Received Signed Floorplan download URL generation Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     if load_lazy == "false":
         status = "IN PROGRESS"
@@ -1937,6 +2029,10 @@ async def remove_floorplan(request: Request):
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     logging.info("SYSTEM: Received a Plan Deletion Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"SELECT * FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND LOWER(user_id) = LOWER(%s);"
     query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, user_id,), fetch=True))
@@ -1960,7 +2056,12 @@ async def load_waste_average(request: Request):
     page_number = parameters.get("page_number") or body.get("page_number")
     page_section_number = parameters.get("page_section_number") or body.get("page_section_number")
     project_id = parameters.get("project_id") or body.get("project_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"SELECT waste_average FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
     query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number, page_section_number,), fetch=True))
@@ -1988,7 +2089,12 @@ async def load_drywall_negate_opening_area_threshold(request: Request):
     page_number = parameters.get("page_number") or body.get("page_number")
     page_section_number = parameters.get("page_section_number") or body.get("page_section_number")
     project_id = parameters.get("project_id") or body.get("project_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"SELECT drywall_negate_opening_area_threshold FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
     query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number, page_section_number,), fetch=True))
@@ -2016,6 +2122,10 @@ async def compute_takeoff(request: Request):
     revision_number = parameters.get("revision_number", '') or body.get("revision_number", '')
     load_preview = load_parameter_first_not_none(parameters.get("load_preview"), body.get("load_preview"))
     logging.info("SYSTEM: Received a Drywall Takeoff computation Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"SELECT scale FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
     query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
@@ -2204,7 +2314,12 @@ async def summarize_takeoff_all(request: Request):
         body = dict()
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
     logging.info("SYSTEM: Received Total Drywall Takeoff summarization Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"SELECT page_number, page_section_number, scale, waste_average, drywall_negate_opening_area_threshold, takeoff, model_2d FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);"
     rows = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id), fetch=True))
@@ -2335,3 +2450,295 @@ async def insert_templates():
     """
     await run_in_threadpool(partial(pg_run, pg_pool, query, params=rows_to_insert, execute_many=True))
     logging.info("SYSTEM: Templates successfully inserted")
+
+
+@app.post("/request_otp")
+async def request_otp(request: PayloadRequestExternalOtp):
+    enable_logging_on_stdout()
+    user_email = normalize_email(request.user_id)
+    logging.info(f"SYSTEM: Received External OTP Request for {user_email}")
+
+    if not is_valid_email(user_email):
+        return respond_with_UI_payload(
+            dict(
+                user_type="EXTERNAL",
+                email=user_email,
+                token="INVALID"
+            )
+        )
+
+    query = f"""
+        SELECT
+            is_external
+        FROM {CREDENTIALS["CloudSQL"]["table_name_users"]}
+        WHERE LOWER(user_id) = LOWER(%s)
+        LIMIT 1;
+    """
+    is_external = await run_in_threadpool(
+        partial(pg_run, pg_pool, query, params=(user_email,), fetch=True)
+    )
+
+    if not is_external:
+        return respond_with_UI_payload(
+            dict(
+                user_type="EXTERNAL",
+                email=user_email,
+                token="INVALID"
+            )
+        )
+
+    otp = generate_otp()
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=OTP_EXPIRATION_MINUTES)
+
+    query = f"""
+        INSERT INTO {CREDENTIALS["CloudSQL"]["table_name_otp"]} (
+            email,
+            otp_code,
+            created_at,
+            expires_at,
+            is_verified,
+            attempts
+        )
+        VALUES (
+            %s,
+            %s,
+            CURRENT_TIMESTAMP,
+            %s,
+            FALSE,
+            0
+        )
+        ON CONFLICT (email) DO UPDATE SET
+            otp_code = EXCLUDED.otp_code,
+            created_at = CURRENT_TIMESTAMP,
+            expires_at = EXCLUDED.expires_at,
+            is_verified = FALSE,
+            attempts = 0;
+    """
+
+    await run_in_threadpool(
+        partial(pg_run, pg_pool, query, params=(user_email, otp, expires_at,))
+    )
+    
+    sender = CREDENTIALS["Email"]["sender_email"]
+    recipient = user_email
+    
+    try:
+        logging.info(f"SYSTEM: Sending OTP email from {sender} to {recipient}")
+        trigger_otp_email(CREDENTIALS, sender, recipient, otp)
+        logging.info(f"SYSTEM: OTP email sent successfully using sender {sender}")
+    
+    except Exception as e:
+        logging.exception(f"SYSTEM: OTP email failed using sender {sender}")
+        return respond_with_UI_payload(
+            dict(
+                success=False,
+                message="Failed to send OTP email",
+                details=[f"SEND_FAILED_FROM_{sender}: {repr(e)}"],
+                error_code="EMAIL_SEND_FAILED"
+            ),
+            status_code=500
+        )
+    
+    return respond_with_UI_payload(
+        dict(
+            success=True,
+            message="OTP sent to email",
+            email=user_email
+        )
+    )
+
+
+@app.post("/verify_otp")
+async def verify_otp(request: PayloadVerifyExternalOtp):
+    enable_logging_on_stdout()
+    user_email = normalize_email(request.user_id)
+    otp = str(request.otp or "").strip()
+    logging.info(f"SYSTEM: Received External OTP Verification Request for {user_email}")
+
+    if not is_valid_email(user_email):
+        return respond_with_UI_payload(
+            dict(
+                user_type="EXTERNAL",
+                email=user_email,
+                token="INVALID")
+            )
+
+    query = f"""
+        SELECT
+            is_external
+        FROM {CREDENTIALS["CloudSQL"]["table_name_users"]}
+        WHERE LOWER(user_id) = LOWER(%s)
+        LIMIT 1;
+    """
+    is_external = await run_in_threadpool(
+        partial(pg_run, pg_pool, query, params=(user_email,), fetch=True)
+    )
+
+    if not is_external:
+        return respond_with_UI_payload(
+            dict(
+                user_type="EXTERNAL",
+                email=user_email,
+                token="INVALID"
+            )
+        )
+
+    if len(otp) != 6 or not otp.isdigit():
+        return respond_with_UI_payload(
+            dict(
+                success=False,
+                message="Invalid OTP format",
+                error_code="INVALID_OTP_FORMAT"
+            ),
+            status_code=400
+        )
+
+    query = f"""
+        SELECT
+            otp_code,
+            expires_at,
+            is_verified,
+            attempts
+        FROM {CREDENTIALS["CloudSQL"]["table_name_otp"]}
+        WHERE LOWER(email) = LOWER(%s)
+        LIMIT 1;
+    """
+
+    otp_rows = await run_in_threadpool(
+        partial(pg_run, pg_pool, query, params=(user_email,), fetch=True)
+    )
+
+    if not otp_rows:
+        return respond_with_UI_payload(
+            dict(
+                success=False,
+                message="Invalid OTP or email",
+                error_code="OTP_NOT_FOUND"
+            ),
+            status_code=400
+        )
+
+    otp_record = otp_rows[0]
+
+    if otp_record["is_verified"]:
+        return respond_with_UI_payload(
+            dict(
+                success=False,
+                message="OTP already used",
+                error_code="OTP_ALREADY_USED"
+            ),
+            status_code=400
+        )
+
+    if datetime.now(timezone.utc) > otp_record["expires_at"]:
+        query = f"""
+            DELETE FROM {CREDENTIALS["CloudSQL"]["table_name_otp"]}
+            WHERE LOWER(email) = LOWER(%s);
+        """
+
+        await run_in_threadpool(
+            partial(pg_run, pg_pool, query, params=(user_email,))
+        )
+
+        return respond_with_UI_payload(
+            dict(
+                success=False,
+                message="OTP has expired. Please request a new one",
+                error_code="OTP_EXPIRED"
+            ),
+            status_code=400
+        )
+
+    if int(otp_record["attempts"]) >= MAX_OTP_ATTEMPTS:
+        query = f"""
+            DELETE FROM {CREDENTIALS["CloudSQL"]["table_name_otp"]}
+            WHERE LOWER(email) = LOWER(%s);
+        """
+
+        await run_in_threadpool(
+            partial(pg_run, pg_pool, query, params=(user_email,))
+        )
+
+        return respond_with_UI_payload(
+            dict(
+                success=False,
+                message="Max attempts exceeded. Please request a new OTP",
+                error_code="MAX_ATTEMPTS_EXCEEDED"
+            ),
+            status_code=429
+        )
+
+    if otp_record["otp_code"] != otp:
+        query = f"""
+            UPDATE {CREDENTIALS["CloudSQL"]["table_name_otp"]}
+            SET attempts = attempts + 1
+            WHERE LOWER(email) = LOWER(%s);
+        """
+
+        await run_in_threadpool(
+            partial(pg_run, pg_pool, query, params=(user_email,))
+        )
+
+        remaining_attempts = MAX_OTP_ATTEMPTS - int(otp_record["attempts"]) - 1
+
+        return respond_with_UI_payload(
+            dict(
+                success=False,
+                message=f"Invalid OTP. {remaining_attempts} attempts remaining",
+                error_code="INVALID_OTP"
+            ),
+            status_code=400
+        )
+
+    query = f"""
+        SELECT
+            user_id,
+            group_ids,
+            organization_id
+        FROM {CREDENTIALS["CloudSQL"]["table_name_users"]}
+        WHERE LOWER(user_id) = LOWER(%s)
+        LIMIT 1;
+    """
+
+    users = await run_in_threadpool(
+        partial(pg_run, pg_pool, query, params=(user_email,), fetch=True)
+    )
+
+    if not users:
+        return respond_with_UI_payload(
+            dict(
+                success=False,
+                message="User not found",
+                error_code="USER_NOT_FOUND"
+            ),
+            status_code=404
+        )
+
+    user = users[0]
+
+    query = f"""
+        UPDATE {CREDENTIALS["CloudSQL"]["table_name_otp"]}
+        SET is_verified = TRUE
+        WHERE LOWER(email) = LOWER(%s);
+    """
+
+    await run_in_threadpool(
+        partial(pg_run, pg_pool, query, params=(user_email,))
+    )
+
+    token = create_external_login_jwt(user)
+    jwt_config = load_secret_json(CREDENTIALS["JWT"]["secret_path"])
+
+    return respond_with_UI_payload(
+        dict(
+            success=True,
+            message="OTP verified successfully",
+            token=token,
+            tokenType="Bearer",
+            expiresIn=jwt_config.get("expiration_hours", 24) * 60 * 60,
+            user=dict(
+                user_id=user["user_id"],
+                email=user["user_id"]
+            )
+        )
+    )
