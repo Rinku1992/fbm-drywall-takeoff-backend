@@ -14,6 +14,8 @@ import subprocess
 from collections import defaultdict
 from functools import partial
 from fastapi.concurrency import run_in_threadpool
+import firebase_admin
+from firebase_admin import auth as auth_firebase, credentials as credentials_firebase
 
 import math
 import random
@@ -1351,3 +1353,28 @@ async def load_organization_slug(credentials, pg_pool, user_id):
     if query_output and query_output[0]["org_or_domain"]:
         return query_output[0]["org_or_domain"]
     return user_id.split('@')[1]
+
+def is_firebase_authenticated(credentials, request, user_id=None):
+    authorization_header = request.headers.get("Authorization", None)
+    if not authorization_header:
+        return False
+    id_token = authorization_header.split()[1]
+
+    credential = credentials_firebase.Certificate(credentials["service_firebase_account_key"])
+    drywall_app = firebase_admin.initialize_app(credential)
+
+    try:
+        decoded_token = auth_firebase.verify_id_token(id_token)
+        user_id = decoded_token["email"]
+        logging.info(f"SYSTEM: Authentication successfully verified for user: {user_id}")
+        firebase_admin.delete_app(drywall_app)
+        return True, user_id
+
+    except auth_firebase.InvalidIdTokenError:
+        logging.info("SYSTEM: Authentication verification failed due to Invalid or Expired ID token")
+        firebase_admin.delete_app(drywall_app)
+        return False, user_id
+    except ValueError as e:
+        logging.info(f"SYSTEM: Authentication verification failed due to Invalid ID token: {e}")
+        firebase_admin.delete_app(drywall_app)
+        return False, user_id
