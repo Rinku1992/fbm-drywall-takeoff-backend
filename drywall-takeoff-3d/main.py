@@ -2692,9 +2692,7 @@ async def verify_otp(request: PayloadVerifyExternalOtp):
 
     query = f"""
         SELECT
-            user_id,
-            group_ids,
-            organization_id
+            user_id
         FROM {CREDENTIALS["CloudSQL"]["table_name_users"]}
         WHERE LOWER(user_id) = LOWER(%s)
         LIMIT 1;
@@ -2714,7 +2712,7 @@ async def verify_otp(request: PayloadVerifyExternalOtp):
             status_code=404
         )
 
-    user = users[0]
+    user_id = users[0]["user_id"]
 
     query = f"""
         UPDATE {CREDENTIALS["CloudSQL"]["table_name_otp"]}
@@ -2726,7 +2724,7 @@ async def verify_otp(request: PayloadVerifyExternalOtp):
         partial(pg_run, pg_pool, query, params=(user_email,))
     )
 
-    token = create_external_login_jwt(user)
+    token = create_external_login_jwt(CREDENTIALS, user_id)
     jwt_config = load_secret_json(CREDENTIALS["JWT"]["secret_path"])
 
     return respond_with_UI_payload(
@@ -2737,8 +2735,8 @@ async def verify_otp(request: PayloadVerifyExternalOtp):
             tokenType="Bearer",
             expiresIn=jwt_config.get("expiration_hours", 24) * 60 * 60,
             user=dict(
-                user_id=user["user_id"],
-                email=user["user_id"]
+                user_id=user_id,
+                email=user_id
             )
         )
     )
