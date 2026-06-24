@@ -15,10 +15,10 @@ from helper import is_firebase_authenticated, pg_run
 
 
 class PayloadRequestExternalOtp(BaseModel):
-    email: str
+    user_id: str
 
 class PayloadVerifyExternalOtp(BaseModel):
-    email: str
+    user_id: str
     otp: str
 
 OTP_EXPIRATION_MINUTES = 5
