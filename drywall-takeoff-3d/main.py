@@ -889,7 +889,6 @@ async def load_project_plans(request: Request):
         ),
 
         visible_users AS (
-
             SELECT user_id
             FROM org_admin_users
 
@@ -906,16 +905,37 @@ async def load_project_plans(request: Request):
 
             SELECT LOWER(user_id)
             FROM fallback_user
+        ),
+
+        page_stats AS (
+            SELECT
+                LOWER(plan_id) AS plan_id,
+                COUNT(*) FILTER (
+                    WHERE UPPER(status) IN ('COMPLETED', 'SCALE_NOT_DETECTED')
+                ) AS pages_completed,
+                COUNT(*) FILTER (
+                    WHERE UPPER(status) NOT IN ('COMPLETED', 'NOT STARTED', 'SCALE_NOT_DETECTED')
+                ) AS pages_in_progress
+            FROM {CREDENTIALS["CloudSQL"]["table_name_pages"]}
+            GROUP BY LOWER(plan_id)
         )
 
         SELECT
             p.*,
             (
                 SELECT COALESCE(
-                    jsonb_agg(to_jsonb(pl)),
+                    jsonb_agg(
+                        to_jsonb(pl)
+                        || jsonb_build_object(
+                            'pages_completed', COALESCE(ps.pages_completed, 0),
+                            'pages_in_progress', COALESCE(ps.pages_in_progress, 0)
+                        )
+                    ),
                     '[]'::jsonb
                 )
                 FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} pl
+                LEFT JOIN page_stats ps
+                    ON LOWER(pl.plan_id) = ps.plan_id
                 WHERE LOWER(pl.project_id) = LOWER(p.project_id)
             ) AS project_plans
 
