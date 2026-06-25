@@ -1,4 +1,4 @@
-import random
+import pyotp
 import string
 import jwt
 import json
@@ -23,6 +23,7 @@ class PayloadVerifyExternalOtp(BaseModel):
 
 OTP_EXPIRATION_MINUTES = 60
 MAX_OTP_ATTEMPTS = 5
+SECRET_SEED = "IFMK2JJHQAAA7KCJ26K3XEVXLCJNQCMM"
 
 def load_secret_json(secret_path, version_id="latest"):
     client = secretmanager.SecretManagerServiceClient()
@@ -42,7 +43,8 @@ def is_valid_email(email):
     return re.match(pattern, email) is not None
 
 def generate_otp():
-    return "".join(random.choices(string.digits, k=6))
+    totp = pyotp.TOTP(SECRET_SEED)
+    return tootp.now()
 
 def create_external_login_jwt(credentials, user_id):
     jwt_config = load_secret_json(credentials["JWT"]["secret_path"])
