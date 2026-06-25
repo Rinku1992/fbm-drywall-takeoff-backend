@@ -687,52 +687,95 @@ async def load_projects(request: Request):
 
     query = f"""
         WITH current_user_cte AS (
-            SELECT %s AS user_id
+            SELECT LOWER(%s) AS user_id
         ),
 
         current_user_groups AS (
-            SELECT DISTINCT LOWER(group_id) AS group_id
+            SELECT DISTINCT
+                LOWER(group_id) AS group_id
             FROM {CREDENTIALS["CloudSQL"]["table_name_users"]} u
             CROSS JOIN unnest(
                 COALESCE(u.group_ids, ARRAY[]::text[])
             ) AS group_id
             JOIN current_user_cte cu
-                ON LOWER(u.user_id) = LOWER(cu.user_id)
+                ON LOWER(u.user_id) = cu.user_id
         ),
 
-        is_admin AS (
+        admin_groups AS (
+            SELECT DISTINCT
+                g.organization_id
+            FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
+            JOIN current_user_groups cug
+                ON LOWER(g.group_id) = cug.group_id
+            WHERE COALESCE(g.is_admin, FALSE) = TRUE
+        ),
+
+        has_global_admin AS (
             SELECT EXISTS (
                 SELECT 1
-                FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
-                JOIN current_user_groups cug
-                    ON LOWER(g.group_id) = cug.group_id
-                WHERE COALESCE(g.is_admin, FALSE) = TRUE
-            ) AS is_admin
+                FROM admin_groups
+                WHERE organization_id IS NULL
+            ) AS is_global_admin
         ),
 
-        matching_users AS (
-            SELECT DISTINCT g.user_id
+        same_group_users AS (
+            SELECT DISTINCT
+                LOWER(g.user_id) AS user_id
             FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
             JOIN current_user_groups cug
                 ON LOWER(g.group_id) = cug.group_id
         ),
 
+        same_org_users AS (
+            SELECT DISTINCT
+                LOWER(g.user_id) AS user_id
+            FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
+            JOIN admin_groups ag
+                ON ag.organization_id = g.organization_id
+            WHERE ag.organization_id IS NOT NULL
+        ),
+
         fallback_user AS (
-            SELECT cu.user_id
-            FROM current_user_cte cu
+            SELECT user_id
+            FROM current_user_cte
             WHERE NOT EXISTS (
                 SELECT 1
                 FROM current_user_groups
             )
         ),
 
-        final_users AS (
-            SELECT user_id
-            FROM matching_users
+        visible_users AS (
+            SELECT DISTINCT
+                LOWER(g.user_id) AS user_id
+            FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
+            WHERE EXISTS (
+                SELECT 1
+                FROM has_global_admin
+                WHERE is_global_admin = TRUE
+            )
 
             UNION
 
             SELECT user_id
+            FROM same_org_users
+            WHERE EXISTS (
+                SELECT 1
+                FROM admin_groups
+                WHERE organization_id IS NOT NULL
+            )
+
+            UNION
+
+            SELECT user_id
+            FROM same_group_users
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM admin_groups
+            )
+
+            UNION
+
+            SELECT LOWER(user_id)
             FROM fallback_user
         )
 
@@ -753,16 +796,14 @@ async def load_projects(request: Request):
             FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]}
             GROUP BY LOWER(project_id)
         ) pc
-        ON LOWER(p.project_id) = pc.project_id
+            ON LOWER(p.project_id) = pc.project_id
 
-        WHERE
-            (
-                (SELECT is_admin FROM is_admin)
-                OR LOWER(p.created_by) IN (
-                    SELECT LOWER(user_id)
-                    FROM final_users
-                )
-            )
+        WHERE LOWER(p.created_by) IN (
+            SELECT user_id
+            FROM visible_users
+        )
+
+        ORDER BY p.created_at DESC NULLS LAST;
     """
     projects = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(user_id,), fetch=True))
 
@@ -791,7 +832,7 @@ async def load_project_plans(request: Request):
 
     query = f"""
         WITH current_user_cte AS (
-            SELECT %s AS user_id
+            SELECT LOWER(%s) AS user_id
         ),
 
         current_user_groups AS (
@@ -801,21 +842,38 @@ async def load_project_plans(request: Request):
                 COALESCE(u.group_ids, ARRAY[]::text[])
             ) AS group_id
             JOIN current_user_cte cu
-                ON LOWER(u.user_id) = LOWER(cu.user_id)
+                ON LOWER(u.user_id) = cu.user_id
         ),
 
-        is_admin AS (
+        admin_groups AS (
+            SELECT DISTINCT
+                g.organization_id
+            FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
+            JOIN current_user_groups cug
+                ON LOWER(g.group_id) = cug.group_id
+            WHERE COALESCE(g.is_admin, FALSE) = TRUE
+        ),
+
+        global_admin AS (
             SELECT EXISTS (
                 SELECT 1
-                FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
-                JOIN current_user_groups cug
-                    ON LOWER(g.group_id) = cug.group_id
-                WHERE COALESCE(g.is_admin, FALSE) = TRUE
-            ) AS is_admin
+                FROM admin_groups
+                WHERE organization_id IS NULL
+            ) AS is_global_admin
+        ),
+
+        org_admin_users AS (
+            SELECT DISTINCT
+                LOWER(g.user_id) AS user_id
+            FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
+            JOIN admin_groups ag
+                ON ag.organization_id = g.organization_id
+            WHERE ag.organization_id IS NOT NULL
         ),
 
         matching_users AS (
-            SELECT DISTINCT g.user_id
+            SELECT DISTINCT
+                LOWER(g.user_id) AS user_id
             FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
             JOIN current_user_groups cug
                 ON LOWER(g.group_id) = cug.group_id
@@ -830,13 +888,23 @@ async def load_project_plans(request: Request):
             )
         ),
 
-        final_users AS (
+        visible_users AS (
+
             SELECT user_id
-            FROM matching_users
+            FROM org_admin_users
 
             UNION
 
             SELECT user_id
+            FROM matching_users
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM admin_groups
+            )
+
+            UNION
+
+            SELECT LOWER(user_id)
             FROM fallback_user
         )
 
@@ -851,15 +919,18 @@ async def load_project_plans(request: Request):
                 WHERE LOWER(pl.project_id) = LOWER(p.project_id)
             ) AS project_plans
 
-        FROM projects p
+        FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} p
 
         WHERE
             LOWER(p.project_id) = LOWER(%s)
             AND (
-                (SELECT is_admin FROM is_admin)
-                OR LOWER(p.created_by) IN (
-                    SELECT LOWER(user_id)
-                    FROM final_users
+                (SELECT is_global_admin FROM global_admin)
+
+                OR
+
+                LOWER(p.created_by) IN (
+                    SELECT user_id
+                    FROM visible_users
                 )
             )
     """
@@ -973,7 +1044,7 @@ async def load_plan_pages(request: Request):
 
     query = f"""
         WITH current_user_cte AS (
-            SELECT %s AS user_id
+            SELECT LOWER(%s) AS user_id
         ),
 
         current_user_groups AS (
@@ -983,21 +1054,38 @@ async def load_plan_pages(request: Request):
                 COALESCE(u.group_ids, ARRAY[]::text[])
             ) AS group_id
             JOIN current_user_cte cu
-                ON LOWER(u.user_id) = LOWER(cu.user_id)
+                ON LOWER(u.user_id) = cu.user_id
         ),
 
-        is_admin AS (
+        admin_groups AS (
+            SELECT DISTINCT
+                g.organization_id
+            FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
+            JOIN current_user_groups cug
+                ON LOWER(g.group_id) = cug.group_id
+            WHERE COALESCE(g.is_admin, FALSE) = TRUE
+        ),
+
+        global_admin AS (
             SELECT EXISTS (
                 SELECT 1
-                FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
-                JOIN current_user_groups cug
-                    ON LOWER(g.group_id) = cug.group_id
-                WHERE COALESCE(g.is_admin, FALSE) = TRUE
-            ) AS is_admin
+                FROM admin_groups
+                WHERE organization_id IS NULL
+            ) AS is_global_admin
+        ),
+
+        org_admin_users AS (
+            SELECT DISTINCT
+                LOWER(g.user_id) AS user_id
+            FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
+            JOIN admin_groups ag
+                ON ag.organization_id = g.organization_id
+            WHERE ag.organization_id IS NOT NULL
         ),
 
         matching_users AS (
-            SELECT DISTINCT g.user_id
+            SELECT DISTINCT
+                LOWER(g.user_id) AS user_id
             FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
             JOIN current_user_groups cug
                 ON LOWER(g.group_id) = cug.group_id
@@ -1012,13 +1100,22 @@ async def load_plan_pages(request: Request):
             )
         ),
 
-        final_users AS (
+        visible_users AS (
             SELECT user_id
-            FROM matching_users
+            FROM org_admin_users
 
             UNION
 
             SELECT user_id
+            FROM matching_users
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM admin_groups
+            )
+
+            UNION
+
+            SELECT LOWER(user_id)
             FROM fallback_user
         )
 
@@ -1028,10 +1125,13 @@ async def load_plan_pages(request: Request):
             LOWER(project_id) = LOWER(%s)
             AND LOWER(plan_id) = LOWER(%s)
             AND (
-                (SELECT is_admin FROM is_admin)
-                OR LOWER(user_id) IN (
-                    SELECT LOWER(user_id)
-                    FROM final_users
+                (SELECT is_global_admin FROM global_admin)
+
+                OR
+
+                LOWER(user_id) IN (
+                    SELECT user_id
+                    FROM visible_users
                 )
             )
     """
@@ -1396,7 +1496,7 @@ async def load_2d_all(request: Request):
         status = "IN PROGRESS"
         query = f"""
             WITH current_user_cte AS (
-                SELECT %s AS user_id
+                SELECT LOWER(%s) AS user_id
             ),
 
             current_user_groups AS (
@@ -1406,21 +1506,38 @@ async def load_2d_all(request: Request):
                     COALESCE(u.group_ids, ARRAY[]::text[])
                 ) AS group_id
                 JOIN current_user_cte cu
-                    ON LOWER(u.user_id) = LOWER(cu.user_id)
+                    ON LOWER(u.user_id) = cu.user_id
             ),
 
-            is_admin AS (
+            admin_groups AS (
+                SELECT DISTINCT
+                    g.organization_id
+                FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
+                JOIN current_user_groups cug
+                    ON LOWER(g.group_id) = cug.group_id
+                WHERE COALESCE(g.is_admin, FALSE) = TRUE
+            ),
+
+            global_admin AS (
                 SELECT EXISTS (
                     SELECT 1
-                    FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
-                    JOIN current_user_groups cug
-                        ON LOWER(g.group_id) = cug.group_id
-                    WHERE COALESCE(g.is_admin, FALSE) = TRUE
-                ) AS is_admin
+                    FROM admin_groups
+                    WHERE organization_id IS NULL
+                ) AS is_global_admin
+            ),
+
+            org_admin_users AS (
+                SELECT DISTINCT
+                    LOWER(g.user_id) AS user_id
+                FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
+                JOIN admin_groups ag
+                    ON ag.organization_id = g.organization_id
+                WHERE ag.organization_id IS NOT NULL
             ),
 
             matching_users AS (
-                SELECT DISTINCT g.user_id
+                SELECT DISTINCT
+                    LOWER(g.user_id) AS user_id
                 FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
                 JOIN current_user_groups cug
                     ON LOWER(g.group_id) = cug.group_id
@@ -1435,13 +1552,22 @@ async def load_2d_all(request: Request):
                 )
             ),
 
-            final_users AS (
+            visible_users AS (
                 SELECT user_id
-                FROM matching_users
+                FROM org_admin_users
 
                 UNION
 
                 SELECT user_id
+                FROM matching_users
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM admin_groups
+                )
+
+                UNION
+
+                SELECT LOWER(user_id)
                 FROM fallback_user
             )
 
@@ -1451,10 +1577,13 @@ async def load_2d_all(request: Request):
                 LOWER(project_id) = LOWER(%s)
                 AND LOWER(plan_id) = LOWER(%s)
                 AND (
-                    (SELECT is_admin FROM is_admin)
-                    OR LOWER(user_id) IN (
-                        SELECT LOWER(user_id)
-                        FROM final_users
+                    (SELECT is_global_admin FROM global_admin)
+
+                    OR
+
+                    LOWER(user_id) IN (
+                        SELECT user_id
+                        FROM visible_users
                     )
                 )
         """
@@ -1480,7 +1609,7 @@ async def load_2d_all(request: Request):
     if page_number != '':
         query = f"""
             WITH current_user_cte AS (
-                SELECT %s AS user_id
+                SELECT LOWER(%s) AS user_id
             ),
 
             current_user_groups AS (
@@ -1490,21 +1619,38 @@ async def load_2d_all(request: Request):
                     COALESCE(u.group_ids, ARRAY[]::text[])
                 ) AS group_id
                 JOIN current_user_cte cu
-                    ON LOWER(u.user_id) = LOWER(cu.user_id)
+                    ON LOWER(u.user_id) = cu.user_id
             ),
 
-            is_admin AS (
+            admin_groups AS (
+                SELECT DISTINCT
+                    g.organization_id
+                FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
+                JOIN current_user_groups cug
+                    ON LOWER(g.group_id) = cug.group_id
+                WHERE COALESCE(g.is_admin, FALSE) = TRUE
+            ),
+
+            global_admin AS (
                 SELECT EXISTS (
                     SELECT 1
-                    FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
-                    JOIN current_user_groups cug
-                        ON LOWER(g.group_id) = cug.group_id
-                    WHERE COALESCE(g.is_admin, FALSE) = TRUE
-                ) AS is_admin
+                    FROM admin_groups
+                    WHERE organization_id IS NULL
+                ) AS is_global_admin
+            ),
+
+            org_admin_users AS (
+            SELECT DISTINCT
+                    LOWER(g.user_id) AS user_id
+                FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
+                JOIN admin_groups ag
+                    ON ag.organization_id = g.organization_id
+                WHERE ag.organization_id IS NOT NULL
             ),
 
             matching_users AS (
-                SELECT DISTINCT g.user_id
+                SELECT DISTINCT
+                    LOWER(g.user_id) AS user_id
                 FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
                 JOIN current_user_groups cug
                     ON LOWER(g.group_id) = cug.group_id
@@ -1519,13 +1665,22 @@ async def load_2d_all(request: Request):
                 )
             ),
 
-            final_users AS (
+            visible_users AS (
                 SELECT user_id
-                FROM matching_users
+                FROM org_admin_users
 
                 UNION
 
                 SELECT user_id
+                FROM matching_users
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM admin_groups
+                )
+
+                UNION
+
+                SELECT LOWER(user_id)
                 FROM fallback_user
             )
 
@@ -1540,10 +1695,13 @@ async def load_2d_all(request: Request):
                 AND LOWER(plan_id) = LOWER(%s)
                 AND page_number = %s
                 AND (
-                    (SELECT is_admin FROM is_admin)
-                    OR LOWER(user_id) IN (
-                        SELECT LOWER(user_id)
-                        FROM final_users
+                    (SELECT is_global_admin FROM global_admin)
+
+                    OR
+
+                    LOWER(user_id) IN (
+                        SELECT user_id
+                        FROM visible_users
                     )
                 )
             ORDER BY page_number
@@ -1552,7 +1710,7 @@ async def load_2d_all(request: Request):
     else:
         query = f"""
             WITH current_user_cte AS (
-                SELECT %s AS user_id
+                SELECT LOWER(%s) AS user_id
             ),
 
             current_user_groups AS (
@@ -1562,21 +1720,38 @@ async def load_2d_all(request: Request):
                     COALESCE(u.group_ids, ARRAY[]::text[])
                 ) AS group_id
                 JOIN current_user_cte cu
-                    ON LOWER(u.user_id) = LOWER(cu.user_id)
+                    ON LOWER(u.user_id) = cu.user_id
             ),
 
-            is_admin AS (
+            admin_groups AS (
+                SELECT DISTINCT
+                    g.organization_id
+                FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
+                JOIN current_user_groups cug
+                    ON LOWER(g.group_id) = cug.group_id
+                WHERE COALESCE(g.is_admin, FALSE) = TRUE
+            ),
+
+            global_admin AS (
                 SELECT EXISTS (
                     SELECT 1
-                    FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
-                    JOIN current_user_groups cug
-                        ON LOWER(g.group_id) = cug.group_id
-                    WHERE COALESCE(g.is_admin, FALSE) = TRUE
-                ) AS is_admin
+                    FROM admin_groups
+                    WHERE organization_id IS NULL
+                ) AS is_global_admin
+            ),
+
+            org_admin_users AS (
+                SELECT DISTINCT
+                    LOWER(g.user_id) AS user_id
+                FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
+                JOIN admin_groups ag
+                    ON ag.organization_id = g.organization_id
+                WHERE ag.organization_id IS NOT NULL
             ),
 
             matching_users AS (
-                SELECT DISTINCT g.user_id
+                SELECT DISTINCT
+                    LOWER(g.user_id) AS user_id
                 FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
                 JOIN current_user_groups cug
                     ON LOWER(g.group_id) = cug.group_id
@@ -1591,13 +1766,22 @@ async def load_2d_all(request: Request):
                 )
             ),
 
-            final_users AS (
+            visible_users AS (
                 SELECT user_id
-                FROM matching_users
+                FROM org_admin_users
 
                 UNION
 
                 SELECT user_id
+                FROM matching_users
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM admin_groups
+                )
+
+                UNION
+
+                SELECT LOWER(user_id)
                 FROM fallback_user
             )
 
@@ -1611,13 +1795,18 @@ async def load_2d_all(request: Request):
                 LOWER(project_id) = LOWER(%s)
                 AND LOWER(plan_id) = LOWER(%s)
                 AND (
-                    (SELECT is_admin FROM is_admin)
-                    OR LOWER(user_id) IN (
-                        SELECT LOWER(user_id)
-                        FROM final_users
+                    (SELECT is_global_admin FROM global_admin)
+
+                    OR
+
+                    LOWER(user_id) IN (
+                        SELECT user_id
+                        FROM visible_users
                     )
                 )
-            ORDER BY page_number
+            ORDER BY
+                page_number,
+                page_section_number
         """
         params = (user_id, project_id, plan_id,)
     rows = await run_in_threadpool(partial(pg_run, pg_pool, query, params=params, fetch=True))
