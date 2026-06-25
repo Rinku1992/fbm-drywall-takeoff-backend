@@ -21,7 +21,7 @@ class PayloadVerifyExternalOtp(BaseModel):
     user_id: str
     otp: str
 
-OTP_EXPIRATION_MINUTES = 5
+OTP_EXPIRATION_MINUTES = 60
 MAX_OTP_ATTEMPTS = 5
 
 def load_secret_json(secret_path, version_id="latest"):
