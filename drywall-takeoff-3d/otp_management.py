@@ -44,7 +44,7 @@ def is_valid_email(email):
 
 def generate_otp():
     totp = pyotp.TOTP(SECRET_SEED)
-    return tootp.now()
+    return totp.now()
 
 def create_external_login_jwt(credentials, user_id):
     jwt_config = load_secret_json(credentials["JWT"]["secret_path"])
