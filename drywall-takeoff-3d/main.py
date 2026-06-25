@@ -2543,7 +2543,8 @@ async def request_otp(request: PayloadRequestExternalOtp):
         dict(
             success=True,
             message="OTP sent to email",
-            email=user_email
+            email=user_email,
+            expires_in_minutes=OTP_EXPIRATION_MINUTES,
         )
     )
 
