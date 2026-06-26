@@ -995,3 +995,15 @@ async def load_organization_slug(credentials, pg_pool, user_id):
     if query_output and query_output[0]["org_or_domain"]:
         return query_output[0]["org_or_domain"]
     return user_id.split('@')[1]
+
+async def update_status(credentials, pg_pool, status, project_id, plan_id, user_id, page_number):
+    await insert_page(
+        plan_id,
+        user_id,
+        project_id,
+        page_number,
+        False,
+        status,
+        pg_pool,
+        credentials,
+    )
