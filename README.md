@@ -247,6 +247,18 @@ CREATE TABLE sku (
 );
 ```
 
+11. <b><i>external_otp_tokens</i></b>
+```sql
+CREATE TABLE external_otp_tokens (
+    email         TEXT PRIMARY KEY,
+    otp_code      TEXT NOT NULL,
+    created_at    TIMESTAMPZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at    TIMESTAMPZ NOT NULL,
+    is_verified   BOOLEAN NOT NULL DEFAULT FALSE,
+    attempts      INTEGER NOT NULL DEFAULT 0
+);
+```
+ 
 <b>Grant Permissions to SA: </b>
 ```sql
 GRANT SELECT, INSERT, UPDATE, DELETE
