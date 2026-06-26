@@ -2695,6 +2695,14 @@ async def request_otp(request: PayloadRequestExternalOtp):
                 token="INVALID"
             )
         )
+    if not is_external[0]["is_external"]:
+        return respond_with_UI_payload(
+            dict(
+                user_type="INTERNAL",
+                email=user_email,
+                token="INVALID"
+            )
+        )
 
     otp = generate_otp()
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=OTP_EXPIRATION_MINUTES)
