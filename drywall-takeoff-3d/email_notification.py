@@ -58,7 +58,7 @@ def trigger(
                 f"Your floor plan <b>{plan_name}</b> has failed to process successfully."
             )
             details_paragraph = (
-                "The drywall takeoff output is not available because the extraction workflow failed."
+                "The Xtimator output is not available because the extraction workflow failed."
             )
         elif partial:
             subject = f"Floor Plan Processing is Incomplete - {plan_name} | Page Number - {page_number}"
@@ -74,7 +74,7 @@ def trigger(
                 f"Your floor plan <b>{plan_name}</b> has been processed successfully."
             )
             details_paragraph = (
-                "The drywall takeoff output is now ready for review, including extracted rooms, "
+                "The Xtimator output is now ready for review, including extracted rooms, "
                 "wall segments, measurements, and quantity estimates."
             )
 
