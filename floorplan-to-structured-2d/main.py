@@ -40,6 +40,7 @@ from helper import (
     trigger_email_notification,
     load_metadata_from_vector_pdf,
     load_organization_slug,
+    update_status,
 )
 from prompts import CEILING_CHOICES, WALL_CHOICES
 
@@ -378,6 +379,7 @@ async def floorplan_to_structured_2d(request: Request):
         )
         return respond_with_UI_payload(dict(status="SUCCESS", message="NO Floor Plan layout observed"))
 
+    await update_status(CREDENTIALS, pg_pool, "READING PDF TEXT", project_id, plan_id, user_id, page_number)
     is_vector, scales, standard_ceiling_heights = await load_metadata_from_vector_pdf(
         CREDENTIALS,
         pg_pool,
@@ -388,9 +390,11 @@ async def floorplan_to_structured_2d(request: Request):
         bounding_box_offsets,
     )
     if not architectural_scale and is_vector:
+        await update_status(CREDENTIALS, pg_pool, "SCALE DETECTED", project_id, plan_id, user_id, page_number)
         architectural_scale = scales
 
     futures = dict()
+    await update_status(CREDENTIALS, pg_pool, "DETECTING WALLS AND TRANSCRIPTIONS", project_id, plan_id, user_id, page_number)
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures["floorplan_to_walls"] = floorplan_to_walls(
             CREDENTIALS,
@@ -409,9 +413,11 @@ async def floorplan_to_structured_2d(request: Request):
             floor_plan_processed_path,
         )
     wall_segmented_path, = await asyncio.gather(futures["floorplan_to_walls"])
+    await update_status(CREDENTIALS, pg_pool, "WALLS DETECTED", project_id, plan_id, user_id, page_number)
     logging.info(f"SYSTEM: Wall Detection Completed from PAGE: {page_number}")
 
     transcription_block_with_centroids, _ = futures["transcriber"].result()
+    await update_status(CREDENTIALS, pg_pool, "TRANSCRIPTIONS DETECTED", project_id, plan_id, user_id, page_number)
     logging.info(f"SYSTEM: Transcription Completed from PAGE: {page_number}")
 
     if FloorPlan2D.is_none(wall_segmented_path):
@@ -474,6 +480,7 @@ async def floorplan_to_structured_2d(request: Request):
         architectural_scales = architectural_scales if isinstance(architectural_scales, list) else [architectural_scales for _ in bounding_box_offsets]
         for bounding_box_offset, architectural_scale, standard_ceiling_height in zip(bounding_box_offsets, architectural_scales, standard_ceiling_heights):
             logging.info(f"SYSTEM: Extracting structured model from SECTION: {bounding_box_offset["title"]} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
+            await update_status(CREDENTIALS, pg_pool, f"DETECTING GEOMETRY IN {bounding_box_offset["title"]}", project_id, plan_id, user_id, page_number)
             floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES)
             floor_plan_modeller_2d.from_vertex_ai_clients(*vertex_ai_clients)
             futures.append(
