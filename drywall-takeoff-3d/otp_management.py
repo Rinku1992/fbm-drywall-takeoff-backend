@@ -79,11 +79,11 @@ def trigger_otp_email(credentials, sender, recipient, otp_code):
 
     body_content = f"""
     <p>Hi {display_name},</p>
-    <p>Your one-time password is:</p>
+    <p>Your one-time password for signing in to Xtimator is:</p>
     <h1 style="letter-spacing: 5px;">{otp_code}</h1>
     <p>This OTP is valid for <b>{OTP_EXPIRATION_MINUTES} minutes</b>.</p>
     <p>Do not share this code with anyone.</p>
-    <p>Regards,<br>FBM Team</p>
+    <p>Regards,<br>FBM Xtimator Team</p>
     """
 
     access_token = load_access_token(
