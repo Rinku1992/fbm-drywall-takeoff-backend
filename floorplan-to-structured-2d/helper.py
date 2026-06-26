@@ -35,7 +35,7 @@ from google.api_core.exceptions import (
 )
 from google.auth.transport.requests import Request
 from google.cloud.sql.connector import Connector, IPTypes
-from sqlalchemy.pool import QueuePool
+from sqlalchemy import create_engine
 from sqlalchemy.exc import (
     OperationalError,
     InterfaceError,
@@ -198,49 +198,68 @@ async def download_segmented_walls(plan_id, project_id, user_id, index, credenti
     blob.download_to_filename(destination_path)
     return destination_path
 
-_pg_pool = None
+_pg_engine = None
 _connector = None
+_db_credentials = None
+
+def load_bigquery_client(credentials):
+    bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
+    return bigquery_client
 
 def load_pg_pool(credentials):
-    global _pg_pool, _connector
+    global _pg_engine, _connector, _db_credentials
 
-    if _pg_pool is not None:
-        return _pg_pool
+    if _pg_engine is not None:
+        return _pg_engine
 
     if _connector is None:
         _connector = Connector()
 
     pg = credentials["CloudSQL"]
+
     instance_connection_name = pg["connection_name"]
     db_name = pg["database_name"]
     sa_key = pg["service_account_key"]
+
     with open(sa_key, "r") as f:
         sa_payload = json.load(f)
+
     user = sa_payload["client_email"]
 
+    _db_credentials = service_account.Credentials.from_service_account_file(
+        sa_key,
+        scopes=[
+            "https://www.googleapis.com/auth/cloud-platform"
+        ]
+    )
+
+    request = Request()
+
     def get_conn():
-        creds = service_account.Credentials.from_service_account_file(
-            sa_key,
-            scopes=[
-                "https://www.googleapis.com/auth/cloud-platform"
-            ]
-        )
-        creds.refresh(Request())
+
+        nonlocal request
+
+        if (
+            _db_credentials.expired
+            or _db_credentials.token is None
+        ):
+            _db_credentials.refresh(request)
 
         conn = _connector.connect(
             instance_connection_name,
             pg["driver"],
             user=user,
-            password=creds.token,
+            password=_db_credentials.token,
             db=db_name,
             enable_iam_auth=True,
-            ip_type=IPTypes.PRIVATE
+            ip_type=IPTypes.PRIVATE,
         )
 
         conn.autocommit = True
         return conn
 
-    _pg_pool = QueuePool(
+    _pg_engine = create_engine(
+        "postgresql+pg8000://",
         creator=get_conn,
         pool_size=pg.get("min_pool_size", 3),
         max_overflow=max(
@@ -248,25 +267,30 @@ def load_pg_pool(credentials):
             - pg.get("min_pool_size", 3),
             0
         ),
-        timeout=30,
-        recycle=3000
+        pool_timeout=30,
+        pool_recycle=1800,
+        pool_pre_ping=True,
+        pool_use_lifo=True,
+        future=True,
     )
 
-    return _pg_pool
+    return _pg_engine
 
 def close_pg_pool():
-    global _pg_pool, _connector
+    global _pg_engine, _connector, _db_credentials
 
-    if _pg_pool:
-        _pg_pool.dispose()
-        _pg_pool = None
+    if _pg_engine is not None:
+        _pg_engine.dispose()
+        _pg_engine = None
 
-    if _connector:
+    if _connector is not None:
         _connector.close()
         _connector = None
 
+    _db_credentials = None
+
 def pg_run(
-    connection_pool,
+    engine,
     query,
     params=None,
     fetch=False,
@@ -276,131 +300,114 @@ def pg_run(
     execute_many=False,
 ):
     if params is None:
-        params = tuple()
+        params = ()
 
     for attempt in range(max_retries):
+
         conn = None
         cursor = None
 
         try:
-            conn = connection_pool.connect()
+
+            conn = engine.raw_connection()
             cursor = conn.cursor()
+
             if execute_many:
                 cursor.executemany(query, params)
             else:
                 cursor.execute(query, params)
+
             result = None
 
             if fetch:
                 rows = cursor.fetchall()
-                columns = [d[0] for d in cursor.description]
+                columns = [c[0] for c in cursor.description]
                 result = [
                     dict(zip(columns, row))
                     for row in rows
                 ]
+
             conn.commit()
 
             return result
 
-        except (DBAPIError, DatabaseErrorPG8000) as e:
-            error_message = str(e).lower()
-            retryable_db_terms = [
-                "deadlock detected",
-                "serialization failure",
-                "could not serialize access",
-                "lock not available",
-                "too many connections",
-            ]
+        except (
+            DBAPIError,
+            DatabaseErrorPG8000,
+            OperationalError,
+            InterfaceError,
+            InterfaceErrorPG8000,
+            TimeoutError,
+        ) as e:
 
-            retryable_network_terms = [
-                "connection reset",
-                "connection aborted",
-                "server closed the connection",
-                "could not connect",
-                "timeout expired",
-                "broken pipe",
-                "ssl syscall error",
-                "terminating connection",
-                "network is unreachable",
-                "network error",
-            ]
-            should_retry = (
-                any(t in error_message for t in retryable_db_terms)
-                or any(t in error_message for t in retryable_network_terms)
-            )
-            if conn:
+            if conn is not None:
                 try:
                     conn.invalidate()
                 except Exception:
                     pass
 
-            if should_retry:
-                sleep_time = min(
+            message = str(e).lower()
+
+            retryable = any(x in message for x in (
+                "deadlock",
+                "serialization",
+                "lock not available",
+                "too many connections",
+                "connection reset",
+                "server closed",
+                "network error",
+                "timeout",
+                "broken pipe",
+                "ssl syscall",
+                "terminating connection",
+            ))
+
+            if retryable and attempt + 1 < max_retries:
+
+                delay = min(
                     initial_backoff * (2 ** attempt)
                     + random.uniform(0, 1),
-                    max_backoff
+                    max_backoff,
                 )
+
                 logging.warning(
-                    f"SYSTEM: PostgreSQL failure "
-                    f"attempt={attempt + 1}/{max_retries}. "
-                    f"Retrying in {sleep_time:.2f}s. "
-                    f"Error={type(e).__name__}: {e}"
+                    "SYSTEM: PostgreSQL retry "
+                    f"{attempt+1}/{max_retries} "
+                    f"after {delay:.2f}s "
+                    f"({type(e).__name__}: {e})"
                 )
-                sleep(sleep_time)
+
+                sleep(delay)
                 continue
 
             raise
 
-        except (
-            OperationalError,
-            InterfaceError,
-            TimeoutError,
-            InterfaceErrorPG8000
-        ) as e:
-            if conn:
-                try:
-                    conn.invalidate()
-                except Exception:
-                    pass
-            sleep_time = min(
-                initial_backoff * (2 ** attempt)
-                + random.uniform(0, 1),
-                max_backoff
-            )
-            logging.warning(
-                f"SYSTEM: PostgreSQL connection failure "
-                f"({type(e).__name__}) "
-                f"attempt={attempt + 1}/{max_retries}. "
-                f"Retrying in {sleep_time:.2f}s"
-            )
-
-            sleep(sleep_time)
-            continue
-
         except Exception:
-            if conn:
+
+            if conn is not None:
                 try:
                     conn.rollback()
                 except Exception:
                     pass
+
             raise
 
         finally:
-            if cursor:
+
+            if cursor is not None:
                 try:
                     cursor.close()
                 except Exception:
                     pass
 
-            if conn:
+            if conn is not None:
                 try:
                     conn.close()
                 except Exception:
                     pass
 
     raise RuntimeError(
-        f"SYSTEM: PostgreSQL query failed after "
-        f"{max_retries} retries."
+        f"SYSTEM: PostgreSQL query failed after {max_retries} retries."
     )
 
 def load_bigquery_client(credentials):
