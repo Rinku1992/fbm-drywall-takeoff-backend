@@ -21,17 +21,13 @@ import geoip2.database as geoip2_database
 import vertexai
 from vertexai.generative_models import GenerativeModel
 from google.cloud.storage import Client as CloudStorageClient
-from google.cloud import bigquery
 from fastapi.encoders import jsonable_encoder
 import google.auth.transport.requests
 from google.oauth2.service_account import IDTokenCredentials
 from google.api_core.exceptions import (
-    BadRequest,
     ResourceExhausted,
     ServiceUnavailable,
     DeadlineExceeded,
-    InternalServerError,
-    TooManyRequests
 )
 from google.auth.transport.requests import Request
 from google.cloud.sql.connector import Connector, IPTypes
@@ -201,10 +197,6 @@ async def download_segmented_walls(plan_id, project_id, user_id, index, credenti
 _pg_engine = None
 _connector = None
 _db_credentials = None
-
-def load_bigquery_client(credentials):
-    bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
-    return bigquery_client
 
 def load_pg_pool(credentials):
     global _pg_engine, _connector, _db_credentials
@@ -410,112 +402,6 @@ def pg_run(
         f"SYSTEM: PostgreSQL query failed after {max_retries} retries."
     )
 
-def load_bigquery_client(credentials):
-    bigquery_client = bigquery.Client.from_service_account_json(credentials["GBQServer"]["service_account_key"])
-    return bigquery_client
-
-def bigquery_run(
-    credentials,
-    bigquery_client,
-    GBQ_query,
-    job_config=dict(),
-    max_retries=5,
-    initial_backoff=1.0,
-    max_backoff=30.0
-):
-    query_job_config = bigquery.QueryJobConfig(
-        destination_encryption_configuration=bigquery.EncryptionConfiguration(
-            kms_key_name=credentials["GBQServer"]["KMS_key"]
-        ),
-        **job_config
-    )
-
-    for attempt in range(max_retries):
-        try:
-            query_output = bigquery_client.query(
-                GBQ_query,
-                job_config=query_job_config
-            )
-
-            return query_output
-
-        except (
-            ResourceExhausted,
-            ServiceUnavailable,
-            DeadlineExceeded,
-            InternalServerError,
-            TooManyRequests
-        ) as e:
-
-            sleep_time = min(
-                initial_backoff * (2 ** attempt) + random.uniform(0, 1),
-                max_backoff
-            )
-
-            logging.warning(
-                f"SYSTEM: Transient BigQuery error "
-                f"({type(e).__name__}) "
-                f"attempt={attempt + 1}/{max_retries}. "
-                f"Retrying in {sleep_time:.2f}s"
-            )
-
-            sleep(sleep_time)
-
-        except BadRequest as e:
-            error_message = str(e)
-
-            if "Could not serialize access to table" in error_message:
-
-                sleep_time = min(
-                    initial_backoff * (2 ** attempt) + random.uniform(0, 1),
-                    max_backoff
-                )
-
-                logging.warning(
-                    f"SYSTEM: BigQuery concurrent update conflict "
-                    f"attempt={attempt + 1}/{max_retries}. "
-                    f"Retrying in {sleep_time:.2f}s"
-                )
-
-                sleep(sleep_time)
-                continue
-
-            raise
-
-        except Exception as e:
-            error_message = str(e).lower()
-
-            retryable_terms = [
-                "connection reset",
-                "connection aborted",
-                "timed out",
-                "temporarily unavailable",
-                "network is unreachable",
-                "broken pipe"
-            ]
-
-            if any(term in error_message for term in retryable_terms):
-                sleep_time = min(
-                    initial_backoff * (2 ** attempt) + random.uniform(0, 1),
-                    max_backoff
-                )
-
-                logging.warning(
-                    f"SYSTEM: Network-related BigQuery failure "
-                    f"attempt={attempt + 1}/{max_retries}. "
-                    f"Retrying in {sleep_time:.2f}s"
-                )
-
-                sleep(sleep_time)
-                continue
-
-            raise
-
-    raise RuntimeError(
-        f"SYSTEM: BigQuery query failed after "
-        f"{max_retries} retries."
-    )
-
 async def insert_page(
     plan_id,
     user_id,
@@ -646,78 +532,6 @@ async def insert_model_2d(
         json.dumps(model_2d),
         target_drywalls,
     )))
-
-def insert_model_2d_batch(rows, bigquery_client, credentials):
-    GBQ_query = """
-    MERGE `drywall_takeoff.models` t
-    USING UNNEST(@rows) s
-    ON LOWER(t.project_id) = LOWER(s.project_id)
-       AND LOWER(t.plan_id) = LOWER(s.plan_id)
-       AND t.page_number = s.page_number
-       AND t.page_section_number = s.page_section_number
-
-    WHEN MATCHED THEN
-    UPDATE SET
-        model_2d = SAFE.PARSE_JSON(s.model_2d),
-        scale = COALESCE(NULLIF(s.scale, ''), t.scale),
-        user_id = s.user_id,
-        updated_at = CURRENT_TIMESTAMP()
-
-    WHEN NOT MATCHED THEN
-    INSERT (
-        plan_id,
-        project_id,
-        user_id,
-        page_number,
-        page_sections,
-        page_section_number,
-        scale,
-        model_2d,
-        model_3d,
-        takeoff,
-        target_drywalls,
-        created_at,
-        updated_at
-    )
-    VALUES (
-        s.plan_id,
-        s.project_id,
-        s.user_id,
-        s.page_number,
-        s.page_sections,
-        s.page_section_number,
-        s.scale,
-        SAFE.PARSE_JSON(s.model_2d),
-        JSON '{}',
-        JSON '{}',
-        s.target_drywalls,
-        CURRENT_TIMESTAMP(),
-        CURRENT_TIMESTAMP()
-    )
-    """
-
-    job_config = dict(
-        query_parameters=[
-            bigquery.ArrayQueryParameter(
-                "rows",
-                "STRUCT<\
-                    plan_id STRING,\
-                    project_id STRING,\
-                    user_id STRING,\
-                    page_number INT64,\
-                    page_sections INT64,\
-                    page_section_number STRING,\
-                    scale STRING,\
-                    model_2d JSON,\
-                    target_drywalls STRING\
-                >",
-                rows
-            )
-        ],
-    )
-
-    query_output = bigquery_run(credentials, bigquery_client, GBQ_query, job_config=job_config).result()
-    return query_output
 
 async def load_templates(pg_pool, credentials):
     query = f"SELECT * FROM {credentials["CloudSQL"]["table_name_sku"]}"
