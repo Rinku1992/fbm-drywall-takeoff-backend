@@ -93,15 +93,25 @@ def trigger_otp_email(credentials, sender, recipient, otp_code):
 
     send_email(access_token, sender, recipient, subject, body_content)
 
+def is_jwt_authenticated(credentials, request, user_id):
+    jwt_config = load_secret_json(credentials["JWT"]["secret_path"])
+    authorization_header = request.headers.get("Authorization", None)
+    if not authorization_header:
+        return False, user_id
+    id_token = authorization_header.split()[1]
+
+    payload = jwt.decode(
+        id_token,
+        jwt_config["secret_key"],
+        algorithms=[jwt_config.get("algorithm", "HS256")]
+    )
+    expiry = datetime.fromtimestamp(
+        payload["exp"],
+        tz=timezone.utc
+    )
+    return payload["email"].strip().lower() == user_id.strip().lower(), expiry
+
 async def is_authenticated(credentials, pg_pool, request, user_id=None):
-    authenticated_with_firebase, user_id_decoded = is_firebase_authenticated(credentials, request, user_id=user_id)
-    if not authenticated_with_firebase:
-        return dict(user_type="EXTERNAL", email=user_id_decoded, token="INVALID")
-
-    user_email = normalize_email(user_id_decoded)
-    if not is_valid_email(user_email):
-        return dict(user_type="EXTERNAL", email=user_id_decoded, token="INVALID")
-
     query = f"""
         SELECT
             is_external
@@ -110,24 +120,21 @@ async def is_authenticated(credentials, pg_pool, request, user_id=None):
         LIMIT 1;
     """
     is_external = await run_in_threadpool(
-        partial(pg_run, pg_pool, query, params=(user_email,), fetch=True)
+        partial(pg_run, pg_pool, query, params=(user_id,), fetch=True)
     )
 
     if not is_external:
         return dict(user_type="EXTERNAL", email=user_id_decoded, token="INVALID")
 
     if is_external[0]["is_external"]:
-        query = f"""
-            SELECT
-                expires_at,
-                is_verified
-            FROM {credentials["CloudSQL"]["table_name_otp"]}
-            WHERE LOWER(email) = LOWER(%s);
-        """
-        otp_status = await run_in_threadpool(
-            partial(pg_run, pg_pool, query, params=(user_email,), fetch=True)
-        )
-        if not otp_status:
+        is_user_authenticated, expiry = is_jwt_authenticated(credentials, request, user_id)
+        if not is_user_authenticated:
+            return dict(user_type="EXTERNAL", email=user_id_decoded, token="INVALID")
+        if expiry < datetime.now(timezone.utc):
             return dict(user_type="EXTERNAL", email=user_id_decoded, token="EXPIRED")
-        if otp_status[0]["expires_at"] < datetime.now(timezone.utc) or not otp_status[0]["is_verified"]:
-            return dict(user_type="EXTERNAL", email=user_id_decoded, token="EXPIRED")
+    else:
+        authenticated_with_firebase, user_id_decoded = is_firebase_authenticated(credentials, request, user_id=user_id)
+        if not authenticated_with_firebase:
+            return dict(user_type="EXTERNAL", email=user_id_decoded, token="INVALID")
+        if user_id_decoded.strip().lower() != user_id.strip().lower():
+            return dict(user_type="INTERNAL", email=user_id_decoded, token="INVALID")
