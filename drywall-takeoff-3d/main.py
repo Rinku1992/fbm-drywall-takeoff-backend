@@ -889,6 +889,7 @@ async def load_project_plans(request: Request):
         ),
 
         visible_users AS (
+
             SELECT user_id
             FROM org_admin_users
 
@@ -922,6 +923,7 @@ async def load_project_plans(request: Request):
 
         SELECT
             p.*,
+
             (
                 SELECT COALESCE(
                     jsonb_agg(
@@ -930,13 +932,22 @@ async def load_project_plans(request: Request):
                             'pages_completed', COALESCE(ps.pages_completed, 0),
                             'pages_in_progress', COALESCE(ps.pages_in_progress, 0)
                         )
+                        ORDER BY pl.created_at
                     ),
                     '[]'::jsonb
                 )
                 FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} pl
                 LEFT JOIN page_stats ps
                     ON LOWER(pl.plan_id) = ps.plan_id
-                WHERE LOWER(pl.project_id) = LOWER(p.project_id)
+                WHERE
+                    LOWER(pl.project_id) = LOWER(p.project_id)
+                    AND (
+                        (SELECT is_global_admin FROM global_admin)
+                        OR LOWER(pl.user_id) IN (
+                            SELECT user_id
+                            FROM visible_users
+                        )
+                    )
             ) AS project_plans
 
         FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} p
@@ -946,11 +957,15 @@ async def load_project_plans(request: Request):
             AND (
                 (SELECT is_global_admin FROM global_admin)
 
-                OR
-
-                LOWER(p.created_by) IN (
-                    SELECT user_id
-                    FROM visible_users
+                OR EXISTS (
+                    SELECT 1
+                    FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} pl
+                    WHERE
+                        LOWER(pl.project_id) = LOWER(p.project_id)
+                        AND LOWER(pl.user_id) IN (
+                            SELECT user_id
+                            FROM visible_users
+                        )
                 )
             )
     """
