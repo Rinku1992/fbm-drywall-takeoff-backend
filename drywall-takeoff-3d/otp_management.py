@@ -97,7 +97,7 @@ def is_jwt_authenticated(credentials, request, user_id):
     jwt_config = load_secret_json(credentials["JWT"]["secret_path"])
     authorization_header = request.headers.get("Authorization", None)
     if not authorization_header:
-        return False, user_id
+        return False, datetime.now(timezone.utc)
     id_token = authorization_header.split()[1]
 
     payload = jwt.decode(
