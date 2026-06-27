@@ -1287,6 +1287,7 @@ async def floorplan_to_2d(request: Request):
     user_id_owner = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id,), fetch=True))
     if user_id_owner:
         GCS_URL_floorplan = await download_floorplan(plan_id, project_id, user_id_owner[0]["user_id"], CREDENTIALS, pg_pool, destination_path=pdf_path)
+        user_id_owner = user_id_owner[0]["user_id"]
     else:
         GCS_URL_floorplan = await download_floorplan(plan_id, project_id, user_id, CREDENTIALS, pg_pool, destination_path=pdf_path)
         user_id_owner = user_id
