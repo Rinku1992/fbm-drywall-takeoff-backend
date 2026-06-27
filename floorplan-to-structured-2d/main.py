@@ -334,6 +334,7 @@ async def floorplan_to_structured_2d(request: Request):
 
     floorplan_baseline_page_source = None
     svg_path=f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_{str(page_number).zfill(4)}.svg"
+    Path(svg_path).parent.mkdir(parents=True, exist_ok=True)
     floorplan_baseline, floorplan_page_statistics = FloorPlan2D.scale_to(floor_plan_path=floor_plan_processed_path, svg_path=svg_path)
     floorplan_baseline_page_source = await upload_floorplan(floorplan_baseline, plan_id, project_id, user_id, CREDENTIALS, pg_pool, index=str(page_number).zfill(4))
     if not bounding_box_offsets:
