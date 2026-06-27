@@ -206,7 +206,6 @@ async def insert_model_3d(
     page_number,
     page_section_number,
     plan_id,
-    user_id,
     project_id,
     pg_pool,
     credentials
@@ -216,7 +215,6 @@ async def insert_model_3d(
         SET
             model_3d = %s,
             scale = COALESCE(NULLIF(%s, ''), t.scale),
-            user_id = %s,
             updated_at = CURRENT_TIMESTAMP
         WHERE
             LOWER(project_id) = LOWER(%s)
@@ -227,7 +225,6 @@ async def insert_model_3d(
     await run_in_threadpool(partial(pg_run, pg_pool, query, params=(
         json.dumps(model_3d),
         scale,
-        user_id,
         project_id,
         plan_id,
         page_number,
@@ -304,8 +301,7 @@ async def insert_takeoff(
             takeoff = %s,
             waste_average = %s,
             drywall_negate_opening_area_threshold = %s,
-            updated_at = CURRENT_TIMESTAMP,
-            user_id = %s
+            updated_at = CURRENT_TIMESTAMP
         WHERE
             LOWER(project_id) = LOWER(%s)
             AND LOWER(plan_id) = LOWER(%s)
@@ -316,7 +312,6 @@ async def insert_takeoff(
         takeoff,
         waste_factor_average,
         drywall_negate_opening_area_threshold,
-        user_id,
         project_id,
         plan_id,
         page_number,
@@ -2095,7 +2090,7 @@ async def floorplan_to_3d(request: Request):
     await upload_floorplan(model_3d_path_sectioned, plan_id, project_id, user_id, CREDENTIALS, pg_pool, index=str(index).zfill(4))
     #for gltf_path in gltf_paths:
     #    upload_floorplan(gltf_path, plan_id, project_id, user_id, CREDENTIALS, pg_pool, index=str(index).zfill(4), directory="gltf")
-    await insert_model_3d(dict(walls_3d=walls_3d, polygons=polygons_3d), scale, index, page_section_number, plan_id, user_id, project_id, pg_pool, CREDENTIALS)
+    await insert_model_3d(dict(walls_3d=walls_3d, polygons=polygons_3d), scale, index, page_section_number, plan_id, project_id, pg_pool, CREDENTIALS)
     logging.info("SYSTEM: A 3D Model of the Floorplan Generated Successfully")
 
     return respond_with_UI_payload(dict(walls_3d=walls_3d, polygons=polygons_3d, metadata=metadata))
@@ -2179,7 +2174,7 @@ async def update_floorplan_to_3d(request: Request):
         logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
         return respond_with_UI_payload(is_user_not_authenticated)
 
-    await insert_model_3d(dict(walls_3d=walls_3d, polygons=polygons_3d), scale, index, plan_id, user_id, project_id, pg_pool, CREDENTIALS)
+    await insert_model_3d(dict(walls_3d=walls_3d, polygons=polygons_3d), scale, index, plan_id, project_id, pg_pool, CREDENTIALS)
     await insert_model_3d_revision(dict(walls_3d=walls_3d, polygons=polygons_3d), scale, index, plan_id, user_id, project_id, pg_pool, CREDENTIALS)
     logging.info("SYSTEM: Floorplan 3D Model Updated Successfully")
 
@@ -2354,8 +2349,6 @@ async def compute_takeoff(request: Request):
     query = f"SELECT scale FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
     query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
     scale = query_output[0]["scale"]
-    pdf_path = Path("/tmp/floor_plan.PDF")
-    await download_floorplan(plan_id, project_id, user_id, CREDENTIALS, pg_pool, destination_path=pdf_path)
 
     if not walls_2d_JSON:
         if revision_number:
