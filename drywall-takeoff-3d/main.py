@@ -1303,7 +1303,7 @@ async def floorplan_to_2d(request: Request):
     n_pages = pdfinfo_from_path(pdf_path)["Pages"]
     await insert_plan(
         project_id,
-        user_id,
+        user_id_owner,
         "IN PROGRESS",
         pg_pool,
         CREDENTIALS,
@@ -1433,7 +1433,7 @@ async def floorplan_to_2d(request: Request):
         status = "FAILED"
     await insert_plan(
         project_id,
-        user_id,
+        user_id_owner,
         status,
         pg_pool,
         CREDENTIALS,
