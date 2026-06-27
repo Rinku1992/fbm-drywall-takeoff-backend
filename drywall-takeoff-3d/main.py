@@ -391,7 +391,6 @@ async def insert_plan(
             sha256 = EXCLUDED.sha256,
             status = EXCLUDED.status,
             size_in_bytes = EXCLUDED.size_in_bytes,
-            user_id = EXCLUDED.user_id,
             updated_at = CURRENT_TIMESTAMP
     """
     sha_256 = ''
@@ -1284,7 +1283,12 @@ async def floorplan_to_2d(request: Request):
         return respond_with_UI_payload(is_user_not_authenticated)
 
     pdf_path = Path("/tmp/floor_plan.PDF")
-    GCS_URL_floorplan = await download_floorplan(plan_id, project_id, user_id, CREDENTIALS, pg_pool, destination_path=pdf_path)
+    query = f"SELECT user_id FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s)"
+    user_id_owner = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id,), fetch=True))
+    if user_id_owner:
+        GCS_URL_floorplan = await download_floorplan(plan_id, project_id, user_id_owner[0]["user_id"], CREDENTIALS, pg_pool, destination_path=pdf_path)
+    else:
+        GCS_URL_floorplan = await download_floorplan(plan_id, project_id, user_id, CREDENTIALS, pg_pool, destination_path=pdf_path)
     logging.info("SYSTEM: Floorplan Downloaded")
 
     #client = CloudStorageClient()
