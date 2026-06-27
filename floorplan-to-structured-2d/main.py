@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 import json
 import requests
+from functools import partial
 from requests.adapters import HTTPAdapter
 from requests.exceptions import ConnectionError, ReadTimeout, ChunkedEncodingError
 from time import sleep
@@ -9,6 +10,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.concurrency import run_in_threadpool
 from concurrent.futures import ThreadPoolExecutor
 import asyncio
 
@@ -41,6 +43,7 @@ from helper import (
     load_metadata_from_vector_pdf,
     load_organization_slug,
     update_status,
+    pg_run,
 )
 from prompts import CEILING_CHOICES, WALL_CHOICES
 
@@ -279,7 +282,13 @@ async def floorplan_to_structured_2d(request: Request):
     predict_drywall = predict_drywall.upper() == "TRUE"
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
 
-    pdf_path = await download_floorplan(user_id, plan_id, project_id, CREDENTIALS, pg_pool)
+    query = f"SELECT user_id FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s)"
+    user_id_owner = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id,), fetch=True))
+    if user_id_owner:
+        user_id_owner = user_id_owner[0]["user_id"]
+    else:
+        user_id_owner = user_id
+    pdf_path = await download_floorplan(user_id_owner, plan_id, project_id, CREDENTIALS, pg_pool)
     logging.info("SYSTEM: Floorplan Downloaded for extraction")
 
     hyperparameters = load_hyperparameters()
@@ -401,7 +410,7 @@ async def floorplan_to_structured_2d(request: Request):
             pg_pool,
             project_id,
             plan_id,
-            user_id,
+            user_id_owner,
             page_number,
             mask_factor,
             output_path=f"/tmp/{project_id}/{plan_id}/{user_id}/floor_plan_wall_segmented_{str(page_number).zfill(4)}.png"
