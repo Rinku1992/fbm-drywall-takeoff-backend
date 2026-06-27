@@ -1289,6 +1289,7 @@ async def floorplan_to_2d(request: Request):
         GCS_URL_floorplan = await download_floorplan(plan_id, project_id, user_id_owner[0]["user_id"], CREDENTIALS, pg_pool, destination_path=pdf_path)
     else:
         GCS_URL_floorplan = await download_floorplan(plan_id, project_id, user_id, CREDENTIALS, pg_pool, destination_path=pdf_path)
+        user_id_owner = user_id
     logging.info("SYSTEM: Floorplan Downloaded")
 
     #client = CloudStorageClient()
