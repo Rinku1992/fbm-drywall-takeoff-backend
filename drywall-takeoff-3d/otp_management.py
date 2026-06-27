@@ -124,17 +124,17 @@ async def is_authenticated(credentials, pg_pool, request, user_id=None):
     )
 
     if not is_external:
-        return dict(user_type="EXTERNAL", email=user_id_decoded, token="INVALID")
+        return dict(user_type="EXTERNAL", email=user_id, token="INVALID")
 
     if is_external[0]["is_external"]:
         is_user_authenticated, expiry = is_jwt_authenticated(credentials, request, user_id)
         if not is_user_authenticated:
-            return dict(user_type="EXTERNAL", email=user_id_decoded, token="INVALID")
+            return dict(user_type="EXTERNAL", email=user_id, token="INVALID")
         if expiry < datetime.now(timezone.utc):
-            return dict(user_type="EXTERNAL", email=user_id_decoded, token="EXPIRED")
+            return dict(user_type="EXTERNAL", email=user_id, token="EXPIRED")
     else:
-        authenticated_with_firebase, user_id_decoded = is_firebase_authenticated(credentials, request, user_id=user_id)
-        if not authenticated_with_firebase:
-            return dict(user_type="EXTERNAL", email=user_id_decoded, token="INVALID")
-        if user_id_decoded.strip().lower() != user_id.strip().lower():
-            return dict(user_type="INTERNAL", email=user_id_decoded, token="INVALID")
+        is_user_authenticated, user_id_authenticated = is_firebase_authenticated(credentials, request, user_id=user_id)
+        if not is_user_authenticated:
+            return dict(user_type="EXTERNAL", email=user_id, token="INVALID")
+        if user_id_authenticated.strip().lower() != user_id.strip().lower():
+            return dict(user_type="INTERNAL", email=user_id, token="INVALID")
