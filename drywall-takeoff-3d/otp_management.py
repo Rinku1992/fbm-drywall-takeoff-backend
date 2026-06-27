@@ -20,7 +20,7 @@ class PayloadVerifyExternalOtp(BaseModel):
     user_id: str
     otp: str
 
-OTP_EXPIRATION_MINUTES = 60
+OTP_EXPIRATION_MINUTES = 5
 MAX_OTP_ATTEMPTS = 5
 SECRET_SEED = "IFMK2JJHQAAA7KCJ26K3XEVXLCJNQCMM"
 
