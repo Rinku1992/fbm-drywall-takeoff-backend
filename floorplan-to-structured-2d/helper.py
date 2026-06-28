@@ -260,11 +260,7 @@ async def download_floorplan(
                     f"({actual_crc} != {expected_crc})"
                 )
 
-            return (
-                f"gs://"
-                f"{credentials['CloudStorage']['bucket_name']}"
-                f"/{blob_path}"
-            )
+            return destination_path
 
         except Exception as e:
 
