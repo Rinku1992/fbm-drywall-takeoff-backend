@@ -1,5 +1,13 @@
 import pyotp
 import jwt
+from jwt import (
+    ExpiredSignatureError,
+    InvalidSignatureError,
+    InvalidTokenError,
+    DecodeError,
+    InvalidAlgorithmError,
+    MissingRequiredClaimError,
+)
 import json
 import re
 from datetime import datetime, timezone, timedelta
@@ -100,16 +108,30 @@ def is_jwt_authenticated(credentials, request, user_id):
         return False, datetime.now(timezone.utc)
     id_token = authorization_header.split()[1]
 
-    payload = jwt.decode(
-        id_token,
-        jwt_config["secret_key"],
-        algorithms=[jwt_config.get("algorithm", "HS256")]
-    )
-    expiry = datetime.fromtimestamp(
-        payload["exp"],
-        tz=timezone.utc
-    )
-    return payload["email"].strip().lower() == user_id.strip().lower(), expiry
+    try:
+        payload = jwt.decode(
+            id_token,
+            jwt_config["secret_key"],
+            algorithms=[jwt_config.get("algorithm", "HS256")]
+        )
+        expiry = datetime.fromtimestamp(
+            payload["exp"],
+            tz=timezone.utc
+        )
+        authenticated = payload["email"].strip().lower() == user_id.strip().lower()
+        return authenticated, expiry
+
+    except ExpiredSignatureError:
+        return True, datetime.now(timezone.utc)
+
+    except InvalidSignatureError:
+        return False, datetime.now(timezone.utc)
+
+    except MissingRequiredClaimError:
+        return False, datetime.now(timezone.utc)
+
+    except (DecodeError, InvalidAlgorithmError, InvalidTokenError):
+        return False, datetime.now(timezone.utc)
 
 async def is_authenticated(credentials, pg_pool, request, user_id=None):
     query = f"""
