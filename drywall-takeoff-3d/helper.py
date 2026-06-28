@@ -1172,7 +1172,7 @@ async def download_floorplan(
 
             return (
                 f"gs://"
-                f"{credentials['CloudStorage']['bucket_name']}"
+                f"{credentials["CloudStorage"]["bucket_name"]}"
                 f"/{blob_path}"
             )
 
