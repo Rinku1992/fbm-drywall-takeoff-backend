@@ -152,7 +152,7 @@ async def is_authenticated(credentials, pg_pool, request, user_id=None):
         is_user_authenticated, expiry = is_jwt_authenticated(credentials, request, user_id)
         if not is_user_authenticated:
             return dict(user_type="EXTERNAL", email=user_id, token="INVALID")
-        if expiry < datetime.now(timezone.utc):
+        if expiry <= datetime.now(timezone.utc):
             return dict(user_type="EXTERNAL", email=user_id, token="EXPIRED")
     else:
         is_user_authenticated, user_id_authenticated = is_firebase_authenticated(credentials, request, user_id=user_id)
