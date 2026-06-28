@@ -7,6 +7,7 @@ from pathlib import Path
 from ruamel.yaml import YAML
 from time import sleep
 import datetime
+import base64
 
 from random import uniform
 from PIL import Image
@@ -21,6 +22,7 @@ import geoip2.database as geoip2_database
 import vertexai
 from vertexai.generative_models import GenerativeModel
 from google.cloud.storage import Client as CloudStorageClient
+import google_crc32c
 from fastapi.encoders import jsonable_encoder
 import google.auth.transport.requests
 from google.oauth2.service_account import IDTokenCredentials
@@ -111,7 +113,24 @@ def transcribe(credentials, hyperparameters, floor_plan_path):
     transcriber = Transcriber(credentials, hyperparameters)
     return transcriber.transcribe(floor_plan_path, [0, 1, -1, -2])
 
-async def upload_floorplan(plan_path, plan_id, project_id, user_id, credentials, pg_pool, index=None, directory=None):
+async def upload_floorplan(
+    plan_path,
+    plan_id,
+    project_id,
+    user_id,
+    credentials,
+    pg_pool,
+    index=None,
+    directory=None,
+    max_retries=5
+):
+    def crc32c_base64(filename):
+        checksum = google_crc32c.Checksum()
+        with open(filename, "rb") as f:
+            while chunk := f.read(1024 * 1024):
+                checksum.update(chunk)
+        return base64.b64encode(checksum.digest()).decode("utf-8")
+
     client = CloudStorageClient()
     page_number = Path(plan_path.stem).suffix
     if page_number:
@@ -130,10 +149,31 @@ async def upload_floorplan(plan_path, plan_id, project_id, user_id, credentials,
             blob_path = f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/{index}/{blob_object_name}"
         else:
             blob_path = f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/{blob_object_name}"
-    blob = bucket.blob(blob_path)
 
-    blob.upload_from_filename(plan_path)
-    return f"gs://{credentials["CloudStorage"]["bucket_name"]}/{blob_path}"
+    local_size =  Path(plan_path).stat().st_size
+    local_crc = crc32c_base64(plan_path)
+    for attempt in range(max_retries):
+        blob = bucket.blob(blob_path)
+        blob.upload_from_filename(plan_path, checksum="crc32c")
+        blob.reload()
+
+        remote_size = int(blob.size)
+        remote_crc = blob.crc32c
+
+        if (
+            remote_size == local_size
+            and remote_crc == local_crc
+        ):
+            return f"gs://{credentials["CloudStorage"]["bucket_name"]}/{blob_path}"
+        try:
+            blob.delete()
+        except Exception:
+            pass
+
+        await sleep(min(2 ** attempt, 30))
+    raise RuntimeError(
+        f"Upload verification failed after {max_retries} attempts."
+    )
 
 def enable_logging_on_stdout():
     logging.basicConfig(
