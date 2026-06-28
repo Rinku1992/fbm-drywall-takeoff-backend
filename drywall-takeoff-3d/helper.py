@@ -1193,9 +1193,6 @@ async def download_floorplan(
 
             await asyncio.sleep(min(2 ** attempt, 30))
 
-    blob.download_to_filename(destination_path)
-    return f"gs://{credentials["CloudStorage"]["bucket_name"]}/{blob_path}"
-
 async def trigger_email_notification(
     credentials,
     pg_pool,
