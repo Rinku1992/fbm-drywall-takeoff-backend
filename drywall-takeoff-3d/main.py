@@ -1346,7 +1346,7 @@ async def floorplan_to_2d(request: Request):
         pg_pool,
         project_id,
         plan_id,
-        user_id,
+        user_id_owner,
         ip_address,
         pages_metadata,
         vertex_ai_client=vertex_ai_client,
