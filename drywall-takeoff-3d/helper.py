@@ -1368,6 +1368,7 @@ def is_firebase_authenticated(credentials, request, user_id=None):
         logging.info("SYSTEM: Authentication verification failed due to Invalid or Expired ID token")
         firebase_admin.delete_app(drywall_app)
         return False, user_id
+
     except ValueError as e:
         logging.info(f"SYSTEM: Authentication verification failed due to Invalid ID token: {e}")
         firebase_admin.delete_app(drywall_app)
