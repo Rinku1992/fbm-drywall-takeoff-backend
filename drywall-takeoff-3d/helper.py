@@ -423,11 +423,15 @@ async def insert_model_2d(
         GCS_URL_target_drywalls_page
     )))
 
-async def is_duplicate(pg_pool, credentials, pdf_path, project_id):
+async def is_duplicate(pg_pool, credentials, pdf_path, project_id, user_id):
     sha_256 = sha256(pdf_path)
-    query = f"SELECT plan_id, sha256, status FROM {credentials["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s)"
+    organization_slug_target = await load_organization_slug(credentials, pg_pool, user_id)
+    query = f"SELECT plan_id, sha256, status, user_id FROM {credentials["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s)"
     query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id,), fetch=True))
     for plan_target in list(query_output):
+        organization_slug_reference = await load_organization_slug(credentials, pg_pool, plan_target["user_id"])
+        if organization_slug_reference != organization_slug_target:
+            continue
         if plan_target["sha256"] == sha_256:
             if plan_target["status"] == "FAILED":
                 await delete_plan(credentials, pg_pool, plan_target["plan_id"], project_id)
