@@ -1,3 +1,4 @@
+import asyncio
 import json
 from json.decoder import JSONDecodeError
 import logging
@@ -340,7 +341,7 @@ async def upload_floorplan(
         except Exception:
             pass
 
-        await sleep(min(2 ** attempt, 30))
+        await asyncio.sleep(min(2 ** attempt, 30))
     raise RuntimeError(
         f"Upload verification failed after {max_retries} attempts."
     )
@@ -1118,7 +1119,24 @@ async def load_visual_grounding(
                     page_metadata["bounding_box_offsets"] = bounding_box["bounding_box_offsets"]
     return pages_metadata
 
-async def download_floorplan(plan_id, project_id, user_id, credentials, pg_pool, index=None, blob_name="floor_plan.PDF", destination_path="/tmp/floor_plan.PDF"):
+async def download_floorplan(
+    plan_id,
+    project_id,
+    user_id,
+    credentials,
+    pg_pool,
+    index=None,
+    blob_name="floor_plan.PDF",
+    destination_path="/tmp/floor_plan.PDF",
+    max_retries=5
+):
+    def crc32c_base64(filename):
+        checksum = google_crc32c.Checksum()
+        with open(filename, "rb") as f:
+            while chunk := f.read(1024 * 1024):
+                checksum.update(chunk)
+        return base64.b64encode(checksum.digest()).decode("utf-8")
+
     organization_slug = await load_organization_slug(credentials, pg_pool, user_id)
     client = CloudStorageClient()
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
@@ -1126,7 +1144,54 @@ async def download_floorplan(plan_id, project_id, user_id, credentials, pg_pool,
         blob_path = f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/{index}/{blob_name}"
     else:
         blob_path = f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/{blob_name}"
+
     blob = bucket.blob(blob_path)
+    blob.reload()
+
+    expected_size = int(blob.size)
+    expected_crc = blob.crc32c
+
+    for attempt in range(max_retries):
+        try:
+            blob.download_to_filename(destination_path)
+            actual_size = Path(destination_path).stat().st_size
+
+            if actual_size != expected_size:
+                raise RuntimeError(
+                    f"Downloaded size mismatch "
+                    f"({actual_size} != {expected_size})"
+                )
+
+            actual_crc = crc32c_base64(destination_path)
+
+            if actual_crc != expected_crc:
+                raise RuntimeError(
+                    f"CRC32C mismatch "
+                    f"({actual_crc} != {expected_crc})"
+                )
+
+            return (
+                f"gs://"
+                f"{credentials['CloudStorage']['bucket_name']}"
+                f"/{blob_path}"
+            )
+
+        except Exception as e:
+
+            logging.warning(
+                "Download verification failed "
+                f"(attempt {attempt+1}/{max_retries}): {e}"
+            )
+
+            try:
+                Path(destination_path).unlink(missing_ok=True)
+            except FileNotFoundError:
+                pass
+
+            if attempt == max_retries - 1:
+                raise
+
+            await asyncio.sleep(min(2 ** attempt, 30))
 
     blob.download_to_filename(destination_path)
     return f"gs://{credentials["CloudStorage"]["bucket_name"]}/{blob_path}"
