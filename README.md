@@ -187,6 +187,9 @@ CREATE TABLE users (
     group_ids TEXT[] DEFAULT ARRAY[]::TEXT[],
 
     organization_id TEXT
+    user_name TEXT,
+    user_location TEXT,
+    is_external BOOLEAN
 );
 ```
 
