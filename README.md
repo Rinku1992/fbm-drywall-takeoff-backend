@@ -252,8 +252,8 @@ CREATE TABLE sku (
 CREATE TABLE external_otp_tokens (
     email         TEXT PRIMARY KEY,
     otp_code      TEXT NOT NULL,
-    created_at    TIMESTAMPZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    expires_at    TIMESTAMPZ NOT NULL,
+    created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at    TIMESTAMP WITH TIME ZONE NOT NULL,
     is_verified   BOOLEAN NOT NULL DEFAULT FALSE,
     attempts      INTEGER NOT NULL DEFAULT 0
 );
