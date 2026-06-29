@@ -549,7 +549,7 @@ async def floorplan_to_structured_2d(request: Request):
             project_id,
             page_number,
             True,
-            "SCALE_NOT_DETECTED",
+            "SCALE NOT DETECTED",
             pg_pool,
             CREDENTIALS,
         )
