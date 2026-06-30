@@ -816,6 +816,15 @@ class FloorPlan:
         for polygon_updated in polygons_JSON_updated[:]:
             polygon_ids_drywall_interior_outdated = load_matched_polygon_drywall_interior(polygon_updated["vertices"])
             if polygon_ids_drywall_interior_outdated:
-                polygon_updated["polygon_ids_drywall_interior"] = polygon_ids_drywall_interior_outdated
+                wall_ids_outdated = list(map(lambda drywall_id: drywall_id.split('.')[0], polygon_ids_drywall_interior_outdated))
+                polygon_ids_drywall_interior_updated = list()
+                for polygon_id_drywall_interior in polygon_updated["polygon_ids_drywall_interior"]:
+                    wall_id_updated = polygon_id_drywall_interior.split('.')[0]
+                    if wall_id_updated in wall_ids_outdated:
+                        wall_polygon_ids_drywall_interior_outdated = list(filter(lambda drywall_id: drywall_id.split('.')[0] == wall_id_updated, polygon_ids_drywall_interior_outdated)) 
+                        polygon_ids_drywall_interior_updated.extend(wall_polygon_ids_drywall_interior_outdated)
+                    else:
+                        polygon_ids_drywall_interior_updated.append(polygon_id_drywall_interior)
+                polygon_updated["polygon_ids_drywall_interior"] = list(set(polygon_ids_drywall_interior_updated))
 
         return walls_2d_JSON_updated, polygons_JSON_updated
