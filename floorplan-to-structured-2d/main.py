@@ -44,6 +44,7 @@ from helper import (
     load_organization_slug,
     update_status,
     pg_run,
+    return_futures_early,
 )
 from prompts import CEILING_CHOICES, WALL_CHOICES
 
@@ -488,7 +489,6 @@ async def floorplan_to_structured_2d(request: Request):
         project_location = query_output[0]["project_location"]
         futures = list()
         vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES, project_location)
-        scale_detected = True
         architectural_scales = architectural_scale
         architectural_scales = architectural_scales if isinstance(architectural_scales, list) else [architectural_scales for _ in bounding_box_offsets]
         for bounding_box_offset, architectural_scale, standard_ceiling_height in zip(bounding_box_offsets, architectural_scales, standard_ceiling_heights):
@@ -520,9 +520,8 @@ async def floorplan_to_structured_2d(request: Request):
                     allow_none_scale=hyperparameters["modelling"]["enable_early_stopping"] and is_vector,
                 )
             )
-        results = await asyncio.gather(*futures, return_exceptions=False)
-        for is_scale_detected in results:
-            scale_detected = (scale_detected and is_scale_detected)
+        is_scale_detected = await return_futures_early(futures)
+        scale_detected = all(is_scale_detected)
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
         future.result()
     if scale_detected:
