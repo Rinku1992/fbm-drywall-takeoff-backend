@@ -1,4 +1,4 @@
-name: 'Manual DRYWALL-PAGE-CLASSIFIER Cloud Run Build and Deploy'
+name: 'Manual XTIMATOR-PAGE-CLASSIFIER Cloud Run Build and Deploy'
 
 on:
   workflow_dispatch:
@@ -31,7 +31,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: drywall-page-classifier
+        working-directory: xtimator-page-classifier
 
     steps:
       - name: 'Checkout Code'
