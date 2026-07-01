@@ -17,6 +17,7 @@ google-oauth
 google-cloud-pubsub
 pathlib
 pypdf
+pymupdf
 pdf2image
 pydantic
 python-Levenshtein
