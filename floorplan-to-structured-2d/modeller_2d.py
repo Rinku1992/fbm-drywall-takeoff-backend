@@ -35,9 +35,9 @@ from prompts import (
     CEILING_CHOICES,
     WALL_CHOICES,
     OPENING_TYPE_CHOICES,
-    PolygonDetectorAndDrywallPredictorCaliforniaResponse,
+    PolygonDetectorAndDrywallPredictorResponse,
     PolygonDetectorResponse,
-    DrywallPredictorCaliforniaResponse,
+    DrywallPredictorResponse,
     ScaleAndCeilingHeightDetectorResponse,
     ScaleDetectorResponse,
     CeilingHeightDetectorResponse,
@@ -1513,7 +1513,7 @@ class FloorPlan2D(FloorPlan):
                             generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                         ),
                         max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
-                        pydantic_model=PolygonDetectorAndDrywallPredictorCaliforniaResponse,
+                        pydantic_model=PolygonDetectorAndDrywallPredictorResponse,
                         verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
                     )
                 else:
@@ -1523,7 +1523,7 @@ class FloorPlan2D(FloorPlan):
                             generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                         ),
                         max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
-                        pydantic_model=PolygonDetectorAndDrywallPredictorCaliforniaResponse,
+                        pydantic_model=PolygonDetectorAndDrywallPredictorResponse,
                         verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
                     )
             else:
@@ -1690,7 +1690,7 @@ class FloorPlan2D(FloorPlan):
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
-                    pydantic_model=DrywallPredictorCaliforniaResponse,
+                    pydantic_model=DrywallPredictorResponse,
                     verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
                 )
             else:
@@ -1700,7 +1700,7 @@ class FloorPlan2D(FloorPlan):
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
-                    pydantic_model=DrywallPredictorCaliforniaResponse,
+                    pydantic_model=DrywallPredictorResponse,
                     verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
                 )
         except Exception as e:
