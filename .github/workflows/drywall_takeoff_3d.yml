@@ -1,4 +1,4 @@
-name: 'Manual DRYWALL-TAKEOFF-3D Cloud Run Build and Deploy'
+name: 'Manual XTIMATOR-3D Cloud Run Build and Deploy'
 
 # Manual trigger for the Cloud Run deployment
 on:
@@ -24,7 +24,7 @@ jobs:
     environment: ${{ github.event.inputs.environment }}
     defaults:
       run:
-        working-directory: drywall-takeoff-3d
+        working-directory: xtimator-3d
 
     steps:
       - name: 'Checkout Code'
