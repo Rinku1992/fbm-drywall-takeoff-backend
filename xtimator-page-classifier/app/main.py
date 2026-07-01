@@ -25,6 +25,7 @@ Endpoint:
 
 
 import asyncio
+import functools
 import json
 import logging
 import shutil
@@ -137,16 +138,27 @@ async def classify_pages(request: ClassifyPagesRequest):
     logger.info(f"[REQUEST] [{request_id}] /classify_pages received")
     t_start = time.time()
 
+    # All blocking work (GCS download, PDF parsing, page rendering, file reads)
+    # is offloaded to this loop's default thread pool via run_in_executor so the
+    # event loop stays free to answer Cloud Run's /healthz liveness probe. Without
+    # this, a long render (e.g. a 300-page PDF) blocks the loop past the probe's
+    # 3-strike deadline and Cloud Run kills the container mid-request.
+    loop = asyncio.get_running_loop()
+
     # ─── Download PDF from GCS ────────────────────────────────
     pdf_path = Path(f"/tmp/{request.plan_id}/floor_plan.PDF")
     try:
         logger.info(f"[GCS] [{request_id}] download started")
         t0 = time.time()
-        download_floorplan_pdf(
-            project_id=request.project_id,
-            plan_id=request.plan_id,
-            organization_slug=request.organization_slug,
-            destination_path=pdf_path,
+        await loop.run_in_executor(
+            None,
+            functools.partial(
+                download_floorplan_pdf,
+                project_id=request.project_id,
+                plan_id=request.plan_id,
+                organization_slug=request.organization_slug,
+                destination_path=pdf_path,
+            ),
         )
         gcs_elapsed = time.time() - t0
         pdf_size_mb = pdf_path.stat().st_size / 1e6
@@ -169,7 +181,7 @@ async def classify_pages(request: ClassifyPagesRequest):
 
     # ─── Count pages ──────────────────────────────────────────
     try:
-        pdf_info = pdfinfo_from_path(str(pdf_path))
+        pdf_info = await loop.run_in_executor(None, pdfinfo_from_path, str(pdf_path))
         n_pages = pdf_info["Pages"]
         logger.info(f"[REQUEST] [{request_id}] PDF has {n_pages} pages")
     except Exception as e:
@@ -187,18 +199,21 @@ async def classify_pages(request: ClassifyPagesRequest):
             total_time_seconds=round(time.time() - t_start, 3),
         )
 
-    # ─── Render all pages in parallel ─────────────────────────
+    # ─── Render all pages in parallel + load PNGs into memory ─────────
     # Use a request-specific output dir so concurrent calls don't collide.
     render_dir = PREPROCESSING_OUTPUT_DIR / request.plan_id
     render_dir.mkdir(parents=True, exist_ok=True)
     base_image_path = render_dir / "page.png"
 
-    logger.info(
-        f"[PNG] [{request_id}] conversion started — {n_pages} pages "
-        f"(DPI=150, max_workers={PREPROCESSING_MAX_WORKERS})"
-    )
-    try:
-        t0 = time.time()
+    def render_and_read() -> tuple[list[bytes], list[int], float]:
+        """Blocking: render every page to PNG (parallel) then read the bytes.
+
+        Runs entirely inside a worker thread (via run_in_executor) so the
+        event loop is never parked on the .result() calls below — that is
+        what keeps /healthz answerable during a long render. Must not touch
+        the event loop or any asyncio objects.
+        """
+        t_render = time.time()
         page_image_paths: list[Path] = [None] * n_pages
 
         def render_one(idx: int) -> tuple[int, Path, float]:
@@ -216,13 +231,30 @@ async def classify_pages(request: ClassifyPagesRequest):
                     f"{page_elapsed * 1000:.0f}ms ({out_path.stat().st_size / 1e6:.2f} MB)"
                 )
 
-        preprocess_time = time.time() - t0
+        elapsed = time.time() - t_render
+
+        images: list[bytes] = []
+        nums: list[int] = []
+        for idx in range(n_pages):
+            with open(page_image_paths[idx], "rb") as f:
+                images.append(f.read())
+            nums.append(idx)
+        return images, nums, elapsed
+
+    logger.info(
+        f"[PNG] [{request_id}] conversion started — {n_pages} pages "
+        f"(DPI=150, max_workers={PREPROCESSING_MAX_WORKERS})"
+    )
+    try:
+        image_bytes_list, page_numbers, preprocess_time = await loop.run_in_executor(
+            None, render_and_read
+        )
         logger.info(
             f"[PNG] [{request_id}] conversion finished — {n_pages} pages in "
             f"{preprocess_time:.2f}s (avg {preprocess_time / n_pages * 1000:.0f}ms/page)"
         )
     except Exception as e:
-        logger.exception(f"[PNG] [{request_id}] conversion failed: {e}")
+        logger.exception(f"[PNG] [{request_id}] conversion/read failed: {e}")
         # Clean up partial render dir
         shutil.rmtree(render_dir, ignore_errors=True)
         raise HTTPException(
@@ -230,29 +262,11 @@ async def classify_pages(request: ClassifyPagesRequest):
             detail=f"Page rendering failed: {e}",
         )
 
-    # ─── Load rendered PNGs into memory ───────────────────────
-    image_bytes_list: list[bytes] = []
-    page_numbers: list[int] = []
-    try:
-        for idx in range(n_pages):
-            path = page_image_paths[idx]
-            with open(path, "rb") as f:
-                image_bytes_list.append(f.read())
-            page_numbers.append(idx)
-    except Exception as e:
-        logger.exception(f"[PNG] [{request_id}] failed to read rendered PNG: {e}")
-        shutil.rmtree(render_dir, ignore_errors=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to read rendered images: {e}",
-        )
-
     # ─── Classify (run blocking GPU inference in a thread so the event loop
     # stays free to serve /healthz liveness probes) ──────────
     logger.info(f"[CLASSIFIER] [{request_id}] inference started — {n_pages} pages")
     try:
         t0 = time.time()
-        loop = asyncio.get_running_loop()
         predictions = await loop.run_in_executor(
             None,  # default ThreadPoolExecutor
             classifier.classify_images,
