@@ -20,11 +20,11 @@ import Levenshtein
 
 from floor_plan import FloorPlan
 from prompts import (
-    POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA,
+    POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR,
     POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT,
     POLYGON_DETECTOR,
     POLYGON_DETECTOR_FEW_SHOT,
-    DRYWALL_PREDICTOR_CALIFORNIA,
+    DRYWALL_PREDICTOR,
     SCALE_AND_CEILING_HEIGHT_DETECTOR,
     SCALE_DETECTOR,
     CEILING_HEIGHT_DETECTOR,
@@ -54,12 +54,13 @@ __all__ = ["FloorPlan2D"]
 
 class FloorPlan2D(FloorPlan):
 
-    def __init__(self, credentials, hyperparameters, drywall_templates):
+    def __init__(self, credentials, hyperparameters, drywall_templates, project_location):
         super().__init__(hyperparameters)
 
         self._credentials = credentials
         self._hyperparameters = hyperparameters
         self._drywall_templates = drywall_templates
+        self._project_location = project_location
         self._width_in_feet = self._hyperparameters["modelling"]["width_in_feet"]
         self._height_in_feet = self._hyperparameters["modelling"]["height_in_feet"]
         self._scale = self._hyperparameters["modelling"]["scale"]
@@ -78,12 +79,12 @@ class FloorPlan2D(FloorPlan):
         return self._is_scale_detected
 
     @classmethod
-    def load_vertex_ai_clients(cls, credentials, client_ip_address, drywall_templates):
+    def load_vertex_ai_clients(cls, credentials, client_ip_address, drywall_templates, project_location):
         is_cached = dict()
         vertex_ai_client_polygon_detection_and_drywall_prediction, generation_config, cache_enabled = load_vertex_ai_client(
             credentials,
             client_ip_address,
-            prompts=[POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA.format(drywall_templates=drywall_templates)]
+            prompts=[POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR.format(drywall_templates=drywall_templates, project_location=project_location)]
         )
         is_cached["POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA"] = cache_enabled
         vertex_ai_client_metadata_extraction, _, cache_enabled = load_vertex_ai_client(
@@ -113,7 +114,7 @@ class FloorPlan2D(FloorPlan):
         vertex_ai_client_drywall_prediction, generation_config, cache_enabled = load_vertex_ai_client(
             credentials,
             client_ip_address,
-            prompts=[DRYWALL_PREDICTOR_CALIFORNIA.format(drywall_templates=drywall_templates)]
+            prompts=[DRYWALL_PREDICTOR.format(drywall_templates=drywall_templates, project_location=project_location)]
         )
         is_cached["DRYWALL_PREDICTOR_CALIFORNIA"] = cache_enabled
         vertex_ai_client_wall_rectification, _, cache_enabled = load_vertex_ai_client(
@@ -1517,7 +1518,7 @@ class FloorPlan2D(FloorPlan):
                     )
                 else:
                     _, model_polygon = phoenix_call(
-                        lambda feedback_prompt, temperature: self._vertex_ai_client_polygon_detection_and_drywall_prediction(POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA.format(drywall_templates=self._drywall_templates)).generate_content(
+                        lambda feedback_prompt, temperature: self._vertex_ai_client_polygon_detection_and_drywall_prediction(POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR.format(drywall_templates=self._drywall_templates, project_location=self._project_location)).generate_content(
                             contents=POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[query],
                             generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                         ),
@@ -1694,7 +1695,7 @@ class FloorPlan2D(FloorPlan):
                 )
             else:
                 _, predict_polygon = phoenix_call(
-                    lambda feedback_prompt, temperature: self._vertex_ai_client_drywall_prediction(DRYWALL_PREDICTOR_CALIFORNIA.format(drywall_templates=self._drywall_templates)).generate_content(
+                    lambda feedback_prompt, temperature: self._vertex_ai_client_drywall_prediction(DRYWALL_PREDICTOR.format(drywall_templates=self._drywall_templates, projet_location=self._project_location)).generate_content(
                         contents=[feedback_prompt, query] if feedback_prompt else [query],
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
