@@ -1218,7 +1218,9 @@ class FloorPlan2D(FloorPlan):
         ceiling_height_and_scale = dict(ceiling_height=self._height_in_feet, scale=self._scale)
 
         scale, ceiling_height = None, None
+        architectural_scale_fallback = None
         if not trust_scale:
+            architectural_scale_fallback = architectural_scale
             architectural_scale = None
         if architectural_scale and standard_ceiling_height:
             scale = self.scale_canonical(architectural_scale)
@@ -1312,6 +1314,10 @@ class FloorPlan2D(FloorPlan):
 
         if scale:
             self._scale = scale
+            ceiling_height_and_scale["scale"] = scale
+            self._is_scale_detected = True
+        if not scale and architectural_scale_fallback:
+            self._scale = self.scale_canonical(architectural_scale_fallback)
             ceiling_height_and_scale["scale"] = scale
             self._is_scale_detected = True
         if ceiling_height:
