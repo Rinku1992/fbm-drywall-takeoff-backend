@@ -483,15 +483,18 @@ async def floorplan_to_structured_2d(request: Request):
         )
         return respond_with_UI_payload(dict(status="SUCCESS", message="NO Floor Plan layout observed"))
     if not FloorPlan2D.is_none(wall_segmented_path):
+        query = f"SELECT project_location FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} WHERE LOWER(project_id) = LOWER(%s)"
+        query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id,), fetch=True))
+        project_location = query_output[0]["project_location"]
         futures = list()
-        vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES)
+        vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES, project_location)
         scale_detected = True
         architectural_scales = architectural_scale
         architectural_scales = architectural_scales if isinstance(architectural_scales, list) else [architectural_scales for _ in bounding_box_offsets]
         for bounding_box_offset, architectural_scale, standard_ceiling_height in zip(bounding_box_offsets, architectural_scales, standard_ceiling_heights):
             logging.info(f"SYSTEM: Extracting structured model from SECTION: {bounding_box_offset["title"]} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
             await update_status(CREDENTIALS, pg_pool, f"DETECTING GEOMETRY IN SECTION: `{bounding_box_offset["title"]}`", project_id, plan_id, user_id, page_number)
-            floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES)
+            floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES, project_location)
             floor_plan_modeller_2d.from_vertex_ai_clients(*vertex_ai_clients)
             futures.append(
                 page_to_structured_2d(
