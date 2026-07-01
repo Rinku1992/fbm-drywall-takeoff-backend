@@ -821,7 +821,7 @@ class WallParameterModelAndPredict(BaseModel):
             return v
         return ensure_not_nan(v)
 
-class PolygonDetectorAndDrywallPredictorCaliforniaResponse(BaseModel):
+class PolygonDetectorAndDrywallPredictorResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     ceiling: CeilingModelAndPredict
@@ -1490,7 +1490,7 @@ class WallParameterPredict(BaseModel):
     code_references: List[str]
     recommendation: Optional[str]
 
-class DrywallPredictorCaliforniaResponse(BaseModel):
+class DrywallPredictorResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     ceiling: CeilingPredict
