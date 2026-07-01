@@ -1170,6 +1170,7 @@ class FloorPlan2D(FloorPlan):
         transcription_block_with_centroids,
         architectural_scale=None,
         standard_ceiling_height=None,
+        trust_scale=True,
     ):
         def load_least_scale(scales):
             if not scales:
@@ -1217,6 +1218,8 @@ class FloorPlan2D(FloorPlan):
         ceiling_height_and_scale = dict(ceiling_height=self._height_in_feet, scale=self._scale)
 
         scale, ceiling_height = None, None
+        if not trust_scale:
+            architectural_scale = None
         if architectural_scale and standard_ceiling_height:
             scale = self.scale_canonical(architectural_scale)
             ceiling_height = standard_ceiling_height
@@ -2980,6 +2983,7 @@ class FloorPlan2D(FloorPlan):
         architectural_scale=None,
         standard_ceiling_height=None,
         allow_none_scale=False,
+        trust_scale=True,
     ):
         image_GRAY = self.read_floor_plan(image_path)
 
@@ -2987,13 +2991,14 @@ class FloorPlan2D(FloorPlan):
         height, width, _ = canvas.shape
         scale_x = width / 1920
         scale_y = height / 1080
-        if not allow_none_scale:
+        if not allow_none_scale or not trust_scale:
             height_default = self._load_ceiling_height_and_scale(
                 offset,
                 canvas,
                 transcription_block_with_centroids,
                 architectural_scale=architectural_scale,
-                standard_ceiling_height=standard_ceiling_height
+                standard_ceiling_height=standard_ceiling_height,
+                trust_scale=trust_scale,
             )["ceiling_height"]
         else:
             height_default = standard_ceiling_height if standard_ceiling_height else self._height_in_feet
@@ -3112,6 +3117,7 @@ class FloorPlan2D(FloorPlan):
         architectural_scale=None,
         standard_ceiling_height=None,
         allow_none_scale=False,
+        trust_scale=True,
     ):
         image_GRAY = self.read_floor_plan(image_path)
 
@@ -3119,13 +3125,14 @@ class FloorPlan2D(FloorPlan):
         height, width, _ = canvas.shape
         scale_x = width / 1920
         scale_y = height / 1080
-        if not allow_none_scale:
+        if not allow_none_scale or not trust_scale:
             height_default = self._load_ceiling_height_and_scale(
                 offset,
                 canvas,
                 transcription_block_with_centroids,
                 architectural_scale=architectural_scale,
-                standard_ceiling_height=standard_ceiling_height
+                standard_ceiling_height=standard_ceiling_height,
+                trust_scale=trust_scale,
             )["ceiling_height"]
         else:
             height_default = standard_ceiling_height if standard_ceiling_height else self._height_in_feet
