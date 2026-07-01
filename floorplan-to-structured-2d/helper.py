@@ -924,3 +924,33 @@ async def update_status(credentials, pg_pool, status, project_id, plan_id, user_
         pg_pool,
         credentials,
     )
+
+async def return_futures_early(futures):
+    tasks = {asyncio.create_task(future) for future in futures}
+    results = list()
+
+    while tasks:
+        done, tasks = await asyncio.wait(
+            tasks,
+            return_when=asyncio.FIRST_COMPLETED
+        )
+
+        for task in done:
+            try:
+                is_success = task.result()
+
+                if not is_success:
+                    for task in tasks:
+                        task.cancel()
+
+                    await asyncio.gather(*tasks, return_exceptions=True)
+                    return [False] * len(futures)
+                results.append(is_success)
+
+            except Exception:
+                for task in tasks:
+                    task.cancel()
+
+                await asyncio.gather(*tasks, return_exceptions=True)
+                return [False] * len(futures)
+    return results
