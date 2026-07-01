@@ -136,6 +136,7 @@ async def page_to_structured_2d(
     architectural_scale,
     standard_ceiling_height,
     allow_none_scale=False,
+    trust_scale=True,
 ):
     floor_plan_modeller_2d.reload()
     wall_segmented_sectioned_path = load_section_from_page(
@@ -155,7 +156,8 @@ async def page_to_structured_2d(
             transcription_block_with_centroids=transcription_block_with_centroids,
             architectural_scale=architectural_scale,
             standard_ceiling_height=standard_ceiling_height,
-            allow_none_scale=allow_none_scale
+            allow_none_scale=allow_none_scale,
+            trust_scale=trust_scale,
         )
     else:
         walls_2d, polygons, _, external_contour = floor_plan_modeller_2d.model(
@@ -167,7 +169,8 @@ async def page_to_structured_2d(
             transcription_block_with_centroids=transcription_block_with_centroids,
             architectural_scale=architectural_scale,
             standard_ceiling_height=standard_ceiling_height,
-            allow_none_scale=allow_none_scale
+            allow_none_scale=allow_none_scale,
+            trust_scale=trust_scale,
         )
     if walls_2d and polygons:
         floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons)
@@ -400,9 +403,18 @@ async def floorplan_to_structured_2d(request: Request):
         page_number,
         bounding_box_offsets,
     )
-    if not architectural_scale and is_vector:
+    if is_vector:
         await update_status(CREDENTIALS, pg_pool, "SCALE DETECTED", project_id, plan_id, user_id, page_number)
-        architectural_scale = scales
+        if architectural_scale:
+            architectural_scales_updated = list()
+            for scale in scales:
+                if scale:
+                    architectural_scales_updated.append(scale)
+                else:
+                    architectural_scales_updated.append(architectural_scale)
+            architectural_scale = architectural_scales_updated
+        else:
+            architectural_scale = scales
 
     futures = dict()
     await update_status(CREDENTIALS, pg_pool, "DETECTING WALLS AND TRANSCRIPTIONS", project_id, plan_id, user_id, page_number)
@@ -518,6 +530,7 @@ async def floorplan_to_structured_2d(request: Request):
                     architectural_scale,
                     standard_ceiling_height,
                     allow_none_scale=hyperparameters["modelling"]["enable_early_stopping"] and is_vector,
+                    trust_scale=is_vector,
                 )
             )
         is_scale_detected = await return_futures_early(futures)
