@@ -282,6 +282,58 @@ async def delete_floorplan(project_id, plan_id, user_id, pg_pool, credentials):
         bucket.delete_blobs(blobs)
 
 
+async def delete_project(project_id, user_id, pg_pool, credentials):
+    query = f"""
+        DELETE FROM {credentials["CloudSQL"]["table_name_pages"]}
+        WHERE
+            LOWER(project_id) = LOWER(%s);
+    """
+    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id,)))
+
+    query = f"""
+        DELETE FROM {credentials["CloudSQL"]["table_name_plans"]}
+        WHERE
+            LOWER(project_id) = LOWER(%s);
+    """
+    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id,)))
+
+    query = f"""
+        DELETE FROM {credentials["CloudSQL"]["table_name_projects"]}
+        WHERE
+            LOWER(project_id) = LOWER(%s);
+    """
+    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id,)))
+
+    query = f"""
+        DELETE FROM {credentials["CloudSQL"]["table_name_models"]}
+        WHERE
+            LOWER(project_id) = LOWER(%s);
+    """
+    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id,)))
+
+    query = f"""
+        DELETE FROM {credentials["CloudSQL"]["table_name_model_revisions_2d"]}
+        WHERE
+            LOWER(project_id) = LOWER(%s);
+    """
+    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id,)))
+
+    query = f"""
+        DELETE FROM {credentials["CloudSQL"]["table_name_model_revisions_3d"]}
+        WHERE
+            LOWER(project_id) = LOWER(%s);
+    """
+    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id,)))
+
+    client = CloudStorageClient()
+    bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
+    organization_slug = await load_organization_slug(credentials, pg_pool, user_id)
+    prefix = f"{organization_slug}/{project_id.lower()}/"
+    blobs = list(bucket.list_blobs(prefix=prefix))
+    if blobs:
+        bucket.delete_blobs(blobs)
+
+
 async def insert_takeoff(
     takeoff,
     waste_factor_average,
