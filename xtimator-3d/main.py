@@ -2320,6 +2320,31 @@ async def remove_floorplan(request: Request):
     return respond_with_UI_payload(dict(status="SUCCESS", message=f"Plan: {plan_id} Deleted Successfully"))
 
 
+@app.post("/remove_project")
+async def remove_project(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    project_id = parameters.get("project_id") or body.get("project_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
+    logging.info("SYSTEM: Received a Project Deletion Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
+
+    query = f"SELECT * FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(user_id) = LOWER(%s);"
+    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, user_id,), fetch=True))
+    if not query_output:
+        return respond_with_UI_payload(dict(status="FAILED", message="Project: {} cannot be deleted".format(project_id)))
+    await delete_project(project_id, user_id, pg_pool, CREDENTIALS)
+    logging.info("SYSTEM: Project Deleted Successfully")
+    return respond_with_UI_payload(dict(status="SUCCESS", message=f"Project: {project_id} Deleted Successfully"))
+
+
 @app.post("/load_waste_average")
 async def load_waste_average(request: Request):
     enable_logging_on_stdout()
