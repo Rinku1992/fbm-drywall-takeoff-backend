@@ -925,8 +925,9 @@ async def update_status(credentials, pg_pool, status, project_id, plan_id, user_
         credentials,
     )
 
-async def return_futures_early(futures):
-    tasks = {asyncio.create_task(future) for future in futures}
+async def return_futures_early_section_to_structured_2d(futures):
+    #tasks = {asyncio.create_task(future) for future in futures}
+    tasks = futures
     results = list()
 
     while tasks:
@@ -937,20 +938,20 @@ async def return_futures_early(futures):
 
         for task in done:
             try:
-                is_success = task.result()
+                is_success, model_2d, scale, page_section_number = task.result()
 
                 if not is_success:
                     for task in tasks:
                         task.cancel()
 
                     await asyncio.gather(*tasks, return_exceptions=True)
-                    return [False] * len(futures)
-                results.append(is_success)
+                    return [[False, dict(), None, None]] * len(futures)
+                results.append([is_success, model_2d, scale, page_section_number])
 
             except Exception:
                 for task in tasks:
                     task.cancel()
 
                 await asyncio.gather(*tasks, return_exceptions=True)
-                return [False] * len(futures)
+                return [[False, dict(), None, None]] * len(futures)
     return results
