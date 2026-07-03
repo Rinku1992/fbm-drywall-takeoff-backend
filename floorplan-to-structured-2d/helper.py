@@ -54,7 +54,6 @@ from transcriber import Transcriber
 from vector_pdf import is_vector, extract_scales_from_sections_of_a_page
 from prompts import FEEDBACK_GENERATOR
 from email_notification import trigger
-import traceback
 
 
 def load_vertex_ai_client(credentials, ip_address, prompts=None, default_region="us-central1"):
@@ -949,9 +948,7 @@ async def return_futures_early_section_to_structured_2d(futures):
                     return [[False, dict(), None, None]] * len(futures)
                 results.append([is_success, model_2d, scale, page_section_number])
 
-            except Exception as e:
-                print(e)
-                traceback.print_exc()
+            except Exception:
                 for task in tasks:
                     task.cancel()
 
