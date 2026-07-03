@@ -1318,7 +1318,7 @@ class FloorPlan2D(FloorPlan):
             self._is_scale_detected = True
         if not scale and architectural_scale_fallback:
             self._scale = self.scale_canonical(architectural_scale_fallback)
-            ceiling_height_and_scale["scale"] = scale
+            ceiling_height_and_scale["scale"] = self._scale
             self._is_scale_detected = True
         if ceiling_height:
             ceiling_height_and_scale["ceiling_height"] = ceiling_height
