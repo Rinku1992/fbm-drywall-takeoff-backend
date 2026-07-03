@@ -926,7 +926,6 @@ async def update_status(credentials, pg_pool, status, project_id, plan_id, user_
     )
 
 async def return_futures_early_section_to_structured_2d(futures):
-    #tasks = {asyncio.create_task(future) for future in futures}
     tasks = futures
     results = list()
 
