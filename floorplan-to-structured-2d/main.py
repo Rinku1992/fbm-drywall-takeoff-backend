@@ -6,6 +6,7 @@ from functools import partial
 from requests.adapters import HTTPAdapter
 from requests.exceptions import ConnectionError, ReadTimeout, ChunkedEncodingError
 from time import sleep
+from geopy.geocoders import Nominatim
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -479,10 +480,15 @@ async def floorplan_to_structured_2d(request: Request):
         )
         return respond_with_UI_payload(dict(status="SUCCESS", message="NO Floor Plan layout observed"))
     if not FloorPlan2D.is_none(wall_segmented_path):
-        query = f"SELECT project_location FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} WHERE LOWER(project_id) = LOWER(%s)"
+        query = f"SELECT project_location, project_location_pincode FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} WHERE LOWER(project_id) = LOWER(%s)"
         query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id,), fetch=True))
         project_location = query_output[0]["project_location"]
-        vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES, project_location)
+        project_location_pincode = query_output[0]["project_location_pincode"]
+        geolocator = Nominatim(user_agent="xtimator_app")
+        pincode = f"{project_location_pincode}, {project_location}"
+        location = geolocator.geocode(pincode)
+        project_address = location.address if location else pincode
+        vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES, project_address)
         architectural_scales = (
             architectural_scale
             if isinstance(architectural_scale, list)
@@ -499,7 +505,7 @@ async def floorplan_to_structured_2d(request: Request):
         for bounding_box_offset, architectural_scale, standard_ceiling_height in zip(bounding_box_offsets, architectural_scales, standard_ceiling_heights):
             logging.info(f"SYSTEM: Extracting structured model from SECTION: {bounding_box_offset["title"]} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
             await update_status(CREDENTIALS, pg_pool, f"DETECTING GEOMETRY IN SECTION: `{bounding_box_offset["title"]}`", project_id, plan_id, user_id, page_number)
-            floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES, project_location)
+            floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES, project_address)
             floor_plan_modeller_2d.from_vertex_ai_clients(*vertex_ai_clients)
             futures.append(
                 loop.run_in_executor(
