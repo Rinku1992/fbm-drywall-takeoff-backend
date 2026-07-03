@@ -1,5 +1,5 @@
 ## Introduction
-#### XTIMATOR is an AI-Powered automated construction estimation system designed to generate accurate drywall material quantities directly from architectural floor plans. It leverages structured wall geometry, room polygons, ceiling configurations, openings and architectural scale information to compute drywall surface areas and material requirements for both walls and ceilings while accounting for project location, project-specific waste factors and installation constraints.
+#### XTIMATOR is an AI-Powered automated construction estimation system designed to generate accurate drywall material quantities directly from architectural floor plans. It leverages structured wall geometry, room polygons, ceiling configurations, openings and architectural scale information to compute drywall surface areas and material requirements for both walls and ceilings while accounting for location jurisdiction on construction practices, project-specific waste factors and installation constraints.
 
 ## XTIMATOR Functional Architecture
 <img width="1600" height="900" alt="image" src="https://github.com/user-attachments/assets/5a85bd37-36ed-4185-bb50-8e47161be420" />
