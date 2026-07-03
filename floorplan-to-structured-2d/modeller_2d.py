@@ -656,7 +656,7 @@ class FloorPlan2D(FloorPlan):
                 return is_valid["is_valid"]
             return True
         except Exception as e:
-            logging.warning(f"SYSTEM: Wall validator failed with error: {e}")
+            logging.warning(f"SYSTEM: Section: {self._section_name}, Wall validator failed with error: {e}")
             return True
 
     def _merge_nearest_neighbor(self, wall_lines, tolerance=500):
@@ -1254,9 +1254,9 @@ class FloorPlan2D(FloorPlan):
                 if response.scale_confidence < 0.95:
                     scale = load_scale_from_OCR(LEFT, RIGHT, TOP, BOTTOM)
                 ceiling_height = standard_ceiling_height
-                logging.info(f"SYSTEM: Section: {self._section_name} Vertex AI Gemini: Scale: {response.scale}, Confidence: {response.scale_confidence}")
+                logging.info(f"SYSTEM: Section: {self._section_name}, Vertex AI Gemini: Scale: {response.scale}, Confidence: {response.scale_confidence}")
             except Exception as e:
-                logging.warning(f"SYSTEM: Section: {self._section_name} Standard Scale detection failed with error: {e}")
+                logging.warning(f"SYSTEM: Section: {self._section_name}, Standard Scale detection failed with error: {e}")
         elif architectural_scale and not standard_ceiling_height:
             try:
                 if self._is_cached["CEILING_HEIGHT_DETECTOR"]:
@@ -1279,9 +1279,9 @@ class FloorPlan2D(FloorPlan):
                     )
                 scale = self.scale_canonical(architectural_scale)
                 ceiling_height = response.ceiling_height
-                logging.info(f"SYSTEM: Section: {self._section_name} Vertex AI Gemini: Ceiling Height: {response.ceiling_height}")
+                logging.info(f"SYSTEM: Section: {self._section_name}, Vertex AI Gemini: Ceiling Height: {response.ceiling_height}")
             except Exception as e:
-                logging.warning(f"SYSTEM: Section: {self._section_name} Standard Ceiling Height detection failed with error: {e}")
+                logging.warning(f"SYSTEM: Section: {self._section_name}, Standard Ceiling Height detection failed with error: {e}")
         else:
             try:
                 if self._is_cached["SCALE_AND_CEILING_HEIGHT_DETECTOR"]:
@@ -1309,10 +1309,10 @@ class FloorPlan2D(FloorPlan):
                     scale = self.scale_canonical(response.scale)
                 if response.scale_confidence < 0.95:
                     scale = load_scale_from_OCR(LEFT, RIGHT, TOP, BOTTOM)
-                logging.info(f"SYSTEM: Section: {self._section_name} Vertex AI Gemini: Scale: {response.scale}, Confidence: {response.scale_confidence}")
-                logging.info(f"SYSTEM: Section: {self._section_name} Vertex AI Gemini: Ceiling Height: {response.ceiling_height}")
+                logging.info(f"SYSTEM: Section: {self._section_name}, Vertex AI Gemini: Scale: {response.scale}, Confidence: {response.scale_confidence}")
+                logging.info(f"SYSTEM: Section: {self._section_name}, Vertex AI Gemini: Ceiling Height: {response.ceiling_height}")
             except Exception as e:
-                logging.warning(f"SYSTEM: Section: {self._section_name} Standard Scale and Ceiling Height detection failed with error: {e}")
+                logging.warning(f"SYSTEM: Section: {self._section_name}, Standard Scale and Ceiling Height detection failed with error: {e}")
 
         if scale:
             self._scale = scale
@@ -1405,7 +1405,7 @@ class FloorPlan2D(FloorPlan):
                 return is_valid["is_valid"]
             return True
         except Exception as e:
-            logging.warning(f"SYSTEM: Wall validator failed with error: {e}")
+            logging.warning(f"SYSTEM: Section: {self._section_name}, Wall validator failed with error: {e}")
             return True
 
     def _model_polygon(
@@ -1579,9 +1579,9 @@ class FloorPlan2D(FloorPlan):
                     )
 
                 model_polygon["wall_parameters"][index] = dimension_wall_rectified
-            logging.info(f"SYSTEM: Section: {self._section_name} POLYGON DETECTED: {json.dumps(model_polygon)}")
+            logging.info(f"SYSTEM: Section: {self._section_name}, POLYGON DETECTED: {json.dumps(model_polygon)}")
         except Exception as e:
-            logging.warning(f"SYSTEM: Section: {self._section_name} Drywall prediction for polygon: {json.dumps(polygon)} failed with error: {e}")
+            logging.warning(f"SYSTEM: Section: {self._section_name}, Drywall prediction for polygon: {json.dumps(polygon)} failed with error: {e}")
             model_polygon = {
                 "ceiling": {
                     "room_name": '',
@@ -1715,7 +1715,7 @@ class FloorPlan2D(FloorPlan):
                     verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
                 )
         except Exception as e:
-            logging.warning(f"SYSTEM: Drywall prediction for polygon: {json.dumps(polygon)} failed with error: {e}")
+            logging.warning(f"SYSTEM: Section: {self._section_name}, Drywall prediction for polygon: {json.dumps(polygon)} failed with error: {e}")
             predict_polygon = {
                 "ceiling": {
                     "room_name": '',
