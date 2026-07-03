@@ -54,7 +54,7 @@ __all__ = ["FloorPlan2D"]
 
 class FloorPlan2D(FloorPlan):
 
-    def __init__(self, credentials, hyperparameters, drywall_templates, project_location, section_name):
+    def __init__(self, credentials, hyperparameters, drywall_templates, project_location, section_name=None):
         super().__init__(hyperparameters)
 
         self._credentials = credentials
