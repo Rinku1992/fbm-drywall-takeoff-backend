@@ -135,7 +135,7 @@ def section_to_structured_2d(
     allow_none_scale=False,
     trust_scale=True,
 ):
-    floor_plan_modeller_2d.reload()
+    floor_plan_modeller_2d.reload(page_section_number)
     wall_segmented_sectioned_path = load_section_from_page(
         wall_segmented_path,
         floor_plan_processed_path,
