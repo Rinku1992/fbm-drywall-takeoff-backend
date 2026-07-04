@@ -29,6 +29,7 @@ numpy
 roman
 scipy
 shapely
+geopy
 ruamel-yaml
 matplotlib
 pygltflib
