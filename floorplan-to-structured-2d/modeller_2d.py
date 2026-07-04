@@ -54,13 +54,14 @@ __all__ = ["FloorPlan2D"]
 
 class FloorPlan2D(FloorPlan):
 
-    def __init__(self, credentials, hyperparameters, drywall_templates, project_location):
+    def __init__(self, credentials, hyperparameters, drywall_templates, project_location, section_name=None):
         super().__init__(hyperparameters)
 
         self._credentials = credentials
         self._hyperparameters = hyperparameters
         self._drywall_templates = drywall_templates
         self._project_location = project_location
+        self._section_name = section_name
         self._width_in_feet = self._hyperparameters["modelling"]["width_in_feet"]
         self._height_in_feet = self._hyperparameters["modelling"]["height_in_feet"]
         self._scale = self._hyperparameters["modelling"]["scale"]
@@ -69,9 +70,10 @@ class FloorPlan2D(FloorPlan):
         self._walls_2d = list()
         self._polygons = list()
 
-    def reload(self):
+    def reload(self, section_name):
         self._walls_2d = list()
         self._polygons = list()
+        self._section_name = section_name
         self._is_scale_detected = False
 
     @property
@@ -654,7 +656,7 @@ class FloorPlan2D(FloorPlan):
                 return is_valid["is_valid"]
             return True
         except Exception as e:
-            logging.warning(f"SYSTEM: Wall validator failed with error: {e}")
+            logging.warning(f"SYSTEM: Section: {self._section_name}, Wall validator failed with error: {e}")
             return True
 
     def _merge_nearest_neighbor(self, wall_lines, tolerance=500):
@@ -1252,9 +1254,9 @@ class FloorPlan2D(FloorPlan):
                 if response.scale_confidence < 0.95:
                     scale = load_scale_from_OCR(LEFT, RIGHT, TOP, BOTTOM)
                 ceiling_height = standard_ceiling_height
-                logging.info(f"SYSTEM: Vertex AI Gemini: Scale: {response.scale}, Confidence: {response.scale_confidence}")
+                logging.info(f"SYSTEM: Section: {self._section_name}, Vertex AI Gemini: Scale: {response.scale}, Confidence: {response.scale_confidence}")
             except Exception as e:
-                logging.warning(f"SYSTEM: Standard Scale detection failed with error: {e}")
+                logging.warning(f"SYSTEM: Section: {self._section_name}, Standard Scale detection failed with error: {e}")
         elif architectural_scale and not standard_ceiling_height:
             try:
                 if self._is_cached["CEILING_HEIGHT_DETECTOR"]:
@@ -1277,9 +1279,9 @@ class FloorPlan2D(FloorPlan):
                     )
                 scale = self.scale_canonical(architectural_scale)
                 ceiling_height = response.ceiling_height
-                logging.info(f"SYSTEM: Vertex AI Gemini: Ceiling Height: {response.ceiling_height}")
+                logging.info(f"SYSTEM: Section: {self._section_name}, Vertex AI Gemini: Ceiling Height: {response.ceiling_height}")
             except Exception as e:
-                logging.warning(f"SYSTEM: Standard Ceiling Height detection failed with error: {e}")
+                logging.warning(f"SYSTEM: Section: {self._section_name}, Standard Ceiling Height detection failed with error: {e}")
         else:
             try:
                 if self._is_cached["SCALE_AND_CEILING_HEIGHT_DETECTOR"]:
@@ -1307,10 +1309,10 @@ class FloorPlan2D(FloorPlan):
                     scale = self.scale_canonical(response.scale)
                 if response.scale_confidence < 0.95:
                     scale = load_scale_from_OCR(LEFT, RIGHT, TOP, BOTTOM)
-                logging.info(f"SYSTEM: Vertex AI Gemini: Scale: {response.scale}, Confidence: {response.scale_confidence}")
-                logging.info(f"SYSTEM: Vertex AI Gemini: Ceiling Height: {response.ceiling_height}")
+                logging.info(f"SYSTEM: Section: {self._section_name}, Vertex AI Gemini: Scale: {response.scale}, Confidence: {response.scale_confidence}")
+                logging.info(f"SYSTEM: Section: {self._section_name}, Vertex AI Gemini: Ceiling Height: {response.ceiling_height}")
             except Exception as e:
-                logging.warning(f"SYSTEM: Standard Scale and Ceiling Height detection failed with error: {e}")
+                logging.warning(f"SYSTEM: Section: {self._section_name}, Standard Scale and Ceiling Height detection failed with error: {e}")
 
         if scale:
             self._scale = scale
@@ -1318,7 +1320,7 @@ class FloorPlan2D(FloorPlan):
             self._is_scale_detected = True
         if not scale and architectural_scale_fallback:
             self._scale = self.scale_canonical(architectural_scale_fallback)
-            ceiling_height_and_scale["scale"] = scale
+            ceiling_height_and_scale["scale"] = self._scale
             self._is_scale_detected = True
         if ceiling_height:
             ceiling_height_and_scale["ceiling_height"] = ceiling_height
@@ -1403,7 +1405,7 @@ class FloorPlan2D(FloorPlan):
                 return is_valid["is_valid"]
             return True
         except Exception as e:
-            logging.warning(f"SYSTEM: Wall validator failed with error: {e}")
+            logging.warning(f"SYSTEM: Section: {self._section_name}, Wall validator failed with error: {e}")
             return True
 
     def _model_polygon(
@@ -1577,9 +1579,9 @@ class FloorPlan2D(FloorPlan):
                     )
 
                 model_polygon["wall_parameters"][index] = dimension_wall_rectified
-            logging.info(f"SYSTEM: POLYGON DETECTED: {json.dumps(model_polygon)}")
+            logging.info(f"SYSTEM: Section: {self._section_name}, POLYGON DETECTED: {json.dumps(model_polygon)}")
         except Exception as e:
-            logging.warning(f"SYSTEM: Drywall prediction for polygon: {json.dumps(polygon)} failed with error: {e}")
+            logging.warning(f"SYSTEM: Section: {self._section_name}, Drywall prediction for polygon: {json.dumps(polygon)} failed with error: {e}")
             model_polygon = {
                 "ceiling": {
                     "room_name": '',
@@ -1713,7 +1715,7 @@ class FloorPlan2D(FloorPlan):
                     verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
                 )
         except Exception as e:
-            logging.warning(f"SYSTEM: Drywall prediction for polygon: {json.dumps(polygon)} failed with error: {e}")
+            logging.warning(f"SYSTEM: Section: {self._section_name}, Drywall prediction for polygon: {json.dumps(polygon)} failed with error: {e}")
             predict_polygon = {
                 "ceiling": {
                     "room_name": '',
@@ -3023,7 +3025,7 @@ class FloorPlan2D(FloorPlan):
         perimeter_lines, outer_drywall_surfaces = self.perimeter_lines(wall_lines)
         polygon_vertices_normalized_all = list()
         futures = list()
-        with ThreadPoolExecutor(max_workers=8) as executor:
+        with ThreadPoolExecutor(max_workers=4) as executor:
             for index, ((polygon_area, polygon_vertices), polygon_perimeter_walls) in enumerate(zip(polygons, polygons_perimeter_walls)):
                 index += 1
                 polygon_vertices_normalized = [(round(scale_x * vertex[0]), round(scale_y * vertex[1])) for vertex in polygon_vertices]
@@ -3086,7 +3088,7 @@ class FloorPlan2D(FloorPlan):
         )
         external_contour_normalized = self.merge_polygons(external_contour_normalized, [polygon[1] for polygon in missing_polygons])
         futures = list()
-        with ThreadPoolExecutor(max_workers=8) as executor:
+        with ThreadPoolExecutor(max_workers=4) as executor:
             for index, ((polygon_area, polygon_vertices), polygon_perimeter_walls) in enumerate(zip(missing_polygons, missing_polygons_perimeter_walls)):
                 index += len(polygons)
                 drywall_polygons = self._extrude_polygon_drywalls(polygon_perimeter_walls, polygon_vertices, (scale_x, scale_y))
@@ -3157,7 +3159,7 @@ class FloorPlan2D(FloorPlan):
         perimeter_lines, outer_drywall_surfaces = self.perimeter_lines(wall_lines)
         polygon_vertices_normalized_all = list()
         futures = list()
-        with ThreadPoolExecutor(max_workers=8) as executor:
+        with ThreadPoolExecutor(max_workers=4) as executor:
             for index, ((polygon_area, polygon_vertices), polygon_perimeter_walls) in enumerate(zip(polygons, polygons_perimeter_walls)):
                 index += 1
                 polygon_vertices_normalized = [(round(scale_x * vertex[0]), round(scale_y * vertex[1])) for vertex in polygon_vertices]
@@ -3218,7 +3220,7 @@ class FloorPlan2D(FloorPlan):
         )
         external_contour_normalized = self.merge_polygons(external_contour_normalized, [polygon[1] for polygon in missing_polygons])
         futures = list()
-        with ThreadPoolExecutor(max_workers=8) as executor:
+        with ThreadPoolExecutor(max_workers=4) as executor:
             for index, ((polygon_area, polygon_vertices), polygon_perimeter_walls) in enumerate(zip(missing_polygons, missing_polygons_perimeter_walls)):
                 index += len(polygons)
                 drywall_polygons = self._extrude_polygon_drywalls(polygon_perimeter_walls, polygon_vertices, (scale_x, scale_y))
@@ -3256,7 +3258,7 @@ class FloorPlan2D(FloorPlan):
                 self._walls_2d, self._polygons = json.load(f)
 
         futures = list()
-        with ThreadPoolExecutor(max_workers=8) as executor:
+        with ThreadPoolExecutor(max_workers=4) as executor:
             for polygon in self._polygons:
                 futures.append(executor.submit(
                     self._add_drywalls_polygon,
