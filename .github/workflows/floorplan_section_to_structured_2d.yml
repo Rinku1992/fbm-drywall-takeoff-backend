@@ -1,0 +1,127 @@
+name: 'Manual XTIMATOR-STRUCTURED-2D-SECTIONED Cloud Run Build and Deploy'
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Select environment (dev, QA, uat, or prod)'
+        required: true
+        type: choice
+        options:
+          - dev
+          - QA
+          - uat
+          - prod
+
+jobs:
+  build-and-deploy:
+    name: 'Build, Push, and Deploy to Cloud Run'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ github.event.inputs.environment }}
+    defaults:
+      run:
+        working-directory: floorplan-section-to-structured-2d
+
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v2
+
+      - name: 'Authenticate to Google Cloud'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ github.event.inputs.environment == 'QA' && vars.WIF_PROVIDER_QA || github.event.inputs.environment == 'uat' && vars.WIF_PROVIDER_UAT || github.event.inputs.environment == 'prod' && vars.WIF_PROVIDER_PROD || vars.WIF_PROVIDER_DEV }}
+          service_account: ${{ github.event.inputs.environment == 'QA' && vars.SERVICE_ACCOUNT_QA || github.event.inputs.environment == 'uat' && vars.SERVICE_ACCOUNT_UAT || github.event.inputs.environment == 'prod' && vars.SERVICE_ACCOUNT_PROD || vars.SERVICE_ACCOUNT_DEV }}
+
+      # Set GCP Project ID 
+      - name: "Set GCP Project ID"
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
+            echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_QA }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "uat" ]; then
+            echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_UAT }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+            echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_PROD }}" >> $GITHUB_ENV
+          else
+            echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_DEV }}" >> $GITHUB_ENV
+          fi
+
+      # Set instance limits
+      - name: "Set Cloud Run instance limits"
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
+            echo "MIN_INSTANCES=10" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=100" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "uat" ]; then
+            echo "MIN_INSTANCES=10" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=100" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+            echo "MIN_INSTANCES=10" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=100" >> $GITHUB_ENV
+          else
+            echo "MIN_INSTANCES=1" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=100" >> $GITHUB_ENV
+          fi
+
+      #  Set dynamic region
+      - name: "Set Cloud Run region"
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "dev" ]; then
+            echo "REGION=us-central1" >> $GITHUB_ENV
+          else
+            echo "REGION=us-east4" >> $GITHUB_ENV
+          fi
+
+      - name: 'Set up Google Cloud SDK'
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: 'Build Docker Image'
+        run: |
+          docker build \
+          -t gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-to-structured-2d \
+          .
+
+      - name: Docker Authentication
+        run: |
+          gcloud auth configure-docker gcr.io --quiet
+
+      - name: "Set VPC Access Connector"
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
+            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_QA }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "uat" ]; then
+            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_UAT }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_PROD }}" >> $GITHUB_ENV
+          else
+            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_DEV }}" >> $GITHUB_ENV
+          fi
+
+      - name: 'Push Docker Image to GCR'
+        run: |
+          docker push \
+          gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-to-structured-2d
+
+      - name: 'Deploy to Cloud Run'
+        run: |
+          gcloud run deploy floorplan-to-structured-2d-fbm \
+            --image gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-to-structured-2d \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --project ${{ env.GCP_PROJECT_ID }} \
+            --service-account ${{ github.event.inputs.environment == 'QA' && vars.SERVICE_ACCOUNT_QA || github.event.inputs.environment == 'uat' && vars.SERVICE_ACCOUNT_UAT || github.event.inputs.environment == 'prod' && vars.SERVICE_ACCOUNT_PROD || vars.SERVICE_ACCOUNT_DEV }} \
+            --cpu 8 \
+            --memory 32Gi \
+            --min-instances ${{ env.MIN_INSTANCES }} \
+            --max-instances ${{ env.MAX_INSTANCES }} \
+            --concurrency 1 \
+            --execution-environment gen2 \
+            --timeout 1800 \
+            --ingress internal \
+            --vpc-connector ${{ env.VPC_ACCESS_CONNECTOR }} \
+            --vpc-egress all-traffic \
+            --no-allow-unauthenticated
