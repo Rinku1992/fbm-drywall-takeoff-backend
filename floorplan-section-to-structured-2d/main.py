@@ -297,13 +297,18 @@ async def floorplan_section_to_structured_2d(request: Request):
         page_number,
         output_path=f"/tmp/{project_id}/{plan_id}/{user_id}/floor_plan_wall_segmented_{str(page_number).zfill(4)}.png"
     )
-    query = f"SELECT project_location FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} WHERE LOWER(project_id) = LOWER(%s)"
+    query = f"SELECT project_location, project_location_pincode FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} WHERE LOWER(project_id) = LOWER(%s)"
     query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id,), fetch=True))
     project_location = query_output[0]["project_location"]
-    vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES, project_location)
+    project_location_pincode = query_output[0]["project_location_pincode"]
+    geolocator = Nominatim(user_agent="xtimator_app")
+    pincode = f"{project_location_pincode}, {project_location}"
+    location = geolocator.geocode(pincode)
+    project_address = location.address if location else pincode
+    vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES, project_address)
     logging.info(f"SYSTEM: Extracting structured model from SECTION: {bounding_box_offset["title"]} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
     await update_status(CREDENTIALS, pg_pool, f"DETECTING GEOMETRY IN SECTION: `{bounding_box_offset["title"]}`", project_id, plan_id, user_id, page_number)
-    floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES, project_location)
+    floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES, project_address)
     floor_plan_modeller_2d.from_vertex_ai_clients(*vertex_ai_clients)
     is_scale_detected = await floorplan_section_to_structured_2d(
         CREDENTIALS,
