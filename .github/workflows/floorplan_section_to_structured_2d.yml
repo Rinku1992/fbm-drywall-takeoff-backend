@@ -82,7 +82,7 @@ jobs:
       - name: 'Build Docker Image'
         run: |
           docker build \
-          -t gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-to-structured-2d \
+          -t gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-section-to-structured-2d \
           .
 
       - name: Docker Authentication
