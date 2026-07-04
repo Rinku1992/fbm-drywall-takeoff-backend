@@ -2670,47 +2670,6 @@ class FloorPlan2D(FloorPlan):
                 polygons_valid.append(polygon)
         return polygons_valid
 
-    @classmethod
-    def scale_to(
-        cls,
-        floor_plan_path="/tmp/floor_plan.png",
-        pdf_path="/tmp/scaled_floor_plan.pdf",
-        svg_path="/tmp/scaled_floor_plan.svg",
-        resolution=None
-    ):
-        canvas = Image.open(floor_plan_path)
-        width_in_pixels, height_in_pixels = canvas.size
-        if canvas.mode != "RGB":
-            canvas = canvas.convert("RGB")
-
-        if resolution:
-            canvas = canvas.resize(resolution, Image.Resampling.LANCZOS)
-            width_in_pixels, height_in_pixels = resolution
-
-        canvas.save(pdf_path, save_all=True)
-
-        subprocess.run(
-            ["pdftocairo", "-svg", pdf_path, svg_path],
-            check=True
-        )
-        tree = ET.parse(svg_path)
-        root = tree.getroot()
-        width_in_points = root.attrib.get("width")
-        height_in_points = root.attrib.get("height")
-        root.set("width", "100%")
-        root.set("height", "100%")
-        if not root.get("preserveAspectRatio"):
-            root.set("preserveAspectRatio", "xMidYMid meet")
-        tree.write(svg_path, encoding="utf-8", xml_declaration=True)
-
-        return Path(svg_path), dict(
-            height_in_pixels=height_in_pixels,
-            width_in_pixels=width_in_pixels,
-            height_in_points=height_in_points,
-            width_in_points=width_in_points,
-            size=Path(svg_path).stat().st_size
-        )
-
     def load_drywall_choices(self, walls_2d_JSON, polygons_2d_JSON):
         drywall_choices = ["DISABLED"] + [drywall_template["sku_variant"] for drywall_template in self._drywall_templates]
         for wall in walls_2d_JSON:
