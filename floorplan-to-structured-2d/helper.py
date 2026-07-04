@@ -48,6 +48,7 @@ from pg8000.dbapi import (
 from vertexai.generative_models import Content, Part
 from vertexai.caching import CachedContent
 from google.oauth2 import service_account
+from google.cloud.pubsub_v1 import SubscriberClient
 from google.cloud.pubsub_v1 import PublisherClient
 
 from transcriber import Transcriber
