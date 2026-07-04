@@ -1,4 +1,4 @@
-name: 'Manual XTIMATOR-STRUCTURED-2D Cloud Run Build and Deploy'
+name: 'Manual XTIMATOR-STRUCTURED-2D-SECTIONED Cloud Run Build and Deploy'
 
 on:
   workflow_dispatch:
