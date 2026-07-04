@@ -1,0 +1,51 @@
+{
+  "ceiling": {
+    "room_name": "KITCHEN / UTILITY",
+    "ceiling_type": "Flat",
+    "height": 10.0,
+    "confidence_height": 0.78,
+    "pitch": {
+      "rise": 0.0,
+      "run": 0.0
+    },
+    "slope_enabled": false,
+    "tilt_axis": "NULL"
+  },
+  "wall_parameters": [
+    {"room_name": "KITCHEN / UTILITY", "width": 0.46, "wall_type": "FULL_WALL", "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}], "height": 10.0},
+
+    {"room_name": "KITCHEN / UTILITY", "width": 0.46, "wall_type": "FULL_WALL", "openings": [{"opening_type": "Doors", "count": 1, "length": 2.6666666666666665, "height": 8.0}], "height": 10.0},
+
+    {"room_name": "KITCHEN / UTILITY", "width": 0.46, "wall_type": "FULL_WALL", "openings": [{"opening_type": "Doors", "count": 1, "length": 2.6666666666666665, "height": 8.0}], "height": 10.0},
+
+    {"room_name": "KITCHEN / UTILITY", "width": 0.46, "wall_type": "FULL_WALL", "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}], "height": 10.0},
+
+    {"room_name": "KITCHEN / UTILITY", "width": 0.46, "wall_type": "FULL_WALL", "openings": [{"opening_type": "Pass-through", "count": 1, "length": 3.16, "height": 8.0}], "height": 10.0},
+
+    {"room_name": "KITCHEN / UTILITY", "width": 0.46, "wall_type": "FULL_WALL", "openings": [{"opening_type": "Door", "count": 1, "length": 3.6666666666666665, "height": 6.666666666666667}], "height": 10.0},
+
+    {"room_name": "KITCHEN / UTILITY", "width": 0.46, "wall_type": "FULL_WALL", "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}], "height": 10.0},
+
+    {"room_name": "KITCHEN / UTILITY", "width": 0.46, "wall_type": "FULL_WALL", "openings": [{"opening_type": "Door", "count": 1, "length": 3, "height": 8}], "height": 10.0},
+
+    {"room_name": "KITCHEN / UTILITY", "width": 0.46, "wall_type": "FULL_WALL", "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}], "height": 10.0},
+
+    {"room_name": "KITCHEN / UTILITY", "width": 0.46, "wall_type": "FULL_WALL", "openings": [{"opening_type": "Doors", "count": 1, "length": 2.6666666666666665, "height": 8}], "height": 10.0},
+
+    {"room_name": "KITCHEN / UTILITY", "width": 0.46, "wall_type": "FULL_WALL", "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}], "height": 10.0},
+
+    {"room_name": "KITCHEN / UTILITY", "width": 0.46, "wall_type": "FULL_WALL", "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}], "height": 10.0},
+
+    {"room_name": "KITCHEN / UTILITY", "width": 0.46, "wall_type": "FULL_WALL", "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}], "height": 10.0},
+
+    {"room_name": "KITCHEN / UTILITY", "width": 0.46, "wall_type": "FULL_WALL", "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}], "height": 10.0},
+
+    {"room_name": "KITCHEN / UTILITY", "width": 0.46, "wall_type": "FULL_WALL", "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}], "height": 10.0},
+
+    {"room_name": "KITCHEN / UTILITY", "width": 0.46, "wall_type": "FULL_WALL", "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}], "height": 10.0},
+
+    {"room_name": "KITCHEN / UTILITY", "width": 0.46, "wall_type": "FULL_WALL", "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}], "height": 10.0},
+
+    {"room_name": "KITCHEN / UTILITY", "width": 0.46, "wall_type": "FULL_WALL", "openings": [{"opening_type": "NULL", "count": 0, "length": 0, "height": 0}], "height": 10.0}
+  ]
+}
