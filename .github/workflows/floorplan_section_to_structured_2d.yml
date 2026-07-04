@@ -104,12 +104,12 @@ jobs:
       - name: 'Push Docker Image to GCR'
         run: |
           docker push \
-          gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-to-structured-2d
+          gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-section-to-structured-2d
 
       - name: 'Deploy to Cloud Run'
         run: |
-          gcloud run deploy floorplan-to-structured-2d-fbm \
-            --image gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-to-structured-2d \
+          gcloud run deploy floorplan-section-to-structured-2d-fbm \
+            --image gcr.io/${{ env.GCP_PROJECT_ID }}/floorplan-section-to-structured-2d \
             --platform managed \
             --region ${{ env.REGION }} \
             --project ${{ env.GCP_PROJECT_ID }} \
