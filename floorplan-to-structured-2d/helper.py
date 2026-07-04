@@ -759,6 +759,33 @@ def load_subscriber_client(credentials):
     subscriber = SubscriberClient(credentials=credentials_SA)
     return subscriber
 
+def query_subscriber_messages(credentials, subscriber_client, queries):
+    credentials_SA = service_account.Credentials.from_service_account_file(credentials["PubSub"]["service_account_key"])
+    subscription_path = subscriber_client.subscription_path(credentials_SA.project_id, credentials["PubSub"]["subscription_name"])
+    try:
+        response = subscriber_client.pull(
+            request=dict(subscription=subscription_path, max_messages=credentials["PubSub"]["max_messages"]),
+            timeout=credentials["PubSub"]["timeout"]
+        )
+    except DeadlineExceeded:
+        return False, list()
+
+    acknowledged_queries = list()
+    for received_message in response.received_messages:
+        try:
+            message = json.loads(received_message.message.data.decode("utf-8"))
+            for query in queries:
+                if query == message:
+                    subscriber_client.acknowledge(
+                        request=dict(subscription=subscription_path, ack_ids=[received_message.ack_id])
+                    )
+                    acknowledged_queries.append(query)
+                    if len(acknowledged_queries) == len(queries):
+                        return True, acknowledged_queries
+        except JSONDecodeError:
+            continue
+    return False, acknowledged_queries
+
 async def trigger_email_notification(
     credentials,
     pg_pool,
