@@ -754,6 +754,11 @@ def load_publisher_client(credentials):
 
      return publisher_client
 
+def load_subscriber_client(credentials):
+    credentials_SA = service_account.Credentials.from_service_account_file(credentials["PubSub"]["service_account_key"])
+    subscriber = SubscriberClient(credentials=credentials_SA)
+    return subscriber
+
 async def trigger_email_notification(
     credentials,
     pg_pool,
