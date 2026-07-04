@@ -3,6 +3,7 @@ from pathlib import Path
 import json
 from functools import partial
 from time import sleep
+from geopy.geocoders import Nominatim
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
