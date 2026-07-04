@@ -487,6 +487,7 @@ async def insert_project(payload_project, pg_pool, credentials):
             project_id,
             project_name,
             project_location,
+            project_location_pincode,
             "FBM_branch",
             project_type,
             project_area,
@@ -495,6 +496,7 @@ async def insert_project(payload_project, pg_pool, credentials):
             created_by
         )
         VALUES (
+            %s,
             %s,
             %s,
             %s,
@@ -511,6 +513,7 @@ async def insert_project(payload_project, pg_pool, credentials):
         payload_project.project_id,
         payload_project.project_name,
         payload_project.project_location,
+        payload_project.project_location_pincode,
         payload_project.FBM_branch,
         payload_project.project_type,
         payload_project.project_area,
@@ -677,6 +680,7 @@ class PayloadProject(BaseModel):
     project_id: str
     project_name: str
     project_location: str
+    project_location_pincode: int
     project_area: str
     project_type: str
     contractor_name: str

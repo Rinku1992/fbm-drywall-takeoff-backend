@@ -6,6 +6,7 @@ from functools import partial
 from requests.adapters import HTTPAdapter
 from requests.exceptions import ConnectionError, ReadTimeout, ChunkedEncodingError
 from time import sleep
+from geopy.geocoders import Nominatim
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -44,7 +45,7 @@ from helper import (
     load_organization_slug,
     update_status,
     pg_run,
-    return_futures_early,
+    return_futures_early_section_to_structured_2d,
 )
 from prompts import CEILING_CHOICES, WALL_CHOICES
 
@@ -61,7 +62,7 @@ async def floorplan_to_walls(credentials, pg_pool, project_id, plan_id, user_id,
     def load_headers_with_id_token():
         auth_req = google.auth.transport.requests.Request()
         service_account_credentials = IDTokenCredentials.from_service_account_file(
-            credentials["service_drywall_account_key"],
+            credentials["service_compute_account_key"],
             target_audience=credentials["CloudRun"]["APIs"]["wall_detector"]
         )
         service_account_credentials.refresh(auth_req)
@@ -115,22 +116,18 @@ async def floorplan_to_walls(credentials, pg_pool, project_id, plan_id, user_id,
     return Path(output_path)
 
 
-async def page_to_structured_2d(
-    credentials,
-    pg_pool,
+def section_to_structured_2d(
     floor_plan_modeller_2d,
     project_id,
     plan_id,
     user_id,
     page_number,
-    page_sections,
     page_section_number,
     wall_segmented_path,
     floor_plan_processed_path,
     bounding_box_offset,
     transcription_block_with_centroids,
     floorplan_page_statistics,
-    floorplan_baseline_page_source,
     elevation_processed_paths,
     predict_drywall,
     architectural_scale,
@@ -138,7 +135,7 @@ async def page_to_structured_2d(
     allow_none_scale=False,
     trust_scale=True,
 ):
-    floor_plan_modeller_2d.reload()
+    floor_plan_modeller_2d.reload(page_section_number)
     wall_segmented_sectioned_path = load_section_from_page(
         wall_segmented_path,
         floor_plan_processed_path,
@@ -197,24 +194,11 @@ async def page_to_structured_2d(
         wall_choices=WALL_CHOICES,
         ceiling_choices=CEILING_CHOICES
     )
-    await insert_model_2d(
-        dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
-        floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale),
-        page_number,
-        page_sections,
-        page_section_number,
-        plan_id,
-        user_id,
-        project_id,
-        floorplan_baseline_page_source,
-        pg_pool,
-        credentials,
-    )
     if floor_plan_modeller_2d.is_scale_detected:
         logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} and SECTION: {page_section_number} Generated Successfully")
     else:
         logging.warning(f"SYSTEM: Architectural Scale not detected for PAGE: {page_number} and SECTION: {page_section_number}. Waiting for Architectural Scale input from the user")
-    return floor_plan_modeller_2d.is_scale_detected
+    return floor_plan_modeller_2d.is_scale_detected, dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata), floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale), page_section_number
 
 
 async def floorplan_to_page(credentials, pg_pool, project_id, plan_id, user_id, pdf_path, page_number, dpi):
@@ -496,48 +480,79 @@ async def floorplan_to_structured_2d(request: Request):
         )
         return respond_with_UI_payload(dict(status="SUCCESS", message="NO Floor Plan layout observed"))
     if not FloorPlan2D.is_none(wall_segmented_path):
-        query = f"SELECT project_location FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} WHERE LOWER(project_id) = LOWER(%s)"
+        query = f"SELECT project_location, project_location_pincode FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} WHERE LOWER(project_id) = LOWER(%s)"
         query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id,), fetch=True))
         project_location = query_output[0]["project_location"]
+        project_location_pincode = query_output[0]["project_location_pincode"]
+        geolocator = Nominatim(user_agent="xtimator_app")
+        pincode = f"{project_location_pincode}, {project_location}"
+        location = geolocator.geocode(pincode)
+        project_address = location.address if location else pincode
+        vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES, project_address)
+        architectural_scales = (
+            architectural_scale
+            if isinstance(architectural_scale, list)
+            else [architectural_scale] * len(bounding_box_offsets)
+        )
+        loop = asyncio.get_running_loop()
+        executor = ThreadPoolExecutor(
+            max_workers=min(
+                len(bounding_box_offsets),
+                8,
+            )
+        )
         futures = list()
-        vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES, project_location)
-        architectural_scales = architectural_scale
-        architectural_scales = architectural_scales if isinstance(architectural_scales, list) else [architectural_scales for _ in bounding_box_offsets]
         for bounding_box_offset, architectural_scale, standard_ceiling_height in zip(bounding_box_offsets, architectural_scales, standard_ceiling_heights):
             logging.info(f"SYSTEM: Extracting structured model from SECTION: {bounding_box_offset["title"]} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
             await update_status(CREDENTIALS, pg_pool, f"DETECTING GEOMETRY IN SECTION: `{bounding_box_offset["title"]}`", project_id, plan_id, user_id, page_number)
-            floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES, project_location)
+            floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES, project_address)
             floor_plan_modeller_2d.from_vertex_ai_clients(*vertex_ai_clients)
             futures.append(
-                page_to_structured_2d(
-                    CREDENTIALS,
-                    pg_pool,
-                    floor_plan_modeller_2d,
-                    project_id,
-                    plan_id,
-                    user_id,
-                    page_number,
-                    len(bounding_box_offsets),
-                    bounding_box_offset["title"],
-                    wall_segmented_path,
-                    floor_plan_processed_path,
-                    bounding_box_offset,
-                    transcription_block_with_centroids,
-                    floorplan_page_statistics,
-                    floorplan_baseline_page_source,
-                    elevation_processed_paths,
-                    predict_drywall,
-                    architectural_scale,
-                    standard_ceiling_height,
-                    allow_none_scale=hyperparameters["modelling"]["enable_early_stopping"] and is_vector,
-                    trust_scale=is_vector,
+                loop.run_in_executor(
+                    executor,
+                    partial(
+                        section_to_structured_2d,
+                        floor_plan_modeller_2d,
+                        project_id,
+                        plan_id,
+                        user_id,
+                        page_number,
+                        bounding_box_offset["title"],
+                        wall_segmented_path,
+                        floor_plan_processed_path,
+                        bounding_box_offset,
+                        transcription_block_with_centroids,
+                        floorplan_page_statistics,
+                        elevation_processed_paths,
+                        predict_drywall,
+                        architectural_scale,
+                        standard_ceiling_height,
+                        allow_none_scale=hyperparameters["modelling"]["enable_early_stopping"] and is_vector,
+                        trust_scale=is_vector,
+                    ),
                 )
             )
-        is_scale_detected = await return_futures_early(futures)
+        page_sections_structured_2d = await return_futures_early_section_to_structured_2d(futures)
+        is_scale_detected = [page_section_structured_2d[0] for page_section_structured_2d in page_sections_structured_2d]
         scale_detected = all(is_scale_detected)
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
         future.result()
     if scale_detected:
+        for page_section_strutured_2d in page_sections_structured_2d:
+            _, model_2d, scale, page_section_number = page_section_strutured_2d
+            await insert_model_2d(
+                model_2d,
+                scale,
+                page_number,
+                len(bounding_box_offsets),
+                page_section_number,
+                plan_id,
+                user_id,
+                project_id,
+                floorplan_baseline_page_source,
+                pg_pool,
+                CREDENTIALS,
+            )
         await insert_page(
             plan_id,
             user_id,
@@ -558,6 +573,8 @@ async def floorplan_to_structured_2d(request: Request):
             page_number=page_number
         )
     else:
+        if executor:
+            executor.shutdown(wait=False, cancel_futures=True)
         await insert_page(
             plan_id,
             user_id,
