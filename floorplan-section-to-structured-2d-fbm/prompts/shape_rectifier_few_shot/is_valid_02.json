@@ -1,0 +1,5 @@
+{
+      "is_valid": true,
+      "confidence": 1,
+      "reasoning": "More than 50% of the walls in the boundary mask are overlayed with `VALID` wall lines which are represented by a pair of parallel lines representing wall thickness and each representing one edge (partial / full) of a room boundary."
+}

@@ -1,0 +1,392 @@
+{
+  "ceiling": {
+    "room_name": "MASTER BATH",
+    "area": 72.85,
+    "confidence_area": 0.95,
+    "ceiling_type": "Barrel vault",
+    "height": 10.125,
+    "confidence_height": 0.78,
+    "pitch": {
+      "rise": 0.0,
+      "run": 0.0
+    },
+    "slope_enabled": false,
+    "tilt_axis": "NULL",
+    "drywall_assembly": {
+      "material": "DISABLED",
+      "color_code": [0, 0, 255],
+      "thickness": 0.0417,
+      "layers": 1,
+      "fire_rating": 0,
+      "waste_factor": "12%"
+    },
+    "code_references": [
+      "CBC 2019 Section 1207",
+      "IRC R302.13",
+      "GA-216 Gypsum Board Application"
+    ],
+    "recommendation": "Elliptical barrel vault ceiling detected. Use flexible gypsum board or segmented installation for curved surfaces."
+  },
+  "wall_parameters": [
+    {
+      "room_name": "MASTER BATH",
+      "length": 1.5,
+      "confidence_length": 0.95,
+      "width": 0.29,
+      "wall_type": "FULL_WALL",
+      "openings": [
+        { "opening_type": "NULL", "count": 0, "length": 0, "height": 0 }
+      ],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 10.125,
+        "confidence_height": 0.78,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0.0417,
+        "layers": 1,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R702.3.5","GA-216","CBC 1207"],
+      "recommendation": "Short exterior-aligned wall with forced transom mapping. Standard gypsum board sufficient."
+    },
+    {
+      "room_name": "MASTER BATH",
+      "length": 7.541666666666667,
+      "confidence_length": 0.95,
+      "width": 0.29,
+      "wall_type": "FULL_WALL",
+      "openings": [
+        { "opening_type": "Doors", "count": 1, "length": 2.6666666666666665, "height": 10.125 }
+      ],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 10.125,
+        "confidence_height": 0.78,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0.0417,
+        "layers": 1,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R702.3.5","GA-216","CBC 1207"],
+      "recommendation": "Sliding door mapped to perimeter wall for alignment. Use standard gypsum with reinforced framing at opening."
+    },
+    {
+      "room_name": "MASTER BATH",
+      "length": 6.854166666666667,
+      "confidence_length": 0.95,
+      "width": 0.46,
+      "wall_type": "FULL_WALL",
+      "openings": [
+        { "opening_type": "NULL", "count": 0, "length": 0, "height": 0 }
+      ],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 10.125,
+        "confidence_height": 0.78,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0.0417,
+        "layers": 1,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R702.3.5","GA-216","CBC 1207"],
+      "recommendation": "Pass-through opening mapped to perimeter. Treat as framed void with standard gypsum."
+    },
+    {
+      "room_name": "MASTER BATH",
+      "length": 2.5250291036088477,
+      "confidence_length": 0.95,
+      "width": 0.29,
+      "wall_type": "FULL_WALL",
+      "openings": [
+        { "opening_type": "NULL", "count": 0, "length": 0, "height": 0 }
+      ],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 10.125,
+        "confidence_height": 0.78,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0.0417,
+        "layers": 1,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R702.3.5","GA-216","CBC 1207"],
+      "recommendation": "Standard interior wall."
+    },
+    {
+      "room_name": "MASTER BATH",
+      "length": 2.0625,
+      "confidence_length": 0.95,
+      "width": 0.29,
+      "wall_type": "FULL_WALL",
+      "openings": [
+        { "opening_type": "NULL", "count": 0, "length": 0, "height": 0 }
+      ],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 10.125,
+        "confidence_height": 0.78,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0.0417,
+        "layers": 1,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R702.3.5","GA-216","CBC 1207"],
+      "recommendation": "Minor partition wall."
+    },
+    {
+      "room_name": "MASTER BATH",
+      "length": 8.083333333333334,
+      "confidence_length": 0.95,
+      "width": 0.45,
+      "wall_type": "FULL_WALL",
+      "openings": [
+        { "opening_type": "Windows", "count": 3, "length": 2, "height": 5 }
+      ],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 10.125,
+        "confidence_height": 0.78,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0.0417,
+        "layers": 1,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R702.3.5","GA-216","CBC 1207"],
+      "recommendation": "Multiple openings grouped. Reinforce framing."
+    },
+    {
+      "room_name": "MASTER BATH",
+      "length": 3.6041666666666665,
+      "confidence_length": 0.95,
+      "width": 0.45,
+      "wall_type": "FULL_WALL",
+      "openings": [
+        { "opening_type": "NULL", "count": 0, "length": 0, "height": 0 }
+      ],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 10.125,
+        "confidence_height": 0.78,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0.0417,
+        "layers": 1,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R702.3.5","GA-216","CBC 1207"],
+      "recommendation": "Standard wall."
+    },
+    {
+      "room_name": "MASTER BATH",
+      "length": 1.4560643564356437,
+      "confidence_length": 0.95,
+      "width": 0.46,
+      "wall_type": "FULL_WALL",
+      "openings": [
+        { "opening_type": "NULL", "count": 0, "length": 0, "height": 0 }
+      ],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 10.125,
+        "confidence_height": 0.78,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0.0417,
+        "layers": 1,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R702.3.5","GA-216","CBC 1207"],
+      "recommendation": "Short wall."
+    },
+    {
+      "room_name": "MASTER BATH",
+      "length": 1.7083333333333335,
+      "confidence_length": 0.95,
+      "width": 0.46,
+      "wall_type": "FULL_WALL",
+      "openings": [
+        { "opening_type": "NULL", "count": 0, "length": 0, "height": 0 }
+      ],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 10.125,
+        "confidence_height": 0.78,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0.0417,
+        "layers": 1,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R702.3.5","GA-216","CBC 1207"],
+      "recommendation": "Interior segment."
+    },
+    {
+      "room_name": "MASTER BATH",
+      "length": 4.25,
+      "confidence_length": 0.95,
+      "width": 0.46,
+      "wall_type": "FULL_WALL",
+      "openings": [
+        { "opening_type": "Doors", "count": 2, "length": 1.25, "height": 8 }
+      ],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 10.125,
+        "confidence_height": 0.78,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0.0417,
+        "layers": 1,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R702.3.5","GA-216","CBC 1207"],
+      "recommendation": "Window opening."
+    },
+    {
+      "room_name": "MASTER BATH",
+      "length": 3.05,
+      "confidence_length": 0.95,
+      "width": 0.46,
+      "wall_type": "FULL_WALL",
+      "openings": [
+        { "opening_type": "Windows", "count": 1, "length": 1.5, "height": 2 }
+      ],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 10.125,
+        "confidence_height": 0.78,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0.0417,
+        "layers": 1,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R702.3.5","GA-216","CBC 1207"],
+      "recommendation": "Interior wall."
+    },
+    {
+      "room_name": "MASTER BATH",
+      "length": 3.6041666666666665,
+      "confidence_length": 0.95,
+      "width": 0.46,
+      "wall_type": "FULL_WALL",
+      "openings": [
+        { "opening_type": "Doors", "count": 2, "length": 1.25, "height": 8 }
+      ],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 10.125,
+        "confidence_height": 0.78,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0.0417,
+        "layers": 1,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R702.3.5","GA-216","CBC 1207"],
+      "recommendation": "Interior partition."
+    },
+    {
+      "room_name": "MASTER BATH",
+      "length": 5.541666666666667,
+      "confidence_length": 0.95,
+      "width": 0.46,
+      "wall_type": "FULL_WALL",
+      "openings": [
+        { "opening_type": "Sliding Doors", "count": 1, "length": 2.25, "height": 8 }
+      ],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 10.125,
+        "confidence_height": 0.78,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0.0417,
+        "layers": 1,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R702.3.5","GA-216","CBC 1207"],
+      "recommendation": "Interior wall."
+    },
+    {
+      "room_name": "MASTER BATH",
+      "length": 3.6666666666666665,
+      "confidence_length": 0.74,
+      "width": 0.46,
+      "wall_type": "FULL_WALL",
+      "openings": [
+        { "opening_type": "Pass-through", "count": 1, "length": 3.6666666666666665, "height": 10.125 }
+      ],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 10.125,
+        "confidence_height": 0.95,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0.0417,
+        "layers": 1,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R702.3.5","GA-216","CBC 1207"],
+      "recommendation": "Interior wall."
+    },
+    {
+      "room_name": "MASTER BATH",
+      "length": 4.25,
+      "confidence_length": 0.95,
+      "width": 0.29,
+      "wall_type": "FULL_WALL",
+      "openings": [
+        { "opening_type": "NULL", "count": 0, "length": 0, "height": 0 }
+      ],
+      "drywall_assembly": {
+        "material": "DISABLED",
+        "height": 10.125,
+        "confidence_height": 0.78,
+        "color_code": [0, 0, 255],
+        "materials_vertically_stacked": [],
+        "color_codes_stacked": [],
+        "thickness": 0.0417,
+        "layers": 1,
+        "fire_rating": 0,
+        "waste_factor": "10%"
+      },
+      "code_references": ["IRC R702.3.5","GA-216","CBC 1207"],
+      "recommendation": "Multiple transoms grouped on wall."
+    }
+  ]
+}

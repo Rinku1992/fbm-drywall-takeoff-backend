@@ -1,0 +1,5 @@
+{
+    "is_valid": false,
+    "confidence": 1,
+    "reasoning": "The highlight is closely overlayed with one of the `INVALID` wall lines within the architecture plan enclosed by a green bounding box. The wall is represented by Dotted (dashed) lines i.e., representing elements that are not physically cut in the current view and are `INVALID` walls"
+}

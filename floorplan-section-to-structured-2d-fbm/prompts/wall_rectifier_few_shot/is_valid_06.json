@@ -1,0 +1,5 @@
+{
+    "is_valid": false,
+    "confidence": 1,
+    "reasoning": "The highlight is not overlayed with any `VALID` wall lines within the architecture plan enclosed by a green bounding box and infact lies outside the bounding box."
+}
