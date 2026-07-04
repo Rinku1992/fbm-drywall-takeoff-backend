@@ -116,6 +116,28 @@ async def floorplan_to_walls(credentials, pg_pool, project_id, plan_id, user_id,
     return Path(output_path)
 
 
+def floorplan_section_to_structured_2d(credentials, query_json):
+    auth_req = google.auth.transport.requests.Request()
+    service_account_credentials = IDTokenCredentials.from_service_account_file(
+        credentials["service_drywall_account_key"],
+        target_audience=credentials["CloudRun"]["APIs"]["floorplan_section_to_structured_2d"]
+    )
+    service_account_credentials.refresh(auth_req)
+    id_token = service_account_credentials.token
+
+    headers = {
+        "Authorization": f"Bearer {id_token}",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.post(
+        f"{credentials["CloudRun"]["APIs"]["floorplan_section_to_structured_2d"]}/floorplan_section_to_structured_2d",
+        headers=headers,
+        json=query_json
+    )
+    return response.status_code, response.content
+
+
 def section_to_structured_2d(
     floor_plan_modeller_2d,
     project_id,
