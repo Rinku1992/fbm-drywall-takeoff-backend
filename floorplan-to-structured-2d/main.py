@@ -566,20 +566,20 @@ async def floorplan_to_structured_2d(request: Request):
         while not all_sections_extracted:
             notifications_arrived_all, acknowledged_queries = query_subscriber_messages(CREDENTIALS, subscriber_client, query_payloads)
             for acknowledged_query in acknowledged_queries:
-                if acknowledged_query["is_scale_detected"]:
-                    await insert_model_2d(
-                        acknowledged_query["model_2d"],
-                        acknowledged_query["scale"],
-                        page_number,
-                        len(bounding_box_offsets),
-                        acknowledged_query["page_section_number"],
-                        plan_id,
-                        user_id,
-                        project_id,
-                        floorplan_baseline_page_source,
-                        pg_pool,
-                        CREDENTIALS,
-                    )
+                #if acknowledged_query["is_scale_detected"]:
+                #    await insert_model_2d(
+                #        acknowledged_query["model_2d"],
+                #        acknowledged_query["scale"],
+                #        page_number,
+                #        len(bounding_box_offsets),
+                #        acknowledged_query["page_section_number"],
+                #        plan_id,
+                #        user_id,
+                #        project_id,
+                #        floorplan_baseline_page_source,
+                #        pg_pool,
+                #        CREDENTIALS,
+                #    )
                 if not acknowledged_query["is_scale_detected"]:
                     future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
                     future.result()
