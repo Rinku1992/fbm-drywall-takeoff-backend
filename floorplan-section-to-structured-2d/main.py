@@ -231,7 +231,7 @@ async def floorplan_section_to_structured_2d(request: Request):
     architectural_scale = parameters.get("architectural_scale") or body.get("architectural_scale")
     session_uuid = parameters.get("session_uuid") or body.get("session_uuid")
     page_number = int(page_number)
-    logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
+    logging.info("SYSTEM: Received a Floorplan 2D Sectioned Model Generation Request")
 
     query = f"SELECT user_id FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s)"
     user_id_owner = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id,), fetch=True))
@@ -290,7 +290,6 @@ async def floorplan_section_to_structured_2d(request: Request):
             page_number=page_number
         )
         return respond_with_UI_payload(dict(status="FAILED", message=f"NO Floor Plan layout observed"))
-    logging.info(f"SYSTEM: Floorplan Preprocessing Completed: Page Number: {page_number}")
 
     floorplan_baseline_page_source = None
     svg_path=f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_{str(page_number).zfill(4)}.svg"
