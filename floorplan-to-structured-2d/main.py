@@ -630,7 +630,7 @@ async def floorplan_to_structured_2d(request: Request):
 
                 for query_payload in query_payloads:
                     if query_payload["page_section_number"] == acknowledged_query["page_section_number"]:
-                    query_payloads.remove(query_payload)
+                        query_payloads.remove(query_payload)
             if notifications_arrived_all:
                 all_sections_extracted = True
                 break
