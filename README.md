@@ -180,7 +180,24 @@ CREATE TABLE model_revisions_3d (
 );
 ```
 
-7. <b><i>users</i></b>
+7. <b><i>sessions</i></b>
+```sql
+CREATE TABLE sessions (
+    session_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    plan_id TEXT,
+    page_number INTEGER NOT NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (
+        session_id
+    )
+);
+```
+
+8. <b><i>users</i></b>
 ```sql
 CREATE TABLE users (
     user_id TEXT PRIMARY KEY,
@@ -194,7 +211,7 @@ CREATE TABLE users (
 );
 ```
 
-8. <b><i>groups</i></b>
+9. <b><i>groups</i></b>
 ```sql
 CREATE TABLE groups (
     group_id TEXT NOT NULL,
@@ -208,7 +225,7 @@ CREATE TABLE groups (
 );
 ```
 
-9. <b><i>organizations</i></b>
+10. <b><i>organizations</i></b>
 ```sql
 CREATE TABLE organizations (
     organization_id UUID PRIMARY KEY,
@@ -225,7 +242,7 @@ CREATE TABLE organizations (
 );
 ```
 
-10. <b><i>sku</i></b>
+11. <b><i>sku</i></b>
 ```sql
 CREATE TABLE sku (
     sku_id TEXT PRIMARY KEY,
@@ -251,7 +268,7 @@ CREATE TABLE sku (
 );
 ```
 
-11. <b><i>external_otp_tokens</i></b>
+12. <b><i>external_otp_tokens</i></b>
 ```sql
 CREATE TABLE external_otp_tokens (
     email         TEXT PRIMARY KEY,
