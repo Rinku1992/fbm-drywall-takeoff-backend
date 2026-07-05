@@ -36,6 +36,7 @@ from google.api_core.exceptions import (
     ResourceExhausted,
     ServiceUnavailable,
     DeadlineExceeded,
+    InternalServerError,
 )
 from google.auth.transport.requests import Request
 from google.cloud.sql.connector import Connector, IPTypes
@@ -559,7 +560,7 @@ def load_vertex_ai_client(credentials, ip_address, prompts=None, default_region=
                     display_name="drywall_predictor_cache"
                 )
                 break
-            except ResourceExhausted as e:
+            except (ResourceExhausted, InternalServerError) as e:
                 n_iterations += 1
                 if n_iterations >= max_retry:
                     raise e
