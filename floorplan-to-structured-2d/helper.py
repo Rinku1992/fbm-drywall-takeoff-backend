@@ -775,11 +775,11 @@ def query_subscriber_messages(credentials, subscriber_client, queries):
         try:
             message = json.loads(received_message.message.data.decode("utf-8"))
             for query in queries:
-                if query["session_uuid"] == message["session_uuid"]:
+                if query["session_uuid"] == message.get("session_uuid"):
                     subscriber_client.acknowledge(
                         request=dict(subscription=subscription_path, ack_ids=[received_message.ack_id])
                     )
-                    acknowledged_queries.append(query)
+                    acknowledged_queries.append(message)
                     if len(acknowledged_queries) == len(queries):
                         return True, acknowledged_queries
         except JSONDecodeError:
