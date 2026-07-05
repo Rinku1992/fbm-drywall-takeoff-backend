@@ -775,7 +775,7 @@ def query_subscriber_messages(credentials, subscriber_client, queries):
         try:
             message = json.loads(received_message.message.data.decode("utf-8"))
             for query in queries:
-                if query == message:
+                if query["session_uuid"] == message["session_uuid"]:
                     subscriber_client.acknowledge(
                         request=dict(subscription=subscription_path, ack_ids=[received_message.ack_id])
                     )
