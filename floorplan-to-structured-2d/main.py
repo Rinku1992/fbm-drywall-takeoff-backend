@@ -565,7 +565,72 @@ async def floorplan_to_structured_2d(request: Request):
         while not all_sections_extracted:
             notifications_arrived_all, acknowledged_queries = query_subscriber_messages(CREDENTIALS, subscriber_client, query_payloads)
             for acknowledged_query in acknowledged_queries:
-                query_payloads.remove(acknowledged_query)
+                if acknowledged_query["is_scale_detected"]:
+                    await insert_model_2d(
+                        acknowledged_query["model_2d"],
+                        acknowledged_query["scale"],
+                        page_number,
+                        len(bounding_box_offsets),
+                        acknowledged_query["page_section_number"],
+                        plan_id,
+                        user_id,
+                        project_id,
+                        floorplan_baseline_page_source,
+                        pg_pool,
+                        CREDENTIALS,
+                    )
+                if not acknowledged_query["is_scale_detected"]:
+                    future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
+                    future.result()
+                    await insert_page(
+                        plan_id,
+                        user_id,
+                        project_id,
+                        page_number,
+                        True,
+                        "SCALE NOT DETECTED",
+                        pg_pool,
+                        CREDENTIALS,
+                    )
+                    await trigger_email_notification(
+                        CREDENTIALS,
+                        pg_pool,
+                        "SCALE NOT DETECTED",
+                        project_id,
+                        plan_id,
+                        user_id,
+                        page_number=page_number
+                    )
+                    return respond_with_UI_payload(dict(status="SUCCESS", message="Floor Plan extraction completed"))
+
+                if acknowledged_query["is_scale_detected"] == "NA":
+                    future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
+                    future.result()
+                    logging.warning(f"SYSTEM: Floorplan extraction has failed for Page Number: {page_number} with Error: {e}")
+                    await insert_page(
+                        plan_id,
+                        user_id,
+                        project_id,
+                        page_number,
+                        True,
+                        "FAILED",
+                        pg_pool,
+                        CREDENTIALS,
+                    )
+                    await trigger_email_notification(
+                        CREDENTIALS,
+                        pg_pool,
+                        "FAILED",
+                        project_id,
+                        plan_id,
+                        user_id,
+                        page_number=page_number
+                    )
+                    return respond_with_UI_payload(dict(status="FAILED", message=f"NO Floor Plan layout observed"))
+
+                for query_payload in query_payloads:
+                    if query_payload["page_section_number"] == acknowledged_query["page_section_number"]:
+                    query_payloads.remove(query_payload)
             if notifications_arrived_all:
                 all_sections_extracted = True
                 break
@@ -604,22 +669,22 @@ async def floorplan_to_structured_2d(request: Request):
         #scale_detected = all(is_scale_detected)
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
         future.result()
-    if scale_detected:
-        for page_section_strutured_2d in page_sections_structured_2d:
-            _, model_2d, scale, page_section_number = page_section_strutured_2d
-            await insert_model_2d(
-                model_2d,
-                scale,
-                page_number,
-                len(bounding_box_offsets),
-                page_section_number,
-                plan_id,
-                user_id,
-                project_id,
-                floorplan_baseline_page_source,
-                pg_pool,
-                CREDENTIALS,
-            )
+    #if scale_detected:
+        #for page_section_strutured_2d in page_sections_structured_2d:
+        #    _, model_2d, scale, page_section_number = page_section_strutured_2d
+        #    await insert_model_2d(
+        #        model_2d,
+        #        scale,
+        #        page_number,
+        #        len(bounding_box_offsets),
+        #        page_section_number,
+        #        plan_id,
+        #        user_id,
+        #        project_id,
+        #        floorplan_baseline_page_source,
+        #        pg_pool,
+        #        CREDENTIALS,
+        #    )
         await insert_page(
             plan_id,
             user_id,
@@ -639,26 +704,26 @@ async def floorplan_to_structured_2d(request: Request):
             user_id,
             page_number=page_number
         )
-    else:
-        if executor:
-            executor.shutdown(wait=False, cancel_futures=True)
-        await insert_page(
-            plan_id,
-            user_id,
-            project_id,
-            page_number,
-            True,
-            "SCALE NOT DETECTED",
-            pg_pool,
-            CREDENTIALS,
-        )
-        await trigger_email_notification(
-            CREDENTIALS,
-            pg_pool,
-            "SCALE NOT DETECTED",
-            project_id,
-            plan_id,
-            user_id,
-            page_number=page_number
-        )
+    #else:
+    #    if executor:
+    #        executor.shutdown(wait=False, cancel_futures=True)
+    #    await insert_page(
+    #        plan_id,
+    #        user_id,
+    #        project_id,
+    #        page_number,
+    #        True,
+    #        "SCALE NOT DETECTED",
+    #        pg_pool,
+    #        CREDENTIALS,
+    #    )
+    #    await trigger_email_notification(
+    #        CREDENTIALS,
+    #        pg_pool,
+    #        "SCALE NOT DETECTED",
+    #        project_id,
+    #        plan_id,
+    #        user_id,
+    #        page_number=page_number
+    #    )
     return respond_with_UI_payload(dict(status="SUCCESS", message="Floor Plan extraction completed"))
