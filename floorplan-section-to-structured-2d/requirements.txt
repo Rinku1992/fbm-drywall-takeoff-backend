@@ -23,7 +23,7 @@ pydantic
 python-Levenshtein
 python-multipart
 scikit-image
-opencv-python
+opencv-python==4.11.0.86
 geoip2
 numpy
 roman
