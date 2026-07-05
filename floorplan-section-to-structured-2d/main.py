@@ -349,8 +349,6 @@ async def floorplan_section_to_structured_2d(request: Request):
             page_number=page_number,
             page_section_number=bounding_box_offset["title"],
             is_scale_detected=is_scale_detected,
-            model_2d=model_2d,
-            scale=scale,
         )
     )
     future.result()
