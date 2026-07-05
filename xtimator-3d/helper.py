@@ -532,7 +532,7 @@ def query_subscriber_messages(credentials, subscriber_client, queries):
             continue
     return False, acknowledged_queries
 
-def load_vertex_ai_client(credentials, ip_address, prompts=None, default_region="us-central1"):
+def load_vertex_ai_client(credentials, ip_address, prompts=None, default_region="us-central1", max_retry=5):
     with open(credentials["VertexAI"]["service_account_key"], 'r') as f:
         project_id = json.load(f)["project_id"]
     region = load_nearest_region(
@@ -549,12 +549,23 @@ def load_vertex_ai_client(credentials, ip_address, prompts=None, default_region=
     is_cached = False
     if prompts and GenerativeModel(credentials["VertexAI"]["llm"]["model_name"]).count_tokens(prompts).total_tokens >= 1024:
         is_cached = True
-        cached_content = CachedContent.create(
-            model_name=credentials["VertexAI"]["llm"]["model_name"],
-            contents=prompts,
-            ttl=datetime.timedelta(hours=5),
-            display_name="drywall_predictor_cache"
-        )
+        n_iterations = 0
+        while n_iterations < max_retry:
+            try:
+                cached_content = CachedContent.create(
+                    model_name=credentials["VertexAI"]["llm"]["model_name"],
+                    contents=prompts,
+                    ttl=datetime.timedelta(hours=5),
+                    display_name="drywall_predictor_cache"
+                )
+                break
+            except ResourceExhausted as e:
+                n_iterations += 1
+                if n_iterations >= max_retry:
+                    raise e
+                sleep_time = base_delay * (2 ** (n_iterations - 1)) + uniform(0, 0.5)
+                sleep(sleep_time)
+                logging.warning(f"SYSTEM: Vertex AI Gemini: {e}: RETRYING ...")
         vertex_ai_client = GenerativeModel.from_cached_content(cached_content)
     generation_config = credentials["VertexAI"]["llm"]["parameters"]
     return vertex_ai_client, generation_config, is_cached
