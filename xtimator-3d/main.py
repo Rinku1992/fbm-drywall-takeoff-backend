@@ -1506,6 +1506,35 @@ async def floorplan_to_2d(request: Request):
     return respond_with_UI_payload(walls_2d_all)
 
 
+@app.post("/undo_floorplan_to_2d")
+async def undo_floorplan_to_2d(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    project_id = parameters.get("project_id") or body.get("project_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
+    plan_id = parameters.get("plan_id") or body.get("plan_id")
+    pages_number = parameters.get("page_number") or body.get("page_number")
+    logging.info("SYSTEM: Received a Floorplan 2D Model Cancellation Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
+    await insert_page(
+        plan_id,
+        user_id,
+        project_id,
+        page_number,
+        False,
+        "NOT STARTED",
+        pg_pool,
+        CREDENTIALS,
+    )
+
+
 @app.post("/load_2d_revision")
 async def load_2d_revision(request: Request):
     enable_logging_on_stdout()
