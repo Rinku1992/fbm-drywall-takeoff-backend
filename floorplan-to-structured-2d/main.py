@@ -527,35 +527,47 @@ async def floorplan_to_structured_2d(request: Request):
         )
         futures = list()
         for bounding_box_offset, architectural_scale, standard_ceiling_height in zip(bounding_box_offsets, architectural_scales, standard_ceiling_heights):
-            logging.info(f"SYSTEM: Extracting structured model from SECTION: {bounding_box_offset["title"]} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
-            await update_status(CREDENTIALS, pg_pool, f"DETECTING GEOMETRY IN SECTION: `{bounding_box_offset["title"]}`", project_id, plan_id, user_id, page_number)
-            floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES, project_address)
-            floor_plan_modeller_2d.from_vertex_ai_clients(*vertex_ai_clients)
-            futures.append(
-                loop.run_in_executor(
-                    executor,
-                    partial(
-                        section_to_structured_2d,
-                        floor_plan_modeller_2d,
-                        project_id,
-                        plan_id,
-                        user_id,
-                        page_number,
-                        bounding_box_offset["title"],
-                        wall_segmented_path,
-                        floor_plan_processed_path,
-                        bounding_box_offset,
-                        transcription_block_with_centroids,
-                        floorplan_page_statistics,
-                        elevation_processed_paths,
-                        predict_drywall,
-                        architectural_scale,
-                        standard_ceiling_height,
-                        allow_none_scale=hyperparameters["modelling"]["enable_early_stopping"] and is_vector,
-                        trust_scale=is_vector,
-                    ),
-                )
-            )
+            floorplan_section_to_structured_2d()
+            query_payloads = [dict(project_id=project_id, plan_id=plan_id, page_number=page_metadata["page_number"]) for page_metadata in pages_metadata]
+        all_sections_extracted = False
+        sleep_time = 1
+        while not all_sections_extracted:
+            notifications_arrived_all, acknowledged_queries = query_subscriber_messages(CREDENTIALS, subscriber_client, query_payloads)
+            for acknowledged_query in acknowledged_queries:
+                query_payloads.remove(acknowledged_query)
+            if notifications_arrived_all:
+                all_sections_extracted = True
+                break
+            sleep(sleep_time)
+            #logging.info(f"SYSTEM: Extracting structured model from SECTION: {bounding_box_offset["title"]} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
+            #await update_status(CREDENTIALS, pg_pool, f"DETECTING GEOMETRY IN SECTION: `{bounding_box_offset["title"]}`", project_id, plan_id, user_id, page_number)
+            #floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES, project_address)
+            #floor_plan_modeller_2d.from_vertex_ai_clients(*vertex_ai_clients)
+            #futures.append(
+            #    loop.run_in_executor(
+            #        executor,
+            #        partial(
+            #            section_to_structured_2d,
+            #            floor_plan_modeller_2d,
+            #            project_id,
+            #            plan_id,
+            #            user_id,
+            #            page_number,
+            #            bounding_box_offset["title"],
+            #            wall_segmented_path,
+            #            floor_plan_processed_path,
+            #            bounding_box_offset,
+            #            transcription_block_with_centroids,
+            #            floorplan_page_statistics,
+            #            elevation_processed_paths,
+            #            predict_drywall,
+            #            architectural_scale,
+            #            standard_ceiling_height,
+            #            allow_none_scale=hyperparameters["modelling"]["enable_early_stopping"] and is_vector,
+            #            trust_scale=is_vector,
+            #        ),
+            #    )
+            #)
         page_sections_structured_2d = await return_futures_early_section_to_structured_2d(futures)
         is_scale_detected = [page_section_structured_2d[0] for page_section_structured_2d in page_sections_structured_2d]
         scale_detected = all(is_scale_detected)
