@@ -532,8 +532,6 @@ async def floorplan_to_structured_2d(request: Request):
         sleep_time = 1
         while not all_sections_extracted:
             notifications_arrived_all, acknowledged_queries = query_subscriber_messages(CREDENTIALS, subscriber_client, query_payloads)
-            print(notifications_arrived_all)
-            print(acknowledged_queries)
             for acknowledged_query in acknowledged_queries:
                 if not acknowledged_query["is_scale_detected"]:
                     future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
