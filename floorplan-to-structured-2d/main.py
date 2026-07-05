@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+import uuid
 import json
 import requests
 from functools import partial
@@ -526,6 +527,7 @@ async def floorplan_to_structured_2d(request: Request):
             )
         )
         #futures = list()
+        session_uuid = uuid.uuid4().hex
         with ThreadPoolExecutor(max_workers=5) as executor:
             query_payloads = list()
             for bounding_box_offset, architectural_scale, standard_ceiling_height in zip(bounding_box_offsets, architectural_scales, standard_ceiling_heights):
@@ -541,14 +543,23 @@ async def floorplan_to_structured_2d(request: Request):
                     number_of_sections=len(bounding_box_offsets),
                     elevation_pages=elevation_pages,
                     predict_drywall=predict_drywall,
-                    architectural_scale=architectural_scale
+                    architectural_scale=architectural_scale,
+                    session_uuid=session_uuid,
                 )
                 executor.submit(
                     floorplan_section_to_structured_2d,
                     CREDENTIALS,
                     query_json,
                 )
-                query_payloads.append(dict(project_id=project_id, plan_id=plan_id, page_number=page_number, page_section_number=bounding_box_offset["title"]))
+                query_payloads.append(
+                    dict(
+                        project_id=project_id,
+                        plan_id=plan_id,
+                        page_number=page_number,
+                        page_section_number=bounding_box_offset["title"],
+                        session_uuid=session_uuid
+                    )
+                )
         all_sections_extracted = False
         sleep_time = 1
         while not all_sections_extracted:
