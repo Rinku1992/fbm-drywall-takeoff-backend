@@ -58,7 +58,7 @@ from prompts import FEEDBACK_GENERATOR
 from email_notification import trigger
 
 
-def load_vertex_ai_client(credentials, ip_address, prompts=None, default_region="us-central1", max_retry=5):
+def load_vertex_ai_client(credentials, ip_address, prompts=None, default_region="us-central1", max_retry=5, base_delay=1.0):
     with open(credentials["VertexAI"]["service_account_key"], 'r') as f:
         project_id = json.load(f)["project_id"]
     region = load_nearest_region(
