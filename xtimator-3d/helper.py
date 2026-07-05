@@ -564,7 +564,7 @@ def load_vertex_ai_client(credentials, ip_address, prompts=None, default_region=
                 n_iterations += 1
                 if n_iterations >= max_retry:
                     raise e
-                sleep_time = base_delay * (2 ** (n_iterations - 1)) + uniform(0, 0.5)
+                sleep_time = base_delay * (2 ** (n_iterations - 1)) + random.uniform(0, 0.5)
                 sleep(sleep_time)
                 logging.warning(f"SYSTEM: Vertex AI Gemini: {e}: RETRYING ...")
         vertex_ai_client = GenerativeModel.from_cached_content(cached_content)
