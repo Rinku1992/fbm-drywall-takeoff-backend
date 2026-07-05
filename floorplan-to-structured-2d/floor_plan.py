@@ -7,7 +7,11 @@ import math
 import numpy as np
 import cv2
 from scipy.spatial import cKDTree
+import xml.etree.ElementTree as ET
 from scipy import stats
+from PIL import Image
+import subprocess
+from pathlib import Path
 
 __all__ = ["FloorPlan"]
 
@@ -66,6 +70,47 @@ class FloorPlan:
         if scale.find('=') != -1:
             on_paper, real_world = scale.split('=')
         return f"{round(float(Fraction(on_paper.strip('`"'))), 2)}``:{real_world.replace("'", '`').replace('"', "``")}"        
+
+    @classmethod
+    def scale_to(
+        cls,
+        floor_plan_path="/tmp/floor_plan.png",
+        pdf_path="/tmp/scaled_floor_plan.pdf",
+        svg_path="/tmp/scaled_floor_plan.svg",
+        resolution=None
+    ):
+        canvas = Image.open(floor_plan_path)
+        width_in_pixels, height_in_pixels = canvas.size
+        if canvas.mode != "RGB":
+            canvas = canvas.convert("RGB")
+
+        if resolution:
+            canvas = canvas.resize(resolution, Image.Resampling.LANCZOS)
+            width_in_pixels, height_in_pixels = resolution
+
+        canvas.save(pdf_path, save_all=True)
+
+        subprocess.run(
+            ["pdftocairo", "-svg", pdf_path, svg_path],
+            check=True
+        )
+        tree = ET.parse(svg_path)
+        root = tree.getroot()
+        width_in_points = root.attrib.get("width")
+        height_in_points = root.attrib.get("height")
+        root.set("width", "100%")
+        root.set("height", "100%")
+        if not root.get("preserveAspectRatio"):
+            root.set("preserveAspectRatio", "xMidYMid meet")
+        tree.write(svg_path, encoding="utf-8", xml_declaration=True)
+
+        return Path(svg_path), dict(
+            height_in_pixels=height_in_pixels,
+            width_in_pixels=width_in_pixels,
+            height_in_points=height_in_points,
+            width_in_points=width_in_points,
+            size=Path(svg_path).stat().st_size
+        )
 
     def compute_pixel_aspect_ratio(self, scale_new, pixel_aspect_ratio_standard):
         scale_new_on_paper_length = float(scale_new.split(':')[0].strip('`'))

@@ -9,6 +9,7 @@ from ruamel.yaml import YAML
 from time import sleep
 import datetime
 import base64
+from json.decoder import JSONDecodeError
 
 from random import uniform
 from PIL import Image
@@ -54,47 +55,8 @@ from google.cloud.pubsub_v1 import PublisherClient
 
 from transcriber import Transcriber
 from vector_pdf import is_vector, extract_scales_from_sections_of_a_page
-from prompts import FEEDBACK_GENERATOR
 from email_notification import trigger
 
-
-def load_vertex_ai_client(credentials, ip_address, prompts=None, default_region="us-central1", max_retry=5, base_delay=1.0):
-    with open(credentials["VertexAI"]["service_account_key"], 'r') as f:
-        project_id = json.load(f)["project_id"]
-    region = load_nearest_region(
-        ip_address,
-        credentials["geolite_database"],
-        credentials["VertexAI"]["llm"]["available_regions"],
-        default_region=default_region
-    )
-    vertexai.init(project=project_id, location=region)
-    vertex_ai_client = lambda system_instruction: GenerativeModel(
-        credentials["VertexAI"]["llm"]["model_name"],
-        system_instruction=system_instruction
-    )
-    is_cached = False
-    if prompts and GenerativeModel(credentials["VertexAI"]["llm"]["model_name"]).count_tokens(prompts).total_tokens >= 1024:
-        is_cached = True
-        n_iterations = 0
-        while n_iterations < max_retry:
-            try:
-                cached_content = CachedContent.create(
-                    model_name=credentials["VertexAI"]["llm"]["model_name"],
-                    contents=prompts,
-                    ttl=datetime.timedelta(minutes=60),
-                    display_name="drywall_predictor_cache"
-                )
-                break
-            except (ResourceExhausted, InternalServerError) as e:
-                n_iterations += 1
-                if n_iterations >= max_retry:
-                    raise e
-                sleep_time = base_delay * (2 ** (n_iterations - 1)) + uniform(0, 0.5)
-                sleep(sleep_time)
-                logging.warning(f"SYSTEM: Vertex AI Gemini: {e}: RETRYING ...")
-        vertex_ai_client = GenerativeModel.from_cached_content(cached_content)
-    generation_config = credentials["VertexAI"]["llm"]["parameters"]
-    return vertex_ai_client, generation_config, is_cached
 
 def load_nearest_region(ip_address, geolite_database, available_regions, default_region="us-central1"):
     def _compute_haversine_distance(latitude_1, longitude_1, latitude_2, longitude_2):
@@ -658,44 +620,6 @@ async def load_templates(pg_pool, credentials):
         product_template["color_code"] = [product_template["color_code"]['b'], product_template["color_code"]['g'], product_template["color_code"]['r']]
         product_templates_target.append(product_template)
     return jsonable_encoder(product_templates_target)
-
-def phoenix_call(generate_content_lambda, max_retry=5, base_delay=1.0, pydantic_model=None, verify_field_counts=None):
-    n_iterations = 0
-    temperature = 0
-    exceptions = list()
-    feedback_prompt = ''
-    while n_iterations < max_retry:
-        try:
-            response = generate_content_lambda(feedback_prompt, temperature)
-            if pydantic_model:
-                json_response = json.loads(response.text.strip("`json").replace("{{", '{').replace("}}", '}'))
-                if verify_field_counts:
-                    for field, count in verify_field_counts.items():
-                        if len(json_response[field]) != count:
-                            raise ValueError(f"Predicted {field} count: {len(json_response[field])} does not match with the expected number: {count}")
-                response_json_pydantic = pydantic_model(**json_response)
-                return response_json_pydantic, json_response
-            return response.text
-        except (ResourceExhausted, DeadlineExceeded) as e:
-            n_iterations += 1
-            if n_iterations >= max_retry:
-                raise e
-            sleep_time = base_delay * (2 ** (n_iterations - 1)) + uniform(0, 0.5)
-            sleep(sleep_time)
-            logging.warning(f"SYSTEM: Vertex AI Gemini: {e}: RETRYING ...")
-        except ServiceUnavailable as e:
-            logging.warning(f"SYSTEM: Vertex AI Gemini: {e}")
-            raise e
-        except Exception as e:
-            n_iterations += 1
-            if n_iterations >= max_retry:
-                raise e
-            exceptions.append(e)
-            system_feedback = [Part.from_text(FEEDBACK_GENERATOR.format(max_retry=max_retry, exceptions=exceptions))]
-            feedback_prompt = Content(role="model", parts=system_feedback)
-            temperature = min(0.5 * (n_iterations + 1) / max_retry, 0.5)
-            logging.warning(f"SYSTEM: Vertex AI Gemini: Response Generation/Parsing failed with ERROR: {e}: RETRYING ...")
-            logging.warning(f"SYSTEM: RETRYING with TEMPERATURE: {temperature}")
 
 def load_section_from_page(wall_segmented_path, floor_plan_path, bounding_box_offset, section_name):
     offset_top_left_X, offset_top_left_Y = bounding_box_offset["offset_top_left"]

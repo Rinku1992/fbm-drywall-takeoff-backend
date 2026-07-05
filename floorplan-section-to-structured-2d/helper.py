@@ -51,8 +51,6 @@ from vertexai.caching import CachedContent
 from google.oauth2 import service_account
 from google.cloud.pubsub_v1 import PublisherClient
 
-from transcriber import Transcriber
-from vector_pdf import is_vector, extract_scales_from_sections_of_a_page
 from prompts import FEEDBACK_GENERATOR
 from email_notification import trigger
 
