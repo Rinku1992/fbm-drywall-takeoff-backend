@@ -229,6 +229,7 @@ async def floorplan_section_to_structured_2d(request: Request):
     elevation_pages = parameters.get("elevation_pages") or body.get("elevation_pages")
     predict_drywall = parameters.get("predict_drywall") or body.get("predict_drywall") or "true"
     architectural_scale = parameters.get("architectural_scale") or body.get("architectural_scale")
+    session_uuid = parameters.get("session_uuid") or body.get("session_uuid")
     page_number = int(page_number)
     predict_drywall = predict_drywall.upper() == "TRUE"
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
@@ -258,7 +259,16 @@ async def floorplan_section_to_structured_2d(request: Request):
         )
         elevation_processed_paths = load_elevation_pages(pdf_path, elevation_pages)
     except Exception as e:
-        future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number, page_section_number=bounding_box_offset["title"], is_scale_detected="NA"))
+        future = publish_handler(
+            dict(
+                session_uuid=session_uuid,
+                project_id=project_id,
+                plan_id=plan_id,
+                page_number=page_number,
+                page_section_number=bounding_box_offset["title"],
+                is_scale_detected="NA"
+            )
+        )
         future.result()
         logging.warning(f"SYSTEM: Floorplan extraction has failed for Page Number: {page_number} with Error: {e}")
         await insert_page(
@@ -333,5 +343,14 @@ async def floorplan_section_to_structured_2d(request: Request):
         allow_none_scale=hyperparameters["modelling"]["enable_early_stopping"] and is_vector,
         trust_scale=is_vector,
     )
-    future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number, page_section_number=bounding_box_offset["title"], is_scale_detected=is_scale_detected))
+    future = publish_handler(
+        dict(
+            session_uuid=session_uuid,
+            project_id=project_id,
+            plan_id=plan_id,
+            page_number=page_number,
+            page_section_number=bounding_box_offset["title"],
+            is_scale_detected=is_scale_detected
+        )
+    )
     future.result()
