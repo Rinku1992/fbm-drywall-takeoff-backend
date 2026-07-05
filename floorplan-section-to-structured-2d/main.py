@@ -318,7 +318,7 @@ async def floorplan_section_to_structured_2d(request: Request):
     await update_status(CREDENTIALS, pg_pool, f"DETECTING GEOMETRY IN SECTION: `{bounding_box_offset["title"]}`", project_id, plan_id, user_id, page_number)
     floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES, project_address)
     floor_plan_modeller_2d.from_vertex_ai_clients(*vertex_ai_clients)
-    is_scale_detected, model_2d, scale = await floorplan_to_structured_2d_sectioned(
+    is_scale_detected, _, _ = await floorplan_to_structured_2d_sectioned(
         CREDENTIALS,
         pg_pool,
         floor_plan_modeller_2d,
