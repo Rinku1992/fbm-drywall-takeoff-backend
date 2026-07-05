@@ -258,7 +258,7 @@ async def floorplan_section_to_structured_2d(request: Request):
         )
         elevation_processed_paths = load_elevation_pages(pdf_path, elevation_pages)
     except Exception as e:
-        future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
+        future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number, page_section_number=bounding_box_offset["title"], is_scale_detected="NA"))
         future.result()
         logging.warning(f"SYSTEM: Floorplan extraction has failed for Page Number: {page_number} with Error: {e}")
         await insert_page(
@@ -333,5 +333,5 @@ async def floorplan_section_to_structured_2d(request: Request):
         allow_none_scale=hyperparameters["modelling"]["enable_early_stopping"] and is_vector,
         trust_scale=is_vector,
     )
-    future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number, is_scale_detected=is_scale_detected))
+    future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number, page_section_number=bounding_box_offset["title"], is_scale_detected=is_scale_detected))
     future.result()
