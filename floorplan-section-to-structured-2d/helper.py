@@ -869,3 +869,18 @@ async def update_status(credentials, pg_pool, status, project_id, plan_id, user_
         pg_pool,
         credentials,
     )
+
+async def is_session_active(credentials, pg_pool, session_id, project_id, plan_id, user_id, page_number):
+    query = (
+        f"SELECT is_terminated FROM {credentials["CloudSQL"]["table_name_sessions"]} "
+        f"WHERE LOWER(session_id) = LOWER(%s) AND LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND LOWER(user_id) = LOWER(%s) AND page_number = %s;"
+    )
+    query_output = await run_in_threadpool(partial(
+        pg_run,
+        pg_pool,
+        query,
+        params=(session_id, project_id, plan_id, user_id, page_number,),
+        fetch=True
+    ))
+    is_active = not query_output[0]["is_terminated"]
+    return is_active
