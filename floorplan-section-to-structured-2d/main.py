@@ -158,6 +158,16 @@ async def floorplan_to_structured_2d_sectioned(
         logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} and SECTION: {page_section_number} Generated Successfully")
     else:
         logging.warning(f"SYSTEM: Architectural Scale not detected for PAGE: {page_number} and SECTION: {page_section_number}. Waiting for Architectural Scale input from the user")
+        await insert_page(
+            plan_id,
+            user_id,
+            project_id,
+            page_number,
+            True,
+            "SCALE NOT DETECTED",
+            pg_pool,
+            credentials,
+        )
     return floor_plan_modeller_2d.is_scale_detected, dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata), floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale)
 
 
