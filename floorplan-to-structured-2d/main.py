@@ -513,19 +513,19 @@ async def floorplan_to_structured_2d(request: Request):
         pincode = f"{project_location_pincode}, {project_location}"
         location = geolocator.geocode(pincode)
         project_address = location.address if location else pincode
-        vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES, project_address)
+        #vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES, project_address)
         architectural_scales = (
             architectural_scale
             if isinstance(architectural_scale, list)
             else [architectural_scale] * len(bounding_box_offsets)
         )
-        loop = asyncio.get_running_loop()
-        executor = ThreadPoolExecutor(
-            max_workers=min(
-                len(bounding_box_offsets),
-                8,
-            )
-        )
+        #loop = asyncio.get_running_loop()
+        #executor = ThreadPoolExecutor(
+        #    max_workers=min(
+        #        len(bounding_box_offsets),
+        #        8,
+        #    )
+        #)
         #futures = list()
         session_uuid = uuid.uuid4().hex
         with ThreadPoolExecutor(max_workers=5) as executor:
