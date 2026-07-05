@@ -9,6 +9,7 @@ from ruamel.yaml import YAML
 from time import sleep
 import datetime
 import base64
+from copy import deepcopy
 from json.decoder import JSONDecodeError
 
 from random import uniform
@@ -707,17 +708,20 @@ def query_subscriber_messages(credentials, subscriber_client, queries):
         return False, list()
 
     acknowledged_queries = list()
+    queries_unacknowledged = deepcopy(queries)
     for received_message in response.received_messages:
         try:
             message = json.loads(received_message.message.data.decode("utf-8"))
-            for query in queries:
-                if query["session_uuid"] == message.get("session_uuid"):
+            for query in queries_unacknowledged:
+                if query["session_uuid"] == message.get("session_uuid") and query["page_section_number"] == message.get("page_section_number"):
                     subscriber_client.acknowledge(
                         request=dict(subscription=subscription_path, ack_ids=[received_message.ack_id])
                     )
                     acknowledged_queries.append(message)
+                    queries_unacknowledged.remove(query)
                     if len(acknowledged_queries) == len(queries):
                         return True, acknowledged_queries
+                    break
         except JSONDecodeError:
             continue
     return False, acknowledged_queries
