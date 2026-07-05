@@ -599,9 +599,9 @@ async def floorplan_to_structured_2d(request: Request):
             #        ),
             #    )
             #)
-        page_sections_structured_2d = await return_futures_early_section_to_structured_2d(futures)
-        is_scale_detected = [page_section_structured_2d[0] for page_section_structured_2d in page_sections_structured_2d]
-        scale_detected = all(is_scale_detected)
+        #page_sections_structured_2d = await return_futures_early_section_to_structured_2d(futures)
+        #is_scale_detected = [page_section_structured_2d[0] for page_section_structured_2d in page_sections_structured_2d]
+        #scale_detected = all(is_scale_detected)
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
         future.result()
     if scale_detected:
