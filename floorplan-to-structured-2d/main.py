@@ -548,16 +548,6 @@ async def floorplan_to_structured_2d(request: Request):
                 if not acknowledged_query["is_scale_detected"]:
                     future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
                     future.result()
-                    await insert_page(
-                        plan_id,
-                        user_id,
-                        project_id,
-                        page_number,
-                        True,
-                        "SCALE NOT DETECTED",
-                        pg_pool,
-                        CREDENTIALS,
-                    )
                     await trigger_email_notification(
                         CREDENTIALS,
                         pg_pool,
