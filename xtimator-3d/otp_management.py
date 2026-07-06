@@ -142,7 +142,7 @@ async def is_authenticated(credentials, pg_pool, request, user_id=None):
         LIMIT 1;
     """
     is_external = await run_in_threadpool(
-        partial(pg_run, pg_pool, query, params=(user_id,), fetch=True)
+        partial(pg_run, credentials, pg_pool, query, params=(user_id,), fetch=True)
     )
 
     if not is_external:
