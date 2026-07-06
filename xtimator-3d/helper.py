@@ -159,6 +159,7 @@ def close_pg_pool():
     _db_credentials = None
 
 def pg_run(
+    credentials,
     engine,
     query,
     params=None,
@@ -251,7 +252,7 @@ def pg_run(
 
             if isinstance(e, TransportError) and attempt + 1 < max_retries:
                 close_pg_pool()
-                pg_pool = load_pg_pool(CREDENTIALS)
+                pg_pool = load_pg_pool(credentials)
                 engine = pg_pool
                 continue
 
@@ -372,11 +373,11 @@ async def insert_model_2d(
         page_section_number = 'I'
     if not page_sections:
         query = f"SELECT page_sections FROM {credentials["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
-        query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, int(page_number), page_section_number,), fetch=True))
+        query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id, plan_id, int(page_number), page_section_number,), fetch=True))
         page_sections = query_output[0]["page_sections"]
     if not model_2d.get("metadata", None):
         query = f"SELECT model_2d->'metadata' AS metadata FROM {credentials["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s"
-        query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, int(page_number), page_section_number,), fetch=True))
+        query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id, plan_id, int(page_number), page_section_number,), fetch=True))
         metadata = query_output[0]["metadata"]
         metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
         model_2d["metadata"] = metadata
@@ -418,7 +419,7 @@ async def insert_model_2d(
             scale = COALESCE(NULLIF(EXCLUDED.scale, ''), t.scale),
             updated_at = CURRENT_TIMESTAMP
     """
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(
         plan_id,
         project_id,
         user_id,
@@ -446,10 +447,10 @@ async def is_duplicate(pg_pool, credentials, pdf_path, project_id, user_id):
             AND g.organization_id IS NULL
         ) AS is_global_admin;
     """
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(user_id,), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(user_id,), fetch=True))
     target_user_is_global_admin = query_output[0]["is_global_admin"]
     query = f"SELECT plan_id, sha256, status, user_id FROM {credentials["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s)"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id,), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id,), fetch=True))
     for plan_target in list(query_output):
         organization_slug_reference = await load_organization_slug(credentials, pg_pool, plan_target["user_id"])
         if organization_slug_reference != organization_slug_target and not target_user_is_global_admin:
@@ -463,7 +464,7 @@ async def is_duplicate(pg_pool, credentials, pdf_path, project_id, user_id):
 
 async def delete_plan(credentials, pg_pool, plan_id, project_id):
     query = f"DELETE FROM {credentials["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id,)))
+    query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id, plan_id,)))
     return query_output
 
 def load_floorplan_to_structured_2d_ID_token(credentials):
@@ -488,7 +489,7 @@ def load_floorplan_to_preview_ID_token(credentials):
 
 async def load_templates(pg_pool, credentials):
     query = f"SELECT * FROM {credentials["CloudSQL"]["table_name_sku"]}"
-    product_templates = await run_in_threadpool(partial(pg_run, pg_pool, query, fetch=True))
+    product_templates = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, fetch=True))
 
     logging.info("SYSTEM: Product Templates retrieved successfully")
     product_templates_target = list()
@@ -642,7 +643,7 @@ def phoenix_call(generate_content_lambda, max_retry=5, base_delay=1.0, pydantic_
 
 async def map_floorplan_to_multipage_elevation(credentials, pg_pool, project_id, plan_id, client_ip_address, pdf_path):
     query = f"SELECT multipage_elevation_map FROM {credentials["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id,), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id, plan_id,), fetch=True))
     elevation_map = json.loads(query_output[0]["multipage_elevation_map"]) if isinstance(query_output[0]["multipage_elevation_map"], str) else query_output[0]["multipage_elevation_map"]
     if elevation_map:
         return elevation_map
@@ -968,7 +969,7 @@ async def insert_page(
             updated_at = CURRENT_TIMESTAMP,
             status = EXCLUDED.status
     """
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(
         plan_id,
         project_id,
         user_id,
@@ -1055,7 +1056,7 @@ async def insert_pages_batch(
             )
         )
 
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=page_rows, execute_many=True))
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=page_rows, execute_many=True))
 
 def load_drywall_weights(walls_2d_JSON, polygons_JSON, compute_waste_average_standard=False, drywall_templates=None):
     weights_drywall = defaultdict(lambda: 0)
@@ -1118,7 +1119,7 @@ async def load_visual_grounding(
     pages_metadata_filtered = list()
     for page_metadata in pages_metadata[:]:
         query = f"SELECT mask_factor, bounding_box_offsets FROM {credentials["CloudSQL"]["table_name_pages"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
-        query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, int(page_metadata["page_number"]),), fetch=True))
+        query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id, plan_id, int(page_metadata["page_number"]),), fetch=True))
         mask_factor, bounding_box_offsets = query_output[0]["mask_factor"], query_output[0]["bounding_box_offsets"]
         mask_factor = json.loads(mask_factor) if isinstance(mask_factor, str) else mask_factor
         bounding_box_offsets = json.loads(bounding_box_offsets) if isinstance(bounding_box_offsets, str) else bounding_box_offsets
@@ -1242,7 +1243,7 @@ async def trigger_email_notification(
 ):
     message = f"Plan: {plan_id} | Page Number: {page_number} | Extraction: {status}"
     query = f"SELECT group_id FROM {credentials["CloudSQL"]["table_name_users"]}, unnest(COALESCE(group_ids, ARRAY[]::text[])) AS group_id WHERE LOWER(user_id) = LOWER(%s)"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(user_id,), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(user_id,), fetch=True))
     group_ids = [row["group_id"] for row in query_output]
     group_id = " | ".join(group_ids)
     if notify_group:
@@ -1289,7 +1290,7 @@ async def trigger_email_notification(
             SELECT LOWER(user_id) AS user_id
             FROM final_users
         """
-        query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(user_id,), fetch=True))
+        query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(user_id,), fetch=True))
         user_ids_group = [row["user_id"] for row in query_output]
         for user_id_group in user_ids_group:
             trigger(
@@ -1327,7 +1328,7 @@ async def enforce_early_stopping(credentials, pg_pool, project_id, plan_id, user
             pages_metadata_unleashed.append(page_metadata)
         else:
             query = f"SELECT scale FROM {credentials["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s"
-            architectural_scales = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number,), fetch=True))
+            architectural_scales = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id, plan_id, page_number,), fetch=True))
             if architectural_scales:
                 for architectural_scale in architectural_scales:
                     if architectural_scale["scale"]:
@@ -1338,7 +1339,7 @@ async def enforce_early_stopping(credentials, pg_pool, project_id, plan_id, user
                     f"SELECT vector_scale FROM {credentials["CloudSQL"]["table_name_pages"]} "
                     f"WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
                 )
-                query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number,), fetch=True))
+                query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id, plan_id, page_number,), fetch=True))
                 if query_output and query_output[0]["vector_scale"]:
                     pages_metadata_unleashed.append(page_metadata)
                     continue
@@ -1380,7 +1381,7 @@ async def load_organization_slug(credentials, pg_pool, user_id):
         LEFT JOIN {credentials["CloudSQL"]["table_name_organizations"]} o ON TEXT(u.organization_id) = TEXT(o.organization_id)
         WHERE LOWER(u.user_id) = LOWER(%s);
     """
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(user_id,), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(user_id,), fetch=True))
     if query_output and query_output[0]["org_or_domain"]:
         return query_output[0]["org_or_domain"]
     return user_id.split('@')[1]
