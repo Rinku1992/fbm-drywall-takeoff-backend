@@ -356,6 +356,7 @@ def close_pg_pool():
     _db_credentials = None
 
 def pg_run(
+    credentials,
     engine,
     query,
     params=None,
@@ -448,7 +449,7 @@ def pg_run(
 
             if isinstance(e, TransportError) and attempt + 1 < max_retries:
                 close_pg_pool()
-                pg_pool = load_pg_pool(CREDENTIALS)
+                pg_pool = load_pg_pool(credentials)
                 engine = pg_pool
                 continue
 
@@ -536,7 +537,7 @@ async def insert_page(
             updated_at = CURRENT_TIMESTAMP,
             status = EXCLUDED.status
     """
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(
         plan_id,
         project_id,
         user_id,
@@ -600,7 +601,7 @@ async def insert_model_2d(
             scale = COALESCE(NULLIF(EXCLUDED.scale, ''), t.scale),
             updated_at = CURRENT_TIMESTAMP
     """
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(
         plan_id,
         project_id,
         user_id,
@@ -614,7 +615,7 @@ async def insert_model_2d(
 
 async def load_templates(pg_pool, credentials):
     query = f"SELECT * FROM {credentials["CloudSQL"]["table_name_sku"]}"
-    product_templates = await run_in_threadpool(partial(pg_run, pg_pool, query, fetch=True))
+    product_templates = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, fetch=True))
 
     logging.info("SYSTEM: Product Templates retrieved successfully")
     product_templates_target = list()
@@ -745,7 +746,7 @@ async def trigger_email_notification(
 ):
     message = f"Plan: {plan_id} | Page Number: {page_number} | Extraction: {status}"
     query = f"SELECT group_id FROM {credentials["CloudSQL"]["table_name_users"]}, unnest(COALESCE(group_ids, ARRAY[]::text[])) AS group_id WHERE LOWER(user_id) = LOWER(%s)"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(user_id,), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(user_id,), fetch=True))
     group_ids = [row["group_id"] for row in query_output]
     group_id = " | ".join(group_ids)
     if notify_group:
@@ -792,7 +793,7 @@ async def trigger_email_notification(
             SELECT LOWER(user_id) AS user_id
             FROM final_users
         """
-        query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(user_id,), fetch=True))
+        query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(user_id,), fetch=True))
         user_ids_group = [row["user_id"] for row in query_output]
         for user_id_group in user_ids_group:
             trigger(
@@ -834,7 +835,7 @@ async def load_metadata_from_vector_pdf(
         f"SELECT is_vector, vector_scale, vector_ceiling_height FROM {credentials["CloudSQL"]["table_name_pages"]} "
         f"WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
     )
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number,), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id, plan_id, page_number,), fetch=True))
     if query_output and query_output[0]["is_vector"] is not None:
         is_vector_pdf = query_output[0]["is_vector"]
         if is_vector_pdf:
@@ -850,7 +851,7 @@ async def load_metadata_from_vector_pdf(
         f"SET is_vector = %s "
         f"WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
     )
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(is_vector_pdf, project_id, plan_id, page_number,)))
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(is_vector_pdf, project_id, plan_id, page_number,)))
 
     if is_vector_pdf:
         metadata = extract_scales_from_sections_of_a_page(
@@ -864,7 +865,7 @@ async def load_metadata_from_vector_pdf(
             f"AND page_number = %s;"
         )
         await run_in_threadpool(partial(
-            pg_run, pg_pool, query,
+            pg_run, credentials, pg_pool, query,
             params=(json.dumps(vector_scales), project_id, plan_id, int(page_number),)
         ))
         vector_ceiling_heights = [data["ceiling_height"] for data in metadata]
@@ -875,7 +876,7 @@ async def load_metadata_from_vector_pdf(
             f"AND page_number = %s;"
         )
         await run_in_threadpool(partial(
-            pg_run, pg_pool, query,
+            pg_run, credentials, pg_pool, query,
             params=(json.dumps(vector_ceiling_heights), project_id, plan_id, int(page_number),)
         ))
     return is_vector_pdf, vector_scales, vector_ceiling_heights
@@ -942,6 +943,7 @@ async def is_session_active(credentials, pg_pool, session_id, project_id, plan_i
     )
     query_output = await run_in_threadpool(partial(
         pg_run,
+        credentials,
         pg_pool,
         query,
         params=(session_id, project_id, plan_id, user_id, page_number,),
