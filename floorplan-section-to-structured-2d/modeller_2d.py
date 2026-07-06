@@ -1366,14 +1366,14 @@ class FloorPlan2D(FloorPlan):
         cv2.line(canvas_to_overlay, (X1, Y1), (X2, Y2), (0, 0, 255), 2)
         canvas = cv2.addWeighted(canvas_to_overlay, 0.7, canvas, 0.3, 0)
 
-        from google.cloud.storage import Client as CloudStorageClient
-        client = CloudStorageClient()
-        plan_path = f"/tmp/wall_valid_{np.random.randint(999)}.png"
-        cv2.imwrite(plan_path, canvas)
-        bucket = client.bucket(self._credentials["CloudStorage"]["bucket_name"])
-        blob_path = f"tmp/wall/{Path(plan_path).name}"
-        blob = bucket.blob(blob_path)
-        blob.upload_from_filename(plan_path)
+        #from google.cloud.storage import Client as CloudStorageClient
+        #client = CloudStorageClient()
+        #plan_path = f"/tmp/wall_valid_{np.random.randint(999)}.png"
+        #cv2.imwrite(plan_path, canvas)
+        #bucket = client.bucket(self._credentials["CloudStorage"]["bucket_name"])
+        #blob_path = f"tmp/wall/{Path(plan_path).name}"
+        #blob = bucket.blob(blob_path)
+        #blob.upload_from_filename(plan_path)
 
         _, canvas_buffer_array = cv2.imencode(".png", canvas)
         bytes_canvas = canvas_buffer_array.tobytes()
