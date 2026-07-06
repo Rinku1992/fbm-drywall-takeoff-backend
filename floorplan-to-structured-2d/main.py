@@ -282,7 +282,7 @@ async def floorplan_to_structured_2d(request: Request):
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
 
     query = f"SELECT user_id FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s)"
-    user_id_owner = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id,), fetch=True))
+    user_id_owner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id,), fetch=True))
     if user_id_owner:
         user_id_owner = user_id_owner[0]["user_id"]
     else:
