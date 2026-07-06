@@ -244,7 +244,7 @@ async def floorplan_section_to_structured_2d(request: Request):
     logging.info("SYSTEM: Received a Floorplan 2D Sectioned Model Generation Request")
 
     query = f"SELECT user_id FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s)"
-    user_id_owner = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id,), fetch=True))
+    user_id_owner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id,), fetch=True))
     if user_id_owner:
         user_id_owner = user_id_owner[0]["user_id"]
     else:
@@ -316,7 +316,7 @@ async def floorplan_section_to_structured_2d(request: Request):
         output_path=f"/tmp/{project_id}/{plan_id}/{user_id}/floor_plan_wall_segmented_{str(page_number).zfill(4)}.png"
     )
     query = f"SELECT project_location, project_location_pincode FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} WHERE LOWER(project_id) = LOWER(%s)"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id,), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id,), fetch=True))
     project_location = query_output[0]["project_location"]
     project_location_pincode = query_output[0]["project_location_pincode"]
     geolocator = Nominatim(user_agent="xtimator_app")
