@@ -169,6 +169,15 @@ async def floorplan_to_structured_2d_sectioned(
             pg_pool,
             credentials,
         )
+        await trigger_email_notification(
+            CREDENTIALS,
+            pg_pool,
+            "SCALE NOT DETECTED",
+            project_id,
+            plan_id,
+            user_id,
+            page_number=page_number
+        )
     return floor_plan_modeller_2d.is_scale_detected, dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata), floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale)
 
 
