@@ -23,6 +23,7 @@ from pydantic import BaseModel
 from pydantic_core import ValidationError
 from concurrent.futures import ThreadPoolExecutor
 import traceback
+import asyncio
 
 from google.cloud.storage import Client as CloudStorageClient
 from google.cloud import secretmanager
