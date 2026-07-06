@@ -680,7 +680,7 @@ class PayloadProject(BaseModel):
     project_id: str
     project_name: str
     project_location: str
-    project_location_pincode: int
+    project_location_pincode: int=92780
     project_area: str
     project_type: str
     contractor_name: str
