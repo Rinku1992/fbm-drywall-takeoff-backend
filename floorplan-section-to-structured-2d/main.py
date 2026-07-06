@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.concurrency import run_in_threadpool
+import asyncio
 
 import random
 random.seed(0)
@@ -198,12 +199,22 @@ async def lifespan(app: FastAPI):
     global DRYWALL_TEMPLATES
     global pg_pool
 
-    pg_pool = load_pg_pool(CREDENTIALS)
+    for attempt in range(10):
+        try:
+            pg_pool = load_pg_pool(CREDENTIALS)
+            DRYWALL_TEMPLATES = await load_templates(
+                pg_pool,
+                CREDENTIALS
+            )
 
-    DRYWALL_TEMPLATES = await load_templates(
-        pg_pool,
-        CREDENTIALS
-    )
+            break
+        except Exception as e:
+            logging.exception(e)
+
+            if attempt == 9:
+                raise
+
+            await asyncio.sleep(min(2 ** attempt, 30))
 
     yield
 
