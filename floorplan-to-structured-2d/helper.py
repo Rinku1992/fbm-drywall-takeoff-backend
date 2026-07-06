@@ -37,6 +37,7 @@ from google.api_core.exceptions import (
 )
 from google.auth.transport.requests import Request
 from google.cloud.sql.connector import Connector, IPTypes
+from google.auth.exceptions import TransportError
 from sqlalchemy import create_engine
 from sqlalchemy.exc import (
     OperationalError,
@@ -443,6 +444,12 @@ def pg_run(
                 )
 
                 sleep(delay)
+                continue
+
+            if isinstance(e, TransportError) and attempt + 1 < max_retries:
+                close_pg_pool()
+                pg_pool = load_pg_pool(CREDENTIALS)
+                engine = pg_pool
                 continue
 
             raise
