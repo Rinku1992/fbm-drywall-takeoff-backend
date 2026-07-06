@@ -116,12 +116,12 @@ async def insert_model_2d_revision(
         page_section_number = 'I'
     if not model_2d.get("metadata", None):
         query = f"SELECT model_2d->'metadata' AS metadata FROM {credentials["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s"
-        query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, int(page_number), page_section_number,), fetch=True))
+        query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id, plan_id, int(page_number), page_section_number,), fetch=True))
         metadata = query_output[0]["metadata"]
         metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
         model_2d["metadata"] = metadata
     query = f"SELECT MAX(revision_number) AS revision_number FROM {credentials["CloudSQL"]["table_name_model_revisions_2d"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, int(page_number), page_section_number,), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id, plan_id, int(page_number), page_section_number,), fetch=True))
     
     if query_output and query_output[0]["revision_number"] is not None:
         revision_number = query_output[0]["revision_number"] + 1
@@ -152,7 +152,7 @@ async def insert_model_2d_revision(
             %s
         );
     """
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(plan_id, project_id, user_id, int(page_number), page_section_number, scale, json.dumps(model_2d), int(revision_number),)))
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(plan_id, project_id, user_id, int(page_number), page_section_number, scale, json.dumps(model_2d), int(revision_number),)))
 
 
 async def insert_model_3d_revision(
@@ -166,7 +166,7 @@ async def insert_model_3d_revision(
     credentials
     ):
     query = f"SELECT MAX(revision_number) AS revision_number FROM {credentials["CloudSQL"]["table_name_model_revisions_3d"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, int(page_number),), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id, plan_id, int(page_number),), fetch=True))
     
     if query_output and query_output[0]["revision_number"] is not None:
         revision_number = query_output[0]["revision_number"] + 1
@@ -197,7 +197,7 @@ async def insert_model_3d_revision(
             %s
         );
     """
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(plan_id, project_id, user_id, int(page_number), scale, json.dumps(model_3d), int(revision_number),)))
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(plan_id, project_id, user_id, int(page_number), scale, json.dumps(model_3d), int(revision_number),)))
 
 
 async def insert_model_3d(
@@ -222,7 +222,7 @@ async def insert_model_3d(
             AND page_number = %s
             AND page_section_number = %s
     """
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(
         json.dumps(model_3d),
         scale,
         project_id,
@@ -239,7 +239,7 @@ async def delete_floorplan(project_id, plan_id, user_id, pg_pool, credentials):
             LOWER(project_id) = LOWER(%s)
             AND LOWER(plan_id) = LOWER(%s);
     """
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id,)))
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id, plan_id,)))
 
     query = f"""
         DELETE FROM {credentials["CloudSQL"]["table_name_plans"]}
@@ -247,7 +247,7 @@ async def delete_floorplan(project_id, plan_id, user_id, pg_pool, credentials):
             LOWER(project_id) = LOWER(%s)
             AND LOWER(plan_id) = LOWER(%s);
     """
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id,)))
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id, plan_id,)))
 
     query = f"""
         DELETE FROM {credentials["CloudSQL"]["table_name_models"]}
@@ -255,7 +255,7 @@ async def delete_floorplan(project_id, plan_id, user_id, pg_pool, credentials):
             LOWER(project_id) = LOWER(%s)
             AND LOWER(plan_id) = LOWER(%s);
     """
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id,)))
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id, plan_id,)))
 
     query = f"""
         DELETE FROM {credentials["CloudSQL"]["table_name_model_revisions_2d"]}
@@ -263,7 +263,7 @@ async def delete_floorplan(project_id, plan_id, user_id, pg_pool, credentials):
             LOWER(project_id) = LOWER(%s)
             AND LOWER(plan_id) = LOWER(%s);
     """
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id,)))
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id, plan_id,)))
 
     query = f"""
         DELETE FROM {credentials["CloudSQL"]["table_name_model_revisions_3d"]}
@@ -271,7 +271,7 @@ async def delete_floorplan(project_id, plan_id, user_id, pg_pool, credentials):
             LOWER(project_id) = LOWER(%s)
             AND LOWER(plan_id) = LOWER(%s);
     """
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id,)))
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id, plan_id,)))
 
     client = CloudStorageClient()
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
@@ -288,42 +288,42 @@ async def delete_project(project_id, user_id, pg_pool, credentials):
         WHERE
             LOWER(project_id) = LOWER(%s);
     """
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id,)))
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id,)))
 
     query = f"""
         DELETE FROM {credentials["CloudSQL"]["table_name_plans"]}
         WHERE
             LOWER(project_id) = LOWER(%s);
     """
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id,)))
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id,)))
 
     query = f"""
         DELETE FROM {credentials["CloudSQL"]["table_name_projects"]}
         WHERE
             LOWER(project_id) = LOWER(%s);
     """
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id,)))
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id,)))
 
     query = f"""
         DELETE FROM {credentials["CloudSQL"]["table_name_models"]}
         WHERE
             LOWER(project_id) = LOWER(%s);
     """
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id,)))
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id,)))
 
     query = f"""
         DELETE FROM {credentials["CloudSQL"]["table_name_model_revisions_2d"]}
         WHERE
             LOWER(project_id) = LOWER(%s);
     """
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id,)))
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id,)))
 
     query = f"""
         DELETE FROM {credentials["CloudSQL"]["table_name_model_revisions_3d"]}
         WHERE
             LOWER(project_id) = LOWER(%s);
     """
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id,)))
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id,)))
 
     client = CloudStorageClient()
     bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
@@ -360,7 +360,7 @@ async def insert_takeoff(
             AND page_number = %s
             AND page_section_number = %s
     """
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(
         takeoff,
         waste_factor_average,
         drywall_negate_opening_area_threshold,
@@ -383,7 +383,7 @@ async def insert_takeoff(
                 AND page_section_number = %s
                 AND revision_number = %s
         """
-        await run_in_threadpool(partial(pg_run, pg_pool, query, params=(
+        await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(
             takeoff,
             user_id,
             project_id,
@@ -463,6 +463,7 @@ async def insert_plan(
         size_in_bytes = 0
     await run_in_threadpool(partial(
         pg_run,
+        credentials,
         pg_pool,
         query,
         params=(
@@ -509,7 +510,7 @@ async def insert_project(payload_project, pg_pool, credentials):
         )
         ON CONFLICT (project_id) DO NOTHING
     """
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(
         payload_project.project_id,
         payload_project.project_name,
         payload_project.project_location,
@@ -521,7 +522,7 @@ async def insert_project(payload_project, pg_pool, credentials):
         payload_project.created_by
     )))
     query = f"SELECT created_at FROM {credentials["CloudSQL"]["table_name_projects"]} WHERE project_id = %s"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(payload_project.project_id,), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(payload_project.project_id,), fetch=True))
     created_at = query_output[0]["created_at"].isoformat()
     return created_at
 
@@ -614,7 +615,7 @@ async def floorplan_to_preview_pages(
         )
         metadata_page["signed_url_thumbnail_GCS"] = url
         query = f"UPDATE {credentials["CloudSQL"]["table_name_pages"]} SET source = %s, thumbnail = %s WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
-        await run_in_threadpool(partial(pg_run, pg_pool, query, params=(floorplan_svg_source, floorplan_svg_source_thumbnail, project_id, plan_id, page["page_number"],)))
+        await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(floorplan_svg_source, floorplan_svg_source_thumbnail, project_id, plan_id, page["page_number"],)))
         preview_pages.append(metadata_page)
         logging.info(f"SYSTEM: Preview Generated for {page["page_number"]+1}/{n_pages} pages")
     return preview_pages
@@ -855,7 +856,7 @@ async def load_projects(request: Request):
 
         ORDER BY p.created_at DESC NULLS LAST;
     """
-    projects = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(user_id,), fetch=True))
+    projects = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_id,), fetch=True))
 
     logging.info("SYSTEM: Project Metadata retrieved successfully")
     return respond_with_UI_payload(
@@ -1019,7 +1020,7 @@ async def load_project_plans(request: Request):
                 )
             )
     """
-    rows = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(user_id, project_id,), fetch=True))
+    rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_id, project_id,), fetch=True))
 
     if not rows:
         return respond_with_UI_payload(dict(project_metadata=dict(), project_plans=list()))
@@ -1220,7 +1221,7 @@ async def load_plan_pages(request: Request):
                 )
             )
     """
-    rows = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(user_id, project_id, plan_id,), fetch=True))
+    rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_id, project_id, plan_id,), fetch=True))
 
     if not rows:
         return respond_with_UI_payload(dict(plan_metadata=dict(), plan_pages=list()))
@@ -1236,7 +1237,7 @@ async def load_plan_pages(request: Request):
             LOWER(project_id) = LOWER(%s)
             AND LOWER(plan_id) = LOWER(%s)
     """
-    rows = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id,), fetch=True))
+    rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id,), fetch=True))
 
     plan_pages = list()
     for row in rows:
@@ -1340,7 +1341,7 @@ async def floorplan_to_2d(request: Request):
 
     pdf_path = Path("/tmp/floor_plan.PDF")
     query = f"SELECT user_id FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s)"
-    user_id_owner = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id,), fetch=True))
+    user_id_owner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id,), fetch=True))
     if user_id_owner:
         GCS_URL_floorplan = await download_floorplan(plan_id, project_id, user_id_owner[0]["user_id"], CREDENTIALS, pg_pool, destination_path=pdf_path)
         user_id_owner = user_id_owner[0]["user_id"]
@@ -1421,20 +1422,20 @@ async def floorplan_to_2d(request: Request):
     session.mount("https://", adapter)
     subscriber_client = load_subscriber_client(CREDENTIALS)
     query = f"UPDATE {CREDENTIALS["CloudSQL"]["table_name_plans"]} SET multipage_elevation_map = %s WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);"
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(json.dumps(elevation_map), project_id, plan_id)))
+    await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(json.dumps(elevation_map), project_id, plan_id)))
     try:
         with ThreadPoolExecutor(max_workers=20) as executor:
             for index, page_metadata in enumerate(pages_metadata):
                 page_number = page_metadata["page_number"]
                 query = f"UPDATE {CREDENTIALS["CloudSQL"]["table_name_pages"]} SET mask_factor = %s, bounding_box_offsets = %s WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
-                await run_in_threadpool(partial(pg_run, pg_pool, query, params=(json.dumps(page_metadata["mask_factor"]), json.dumps(page_metadata["bounding_box_offsets"]), project_id, plan_id, page_number)))
+                await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(json.dumps(page_metadata["mask_factor"]), json.dumps(page_metadata["bounding_box_offsets"]), project_id, plan_id, page_number)))
                 if index != 0 and index % 25 == 0:
                     sleep(120)
                 id_token = load_floorplan_to_structured_2d_ID_token(CREDENTIALS)
                 elevation_pages = load_elevation_map(elevation_map, page_number)
                 if not page_metadata.get("architectural_scale"):
                     query = f"SELECT scale FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s"
-                    architectural_scales = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number,), fetch=True))
+                    architectural_scales = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, page_number,), fetch=True))
                     if architectural_scales:
                         for architectural_scale in architectural_scales:
                             if architectural_scale["scale"]:
@@ -1470,7 +1471,7 @@ async def floorplan_to_2d(request: Request):
             for page_metadata in pages_metadata:
                 page_number = page_metadata["page_number"]
                 query = f"SELECT page_section_number, model_2d, scale FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
-                query_output_sections = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number,), fetch=True))
+                query_output_sections = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, page_number,), fetch=True))
                 for query_output in query_output_sections:
                     walls_2d = json.loads(query_output["model_2d"]) if isinstance(query_output["model_2d"], str) else query_output["model_2d"]
                     if walls_2d["walls_2d"] and walls_2d["polygons"]:
@@ -1556,7 +1557,7 @@ async def load_2d_revision(request: Request):
         return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"SELECT model FROM {CREDENTIALS["CloudSQL"]["table_name_model_revisions_2d"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s AND revision_number = %s;"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number, page_section_number, revision_number,), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, page_number, page_section_number, revision_number,), fetch=True))
     walls_2d_JSON, polygons_JSON = list(), list()
     if query_output and query_output[0]["model"] is not None:
         walls_2d = json.loads(query_output[0]["model"]) if isinstance(query_output[0]["model"], str) else query_output[0]["model"]
@@ -1584,7 +1585,7 @@ async def load_available_revision_numbers_2d(request: Request):
         return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"SELECT revision_number FROM {CREDENTIALS["CloudSQL"]["table_name_model_revisions_2d"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number, page_section_number,), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, page_number, page_section_number,), fetch=True))
     revision_numbers = list()
     if query_output:
         for revision in query_output:
@@ -1708,7 +1709,7 @@ async def load_2d_all(request: Request):
                     )
                 )
         """
-        query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(user_id, project_id, plan_id,), fetch=True))
+        query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_id, project_id, plan_id,), fetch=True))
         if not query_output:
             return respond_with_UI_payload(dict(error="Floor Plan already exists"))
         n_pages = query_output[0]["pages"]
@@ -1716,7 +1717,7 @@ async def load_2d_all(request: Request):
         while from_unix_epoch() < timeout:
             query = f"SELECT status FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);"
             try:
-                query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id,), fetch=True))
+                query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id,), fetch=True))
                 status = query_output[0]["status"]
                 if status == "COMPLETED":
                     break
@@ -1930,7 +1931,7 @@ async def load_2d_all(request: Request):
                 page_section_number
         """
         params = (user_id, project_id, plan_id,)
-    rows = await run_in_threadpool(partial(pg_run, pg_pool, query, params=params, fetch=True))
+    rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
 
     page_to_model_2d_minimal = dict()
     rows = sorted(rows, key=lambda row: f"{row["page_number"]}-{row["page_section_number"]}")
@@ -1997,7 +1998,7 @@ async def update_floorplan_to_2d(request: Request):
     hyperparameters = load_hyperparameters()
 
     query = f"SELECT model_2d->'walls_2d' AS walls_2d, model_2d->'polygons' AS polygons FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
     walls_2d = query_output[0]["walls_2d"]
     walls_2d_JSON_outdated = json.loads(walls_2d) if isinstance(walls_2d, str) else walls_2d
     polygons = query_output[0]["polygons"]
@@ -2036,7 +2037,7 @@ async def update_floorplan_to_2d(request: Request):
     wall_line_ids = [wall_2d["id"] for wall_2d in walls_2d_JSON]
 
     query = f"SELECT model_2d->'metadata' AS metadata FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
     metadata = query_output[0]["metadata"]
     metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
     height, width = metadata["height_in_pixels"], metadata["width_in_pixels"]
@@ -2094,7 +2095,7 @@ async def update_scale(request: Request):
         return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"UPDATE {CREDENTIALS["CloudSQL"]["table_name_models"]} SET scale = %s WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=(scale, project_id, plan_id, page_number, page_section_number,)))
+    await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(scale, project_id, plan_id, page_number, page_section_number,)))
     logging.info("SYSTEM: Scale Updated Successfully")
 
     if walls_2d_JSON and polygons_JSON:
@@ -2127,7 +2128,7 @@ async def load_scale(request: Request):
         return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"SELECT scale FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number, page_section_number), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, page_number, page_section_number), fetch=True))
     return respond_with_UI_payload(dict(scale=query_output[0]["scale"]))
 
 
@@ -2161,7 +2162,7 @@ async def floorplan_to_3d(request: Request):
         json.dump(polygons_JSON, f)
 
     query = f"SELECT model_2d->'metadata' AS metadata FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index,), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, index,), fetch=True))
     metadata = query_output[0]["metadata"]
     metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
     if not walls_2d_JSON or not polygons_JSON:
@@ -2170,7 +2171,7 @@ async def floorplan_to_3d(request: Request):
     hyperparameters = load_hyperparameters()
     if not scale:
         query = f"SELECT scale FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
-        query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
+        query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
         scale = query_output[0]["scale"]
     floor_plan_modeller_3d = Extrapolate3D(hyperparameters)
     walls_3d, polygons_3d, walls_3d_path, polygons_3d_path = floor_plan_modeller_3d.extrapolate(scale, model_2d_path=model_2d_path, polygons_path=polygons_path)
@@ -2207,7 +2208,7 @@ async def load_3d_revision(request: Request):
         return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"SELECT model FROM {CREDENTIALS["CloudSQL"]["table_name_model_revisions_3d"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND revision_number = %s;"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, int(page_number), int(revision_number),), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, int(page_number), int(revision_number),), fetch=True))
     walls_3d_JSON = dict()
     if query_output and query_output[0]["model"] is not None:
         walls_3d_JSON = json.loads(query_output[0]["model"])
@@ -2234,7 +2235,7 @@ async def load_available_revision_numbers_3d(request: Request):
         return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"SELECT revision_number FROM {CREDENTIALS["CloudSQL"]["table_name_model_revisions_3d"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, int(page_number),)))
+    query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, int(page_number),)))
     revision_numbers = list()
     if query_output:
         for revision in query_output:
@@ -2292,7 +2293,7 @@ async def generate_drywall_overlaid_floorplan_download_signed_URL(request: Reque
     if load_lazy == "false":
         status = "IN PROGRESS"
         query = f"SELECT pages FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);"
-        query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id,), fetch=True))
+        query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id,), fetch=True))
         if not query_output:
             return respond_with_UI_payload(dict(error="Floor Plan already exists"))
         n_pages = query_output[0]["pages"]
@@ -2300,7 +2301,7 @@ async def generate_drywall_overlaid_floorplan_download_signed_URL(request: Reque
         while from_unix_epoch() < timeout:
             query = f"SELECT status FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);"
             try:
-                query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id,), fetch=True))
+                query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id,), fetch=True))
                 status = query_output[0]["status"]
                 if status == "COMPLETED":
                     break
@@ -2311,7 +2312,7 @@ async def generate_drywall_overlaid_floorplan_download_signed_URL(request: Reque
             return respond_with_UI_payload(dict(error=f"Floor Plan extraction not completed within {(n_pages * 900)/60} minutes"), status_code=500)
 
     query = f"SELECT target_drywalls FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, int(index),), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, int(index),), fetch=True))
     drywall_overlaid_floorplan_source_path = query_output[0]["target_drywalls"]
     _, _, _, blob_path = drywall_overlaid_floorplan_source_path.split('/', 3)
 
@@ -2345,7 +2346,7 @@ async def remove_floorplan(request: Request):
         return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"SELECT * FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND LOWER(user_id) = LOWER(%s);"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, user_id,), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, user_id,), fetch=True))
     if not query_output:
         return respond_with_UI_payload(dict(status="FAILED", message="Plan: {} cannot be deleted".format(plan_id)))
     await delete_floorplan(project_id, plan_id, user_id, pg_pool, CREDENTIALS)
@@ -2370,7 +2371,7 @@ async def remove_project(request: Request):
         return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"SELECT * FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(user_id) = LOWER(%s);"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, user_id,), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, user_id,), fetch=True))
     if not query_output:
         return respond_with_UI_payload(dict(status="FAILED", message="Project: {} cannot be deleted".format(project_id)))
     await delete_project(project_id, user_id, pg_pool, CREDENTIALS)
@@ -2399,7 +2400,7 @@ async def load_waste_average(request: Request):
         return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"SELECT waste_average FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number, page_section_number,), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, page_number, page_section_number,), fetch=True))
     waste_average = query_output[0]["waste_average"]
     if waste_average is not None:
         return respond_with_UI_payload(dict(waste_average_in_percentage=waste_average))
@@ -2432,7 +2433,7 @@ async def load_drywall_negate_opening_area_threshold(request: Request):
         return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"SELECT drywall_negate_opening_area_threshold FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, page_number, page_section_number,), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, page_number, page_section_number,), fetch=True))
     drywall_negate_opening_area_threshold = query_output[0]["drywall_negate_opening_area_threshold"]
     return respond_with_UI_payload(dict(drywall_negate_opening_area_threshold=drywall_negate_opening_area_threshold))
 
@@ -2463,16 +2464,16 @@ async def compute_takeoff(request: Request):
         return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"SELECT scale FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
     scale = query_output[0]["scale"]
 
     if not walls_2d_JSON:
         if revision_number:
             query = f"SELECT model->'walls_2d' AS walls_2d FROM {CREDENTIALS["CloudSQL"]["table_name_model_revisions_2d"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s AND revision_number = %s;"
-            query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index, page_section_number, revision_number,), fetch=True))
+            query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, index, page_section_number, revision_number,), fetch=True))
         else:
             query = f"SELECT model_2d->'walls_2d' AS walls_2d FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
-            query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
+            query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
         walls_2d_JSON = query_output[0].get("walls_2d")
     
         if walls_2d_JSON is None:
@@ -2481,10 +2482,10 @@ async def compute_takeoff(request: Request):
     if not polygons_JSON:
         if revision_number:
             query = f"SELECT model->'polygons' FROM {CREDENTIALS["CloudSQL"]["table_name_model_revisions_2d"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s AND revision_number = %s;"
-            query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index, page_section_number, revision_number,), fetch=True))
+            query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, index, page_section_number, revision_number,), fetch=True))
         else:
             query = f"SELECT model_2d->'polygons' FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
-            query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
+            query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
         polygons_JSON = query_output[0].get("polygons")
 
         if polygons_JSON is None:
@@ -2508,7 +2509,7 @@ async def compute_takeoff(request: Request):
     )
     if waste_factor_average is None and load_preview is None:
         query = f"SELECT waste_average FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
-        query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
+        query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
 
         waste_factor_average = query_output[0]["waste_average"]
     if waste_factor_average is not None:
@@ -2518,7 +2519,7 @@ async def compute_takeoff(request: Request):
     normalization_variance_aware = sum(w**2 for w in drywall_weights.values())
     if drywall_negate_opening_area_threshold is None and load_preview is None:
         query = f"SELECT drywall_negate_opening_area_threshold FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
-        query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
+        query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
         drywall_negate_opening_area_threshold = query_output[0]["drywall_negate_opening_area_threshold"]
     for wall in walls_2d_JSON:
         drywall_negate_area = 0
@@ -2655,7 +2656,7 @@ async def summarize_takeoff_all(request: Request):
         return respond_with_UI_payload(is_user_not_authenticated)
 
     query = f"SELECT page_number, page_section_number, scale, waste_average, drywall_negate_opening_area_threshold, takeoff, model_2d FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);"
-    rows = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(project_id, plan_id), fetch=True))
+    rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id), fetch=True))
     drywall_takeoff_all = list()
     for row in rows:
         drywall_takeoff = dict(row)
@@ -2781,7 +2782,7 @@ async def insert_templates():
             %s
         )
     """
-    await run_in_threadpool(partial(pg_run, pg_pool, query, params=rows_to_insert, execute_many=True))
+    await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=rows_to_insert, execute_many=True))
     logging.info("SYSTEM: Templates successfully inserted")
 
 
@@ -2808,7 +2809,7 @@ async def request_otp(request: PayloadRequestExternalOtp):
         LIMIT 1;
     """
     is_external = await run_in_threadpool(
-        partial(pg_run, pg_pool, query, params=(user_email,), fetch=True)
+        partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_email,), fetch=True)
     )
 
     if not is_external:
@@ -2857,7 +2858,7 @@ async def request_otp(request: PayloadRequestExternalOtp):
     """
 
     await run_in_threadpool(
-        partial(pg_run, pg_pool, query, params=(user_email, otp, expires_at,))
+        partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_email, otp, expires_at,))
     )
     
     sender = CREDENTIALS["Email"]["sender_email"]
@@ -2913,7 +2914,7 @@ async def verify_otp(request: PayloadVerifyExternalOtp):
         LIMIT 1;
     """
     is_external = await run_in_threadpool(
-        partial(pg_run, pg_pool, query, params=(user_email,), fetch=True)
+        partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_email,), fetch=True)
     )
 
     if not is_external:
@@ -2947,7 +2948,7 @@ async def verify_otp(request: PayloadVerifyExternalOtp):
     """
 
     otp_rows = await run_in_threadpool(
-        partial(pg_run, pg_pool, query, params=(user_email,), fetch=True)
+        partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_email,), fetch=True)
     )
 
     if not otp_rows:
@@ -2979,7 +2980,7 @@ async def verify_otp(request: PayloadVerifyExternalOtp):
         """
 
         await run_in_threadpool(
-            partial(pg_run, pg_pool, query, params=(user_email,))
+            partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_email,))
         )
 
         return respond_with_UI_payload(
@@ -2998,7 +2999,7 @@ async def verify_otp(request: PayloadVerifyExternalOtp):
         """
 
         await run_in_threadpool(
-            partial(pg_run, pg_pool, query, params=(user_email,))
+            partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_email,))
         )
 
         return respond_with_UI_payload(
@@ -3018,7 +3019,7 @@ async def verify_otp(request: PayloadVerifyExternalOtp):
         """
 
         await run_in_threadpool(
-            partial(pg_run, pg_pool, query, params=(user_email,))
+            partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_email,))
         )
 
         remaining_attempts = MAX_OTP_ATTEMPTS - int(otp_record["attempts"]) - 1
@@ -3041,7 +3042,7 @@ async def verify_otp(request: PayloadVerifyExternalOtp):
     """
 
     users = await run_in_threadpool(
-        partial(pg_run, pg_pool, query, params=(user_email,), fetch=True)
+        partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_email,), fetch=True)
     )
 
     if not users:
@@ -3063,7 +3064,7 @@ async def verify_otp(request: PayloadVerifyExternalOtp):
     """
 
     await run_in_threadpool(
-        partial(pg_run, pg_pool, query, params=(user_email,))
+        partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_email,))
     )
 
     token = create_external_login_jwt(CREDENTIALS, user_id)
