@@ -159,25 +159,6 @@ async def floorplan_to_structured_2d_sectioned(
         logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} and SECTION: {page_section_number} Generated Successfully")
     else:
         logging.warning(f"SYSTEM: Architectural Scale not detected for PAGE: {page_number} and SECTION: {page_section_number}. Waiting for Architectural Scale input from the user")
-        await insert_page(
-            plan_id,
-            user_id,
-            project_id,
-            page_number,
-            True,
-            "SCALE NOT DETECTED",
-            pg_pool,
-            credentials,
-        )
-        await trigger_email_notification(
-            CREDENTIALS,
-            pg_pool,
-            "SCALE NOT DETECTED",
-            project_id,
-            plan_id,
-            user_id,
-            page_number=page_number
-        )
     return floor_plan_modeller_2d.is_scale_detected, dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata), floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale)
 
 
@@ -300,25 +281,6 @@ async def floorplan_section_to_structured_2d(request: Request):
         )
         future.result()
         logging.warning(f"SYSTEM: Floorplan extraction has failed for Page Number: {page_number} with Error: {e}")
-        await insert_page(
-            plan_id,
-            user_id,
-            project_id,
-            page_number,
-            True,
-            "FAILED",
-            pg_pool,
-            CREDENTIALS,
-        )
-        await trigger_email_notification(
-            CREDENTIALS,
-            pg_pool,
-            "FAILED",
-            project_id,
-            plan_id,
-            user_id,
-            page_number=page_number
-        )
         return respond_with_UI_payload(dict(status="FAILED", message=f"NO Floor Plan layout observed"))
 
     floorplan_baseline_page_source = None
