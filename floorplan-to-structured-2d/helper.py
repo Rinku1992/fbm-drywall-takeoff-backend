@@ -889,7 +889,7 @@ async def load_organization_slug(credentials, pg_pool, user_id):
         LEFT JOIN {credentials["CloudSQL"]["table_name_organizations"]} o ON TEXT(u.organization_id) = TEXT(o.organization_id)
         WHERE LOWER(u.user_id) = LOWER(%s);
     """
-    query_output = await run_in_threadpool(partial(pg_run, pg_pool, query, params=(user_id,), fetch=True))
+    query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(user_id,), fetch=True))
     if query_output and query_output[0]["org_or_domain"]:
         return query_output[0]["org_or_domain"]
     return user_id.split('@')[1]
