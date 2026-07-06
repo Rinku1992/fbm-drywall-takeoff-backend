@@ -53,7 +53,6 @@ from google.auth.exceptions import TransportError
 from google.cloud.pubsub_v1 import PublisherClient
 
 from prompts import FEEDBACK_GENERATOR
-from email_notification import trigger
 
 
 def load_vertex_ai_client(credentials, ip_address, prompts=None, default_region="us-central1", max_retry=5, base_delay=1.0):
@@ -766,92 +765,6 @@ def load_publisher_client(credentials):
      publisher_client = lambda payload: publisher.publish(credentials["PubSub"]["topic_name"], json.dumps(payload).encode("utf-8"))
 
      return publisher_client
-
-async def trigger_email_notification(
-    credentials,
-    pg_pool,
-    status,
-    project_id,
-    plan_id,
-    user_id,
-    page_number,
-    notify_group=False,
-):
-    message = f"Plan: {plan_id} | Page Number: {page_number} | Extraction: {status}"
-    query = f"SELECT group_id FROM {credentials["CloudSQL"]["table_name_users"]}, unnest(COALESCE(group_ids, ARRAY[]::text[])) AS group_id WHERE LOWER(user_id) = LOWER(%s)"
-    query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(user_id,), fetch=True))
-    group_ids = [row["group_id"] for row in query_output]
-    group_id = " | ".join(group_ids)
-    if notify_group:
-        query = f"""
-            WITH current_user_cte AS (
-                SELECT %s AS user_id
-            ),
-
-            current_user_groups AS (
-                SELECT DISTINCT group_id
-                FROM {credentials["CloudSQL"]["table_name_users"]} u
-                CROSS JOIN unnest(COALESCE(u.group_ids, ARRAY[]::text[])) AS group_id
-                JOIN current_user_cte cu
-                    ON LOWER(u.user_id) = LOWER(cu.user_id)
-            ),
-
-            matching_users AS (
-                SELECT DISTINCT
-                    g.user_id
-                FROM {credentials["CloudSQL"]["table_name_groups"]} g
-                JOIN current_user_groups cug
-                    ON g.group_id = cug.group_id
-            ),
-
-            fallback_user AS (
-                SELECT cu.user_id
-                FROM current_user_cte cu
-                WHERE NOT EXISTS (
-                    SELECT 1
-                    FROM current_user_groups
-                )
-            ),
-
-            final_users AS (
-                SELECT user_id
-                FROM matching_users
-
-                UNION
-
-                SELECT user_id
-                FROM fallback_user
-            )
-
-            SELECT LOWER(user_id) AS user_id
-            FROM final_users
-        """
-        query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(user_id,), fetch=True))
-        user_ids_group = [row["user_id"] for row in query_output]
-        for user_id_group in user_ids_group:
-            trigger(
-                credentials,
-                user_id,
-                user_id_group,
-                user_id_group,
-                plan_id,
-                project_id,
-                page_number,
-                group_id,
-                message=message,
-            )
-    else:
-        trigger(
-            credentials,
-            user_id,
-            user_id,
-            user_id,
-            plan_id,
-            project_id,
-            page_number,
-            group_id,
-            message=message,
-        )
 
 async def load_organization_slug(credentials, pg_pool, user_id):
     query = f"""SELECT COALESCE(o.organization_slug, 
