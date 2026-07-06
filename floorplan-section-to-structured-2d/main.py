@@ -32,8 +32,6 @@ from helper import (
     load_section_from_page,
     apply_pixel_margin_to_bounding_box,
     load_publisher_client,
-    insert_page,
-    trigger_email_notification,
     update_status,
     pg_run,
 )
