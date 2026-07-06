@@ -49,6 +49,7 @@ from pg8000.dbapi import (
 from vertexai.generative_models import Content, Part
 from vertexai.caching import CachedContent
 from google.oauth2 import service_account
+from google.auth.exceptions import TransportError
 from google.cloud.pubsub_v1 import PublisherClient
 
 from prompts import FEEDBACK_GENERATOR
@@ -433,6 +434,7 @@ def pg_run(
             InterfaceError,
             InterfaceErrorPG8000,
             TimeoutError,
+            TransportError,
         ) as e:
 
             if conn is not None:
@@ -473,6 +475,12 @@ def pg_run(
                 )
 
                 sleep(delay)
+                continue
+
+            if isinstance(e, TransportError) and attempt + 1 < max_retries:
+                close_pg_pool()
+                pg_pool = load_pg_pool(CREDENTIALS)
+                engine = pg_pool
                 continue
 
             raise
