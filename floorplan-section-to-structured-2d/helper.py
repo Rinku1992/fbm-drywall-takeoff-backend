@@ -386,7 +386,7 @@ def close_pg_pool():
 
 def pg_run(
     credentials,
-    engine,
+    pg_pool,
     query,
     params=None,
     fetch=False,
@@ -405,7 +405,7 @@ def pg_run(
 
         try:
 
-            conn = engine.raw_connection()
+            conn = pg_pool["engine"].raw_connection()
             cursor = conn.cursor()
 
             if execute_many:
@@ -485,8 +485,8 @@ def pg_run(
                     max_backoff,
                 )
                 sleep(delay)
-                pg_pool = load_pg_pool(credentials)
-                engine = pg_pool
+                engine = load_pg_pool(credentials)
+                pg_pool["engine"] = engine
                 continue
 
             raise
