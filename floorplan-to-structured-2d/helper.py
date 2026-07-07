@@ -405,6 +405,7 @@ def pg_run(
             InterfaceError,
             InterfaceErrorPG8000,
             TimeoutError,
+            TransportError,
         ) as e:
 
             if conn is not None:
