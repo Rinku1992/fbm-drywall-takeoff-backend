@@ -450,6 +450,12 @@ def pg_run(
 
             if isinstance(e, TransportError) and attempt + 1 < max_retries:
                 close_pg_pool()
+                delay = min(
+                    initial_backoff * (2 ** attempt)
+                    + random.uniform(0, 1),
+                    max_backoff,
+                )
+                sleep(delay)
                 pg_pool = load_pg_pool(credentials)
                 engine = pg_pool
                 continue
