@@ -2058,8 +2058,6 @@ async def update_floorplan_to_2d(request: Request):
 
     polygons_JSON = plan.reshape_polygons(polygons_JSON, walls_2d_JSON, architectural_scale=scale, resolution_scale=resolution_scale)
     for polygon in polygons_JSON[:]:
-        if not polygon.get("room_name"):
-            continue
         perimeter_lines_contour = plan.load_perimeter(polygon["vertices"], wall_lines, scale=resolution_scale)
         perimeter_wall_line_ids = [wall_line_ids[wall_lines.index(perimeter_line_contour)] for perimeter_line_contour in perimeter_lines_contour]
         polygon_ids_drywall_interior = list()
