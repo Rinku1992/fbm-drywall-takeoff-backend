@@ -2381,7 +2381,7 @@ async def remove_project(request: Request):
         logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
         return respond_with_UI_payload(is_user_not_authenticated)
 
-    query = f"SELECT * FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(user_id) = LOWER(%s);"
+    query = f"SELECT * FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(created_by) = LOWER(%s);"
     query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, user_id,), fetch=True))
     if not query_output:
         return respond_with_UI_payload(dict(status="FAILED", message="Project: {} cannot be deleted".format(project_id)))
