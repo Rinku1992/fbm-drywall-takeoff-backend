@@ -649,7 +649,7 @@ def load_hyperparameters() -> dict:
 
 
 CREDENTIALS = load_gcp_credentials()
-pg_pool = None
+pg_pool = dict()
 DRYWALL_TEMPLATES = None
 
 @asynccontextmanager
@@ -659,7 +659,8 @@ async def lifespan(app: FastAPI):
 
     for attempt in range(10):
         try:
-            pg_pool = load_pg_pool(CREDENTIALS)
+            engine = load_pg_pool(CREDENTIALS)
+            pg_pool["engine"] = engine
             DRYWALL_TEMPLATES = await load_templates(
                 pg_pool,
                 CREDENTIALS
@@ -676,7 +677,7 @@ async def lifespan(app: FastAPI):
 
     yield
 
-    if pg_pool:
+    if pg_pool and pg_pool["engine"]:
         close_pg_pool()
 
 app = FastAPI(title="Drywall Takeoff (Cloud Run)", lifespan=lifespan)
