@@ -1545,13 +1545,13 @@ async def undo_floorplan_to_2d(request: Request):
         CREDENTIALS,
         pg_pool,
         query,
-        params=(session_id, project_id, plan_id, user_id, page_number,),
+        params=(project_id, plan_id, user_id, page_number,),
         fetch=True
     ))
     session_id = query_output[0]["session_id"]
     query = (
         f"UPDATE {CREDENTIALS["CloudSQL"]["table_name_sessions"]} SET status = 'ABORTED' "
-        f"WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND LOWER(user_id) = LOWER(%s) AND page_number = %s;"
+        f"WHERE LOWER(session_id) = LOWER(%s);"
     )
     await run_in_threadpool(partial(
         pg_run,
