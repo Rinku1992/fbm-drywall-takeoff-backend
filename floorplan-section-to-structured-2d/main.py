@@ -35,6 +35,7 @@ from helper import (
     update_status,
     pg_run,
     is_session_active,
+    terminate_session,
 )
 from prompts import CEILING_CHOICES, WALL_CHOICES
 
@@ -142,7 +143,8 @@ async def floorplan_to_structured_2d_sectioned(
         wall_choices=WALL_CHOICES,
         ceiling_choices=CEILING_CHOICES
     )
-    if is_session_active(CREDENTIALS, pg_pool, session_uuid, project_id, plan_id, user_id, page_number):
+    session_is_active = await is_session_active(credentials, pg_pool, session_uuid, project_id, plan_id, user_id, page_number)
+    if session_is_active:
         await insert_model_2d(
             dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
             floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale),
@@ -347,3 +349,4 @@ async def floorplan_section_to_structured_2d(request: Request):
         )
     )
     future.result()
+    terminate_session(CREDENTIALS, pg_pool, session_uuid):
