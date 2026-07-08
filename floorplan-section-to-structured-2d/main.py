@@ -350,4 +350,6 @@ async def floorplan_section_to_structured_2d(request: Request):
         )
     )
     future.result()
-    await terminate_session(CREDENTIALS, pg_pool, session_uuid)
+    session_is_active = await is_session_active(credentials, pg_pool, session_uuid, project_id, plan_id, user_id, page_number)
+    if session_is_active:
+        await terminate_session(CREDENTIALS, pg_pool, session_uuid)
