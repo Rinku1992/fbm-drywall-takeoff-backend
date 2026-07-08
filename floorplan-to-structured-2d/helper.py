@@ -944,7 +944,7 @@ async def return_futures_early_section_to_structured_2d(futures):
                 return [[False, dict(), None, None]] * len(futures)
     return results
 
-async def is_session_active(credentials, pg_pool, session_id, project_id, plan_id, user_id, page_number):
+async def is_session_active(credentials, pg_pool, session_id, project_id, plan_id, user_id, page_number, completed_as_active=False):
     query = (
         f"SELECT status FROM {credentials["CloudSQL"]["table_name_sessions"]} "
         f"WHERE LOWER(session_id) = LOWER(%s) AND LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND LOWER(user_id) = LOWER(%s) AND page_number = %s;"
@@ -958,6 +958,8 @@ async def is_session_active(credentials, pg_pool, session_id, project_id, plan_i
         fetch=True
     ))
     status = query_output[0]["status"]
+    if completed_as_active:
+        return status == "ACTIVE" or status == "COMPLETED"
     return status == "ACTIVE"
 
 async def create_session(credentials, pg_pool, project_id, plan_id, user_id, page_number):
