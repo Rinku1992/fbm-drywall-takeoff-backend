@@ -349,4 +349,4 @@ async def floorplan_section_to_structured_2d(request: Request):
         )
     )
     future.result()
-    terminate_session(CREDENTIALS, pg_pool, session_uuid):
+    await terminate_session(CREDENTIALS, pg_pool, session_uuid)
