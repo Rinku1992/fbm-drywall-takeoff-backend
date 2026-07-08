@@ -34,6 +34,7 @@ from helper import (
     load_publisher_client,
     update_status,
     pg_run,
+    is_session_active,
 )
 from prompts import CEILING_CHOICES, WALL_CHOICES
 
@@ -61,6 +62,7 @@ async def load_segmented_walls(credentials, pg_pool, project_id, plan_id, user_i
 async def floorplan_to_structured_2d_sectioned(
     credentials,
     pg_pool,
+    session_uuid,
     floor_plan_modeller_2d,
     project_id,
     plan_id,
@@ -140,19 +142,20 @@ async def floorplan_to_structured_2d_sectioned(
         wall_choices=WALL_CHOICES,
         ceiling_choices=CEILING_CHOICES
     )
-    await insert_model_2d(
-        dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
-        floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale),
-        page_number,
-        page_sections,
-        page_section_number,
-        plan_id,
-        user_id,
-        project_id,
-        floorplan_baseline_page_source,
-        pg_pool,
-        credentials,
-    )
+    if is_session_active(CREDENTIALS, pg_pool, session_uuid, project_id, plan_id, user_id, page_number):
+        await insert_model_2d(
+            dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
+            floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale),
+            page_number,
+            page_sections,
+            page_section_number,
+            plan_id,
+            user_id,
+            project_id,
+            floorplan_baseline_page_source,
+            pg_pool,
+            credentials,
+        )
     if floor_plan_modeller_2d.is_scale_detected:
         logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} and SECTION: {page_section_number} Generated Successfully")
     else:
@@ -312,6 +315,7 @@ async def floorplan_section_to_structured_2d(request: Request):
     is_scale_detected, _, _ = await floorplan_to_structured_2d_sectioned(
         CREDENTIALS,
         pg_pool,
+        session_uuid,
         floor_plan_modeller_2d,
         project_id,
         plan_id,
