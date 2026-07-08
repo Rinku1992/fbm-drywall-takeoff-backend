@@ -971,6 +971,6 @@ async def create_session(credentials, pg_pool, project_id, plan_id, user_id, pag
         credentials,
         pg_pool,
         query,
-        params=(session_id, user_id, project_id, plan_id, page_number, "ACTIVE",),
+        params=(session_uuid, user_id, project_id, plan_id, page_number, "ACTIVE",),
     ))
     return session_uuid
