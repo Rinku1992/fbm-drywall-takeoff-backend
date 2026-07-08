@@ -3,6 +3,7 @@ import logging
 import json
 import sys
 import os
+import uuid
 import requests
 from pathlib import Path
 from ruamel.yaml import YAML
@@ -959,17 +960,17 @@ async def is_session_active(credentials, pg_pool, session_id, project_id, plan_i
     status = query_output[0]["status"]
     return status == "ACTIVE"
 
-async def create_session(credentials, pg_pool, session_id, project_id, plan_id, user_id, page_number):
+async def create_session(credentials, pg_pool, project_id, plan_id, user_id, page_number):
+    session_uuid = uuid.uuid4().hex
     query = (
-        f"SELECT is_terminated FROM {credentials["CloudSQL"]["table_name_sessions"]} "
-        f"WHERE LOWER(session_id) = LOWER(%s) AND LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND LOWER(user_id) = LOWER(%s) AND page_number = %s;"
+        f"INSERT INTO {credentials["CloudSQL"]["table_name_sessions"]} (session_id, user_id, project_id, plan_id, page_number, created_at, status) "
+        f"VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s);"
     )
-    query_output = await run_in_threadpool(partial(
+    await run_in_threadpool(partial(
         pg_run,
         credentials,
         pg_pool,
         query,
-        params=(session_id, project_id, plan_id, user_id, page_number,),
+        params=(session_id, user_id, project_id, plan_id, page_number, "ACTIVE",),
     ))
-    is_active = not query_output[0]["is_terminated"]
-    return is_active
+    return session_uuid
