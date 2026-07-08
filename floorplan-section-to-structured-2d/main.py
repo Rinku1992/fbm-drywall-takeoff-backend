@@ -35,7 +35,6 @@ from helper import (
     update_status,
     pg_run,
     is_session_active,
-    terminate_session,
 )
 from prompts import CEILING_CHOICES, WALL_CHOICES
 
@@ -285,7 +284,6 @@ async def floorplan_section_to_structured_2d(request: Request):
         )
         future.result()
         logging.warning(f"SYSTEM: Floorplan extraction has failed for Page Number: {page_number} with Error: {e}")
-        await terminate_session(CREDENTIALS, pg_pool, session_uuid)
         return respond_with_UI_payload(dict(status="FAILED", message=f"NO Floor Plan layout observed"))
 
     floorplan_baseline_page_source = None
@@ -351,5 +349,3 @@ async def floorplan_section_to_structured_2d(request: Request):
     )
     future.result()
     session_is_active = await is_session_active(CREDENTIALS, pg_pool, session_uuid, project_id, plan_id, user_id, page_number)
-    if session_is_active:
-        await terminate_session(CREDENTIALS, pg_pool, session_uuid)
