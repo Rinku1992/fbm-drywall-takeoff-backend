@@ -3120,7 +3120,7 @@ async def chat_gemini(request: Request):
                 contents=[feedback_prompt, query] if feedback_prompt else [query],
                 generation_config={**vertex_ai_generation_config, "temperature": temperature},
             ),
-            max_retry=credentials["VertexAI"]["llm"]["max_retry"],
+            max_retry=CREDENTIALS["VertexAI"]["llm"]["max_retry"],
         )
     else:
         response = phoenix_call(
@@ -3128,6 +3128,6 @@ async def chat_gemini(request: Request):
                 contents=[feedback_prompt, query] if feedback_prompt else [query],
                 generation_config={**vertex_ai_generation_config, "temperature": temperature},
             ),
-            max_retry=credentials["VertexAI"]["llm"]["max_retry"],
+            max_retry=CREDENTIALS["VertexAI"]["llm"]["max_retry"],
         )
     return respond_with_UI_payload(dict(response=response))
