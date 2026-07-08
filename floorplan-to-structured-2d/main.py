@@ -293,7 +293,7 @@ async def floorplan_to_structured_2d(request: Request):
     predict_drywall = predict_drywall.upper() == "TRUE"
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
 
-    session_uuid = create_session(CREDENTIALS, pg_pool, project_id, plan_id, user_id, page_number)
+    session_uuid = await create_session(CREDENTIALS, pg_pool, project_id, plan_id, user_id, page_number)
     query = f"SELECT user_id FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s)"
     user_id_owner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id,), fetch=True))
     if user_id_owner:
