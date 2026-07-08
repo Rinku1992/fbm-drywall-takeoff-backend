@@ -945,7 +945,7 @@ async def return_futures_early_section_to_structured_2d(futures):
 
 async def is_session_active(credentials, pg_pool, session_id, project_id, plan_id, user_id, page_number):
     query = (
-        f"SELECT is_terminated FROM {credentials["CloudSQL"]["table_name_sessions"]} "
+        f"SELECT status FROM {credentials["CloudSQL"]["table_name_sessions"]} "
         f"WHERE LOWER(session_id) = LOWER(%s) AND LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND LOWER(user_id) = LOWER(%s) AND page_number = %s;"
     )
     query_output = await run_in_threadpool(partial(
@@ -955,6 +955,21 @@ async def is_session_active(credentials, pg_pool, session_id, project_id, plan_i
         query,
         params=(session_id, project_id, plan_id, user_id, page_number,),
         fetch=True
+    ))
+    status = query_output[0]["status"]
+    return status == "ACTIVE"
+
+async def create_session(credentials, pg_pool, session_id, project_id, plan_id, user_id, page_number):
+    query = (
+        f"SELECT is_terminated FROM {credentials["CloudSQL"]["table_name_sessions"]} "
+        f"WHERE LOWER(session_id) = LOWER(%s) AND LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND LOWER(user_id) = LOWER(%s) AND page_number = %s;"
+    )
+    query_output = await run_in_threadpool(partial(
+        pg_run,
+        credentials,
+        pg_pool,
+        query,
+        params=(session_id, project_id, plan_id, user_id, page_number,),
     ))
     is_active = not query_output[0]["is_terminated"]
     return is_active
