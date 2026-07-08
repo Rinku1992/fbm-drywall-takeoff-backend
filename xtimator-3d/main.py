@@ -1536,16 +1536,6 @@ async def undo_floorplan_to_2d(request: Request):
     if is_user_not_authenticated:
         logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
         return respond_with_UI_payload(is_user_not_authenticated)
-    await insert_page(
-        plan_id,
-        user_id,
-        project_id,
-        page_number,
-        False,
-        "NOT STARTED",
-        pg_pool,
-        CREDENTIALS,
-    )
     query = (
         f"SELECT session_id FROM {CREDENTIALS["CloudSQL"]["table_name_sessions"]} "
         f"WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND LOWER(user_id) = LOWER(%s) AND page_number = %s;"
@@ -1570,6 +1560,16 @@ async def undo_floorplan_to_2d(request: Request):
         query,
         params=(session_id,),
     ))
+    await insert_page(
+        plan_id,
+        user_id,
+        project_id,
+        page_number,
+        False,
+        "NOT STARTED",
+        pg_pool,
+        CREDENTIALS,
+    )
 
 
 @app.post("/load_2d_revision")
