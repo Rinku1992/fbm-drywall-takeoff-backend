@@ -974,3 +974,16 @@ async def create_session(credentials, pg_pool, project_id, plan_id, user_id, pag
         params=(session_uuid, user_id, project_id, plan_id, page_number, "ACTIVE",),
     ))
     return session_uuid
+
+async def terminate_session(credentials, pg_pool, session_id):
+    query = (
+        f"UPDATE {credentials["CloudSQL"]["table_name_sessions"]} SET status = 'COMPLETED' "
+        f"WHERE LOWER(session_id) = LOWER(%s);"
+    )
+    await run_in_threadpool(partial(
+        pg_run,
+        credentials,
+        pg_pool,
+        query,
+        params=(session_id,),
+    ))
