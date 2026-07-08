@@ -48,6 +48,7 @@ from helper import (
     query_subscriber_messages,
     create_session,
     is_session_active,
+    terminate_session,
 )
 from layout_parameters import CEILING_CHOICES, WALL_CHOICES
 
@@ -343,6 +344,7 @@ async def floorplan_to_structured_2d(request: Request):
             user_id,
             page_number=page_number
         )
+        await terminate_session(CREDENTIALS, pg_pool, session_uuid)
         return respond_with_UI_payload(dict(status="FAILED", message=f"NO Floor Plan layout observed"))
     logging.info(f"SYSTEM: Floorplan Preprocessing Completed: Page Number: {page_number}")
 
@@ -407,6 +409,7 @@ async def floorplan_to_structured_2d(request: Request):
             user_id,
             page_number=page_number
         )
+        await terminate_session(CREDENTIALS, pg_pool, session_uuid)
         return respond_with_UI_payload(dict(status="SUCCESS", message="NO Floor Plan layout observed"))
 
     session_is_active = await is_session_active(CREDENTIALS, pg_pool, session_uuid, project_id, plan_id, user_id, page_number)
@@ -531,6 +534,7 @@ async def floorplan_to_structured_2d(request: Request):
             user_id,
             page_number=page_number
         )
+        await terminate_session(CREDENTIALS, pg_pool, session_uuid)
         return respond_with_UI_payload(dict(status="SUCCESS", message="NO Floor Plan layout observed"))
     if not FloorPlan.is_none(wall_segmented_path):
         architectural_scales = (
@@ -608,6 +612,7 @@ async def floorplan_to_structured_2d(request: Request):
                         user_id,
                         page_number=page_number
                     )
+                    await terminate_session(CREDENTIALS, pg_pool, session_uuid)
                     return respond_with_UI_payload(dict(status="SUCCESS", message="Floor Plan extraction completed"))
 
                 if acknowledged_query["is_scale_detected"] == "NA":
@@ -636,6 +641,7 @@ async def floorplan_to_structured_2d(request: Request):
                         user_id,
                         page_number=page_number
                     )
+                    await terminate_session(CREDENTIALS, pg_pool, session_uuid)
                     return respond_with_UI_payload(dict(status="FAILED", message=f"NO Floor Plan layout observed"))
 
                 for query_payload in query_payloads:
@@ -669,4 +675,5 @@ async def floorplan_to_structured_2d(request: Request):
             user_id,
             page_number=page_number
         )
+    await terminate_session(CREDENTIALS, pg_pool, session_uuid)
     return respond_with_UI_payload(dict(status="SUCCESS", message="Floor Plan extraction completed"))
