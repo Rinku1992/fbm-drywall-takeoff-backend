@@ -190,7 +190,7 @@ CREATE TABLE sessions (
     page_number INTEGER NOT NULL,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    is_terminated BOOLEAN DEFAULT FALSE,
+    status TEXT,
 
     PRIMARY KEY (
         session_id
