@@ -3093,3 +3093,40 @@ async def verify_otp(request: PayloadVerifyExternalOtp):
             )
         )
     )
+
+
+from helper import phoenix_call
+from vertexai.generative_models import Part, Content
+@app.post("/chat_gemini")
+async def chat_gemini(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    prompt = parameters.get("prompt") or body.get("prompt")
+    logging.info("SYSTEM: Received a Chat Request")
+    query = Content(role="user", parts=[Part.from_text(prompt)])
+    vertex_ai_client, vertex_ai_generation_config, is_cached = load_vertex_ai_client(
+        CREDENTIALS,
+        ip_address,
+        prompts=[prompt]
+    )
+    if is_cached:
+        response = phoenix_call(
+            lambda feedback_prompt, temperature: vertex_ai_client.generate_content(
+                contents=[feedback_prompt, query] if feedback_prompt else [query],
+                generation_config={**vertex_ai_generation_config, "temperature": temperature},
+            ),
+            max_retry=credentials["VertexAI"]["llm"]["max_retry"],
+        )
+    else:
+        response = phoenix_call(
+            lambda feedback_prompt, temperature: vertex_ai_client(prompt).generate_content(
+                contents=[feedback_prompt, query] if feedback_prompt else [query],
+                generation_config={**vertex_ai_generation_config, "temperature": temperature},
+            ),
+            max_retry=credentials["VertexAI"]["llm"]["max_retry"],
+        )
+    return respond_with_UI_payload(dict(response=response))
