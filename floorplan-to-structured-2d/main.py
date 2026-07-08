@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-import uuid
 import json
 import requests
 from functools import partial
@@ -506,7 +505,6 @@ async def floorplan_to_structured_2d(request: Request):
             if isinstance(architectural_scale, list)
             else [architectural_scale] * len(bounding_box_offsets)
         )
-        session_uuid = uuid.uuid4().hex
         executor = ThreadPoolExecutor(max_workers=2)
         query_payloads = list()
         for bounding_box_offset, architectural_scale, standard_ceiling_height in zip(bounding_box_offsets, architectural_scales, standard_ceiling_heights):
