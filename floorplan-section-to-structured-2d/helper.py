@@ -813,16 +813,3 @@ async def is_session_active(credentials, pg_pool, session_id, project_id, plan_i
     ))
     status = query_output[0]["status"]
     return status == "ACTIVE"
-
-async def terminate_session(credentials, pg_pool, session_id):
-    query = (
-        f"UPDATE {credentials["CloudSQL"]["table_name_sessions"]} SET status = 'COMPLETED' "
-        f"WHERE LOWER(session_id) = LOWER(%s);"
-    )
-    await run_in_threadpool(partial(
-        pg_run,
-        credentials,
-        pg_pool,
-        query,
-        params=(session_id,),
-    ))
