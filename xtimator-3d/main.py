@@ -1561,13 +1561,30 @@ async def undo_floorplan_to_2d(request: Request):
         query,
         params=(session_id,),
     ))
+    query = (
+        f"SELECT status FROM {CREDENTIALS["CloudSQL"]["table_name_sessions"]} "
+        f"WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
+    )
+    query_output = await run_in_threadpool(partial(
+        pg_run,
+        CREDENTIALS,
+        pg_pool,
+        query,
+        params=(project_id, plan_id, page_number,),
+        fetch=True
+    ))
+    status = "NOT STARTED"
+    if query_output:
+        statuses_all = [row["status"] for row in query_output]
+        if "COMPLETED" in statuses_all:
+            status = "COMPLETED"
     await insert_page(
         plan_id,
         user_id,
         project_id,
         page_number,
         False,
-        "NOT STARTED",
+        status,
         pg_pool,
         CREDENTIALS,
     )
