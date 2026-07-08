@@ -3108,6 +3108,7 @@ async def chat_gemini(request: Request):
     prompt = parameters.get("prompt") or body.get("prompt")
     logging.info("SYSTEM: Received a Chat Request")
     query = Content(role="user", parts=[Part.from_text(prompt)])
+    ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
     vertex_ai_client, vertex_ai_generation_config, is_cached = load_vertex_ai_client(
         CREDENTIALS,
         ip_address,
