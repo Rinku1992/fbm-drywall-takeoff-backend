@@ -580,7 +580,7 @@ async def floorplan_to_structured_2d(request: Request):
         all_sections_extracted = False
         sleep_time = 1
         while not all_sections_extracted:
-            session_is_active = await is_session_active(CREDENTIALS, pg_pool, session_uuid, project_id, plan_id, user_id, page_number)
+            session_is_active = await is_session_active(CREDENTIALS, pg_pool, session_uuid, project_id, plan_id, user_id, page_number, completed_as_active=True)
             if not session_is_active:
                 return respond_with_UI_payload(dict(status="ABORTED", message=f"Session Aborted"))
             notifications_arrived_all, acknowledged_queries = query_subscriber_messages(CREDENTIALS, subscriber_client, query_payloads)
@@ -590,7 +590,7 @@ async def floorplan_to_structured_2d(request: Request):
                 if not acknowledged_query["is_scale_detected"]:
                     future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
                     future.result()
-                    session_is_active = await is_session_active(CREDENTIALS, pg_pool, session_uuid, project_id, plan_id, user_id, page_number)
+                    session_is_active = await is_session_active(CREDENTIALS, pg_pool, session_uuid, project_id, plan_id, user_id, page_number, completed_as_active=True)
                     if not session_is_active:
                         return respond_with_UI_payload(dict(status="ABORTED", message=f"Session Aborted"))
                     await insert_page(
@@ -619,7 +619,7 @@ async def floorplan_to_structured_2d(request: Request):
                     future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
                     future.result()
                     logging.warning(f"SYSTEM: Floorplan extraction has failed for Page Number: {page_number} with Error: {e}")
-                    session_is_active = await is_session_active(CREDENTIALS, pg_pool, session_uuid, project_id, plan_id, user_id, page_number)
+                    session_is_active = await is_session_active(CREDENTIALS, pg_pool, session_uuid, project_id, plan_id, user_id, page_number, completed_as_active=True)
                     if not session_is_active:
                         return respond_with_UI_payload(dict(status="ABORTED", message=f"Session Aborted"))
                     await insert_page(
@@ -653,7 +653,7 @@ async def floorplan_to_structured_2d(request: Request):
             sleep(sleep_time)
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
         future.result()
-        session_is_active = await is_session_active(CREDENTIALS, pg_pool, session_uuid, project_id, plan_id, user_id, page_number)
+        session_is_active = await is_session_active(CREDENTIALS, pg_pool, session_uuid, project_id, plan_id, user_id, page_number, completed_as_active=True)
         if not session_is_active:
             return respond_with_UI_payload(dict(status="ABORTED", message=f"Session Aborted"))
         await insert_page(
