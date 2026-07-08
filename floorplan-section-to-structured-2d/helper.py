@@ -819,7 +819,7 @@ async def terminate_session(credentials, pg_pool, session_id):
         f"UPDATE {credentials["CloudSQL"]["table_name_sessions"]} SET status = 'COMPLETED' "
         f"WHERE LOWER(session_id) = LOWER(%s);"
     )
-    query_output = await run_in_threadpool(partial(
+    await run_in_threadpool(partial(
         pg_run,
         credentials,
         pg_pool,
