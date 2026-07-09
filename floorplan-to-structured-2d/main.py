@@ -583,8 +583,6 @@ async def floorplan_to_structured_2d(request: Request):
             if not session_is_active:
                 return respond_with_UI_payload(dict(status="ABORTED", message=f"Session Aborted"))
             notifications_arrived_all, acknowledged_queries = query_subscriber_messages(CREDENTIALS, subscriber_client, query_payloads)
-            print(notifications_arrived_all)
-            print(acknowledged_queries)
             for acknowledged_query in acknowledged_queries:
                 if not acknowledged_query["is_scale_detected"]:
                     future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
