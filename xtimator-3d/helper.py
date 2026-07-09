@@ -1434,3 +1434,19 @@ async def create_session(credentials, pg_pool, project_id, plan_id, user_id, pag
         params=(session_uuid, user_id, project_id, plan_id, page_number, "ACTIVE",),
     ))
     return session_uuid
+
+async def is_session_active(credentials, pg_pool, session_id, project_id, plan_id, user_id, page_number):
+    query = (
+        f"SELECT status FROM {credentials["CloudSQL"]["table_name_sessions"]} "
+        f"WHERE LOWER(session_id) = LOWER(%s) AND LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND LOWER(user_id) = LOWER(%s) AND page_number = %s;"
+    )
+    query_output = await run_in_threadpool(partial(
+        pg_run,
+        credentials,
+        pg_pool,
+        query,
+        params=(session_id, project_id, plan_id, user_id, page_number,),
+        fetch=True
+    ))
+    status = query_output[0]["status"]
+    return status == "ACTIVE"
