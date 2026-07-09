@@ -1,4 +1,4 @@
-name: 'Manual XTIMATOR-PAGE-CLASSIFIER Cloud Run Build and Deploy'
+name: 'Manual XTIMATOR-PAGE-CLASSIFIER-2D Cloud Run Build and Deploy'
 
 on:
   workflow_dispatch:
@@ -13,29 +13,21 @@ on:
           - uat
           - prod
 
-      image_tag:
-        description: 'Docker image tag'
-        required: false
-        default: 'latest'
-
 jobs:
   build-and-deploy:
     name: 'Build, Push, and Deploy to Cloud Run'
     runs-on: ubuntu-latest
-
     permissions:
       contents: read
       id-token: write
-
     environment: ${{ github.event.inputs.environment }}
-
     defaults:
       run:
         working-directory: xtimator-page-classifier
 
     steps:
       - name: 'Checkout Code'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v2
 
       - name: 'Authenticate to Google Cloud'
         uses: google-github-actions/auth@v2
@@ -43,7 +35,8 @@ jobs:
           workload_identity_provider: ${{ github.event.inputs.environment == 'QA' && vars.WIF_PROVIDER_QA || github.event.inputs.environment == 'uat' && vars.WIF_PROVIDER_UAT || github.event.inputs.environment == 'prod' && vars.WIF_PROVIDER_PROD || vars.WIF_PROVIDER_DEV }}
           service_account: ${{ github.event.inputs.environment == 'QA' && vars.SERVICE_ACCOUNT_QA || github.event.inputs.environment == 'uat' && vars.SERVICE_ACCOUNT_UAT || github.event.inputs.environment == 'prod' && vars.SERVICE_ACCOUNT_PROD || vars.SERVICE_ACCOUNT_DEV }}
 
-      - name: 'Set GCP Project ID'
+      # Set GCP Project ID 
+      - name: "Set GCP Project ID"
         run: |
           if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
             echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_QA }}" >> $GITHUB_ENV
@@ -55,60 +48,24 @@ jobs:
             echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_DEV }}" >> $GITHUB_ENV
           fi
 
-      - name: "Set VPC Access Connector"
+      # Set instance limits
+      - name: "Set Cloud Run instance limits"
         run: |
           if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
-            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_QA }}" >> $GITHUB_ENV
+            echo "MIN_INSTANCES=10" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=100" >> $GITHUB_ENV
           elif [ "${{ github.event.inputs.environment }}" == "uat" ]; then
-            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_UAT }}" >> $GITHUB_ENV
+            echo "MIN_INSTANCES=10" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=100" >> $GITHUB_ENV
           elif [ "${{ github.event.inputs.environment }}" == "prod" ]; then
-            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_PROD }}" >> $GITHUB_ENV
-          else
-            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_DEV }}" >> $GITHUB_ENV
-          fi
-
-      - name: 'Set Model Bucket'
-        run: |
-          if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
-            echo "MODEL_BUCKET=${{ vars.MODEL_BUCKET_QA }}" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.environment }}" == "uat" ]; then
-            echo "MODEL_BUCKET=${{ vars.MODEL_BUCKET_UAT }}" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.environment }}" == "prod" ]; then
-            echo "MODEL_BUCKET=${{ vars.MODEL_BUCKET_PROD }}" >> $GITHUB_ENV
-          else
-            echo "MODEL_BUCKET=${{ vars.MODEL_BUCKET_DEV }}" >> $GITHUB_ENV
-          fi
-
-      - name: 'Set Image Details'
-        run: |
-          IMAGE_TAG="${{ github.event.inputs.image_tag }}"
-          IMAGE_NAME="drywall-page-classifier"
-          SERVICE_NAME="drywall-page-classifier"
-          FINETUNED_MODEL_PATH="page_classifier"
-      
-          echo "IMAGE_TAG=${IMAGE_TAG}" >> $GITHUB_ENV
-          echo "IMAGE_NAME=${IMAGE_NAME}" >> $GITHUB_ENV
-          echo "SERVICE_NAME=${SERVICE_NAME}" >> $GITHUB_ENV
-          echo "FINETUNED_MODEL_PATH=${FINETUNED_MODEL_PATH}" >> $GITHUB_ENV
-          echo "IMAGE_URI=gcr.io/${GCP_PROJECT_ID}/${IMAGE_NAME}:${IMAGE_TAG}" >> $GITHUB_ENV
-
-      - name: 'Set Cloud Run instance limits'
-        run: |
-          if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
-            echo "MIN_INSTANCES=1" >> $GITHUB_ENV
-            echo "MAX_INSTANCES=3" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.environment }}" == "uat" ]; then
-            echo "MIN_INSTANCES=1" >> $GITHUB_ENV
-            echo "MAX_INSTANCES=3" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.environment }}" == "prod" ]; then
-            echo "MIN_INSTANCES=1" >> $GITHUB_ENV
-            echo "MAX_INSTANCES=3" >> $GITHUB_ENV
+            echo "MIN_INSTANCES=10" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=100" >> $GITHUB_ENV
           else
             echo "MIN_INSTANCES=1" >> $GITHUB_ENV
-            echo "MAX_INSTANCES=1" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=100" >> $GITHUB_ENV
           fi
 
-       #  Set dynamic region
+      #  Set dynamic region
       - name: "Set Cloud Run region"
         run: |
           if [ "${{ github.event.inputs.environment }}" == "dev" ]; then
@@ -122,17 +79,46 @@ jobs:
         with:
           project_id: ${{ env.GCP_PROJECT_ID }}
 
-      - name: 'Submit Cloud Build'
+      - name: "Set Docker image path"
         run: |
-          gcloud builds submit . \
-            --config cloudbuild.yaml \
-            --project "${GCP_PROJECT_ID}" \
-            --substitutions=_IMAGE_TAG="${IMAGE_TAG}",_MODEL_BUCKET="${MODEL_BUCKET}",_FINETUNED_MODEL_PATH="${FINETUNED_MODEL_PATH}",_IMAGE_NAME="${IMAGE_NAME}"
+          if [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+            echo "IMAGE_PATH=us-east4-docker.pkg.dev/prj-fbm-drywall-prod/fbm-drywall-prod-use4-repo/drywall-page-classifier" >> $GITHUB_ENV
+            echo "DOCKER_REGISTRY=us-east4-docker.pkg.dev" >> $GITHUB_ENV
+          else
+            echo "IMAGE_PATH=gcr.io/${{ env.GCP_PROJECT_ID }}/drywall-page-classifier" >> $GITHUB_ENV
+            echo "DOCKER_REGISTRY=gcr.io" >> $GITHUB_ENV
+          fi
+
+      - name: 'Build Docker Image'
+        run: |
+          docker build \
+          -t ${{ env.IMAGE_PATH }} \
+          .
+
+      - name: Docker Authentication
+        run: |
+          gcloud auth configure-docker ${{ env.DOCKER_REGISTRY }} --quiet
+
+      - name: "Set VPC Access Connector"
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
+            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_QA }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "uat" ]; then
+            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_UAT }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_PROD }}" >> $GITHUB_ENV
+          else
+            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_DEV }}" >> $GITHUB_ENV
+          fi
+
+      - name: 'Push Docker Image'
+        run: |
+          docker push ${{ env.IMAGE_PATH }}
 
       - name: 'Deploy to Cloud Run'
         run: |
-          gcloud run deploy ${{ env.SERVICE_NAME }} \
-            --image ${{ env.IMAGE_URI }} \
+          gcloud run deploy drywall-page-classifier \
+            --image ${{ env.IMAGE_PATH }} \
             --platform managed \
             --region ${{ env.REGION }} \
             --project ${{ env.GCP_PROJECT_ID }} \
@@ -142,7 +128,7 @@ jobs:
             --gpu 1 \
             --gpu-type nvidia-l4 \
             --min-instances ${{ env.MIN_INSTANCES }} \
-            --max-instances ${{ env.MAX_INSTANCES }} \
+            --max-instances 1 \
             --concurrency 1 \
             --execution-environment gen2 \
             --timeout 1800 \
@@ -150,4 +136,3 @@ jobs:
             --vpc-connector ${{ env.VPC_ACCESS_CONNECTOR }} \
             --vpc-egress all-traffic \
             --no-allow-unauthenticated
- 
