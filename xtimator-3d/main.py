@@ -74,6 +74,7 @@ from helper import (
     download_floorplan,
     enforce_early_stopping,
     load_organization_slug,
+    create_session,
 )
 from prompts import VISUAL_GROUNDING_DETECTOR, SLOPED_CEILING_CHOICES
 
@@ -540,6 +541,7 @@ def floorplan_to_structured_2d(
     bounding_box_offsets,
     elevation_pages,
     architectural_scale,
+    session_uuid,
 ):
     headers = {
         "Authorization": f"Bearer {id_token}",
@@ -556,7 +558,8 @@ def floorplan_to_structured_2d(
             mask_factor=mask_factor,
             bounding_box_offsets=bounding_box_offsets,
             elevation_pages=elevation_pages,
-            architectural_scale=architectural_scale
+            architectural_scale=architectural_scale,
+            session_uuid=session_uuid,
         ),
     )
     return response.raise_for_status()
@@ -1383,6 +1386,8 @@ async def floorplan_to_2d(request: Request):
         n_pages=n_pages,
     )
     for index, page_metadata in enumerate(pages_metadata):
+        session_uuid = await create_session(CREDENTIALS, pg_pool, project_id, plan_id, user_id, page_metadata["page_number"])
+        page_metadata["session_uuid"] = session_uuid
         await insert_page(
             plan_id,
             user_id,
@@ -1464,7 +1469,8 @@ async def floorplan_to_2d(request: Request):
                     page_metadata["mask_factor"],
                     page_metadata["bounding_box_offsets"],
                     elevation_pages,
-                    page_metadata.get("architectural_scale")
+                    page_metadata.get("architectural_scale"),
+                    page_metadata["session_uuid"]
                 )
             query_payloads = [dict(project_id=project_id, plan_id=plan_id, page_number=page_metadata["page_number"]) for page_metadata in pages_metadata]
             timeout = from_unix_epoch() + 7200
