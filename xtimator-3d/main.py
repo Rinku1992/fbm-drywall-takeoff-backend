@@ -75,6 +75,7 @@ from helper import (
     enforce_early_stopping,
     load_organization_slug,
     create_session,
+    is_session_active,
 )
 from prompts import VISUAL_GROUNDING_DETECTOR, SLOPED_CEILING_CHOICES
 
@@ -1354,6 +1355,10 @@ async def floorplan_to_2d(request: Request):
         logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
         return respond_with_UI_payload(is_user_not_authenticated)
 
+    for index, page_metadata in enumerate(pages_metadata):
+        session_uuid = await create_session(CREDENTIALS, pg_pool, project_id, plan_id, user_id, page_metadata["page_number"])
+        page_metadata["session_uuid"] = session_uuid
+
     pdf_path = Path("/tmp/floor_plan.PDF")
     query = f"SELECT user_id FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s)"
     user_id_owner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id,), fetch=True))
@@ -1386,18 +1391,18 @@ async def floorplan_to_2d(request: Request):
         n_pages=n_pages,
     )
     for index, page_metadata in enumerate(pages_metadata):
-        session_uuid = await create_session(CREDENTIALS, pg_pool, project_id, plan_id, user_id, page_metadata["page_number"])
-        page_metadata["session_uuid"] = session_uuid
-        await insert_page(
-            plan_id,
-            user_id,
-            project_id,
-            page_metadata["page_number"],
-            False,
-            "IN PROGRESS",
-            pg_pool,
-            CREDENTIALS,
-        )
+        session_is_active = await is_session_active(CREDENTIALS, pg_pool, page_metadata["session_uuid"], project_id, plan_id, user_id, page_metadata["page_number"])
+        if session_is_active:
+            await insert_page(
+                plan_id,
+                user_id,
+                project_id,
+                page_metadata["page_number"],
+                False,
+                "IN PROGRESS",
+                pg_pool,
+                CREDENTIALS,
+            )
     hyperparameters = load_hyperparameters()
     if hyperparameters["modelling"]["enable_early_stopping"]:
         pages_metadata = await enforce_early_stopping(CREDENTIALS, pg_pool, project_id, plan_id, user_id, pdf_path, pages_metadata)
