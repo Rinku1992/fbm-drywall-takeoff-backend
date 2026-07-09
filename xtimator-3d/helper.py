@@ -3,6 +3,7 @@ import json
 from json.decoder import JSONDecodeError
 import logging
 import hashlib
+import uuid
 import requests
 from pathlib import Path
 import datetime
@@ -1418,3 +1419,18 @@ def is_firebase_authenticated(credentials, request, user_id=None):
         logging.info(f"SYSTEM: Authentication verification failed due to Invalid ID token: {e}")
         firebase_admin.delete_app(drywall_app)
         return False, user_id
+
+async def create_session(credentials, pg_pool, project_id, plan_id, user_id, page_number):
+    session_uuid = uuid.uuid4().hex
+    query = (
+        f"INSERT INTO {credentials["CloudSQL"]["table_name_sessions"]} (session_id, user_id, project_id, plan_id, page_number, created_at, status) "
+        f"VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s);"
+    )
+    await run_in_threadpool(partial(
+        pg_run,
+        credentials,
+        pg_pool,
+        query,
+        params=(session_uuid, user_id, project_id, plan_id, page_number, "ACTIVE",),
+    ))
+    return session_uuid
