@@ -3,12 +3,10 @@ import logging
 import json
 import sys
 import os
-import uuid
 import requests
 from pathlib import Path
 from ruamel.yaml import YAML
 from time import sleep
-import datetime
 import base64
 from copy import deepcopy
 from json.decoder import JSONDecodeError
