@@ -11,7 +11,6 @@ import base64
 from copy import deepcopy
 from json.decoder import JSONDecodeError
 
-from random import uniform
 from PIL import Image
 import numpy as np
 import math
