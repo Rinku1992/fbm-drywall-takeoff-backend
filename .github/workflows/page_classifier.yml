@@ -127,7 +127,7 @@ jobs:
             --memory 32Gi \
             --gpu 1 \
             --gpu-type nvidia-l4 \
-            --min-instances ${{ env.MIN_INSTANCES }} \
+            --min-instances 1 \
             --max-instances 1 \
             --concurrency 1 \
             --execution-environment gen2 \
