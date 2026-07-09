@@ -1560,6 +1560,8 @@ async def undo_floorplan_to_2d(request: Request):
         params=(project_id, plan_id, user_id, page_number,),
         fetch=True
     ))
+    if not query_output:
+        return
     session_id = query_output[0]["session_id"]
     query = (
         f"UPDATE {CREDENTIALS["CloudSQL"]["table_name_sessions"]} SET status = 'ABORTED' "
