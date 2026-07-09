@@ -767,11 +767,11 @@ def polygon_to_structured_2d(credentials, query_json):
     return response.status_code, response.content
 
 def load_publisher_client(credentials):
-     credentials_SA = service_account.Credentials.from_service_account_file(credentials["PubSub"]["service_account_key"])
-     publisher = PublisherClient(credentials=credentials_SA)
-     publisher_client = lambda payload: publisher.publish(credentials["PubSub"]["topic_name"], json.dumps(payload).encode("utf-8"))
+    credentials_SA = service_account.Credentials.from_service_account_file(credentials["PubSub"]["service_account_key"])
+    publisher = PublisherClient(credentials=credentials_SA)
+    publisher_client = lambda payload: publisher.publish(credentials["PubSub"]["topic_name"], json.dumps(payload).encode("utf-8"))
 
-     return publisher_client
+    return publisher_client
 
 async def load_organization_slug(credentials, pg_pool, user_id):
     query = f"""SELECT COALESCE(o.organization_slug, 
