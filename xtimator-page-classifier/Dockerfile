@@ -28,6 +28,7 @@ ENV PYTHONPATH=/app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential \
+        git-lfs \
         wget \
         curl \
         ca-certificates \
@@ -72,6 +73,7 @@ COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir \
         -r /tmp/requirements.txt \
     && rm /tmp/requirements.txt
+RUN git lfs install
 
 WORKDIR /app
 
