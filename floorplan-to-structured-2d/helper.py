@@ -23,19 +23,12 @@ from functools import partial
 from fastapi.concurrency import run_in_threadpool
 
 import geoip2.database as geoip2_database
-import vertexai
-from vertexai.generative_models import GenerativeModel
 from google.cloud.storage import Client as CloudStorageClient
 import google_crc32c
 from fastapi.encoders import jsonable_encoder
 import google.auth.transport.requests
 from google.oauth2.service_account import IDTokenCredentials
-from google.api_core.exceptions import (
-    ResourceExhausted,
-    ServiceUnavailable,
-    DeadlineExceeded,
-    InternalServerError,
-)
+from google.api_core.exceptions import DeadlineExceeded
 from google.auth.transport.requests import Request
 from google.cloud.sql.connector import Connector, IPTypes
 from google.auth.exceptions import TransportError
@@ -50,8 +43,6 @@ from pg8000.dbapi import (
     InterfaceError as InterfaceErrorPG8000,
     DatabaseError as DatabaseErrorPG8000,
 )
-from vertexai.generative_models import Content, Part
-from vertexai.caching import CachedContent
 from google.oauth2 import service_account
 from google.cloud.pubsub_v1 import SubscriberClient
 from google.cloud.pubsub_v1 import PublisherClient
