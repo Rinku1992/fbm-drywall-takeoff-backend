@@ -962,21 +962,6 @@ async def is_session_active(credentials, pg_pool, session_id, project_id, plan_i
         return status == "ACTIVE" or status == "COMPLETED"
     return status == "ACTIVE"
 
-async def create_session(credentials, pg_pool, project_id, plan_id, user_id, page_number):
-    session_uuid = uuid.uuid4().hex
-    query = (
-        f"INSERT INTO {credentials["CloudSQL"]["table_name_sessions"]} (session_id, user_id, project_id, plan_id, page_number, created_at, status) "
-        f"VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP, %s);"
-    )
-    await run_in_threadpool(partial(
-        pg_run,
-        credentials,
-        pg_pool,
-        query,
-        params=(session_uuid, user_id, project_id, plan_id, page_number, "ACTIVE",),
-    ))
-    return session_uuid
-
 async def terminate_session(credentials, pg_pool, session_id):
     query = (
         f"UPDATE {credentials["CloudSQL"]["table_name_sessions"]} SET status = 'COMPLETED' "
