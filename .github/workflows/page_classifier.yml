@@ -85,7 +85,7 @@ jobs:
 
           gcloud storage cp \
             gs://drywall-takeoff-artifacts-dev/page-classifier/checkpoints/best.pth \
-            xtimator-page-classifier/checkpoints/best.pth
+            checkpoints/best.pth
 
       - name: "Set Docker image path"
         run: |
