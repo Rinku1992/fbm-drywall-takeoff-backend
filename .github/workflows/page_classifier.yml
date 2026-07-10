@@ -28,6 +28,14 @@ jobs:
     steps:
       - name: 'Checkout Code'
         uses: actions/checkout@v2
+        with:
+          lfs: true
+          fetch-depth: 0
+
+      - name: Pull Git LFS files
+        run: |
+          git lfs install
+          git lfs pull
 
       - name: 'Authenticate to Google Cloud'
         uses: google-github-actions/auth@v2
