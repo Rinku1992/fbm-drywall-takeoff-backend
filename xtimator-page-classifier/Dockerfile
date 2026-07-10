@@ -27,8 +27,9 @@ ENV PYTHONPATH=/app
 #     && ln -sf /usr/bin/python3.12 /usr/local/bin/python3
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        apt-transport-https \
+        gnupg \
         build-essential \
-        git-lfs \
         wget \
         curl \
         ca-certificates \
@@ -56,6 +57,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /tmp/Python-3.12.8 /tmp/Python-3.12.8.tgz \
     && rm -rf /var/lib/apt/lists/*
 
+RUN curl https://packages.cloud.google.com/apt/doc/apt-key.gpg \
+    | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+
+RUN echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] http://packages.cloud.google.com/apt cloud-sdk main" \
+    > /etc/apt/sources.list.d/google-cloud-sdk.list
+
+RUN apt-get update && apt-get install -y google-cloud-cli
+
 # pip with --break-system-packages because the base image's Python is system-managed
 # RUN python -m pip install --upgrade pip setuptools wheel --break-system-packages
 RUN python -m pip install --upgrade pip setuptools wheel
@@ -73,7 +82,6 @@ COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir \
         -r /tmp/requirements.txt \
     && rm /tmp/requirements.txt
-RUN git lfs install
 
 WORKDIR /app
 
@@ -82,7 +90,9 @@ COPY app /app/app
 
 # ─── Model checkpoint (baked into image) ──────────────────────
 # Must be present in build context.
+RUN mkdir -p /app/checkpoints
 COPY checkpoints/best.pth /app/checkpoints/best.pth
+
 RUN test -f /app/checkpoints/best.pth \
         || (echo "FATAL: checkpoints/best.pth not found in build context" && exit 1)
 
