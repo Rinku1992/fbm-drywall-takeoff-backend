@@ -28,14 +28,6 @@ jobs:
     steps:
       - name: 'Checkout Code'
         uses: actions/checkout@v2
-        with:
-          lfs: true
-          fetch-depth: 0
-
-      - name: Pull Git LFS files
-        run: |
-          git lfs install
-          git lfs pull
 
       - name: 'Authenticate to Google Cloud'
         uses: google-github-actions/auth@v2
@@ -86,6 +78,14 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Download checkpoint
+        run: |
+          mkdir -p xtimator-page-classifier/checkpoints
+
+          gcloud storage cp \
+            gs://drywall-takeoff-artifacts-prod/page-classifier/checkpoints/best.pth \
+            xtimator-page-classifier/checkpoints/best.pth
 
       - name: "Set Docker image path"
         run: |
