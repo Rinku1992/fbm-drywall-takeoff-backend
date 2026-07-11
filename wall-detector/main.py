@@ -19,10 +19,6 @@ if torch.cuda.is_available():
 from wall_detector import WallDetector
 
 
-if torch.cuda.is_available():
-    torch.cuda.set_per_process_memory_fraction(0.8)
-
-
 def _verify_model_weights_or_die():
     """Fail fast if required model files are not available at startup."""
     sd_root = os.getenv("SD_MODEL_PATH", "/models/stable-diffusion-v1-4")
@@ -91,6 +87,10 @@ def load_gcp_credentials() -> dict:
     yaml = YAML(typ="safe", pure=True)
     with open("config/gcp.yaml", "r") as f:
         credentials = yaml.load(f)
+
+    service_account_key = credentials.get("service_account_key")
+    if service_account_key and Path(service_account_key).exists():
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = service_account_key
 
     return credentials
 
