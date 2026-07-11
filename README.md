@@ -291,3 +291,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE
 ON ALL TABLES IN SCHEMA public
 TO "sa-drywall-api-dev@prj-fbm-drywall-dev.iam";
 ```
+
+<b>Add CORS permission to GCP artifacts bucket</b>
+```bash
+> cd xtimator-3d
+> gcloud storage buckets update gs://drywall-takeoff-artifacts-prod --cors-file=config/gcs_bucket_CORS.json
+```
