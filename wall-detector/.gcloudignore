@@ -1,3 +1,5 @@
+.gcloudignore
+.git
 __pycache__
 .gcloud/
 logs*.txt

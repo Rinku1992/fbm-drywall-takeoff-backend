@@ -1,0 +1,92 @@
+substitutions:
+
+  _IMAGE_TAG: "latest"
+
+  _MODEL_BUCKET: ""
+
+  _FINETUNED_MODEL_PATH: ""
+
+  _BASE_MODEL_PATH: ""
+ 
+steps:
+
+  # Step 1: Download model weights from GCS inside Cloud Build
+
+  - id: "Download model weights"
+
+    name: "gcr.io/google.com/cloudsdktool/cloud-sdk:slim"
+
+    entrypoint: "bash"
+
+    args:
+
+      - "-c"
+
+      - |
+
+        set -euo pipefail
+
+        echo "Downloading model weights inside Cloud Build..."
+
+        mkdir -p models
+
+        echo "Downloading finetuned model..."
+
+        gsutil -m -o "GSUtil:num_retries=5" cp -r "gs://${_MODEL_BUCKET}/${_FINETUNED_MODEL_PATH}" models/
+
+        echo "Downloading base model..."
+
+        gsutil -m -o "GSUtil:num_retries=5" cp -r "gs://${_MODEL_BUCKET}/${_BASE_MODEL_PATH}" models/
+
+        echo "Downloaded model folders:"
+
+        du -sh models
+
+        find models -maxdepth 3 -type f | head -50
+ 
+  # Step 2: Build Docker image with model weights baked in
+
+  - id: "Build Docker image"
+
+    name: "gcr.io/cloud-builders/docker"
+
+    args:
+
+      - "build" 
+      
+      - "--no-cache"
+
+      - "--progress=plain"
+
+      - "-t"
+
+      - "gcr.io/${PROJECT_ID}/wall-detector:${_IMAGE_TAG}"
+
+      - "-t"
+
+      - "gcr.io/${PROJECT_ID}/wall-detector:latest"
+
+      - "."
+ 
+  # Step 3: Push Docker image explicitly (with full log visibility)
+
+  - id: "Push Docker image"
+
+    name: "gcr.io/cloud-builders/docker"
+
+    args:
+
+      - "push"
+
+      - "--all-tags"
+
+      - "gcr.io/${PROJECT_ID}/wall-detector"
+ 
+options:
+
+  machineType: "E2_HIGHCPU_8"
+
+  diskSizeGb: 200
+ 
+timeout: "3600s"
+ 
