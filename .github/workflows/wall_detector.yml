@@ -148,7 +148,7 @@ jobs:
             --gpu 1 \
             --gpu-type nvidia-l4 \
             --min-instances 1 \
-            --max-instances 1 \
+            --max-instances 2 \
             --concurrency 10 \
             --execution-environment gen2 \
             --timeout 1800 \
