@@ -4,6 +4,10 @@
 ## XTIMATOR Functional Architecture
 <img width="1600" height="900" alt="image" src="https://github.com/user-attachments/assets/5a85bd37-36ed-4185-bb50-8e47161be420" />
 
+## XTIMATOR User Guides
+### Onboarding External Organizations into Xtimator Application
+[User guide to onboard external organizations](https://fbm.atlassian.net/wiki/spaces/FBMAITEAM/pages/3429728263/User+Guide+Onboarding+External+Organizations+into+Xtimator+Application)
+
 ## Installation
 ### Fully Managed Relational Database - Cloud SQL for PostgreSQL
 <b>Database Name: </b> <b><i>drywall_takeoff</i></b><br>
