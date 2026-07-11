@@ -1,0 +1,38 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: wall-detector
+  annotations:
+    run.googleapis.com/launch-stage: BETA
+    run.googleapis.com/ingress: internal-and-cloud-load-balancing
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/execution-environment: gen2
+        run.googleapis.com/gpu-zonal-redundancy-disabled: 'true'
+        run.googleapis.com/cpu-throttling: 'false'
+        run.googleapis.com/startup-cpu-boost: 'true'
+        autoscaling.knative.dev/maxScale: '3'
+        autoscaling.knative.dev/minScale: '1'
+    spec:
+      containerConcurrency: 10
+      timeoutSeconds: 600
+      containers:
+      - image: gcr.io/prj-fbm-drywall-dev/wall-detector:latest
+        ports:
+        - name: http1
+          containerPort: 8080
+        resources:
+          limits:
+            memory: 16Gi
+            nvidia.com/gpu: '1'
+            cpu: '4'
+        startupProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 15
+          failureThreshold: 180
+          timeoutSeconds: 5

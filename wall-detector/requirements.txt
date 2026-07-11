@@ -1,45 +1,23 @@
+--extra-index-url https://download.pytorch.org/whl/cu124
 ruamel-yaml
-accelerate
-bitsandbytes
-datasets
-geonamescache
-git+https://github.com/facebookresearch/segment-anything.git
-googletrans==3.1.0a0
+accelerate==0.25.0 #1.2.1
 google-cloud-storage
 google-auth
-google-cloud-vision
-img2dataset
-linktransformer
-matplotlib
-onnx
-onnxruntime
-opencv-python
-pandas
 Pillow
-plotly==5.18.0
-pycocotools
-pycountry==20.7.3
-pytorch-lightning
-seaborn
-sentence-transformers
-seqeval
-simplejson
-tensorboard
-timm
-torch==2.6.0
-torchvision==0.21.0
-transformers
-scikit-learn==1.7.2
-tokenizers==0.22.1
+torch==2.6.0+cu124
+torchvision==0.21.0+cu124
+transformers==4.36.2 #4.47.1
+tokenizers==0.15.0
 fastapi
 uvicorn
-diffusers
+diffusers==0.24.0 #0.32.2
+huggingface_hub==0.19.4 #0.27.1
 python-multipart
-# --upgrade diffusers[torch]
-# -U kaleido
+peft==0.7.1
 cloud-sql-python-connector[pg8000]
 requests
 SQLAlchemy
 pg8000
 google-api-core
 google-cloud-aiplatform
+safetensors==0.4.5

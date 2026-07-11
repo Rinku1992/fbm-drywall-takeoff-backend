@@ -122,6 +122,10 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Model weights (baked into Docker image, never commit to git)
+stable-diffusion-v1-4/
+Finetuned_Iter_17/
+
 # Azure Functions artifacts
 bin
 obj

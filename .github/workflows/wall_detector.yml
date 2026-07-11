@@ -1,16 +1,17 @@
 name: 'Manual XTIMATOR-WALL-DETECTOR Cloud Run Build and Deploy'
 
 on:
-  # Manual trigger for the Cloud Run deployment
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Select environment (dev or prod)'
+        description: 'Select environment (dev, QA, uat, or prod)'
         required: true
         type: choice
         options:
           - dev
           - QA
+          - uat
+          - prod
 
 jobs:
   build-and-deploy:
@@ -28,105 +29,127 @@ jobs:
       - name: 'Checkout Code'
         uses: actions/checkout@v2
 
-      # Authenticate to Google Cloud
       - name: 'Authenticate to Google Cloud'
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ github.event.inputs.environment == 'QA' && vars.WIF_PROVIDER_QA || vars.WIF_PROVIDER_DEV }}
-          service_account: ${{ github.event.inputs.environment == 'QA' && vars.SERVICE_ACCOUNT_QA || vars.SERVICE_ACCOUNT_DEV }}
-      
-      # Set up GCP Project ID 
+          workload_identity_provider: ${{ github.event.inputs.environment == 'QA' && vars.WIF_PROVIDER_QA || github.event.inputs.environment == 'uat' && vars.WIF_PROVIDER_UAT || github.event.inputs.environment == 'prod' && vars.WIF_PROVIDER_PROD || vars.WIF_PROVIDER_DEV }}
+          service_account: ${{ github.event.inputs.environment == 'QA' && vars.SERVICE_ACCOUNT_QA || github.event.inputs.environment == 'uat' && vars.SERVICE_ACCOUNT_UAT || github.event.inputs.environment == 'prod' && vars.SERVICE_ACCOUNT_PROD || vars.SERVICE_ACCOUNT_DEV }}
+
+      # Set GCP Project ID 
       - name: "Set GCP Project ID"
         run: |
           if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
             echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_QA }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "uat" ]; then
+            echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_UAT }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+            echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_PROD }}" >> $GITHUB_ENV
           else
             echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_DEV }}" >> $GITHUB_ENV
           fi
 
-      # Set up Google Cloud SDK
+      # Set instance limits
+      - name: "Set Cloud Run instance limits"
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
+            echo "MIN_INSTANCES=10" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=100" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "uat" ]; then
+            echo "MIN_INSTANCES=10" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=100" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+            echo "MIN_INSTANCES=10" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=100" >> $GITHUB_ENV
+          else
+            echo "MIN_INSTANCES=1" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=100" >> $GITHUB_ENV
+          fi
+
+      #  Set dynamic region
+      - name: "Set Cloud Run region"
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "dev" ]; then
+            echo "REGION=us-central1" >> $GITHUB_ENV
+          else
+            echo "REGION=us-east4" >> $GITHUB_ENV
+          fi
+
       - name: 'Set up Google Cloud SDK'
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.GCP_PROJECT_ID }}
-          # export_default_credentials: true
 
-      
-      # Set model paths based on environment
-      - name: "Set Model Paths"
+      - name: Download checkpoints
         run: |
-          if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
-            echo "MODEL_BUCKET=${{ vars.MODEL_BUCKET_QA }}" >> $GITHUB_ENV
-            echo "FINETUNED_MODEL_PATH=${{ vars.FINETUNED_MODEL_PATH_QA }}" >> $GITHUB_ENV
+          mkdir -p models
+
+          gcloud storage cp -r \
+            gs://drywall-takeoff-artifacts-prod/Finetuned_Iter_17/ \
+            models/
+
+          gcloud storage cp -r \
+            gs://drywall-takeoff-artifacts-prod/stable-diffusion-v1-4/ \
+            models/
+
+      - name: "Set Docker image path"
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+            echo "IMAGE_PATH=us-east4-docker.pkg.dev/prj-fbm-drywall-prod/fbm-drywall-prod-use4-repo/wall-detector" >> $GITHUB_ENV
+            echo "DOCKER_REGISTRY=us-east4-docker.pkg.dev" >> $GITHUB_ENV
           else
-            echo "MODEL_BUCKET=${{ vars.MODEL_BUCKET_DEV }}" >> $GITHUB_ENV
-            echo "FINETUNED_MODEL_PATH=${{ vars.FINETUNED_MODEL_PATH_DEV }}" >> $GITHUB_ENV
+            echo "IMAGE_PATH=gcr.io/${{ env.GCP_PROJECT_ID }}/wall-detector" >> $GITHUB_ENV
+            echo "DOCKER_REGISTRY=gcr.io" >> $GITHUB_ENV
           fi
 
-      # Download model weights from GCS before Docker build
-      # - name: 'Download Model Folders'
-      #   run: |
-      #     mkdir -p models
+      - name: Free disk
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/lib/android
+          docker system prune -af || true
+          df -h
 
-      #     gsutil -m cp -r \
-           
-      #       models/
-
-      #     gsutil -m cp -r \
-      #     
-      #       models/
-
-      #     echo "Downloaded model folders:"
-      #     find models
-
-      # # Cleanup Docker cache before build
-      # - name: 'Cleanup Docker'
-      #   run: |
-      #     docker system prune -a -f --volumes
-      #     docker builder prune -a -f
-
-      # Build the Docker image for Cloud Run
-      - name: 'Build Docker Image'
+      - name: Build Docker Image
         run: |
           docker build \
-            -t gcr.io/${{ env.GCP_PROJECT_ID }}/wall-detector \
-            .
+          -t ${{ env.IMAGE_PATH }} \
+          .
 
-      # Docker Authentication with Artifact Registry
       - name: Docker Authentication
         run: |
-         gcloud auth configure-docker gcr.io --quiet
- 
+          gcloud auth configure-docker ${{ env.DOCKER_REGISTRY }} --quiet
 
-      # Set up VPC Access Connector
       - name: "Set VPC Access Connector"
         run: |
           if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
             echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_QA }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "uat" ]; then
+            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_UAT }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_PROD }}" >> $GITHUB_ENV
           else
             echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_DEV }}" >> $GITHUB_ENV
           fi
 
-      # Push the Docker image to Google Container Registry
-      - name: 'Push Docker Image to GCR'
+      - name: 'Push Docker Image'
         run: |
-          docker push \
-           gcr.io/${{ env.GCP_PROJECT_ID }}/wall-detector
+          docker push ${{ env.IMAGE_PATH }}
 
-      # Deploy to Cloud Run
       - name: 'Deploy to Cloud Run'
         run: |
-           gcloud run deploy wall-detector \
-            --image gcr.io/${{ env.GCP_PROJECT_ID }}/wall-detector \
+          gcloud run deploy wall-detector \
+            --image ${{ env.IMAGE_PATH }} \
             --platform managed \
-            --region us-central1 \
+            --region ${{ env.REGION }} \
             --project ${{ env.GCP_PROJECT_ID }} \
-            --service-account ${{ github.event.inputs.environment == 'QA' && vars.SERVICE_ACCOUNT_QA || vars.SERVICE_ACCOUNT_DEV }} \
+            --service-account ${{ github.event.inputs.environment == 'QA' && vars.SERVICE_ACCOUNT_QA || github.event.inputs.environment == 'uat' && vars.SERVICE_ACCOUNT_UAT || github.event.inputs.environment == 'prod' && vars.SERVICE_ACCOUNT_PROD || vars.SERVICE_ACCOUNT_DEV }} \
             --cpu 8 \
             --memory 32Gi \
+            --gpu 1 \
+            --gpu-type nvidia-l4 \
             --min-instances 1 \
-            --max-instances 100 \
-            --concurrency 1 \
+            --max-instances 1 \
+            --concurrency 10 \
             --execution-environment gen2 \
             --timeout 1800 \
             --ingress internal \
