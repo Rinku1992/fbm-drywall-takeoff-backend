@@ -55,7 +55,8 @@ CREATE TABLE plans (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 
-    multipage_elevation_map JSONB DEFAULT '{}'::jsonb
+    multipage_elevation_map JSONB DEFAULT '{}'::jsonb,
+    PRIMARY KEY (project_id, plan_id)
 );
 ```
 
