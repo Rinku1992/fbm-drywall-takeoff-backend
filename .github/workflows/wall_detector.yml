@@ -84,11 +84,11 @@ jobs:
           mkdir -p models
 
           gcloud storage cp -r \
-            gs://drywall-takeoff-artifacts-prod/Finetuned_Iter_17/ \
+            gs://drywall-takeoff-artifacts-dev/Finetuned_Iter_17/ \
             models/
 
           gcloud storage cp -r \
-            gs://drywall-takeoff-artifacts-prod/stable-diffusion-v1-4/ \
+            gs://drywall-takeoff-artifacts-dev/stable-diffusion-v1-4/ \
             models/
 
       - name: "Set Docker image path"
