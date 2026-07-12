@@ -286,7 +286,7 @@ CREATE TABLE external_otp_tokens (
 );
 ```
  
-<b>Grant Permissions to SA: </b>
+<b>Grant CloudSQL Permissions to SA: </b>
 ```sql
 GRANT SELECT, INSERT, UPDATE, DELETE
 ON ALL TABLES IN SCHEMA public
