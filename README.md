@@ -56,7 +56,9 @@ CREATE TABLE plans (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 
     multipage_elevation_map JSONB DEFAULT '{}'::jsonb,
-    PRIMARY KEY (project_id, plan_id)
+    PRIMARY KEY (project_id, plan_id),
+    CONSTRAINT plan_unique
+        UNIQUE (project_id, plan_id)
 );
 ```
 
@@ -124,7 +126,9 @@ CREATE TABLE models (
         plan_id,
         page_number,
         page_section_number
-    )
+    ),
+    CONSTRAINT model_unique
+        UNIQUE (project_id, plan_id, page_number, page_section_number)
 );
 ```
 
@@ -152,7 +156,9 @@ CREATE TABLE model_revisions_2d (
         page_number,
         page_section_number,
         revision_number
-    )
+    ),
+    CONSTRAINT model_revision_2d_unique
+        UNIQUE (project_id, plan_id, page_number, page_section_number, revision_number)
 );
 ```
 
@@ -181,7 +187,9 @@ CREATE TABLE model_revisions_3d (
         page_number,
         page_section_number,
         revision_number
-    )
+    ),
+    CONSTRAINT model_revision_3d_unique
+        UNIQUE (project_id, plan_id, page_number, page_section_number, revision_number)
 );
 ```
 
