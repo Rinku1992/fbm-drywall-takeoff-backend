@@ -741,10 +741,6 @@ async def trigger_email_notification(
     notify_group=False,
 ):
     message = f"Plan: {plan_id} | Page Number: {page_number} | Extraction: {status}"
-    query = f"SELECT group_id FROM {credentials["CloudSQL"]["table_name_users"]}, unnest(COALESCE(group_ids, ARRAY[]::text[])) AS group_id WHERE LOWER(user_id) = LOWER(%s)"
-    query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(user_id,), fetch=True))
-    group_ids = [row["group_id"] for row in query_output]
-    group_id = " | ".join(group_ids)
     if notify_group:
         query = f"""
             WITH current_user_cte AS (
@@ -800,7 +796,7 @@ async def trigger_email_notification(
                 plan_id,
                 project_id,
                 page_number,
-                group_id,
+                "FBM Xtimator Team",
                 message=message,
             )
     else:
@@ -812,7 +808,7 @@ async def trigger_email_notification(
             plan_id,
             project_id,
             page_number,
-            group_id,
+            "FBM Xtimator Team",
             message=message,
         )
 
