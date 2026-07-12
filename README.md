@@ -90,7 +90,9 @@ CREATE TABLE pages (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
-    PRIMARY KEY (project_id, plan_id, page_number)
+    PRIMARY KEY (project_id, plan_id, page_number),
+    CONSTRAINT page_unique
+        UNIQUE (project_id, plan_id, page_number)
 );
 ```
 
@@ -235,7 +237,9 @@ CREATE TABLE groups (
 
     organization_id TEXT,
 
-    PRIMARY KEY (group_id, user_id)
+    PRIMARY KEY (group_id, user_id),
+    CONSTRAINT group_unique
+        UNIQUE (group_id, user_id)
 );
 ```
 
