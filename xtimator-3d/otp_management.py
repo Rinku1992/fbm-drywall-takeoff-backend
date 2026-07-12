@@ -82,7 +82,7 @@ def get_display_name(email):
 
 def trigger_otp_email(credentials, sender, recipient, otp_code):
     display_name = get_display_name(recipient)
-    subject = "Your OTP for Drywall Takeoff Login"
+    subject = "Your OTP for Xtimator Login"
 
     body_content = f"""
     <p>Hi {display_name},</p>
