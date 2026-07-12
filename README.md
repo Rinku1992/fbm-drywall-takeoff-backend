@@ -100,7 +100,7 @@ CREATE TABLE models (
     user_id TEXT,
 
     page_number INTEGER NOT NULL,
-    page_section_number INTEGER NOT NULL DEFAULT 0,
+    page_section_number TEXT,
     page_sections INTEGER DEFAULT 1,
 
     scale TEXT,
@@ -136,7 +136,7 @@ CREATE TABLE model_revisions_2d (
     user_id TEXT,
 
     page_number INTEGER NOT NULL,
-    page_section_number INTEGER NOT NULL DEFAULT 0,
+    page_section_number TEXT,
 
     revision_number INTEGER NOT NULL,
 
@@ -164,7 +164,7 @@ CREATE TABLE model_revisions_3d (
     user_id TEXT,
 
     page_number INTEGER NOT NULL,
-    page_section_number INTEGER NOT NULL DEFAULT 0,
+    page_section_number TEXT,
 
     revision_number INTEGER NOT NULL,
 
