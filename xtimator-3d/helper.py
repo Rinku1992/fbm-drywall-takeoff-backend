@@ -1299,7 +1299,7 @@ async def trigger_email_notification(
         for user_id_group in user_ids_group:
             trigger(
                 credentials,
-                user_id,
+                credentials["Email"]["sender_email"],
                 user_id_group,
                 user_id_group,
                 plan_id,
@@ -1311,7 +1311,7 @@ async def trigger_email_notification(
     else:
         trigger(
             credentials,
-            user_id,
+            credentials["Email"]["sender_email"],
             user_id,
             user_id,
             plan_id,
