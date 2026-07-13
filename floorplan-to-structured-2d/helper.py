@@ -609,23 +609,6 @@ async def insert_model_2d(
         target_drywalls,
     )))
 
-async def load_templates(pg_pool, credentials):
-    query = f"SELECT * FROM {credentials["CloudSQL"]["table_name_sku"]}"
-    product_templates = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, fetch=True))
-
-    logging.info("SYSTEM: Product Templates retrieved successfully")
-    product_templates_target = list()
-    cached_templates_sku = list()
-    for product_template in product_templates:
-        product_template = dict(product_template)
-        if product_template["sku_id"] in cached_templates_sku:
-            continue
-        cached_templates_sku.append(product_template["sku_id"])
-        product_template["sku_variant"] = f"{product_template["sku_id"]} - {product_template["sku_description"]}"
-        product_template["color_code"] = [product_template["color_code"]['b'], product_template["color_code"]['g'], product_template["color_code"]['r']]
-        product_templates_target.append(product_template)
-    return jsonable_encoder(product_templates_target)
-
 def load_section_from_page(wall_segmented_path, floor_plan_path, bounding_box_offset, section_name):
     offset_top_left_X, offset_top_left_Y = bounding_box_offset["offset_top_left"]
     offset_bottom_right_X, offset_bottom_right_Y = bounding_box_offset["offset_bottom_right"]
