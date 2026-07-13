@@ -517,7 +517,7 @@ async def load_templates(pg_pool, credentials):
     product_templates_target_primary.sort(key=lambda template: drywall_sku_order.get(template["sku_id"], len(product_templates_target)))
     [product_templates_target.remove(template_primary) for template_primary in product_templates_target_primary]
     product_templates_target = product_templates_target_primary + product_templates_target
-    return jsonable_encoder(product_templates_target)
+    return product_templates_target
 
 def query_drywall(query_sku_variant, drywall_templates):
     for drywall_template in drywall_templates:
