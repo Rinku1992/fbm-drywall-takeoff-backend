@@ -650,6 +650,8 @@ async def insert_model_2d(
     )))
 
 async def load_templates(pg_pool, credentials):
+    drywall_skus_primary = ["D12L", "D12LW", "D12MM", "D58F", "D12GMTB", "DCB12"]
+    drywall_sku_order = {sku: index for index, sku in enumerate(drywall_skus_primary)}
     query = f"SELECT * FROM {credentials["CloudSQL"]["table_name_sku"]}"
     product_templates = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, fetch=True))
 
@@ -664,6 +666,11 @@ async def load_templates(pg_pool, credentials):
         product_template["sku_variant"] = f"{product_template["sku_id"]} - {product_template["sku_description"]}"
         product_template["color_code"] = [product_template["color_code"]['b'], product_template["color_code"]['g'], product_template["color_code"]['r']]
         product_templates_target.append(product_template)
+
+    product_templates_target_primary = list(filter(lambda template: template["sku_id"] in drywall_skus_primary, product_templates_target))
+    product_templates_target_primary.sort(key=lambda template: drywall_sku_order.get(template["sku_id"], len(product_templates_target)))
+    [product_templates_target.remove(template_primary) for template_primary in product_templates_target_primary]
+    product_templates_target = product_templates_target_primary + product_templates_target
     return jsonable_encoder(product_templates_target)
 
 def phoenix_call(generate_content_lambda, max_retry=5, base_delay=1.0, pydantic_model=None, verify_field_counts=None):
