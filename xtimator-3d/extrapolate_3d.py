@@ -73,8 +73,10 @@ class Extrapolate3D(FloorPlan):
     def extrapolate_drywall_height_given_polygon(self, X, Y, drywall_id, height_in_pixels, polygons):
         for polygon in polygons:
             if drywall_id in polygon["polygon_ids_drywall_interior"]:
-                slope = polygon["slope"]
-                if slope is None or slope == 0 or polygon["tilt_axis"] not in ("horizontal", "vertical"):
+                slope = min(90, max(0, math.degrees(math.atan2(polygon["pitch"]["rise"], polygon["pitch"]["run"]))))
+                if slope == 90:
+                    slope = 0
+                if slope == 0 or polygon["tilt_axis"] not in ("horizontal", "vertical"):
                     return height_in_pixels
 
                 polygon_height_in_pixels = self._load_polygon_height_in_pixels(polygon)
@@ -350,7 +352,7 @@ class Extrapolate3D(FloorPlan):
     def _extrude_roof_3d(self, vertices, slope, tilt_axis, height_in_pixels, width_in_pixels):
         half_width = width_in_pixels // 2
 
-        if slope is None or slope == 0 or tilt_axis not in ("horizontal", "vertical"):
+        if slope == 0 or tilt_axis not in ("horizontal", "vertical"):
             front_face = [dict(x=x, y=y, z=height_in_pixels - half_width) for x, y in vertices]
             back_face  = [dict(x=x, y=y, z=height_in_pixels + half_width) for x, y in vertices]
 
@@ -397,20 +399,23 @@ class Extrapolate3D(FloorPlan):
         height_in_pixels = self._load_polygon_height_in_pixels(polygon)
         pixel_aspect_ratio_average = (self._hyperparameters["pixel_aspect_ratio"]["horizontal"] + self._hyperparameters["pixel_aspect_ratio"]["vertical"]) / 2
         width_in_pixels = round(polygon["polygon_drywall"]["thickness"] / pixel_aspect_ratio_average)
+        polygon_slope = min(90, max(0, math.degrees(math.atan2(polygon["pitch"]["rise"], polygon["pitch"]["run"]))))
+        if polygon_slope == 90:
+            polygon_slope = 0
         polygon = dict(
             id=polygon["id"],
             area=polygon["area"],
             vertices=polygon["vertices"],
             type=polygon["type"],
             height=polygon["height"],
-            slope=polygon["slope"],
+            slope=polygon_slope,
             slope_enabled=polygon["slope_enabled"],
             tilt_axis=polygon["tilt_axis"],
             room_name=polygon["room_name"],
             polygon_ids_drywall_interior=polygon["polygon_ids_drywall_interior"],
             drywall_choices=polygon["drywall_choices"],
             surface_drywall=dict(
-                polygon=self._extrude_roof_3d(polygon["vertices"], polygon["slope"], polygon["tilt_axis"], height_in_pixels, width_in_pixels),
+                polygon=self._extrude_roof_3d(polygon["vertices"], polygon_slope, polygon["tilt_axis"], height_in_pixels, width_in_pixels),
                 type=polygon["polygon_drywall"]["type"],
                 enabled=polygon["polygon_drywall"]["enabled"],
                 layers=polygon["polygon_drywall"]["layers"],
