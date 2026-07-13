@@ -2659,7 +2659,7 @@ async def compute_takeoff(request: Request):
         if polygon["type"] in SLOPED_CEILING_CHOICES:
             surface_area_sloped = plan.compute_sloped_area_polygon(
                 polygon["area"],
-                polygon["slope"],
+                polygon["pitch"],
             )
         waste_factor_delta = waste_factor_average_delta * (drywall_weights[polygon["polygon_drywall"]["type"]] / normalization_variance_aware)
         waste_factor = max(0, float(drywall_template["waste"]) + waste_factor_delta) / 100
