@@ -776,8 +776,11 @@ class FloorPlan:
 
         return walls_JSON_updated, polygons_JSON_updated
 
-    def compute_sloped_area_polygon(self, area, slope):
-        if slope is None or slope == 0:
+    def compute_sloped_area_polygon(self, area, pitch):
+        slope = min(90, max(0, math.degrees(math.atan2(pitch["rise"], pitch["run"]))))
+        if slope == 90:
+            slope = 0
+        if slope == 0:
             return area
         theta = math.radians(slope)
         return round(area / math.cos(theta), 2)
