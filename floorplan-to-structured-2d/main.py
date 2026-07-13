@@ -34,7 +34,6 @@ from helper import (
     insert_model_2d,
     load_pg_pool,
     close_pg_pool,
-    load_templates,
     load_section_from_page,
     apply_pixel_margin_to_bounding_box,
     load_publisher_client,
@@ -233,21 +232,15 @@ async def floorplan_to_page(credentials, pg_pool, project_id, plan_id, user_id, 
 
 CREDENTIALS = load_gcp_credentials()
 pg_pool = dict()
-DRYWALL_TEMPLATES = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global DRYWALL_TEMPLATES
     global pg_pool
 
     for attempt in range(10):
         try:
             engine = load_pg_pool(CREDENTIALS)
             pg_pool["engine"] = engine
-            DRYWALL_TEMPLATES = await load_templates(
-                pg_pool,
-                CREDENTIALS
-            )
 
             break
         except Exception as e:
