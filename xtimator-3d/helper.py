@@ -862,25 +862,6 @@ def plan_to_preview(
     return plan_types
 
 async def floorplan_to_pages(credentials, pg_pool, project_id, plan_id, user_id, pdf_path, n_pages, batch_size=10):
-    page_batches = [list(range(batch_index * batch_size, batch_index * batch_size + batch_size)) for batch_index in range(n_pages // batch_size)]
-    if n_pages % batch_size:
-        page_batches += [list(range(n_pages - (n_pages % batch_size), n_pages))]
-    floor_plan_paths_preprocessed = list()
-    for page_batch in page_batches:
-        futures = list()
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            for page_number in page_batch:
-                future = executor.submit(
-                    preprocess,
-                    pdf_path,
-                    page_number
-                )
-                futures.append(future)
-        for future in futures:
-            floor_plan_paths_preprocessed.append(future.result())
-    for page_number, floor_plan_path_preprocessed in enumerate(floor_plan_paths_preprocessed):
-        await upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, user_id, credentials, pg_pool, index=str(page_number).zfill(4))
-
     organization_slug = await load_organization_slug(credentials, pg_pool, user_id)
     plan_types = plan_to_preview(credentials, project_id, plan_id, user_id, organization_slug)
     pages_to_insert = list()
@@ -904,7 +885,24 @@ async def floorplan_to_pages(credentials, pg_pool, project_id, plan_id, user_id,
         pg_pool,
         credentials,
     )
-
+    page_batches = [list(range(batch_index * batch_size, batch_index * batch_size + batch_size)) for batch_index in range(n_pages // batch_size)]
+    if n_pages % batch_size:
+        page_batches += [list(range(n_pages - (n_pages % batch_size), n_pages))]
+    floor_plan_paths_preprocessed = list()
+    for page_batch in page_batches:
+        futures = list()
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            for page_number in page_batch:
+                future = executor.submit(
+                    preprocess,
+                    pdf_path,
+                    page_number
+                )
+                futures.append(future)
+        for future in futures:
+            floor_plan_paths_preprocessed.append(future.result())
+    for page_number, floor_plan_path_preprocessed in enumerate(floor_plan_paths_preprocessed):
+        await upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, user_id, credentials, pg_pool, index=str(page_number).zfill(4))
     return floor_plan_paths_preprocessed, plan_types
 
 def page_to_svg(
