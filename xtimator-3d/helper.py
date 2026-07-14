@@ -1200,14 +1200,14 @@ async def download_floorplan(
         blob_path = f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/{blob_name}"
 
     blob = bucket.blob(blob_path)
+    if wait_until_exists:
+        while not blob.exists():
+            sleep(1)
     blob.reload()
 
     expected_size = int(blob.size)
     expected_crc = blob.crc32c
 
-    if wait_until_exists:
-        while not blob.exists():
-            sleep(1)
     for attempt in range(max_retries):
         try:
             blob.download_to_filename(destination_path)
