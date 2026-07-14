@@ -2117,7 +2117,7 @@ async def update_floorplan_to_2d(request: Request):
     polygon_idx = 0
     for polygon in polygons_JSON:
         perimeter_lines_contour = plan.load_perimeter(polygon["vertices"], wall_lines, scale=resolution_scale)
-        polygons_sharded = plan.shard_polygon(polygon["vertices"], perimeter_lines_contour, scale, resolution_scale):
+        polygons_sharded = plan.shard_polygon(polygon["vertices"], perimeter_lines_contour, scale, resolution_scale)
         for (polygon_area_shoelace, area, vertices) in polygons_sharded:
             polygon["id"] = polygon_idx
             polygon["area"] = area
