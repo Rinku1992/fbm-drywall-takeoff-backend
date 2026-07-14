@@ -717,6 +717,34 @@ class FloorPlan:
         scale_x, scale_y = resolution_scale
         polygon_vertices_full_hd = [(round(polygon_vertex[0] / scale_x), round(polygon_vertex[1] / scale_y)) for polygon_vertex in polygon_vertices]
         walls_2d_internal_full_hd = [[[round(wall_2d_internal[0][0] / scale_x), round(wall_2d_internal[0][1] / scale_y), round(wall_2d_internal[0][2] / scale_x), round(wall_2d_internal[0][3] / scale_y)]] for wall_2d_internal in walls_2d_internal]
+        canvas = np.ones((1080, 1920), dtype=np.uint8) * 255
+        for wall_line in walls_2d_internal_full_hd:
+            X1, Y1, X2, Y2 = wall_line[0]
+            cv2.line(canvas, (X1, Y1), (X2, Y2), (0, 0, 0), 1)
+        _, canvas_binary = cv2.threshold(canvas, 127, 255, cv2.THRESH_BINARY_INV)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (10, 10))
+        canvas_dilated = cv2.dilate(canvas_binary, kernel, iterations=1)
+        canvas_eroded = cv2.erode(canvas_dilated, kernel, iterations=1)
+        contours, hierarchy = cv2.findContours(canvas_eroded, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+        polygonized = list()
+        for contour, component in zip(contours, hierarchy[0]):
+            if component[3] == -1:
+                continue
+            area = cv2.contourArea(contour)
+            if area < 250:
+                continue
+
+            epsilon = 0.01 * cv2.arcLength(contour, True)
+            geometry_polygons = cv2.approxPolyDP(contour, epsilon, True)
+
+            coordinates = [
+                (round(coordinate[0][0]), round(coordinate[0][1])) for coordinate in geometry_polygons
+            ]
+            coordinates = self._smoothen_polygon(coordinates)
+            coordinates_normalized = [(round(coordinate[0] * scale_x), round(coordinate[1] * scale_y)) for coordinate in coordinates]
+            polygonized.append((area, coordinates_normalized))
+
+        return polygonized
 
     def polygonize(self, wall_lines):
         canvas = np.ones((1080, 1920), dtype=np.uint8) * 255
