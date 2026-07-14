@@ -745,7 +745,7 @@ class FloorPlan:
             imperial_scale_X, imperial_scale_Y = self.compute_imperial_scale_from_DPI(architectural_scale)
             imperial_scale_A = imperial_scale_X * imperial_scale_Y
             area_normalized = area * imperial_scale_A
-            polygonized.append((area_normalized, coordinates_normalized))
+            polygonized.append((area, area_normalized, coordinates_normalized))
 
         return polygonized
 
