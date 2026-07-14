@@ -744,8 +744,8 @@ class FloorPlan:
             coordinates_normalized = [(round(coordinate[0] * scale_x), round(coordinate[1] * scale_y)) for coordinate in coordinates]
             imperial_scale_X, imperial_scale_Y = self.compute_imperial_scale_from_DPI(architectural_scale)
             imperial_scale_A = imperial_scale_X * imperial_scale_Y
-            area_sqft = area * imperial_scale_A
-            polygonized.append((area_sqft, coordinates_normalized))
+            area_normalized = area * imperial_scale_A
+            polygonized.append((area_normalized, coordinates_normalized))
 
         return polygonized
 
