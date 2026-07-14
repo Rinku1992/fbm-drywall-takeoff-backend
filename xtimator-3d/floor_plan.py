@@ -718,6 +718,9 @@ class FloorPlan:
         polygon_vertices_full_hd = [(round(polygon_vertex[0] / scale_x), round(polygon_vertex[1] / scale_y)) for polygon_vertex in polygon_vertices]
         walls_2d_perimeter_full_hd = [[[round(wall_2d_perimeter[0][0] / scale_x), round(wall_2d_perimeter[0][1] / scale_y), round(wall_2d_perimeter[0][2] / scale_x), round(wall_2d_perimeter[0][3] / scale_y)]] for wall_2d_perimeter in walls_2d_perimeter]
         canvas = np.ones((1080, 1920), dtype=np.uint8) * 255
+        pts = np.array(polygon_vertices_full_hd, np.int32)
+        pts = pts.reshape((-1, 1, 2))
+        canvas = cv2.fillPoly(canvas, pts=[pts], color=(0, 0, 0))
         for wall_line in walls_2d_perimeter_full_hd:
             X1, Y1, X2, Y2 = wall_line[0]
             cv2.line(canvas, (X1, Y1), (X2, Y2), (0, 0, 0), 1)
