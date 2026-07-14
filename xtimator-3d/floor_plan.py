@@ -713,7 +713,7 @@ class FloorPlan:
         polygons_clubbed = club_polygons(polygon_ids_singleton, polygons)
         return polygons_clubbed
 
-    def shard_polygon(self, polygon_vertices, walls_2d_internal, resolution_scale=None):
+    def shard_polygon(self, polygon_vertices, walls_2d_internal, architectural_scale, resolution_scale):
         scale_x, scale_y = resolution_scale
         polygon_vertices_full_hd = [(round(polygon_vertex[0] / scale_x), round(polygon_vertex[1] / scale_y)) for polygon_vertex in polygon_vertices]
         walls_2d_internal_full_hd = [[[round(wall_2d_internal[0][0] / scale_x), round(wall_2d_internal[0][1] / scale_y), round(wall_2d_internal[0][2] / scale_x), round(wall_2d_internal[0][3] / scale_y)]] for wall_2d_internal in walls_2d_internal]
@@ -742,7 +742,10 @@ class FloorPlan:
             ]
             coordinates = self._smoothen_polygon(coordinates)
             coordinates_normalized = [(round(coordinate[0] * scale_x), round(coordinate[1] * scale_y)) for coordinate in coordinates]
-            polygonized.append((area, coordinates_normalized))
+            imperial_scale_X, imperial_scale_Y = self.compute_imperial_scale_from_DPI(architectural_scale)
+            imperial_scale_A = imperial_scale_X * imperial_scale_Y
+            area_sqft = area * imperial_scale_A
+            polygonized.append((area_sqft, coordinates_normalized))
 
         return polygonized
 
