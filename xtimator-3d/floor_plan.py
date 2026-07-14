@@ -721,9 +721,9 @@ class FloorPlan:
         pts = np.array(polygon_vertices_full_hd, np.int32)
         pts = pts.reshape((-1, 1, 2))
         canvas = cv2.polylines(canvas, [pts], isClosed=True, color=(0, 0, 0), thickness=5)
-        #for wall_line in walls_2d_perimeter_full_hd:
-        #    X1, Y1, X2, Y2 = wall_line[0]
-        #    cv2.line(canvas, (X1, Y1), (X2, Y2), (0, 0, 0), 5)
+        for wall_line in walls_2d_perimeter_full_hd:
+            X1, Y1, X2, Y2 = wall_line[0]
+            cv2.line(canvas, (X1, Y1), (X2, Y2), (0, 0, 0), 5)
         _, canvas_binary = cv2.threshold(canvas, 127, 255, cv2.THRESH_BINARY_INV)
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (10, 10))
         canvas_dilated = cv2.dilate(canvas_binary, kernel, iterations=1)
