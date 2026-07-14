@@ -1153,7 +1153,7 @@ async def load_visual_grounding(
         index = str(page_metadata["page_number"]).zfill(4)
         destination_path = f"/tmp/floor_plan_{index}.png"
         blob_name = "floor_plan.png"
-        await download_floorplan(plan_id, project_id, user_id, credentials, pg_pool, index=index, blob_name=blob_name, destination_path=destination_path)
+        await download_floorplan(plan_id, project_id, user_id, credentials, pg_pool, index=index, blob_name=blob_name, destination_path=destination_path, wait_until_exists=True)
         plan_paths[page_metadata["page_number"]] = destination_path
     for page_batch in page_batches:
         bounding_boxes = detect_bounding_boxes(
@@ -1181,7 +1181,8 @@ async def download_floorplan(
     index=None,
     blob_name="floor_plan.PDF",
     destination_path="/tmp/floor_plan.PDF",
-    max_retries=5
+    max_retries=5,
+    wait_until_exists=False,
 ):
     def crc32c_base64(filename):
         checksum = google_crc32c.Checksum()
@@ -1204,6 +1205,9 @@ async def download_floorplan(
     expected_size = int(blob.size)
     expected_crc = blob.crc32c
 
+    if wait_until_exists:
+        while not blob.exists():
+            sleep(1)
     for attempt in range(max_retries):
         try:
             blob.download_to_filename(destination_path)
