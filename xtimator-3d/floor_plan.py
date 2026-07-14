@@ -713,6 +713,11 @@ class FloorPlan:
         polygons_clubbed = club_polygons(polygon_ids_singleton, polygons)
         return polygons_clubbed
 
+    def shard_polygon(self, polygon_vertices, walls_2d_internal, resolution_scale=None):
+        scale_x, scale_y = resolution_scale
+        polygon_vertices_full_hd = [(round(polygon_vertex[0] / scale_x), round(polygon_vertex[1] / scale_y)) for polygon_vertex in polygon_vertices]
+        walls_2d_internal_full_hd = [[[round(wall_2d_internal[0][0] / scale_x), round(wall_2d_internal[0][1] / scale_y), round(wall_2d_internal[0][2] / scale_x), round(wall_2d_internal[0][3] / scale_y)]] for wall_2d_internal in walls_2d_internal]
+
     def polygonize(self, wall_lines):
         canvas = np.ones((1080, 1920), dtype=np.uint8) * 255
         for wall_line in wall_lines:
