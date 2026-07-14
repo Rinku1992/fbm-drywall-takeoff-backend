@@ -663,7 +663,7 @@ async def load_templates(pg_pool, credentials):
         if product_template["sku_id"] in cached_templates_sku:
             continue
         cached_templates_sku.append(product_template["sku_id"])
-        product_template["sku_variant"] = f"{product_template["sku_id"]} - {product_template["sku_description"]} - {product_template["sheet_size"]}"
+        product_template["sku_variant"] = f"{product_template["sku_id"]} - {product_template["sku_description"]}"
         product_template["color_code"] = [product_template["color_code"]['b'], product_template["color_code"]['g'], product_template["color_code"]['r']]
         product_templates_target.append(product_template)
 
