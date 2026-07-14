@@ -713,12 +713,12 @@ class FloorPlan:
         polygons_clubbed = club_polygons(polygon_ids_singleton, polygons)
         return polygons_clubbed
 
-    def shard_polygon(self, polygon_vertices, walls_2d_internal, architectural_scale, resolution_scale):
+    def shard_polygon(self, polygon_vertices, walls_2d_perimeter, architectural_scale, resolution_scale):
         scale_x, scale_y = resolution_scale
         polygon_vertices_full_hd = [(round(polygon_vertex[0] / scale_x), round(polygon_vertex[1] / scale_y)) for polygon_vertex in polygon_vertices]
-        walls_2d_internal_full_hd = [[[round(wall_2d_internal[0][0] / scale_x), round(wall_2d_internal[0][1] / scale_y), round(wall_2d_internal[0][2] / scale_x), round(wall_2d_internal[0][3] / scale_y)]] for wall_2d_internal in walls_2d_internal]
+        walls_2d_perimeter_full_hd = [[[round(wall_2d_perimeter[0][0] / scale_x), round(wall_2d_perimeter[0][1] / scale_y), round(wall_2d_perimeter[0][2] / scale_x), round(wall_2d_perimeter[0][3] / scale_y)]] for wall_2d_perimeter in walls_2d_perimeter]
         canvas = np.ones((1080, 1920), dtype=np.uint8) * 255
-        for wall_line in walls_2d_internal_full_hd:
+        for wall_line in walls_2d_perimeter_full_hd:
             X1, Y1, X2, Y2 = wall_line[0]
             cv2.line(canvas, (X1, Y1), (X2, Y2), (0, 0, 0), 1)
         _, canvas_binary = cv2.threshold(canvas, 127, 255, cv2.THRESH_BINARY_INV)
