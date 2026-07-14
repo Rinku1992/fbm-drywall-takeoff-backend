@@ -2113,19 +2113,19 @@ async def update_floorplan_to_2d(request: Request):
     resolution_scale = (scale_x, scale_y,)
 
     polygons_JSON = plan.reshape_polygons(polygons_JSON, walls_2d_JSON, architectural_scale=scale, resolution_scale=resolution_scale)
-    #polygons_JSON_sharded = list()
-    #polygon_idx = 0
-    #for polygon in polygons_JSON:
-    #    perimeter_lines_contour = plan.load_perimeter(polygon["vertices"], wall_lines, scale=resolution_scale)
-    #    polygons_sharded = plan.shard_polygon(polygon["vertices"], perimeter_lines_contour, scale, resolution_scale)
-    #    for (polygon_area_shoelace, area, vertices) in polygons_sharded:
-    #        polygon["id"] = polygon_idx
-    #        polygon["area"] = area
-    #        polygon["polygon_area_shoelace"] = polygon_area_shoelace
-    #        polygon["vertices"] = vertices
-    #        polygons_JSON_sharded.append(polygon)
-    #        polygon_idx += 1
-    #polygons_JSON = polygons_JSON_sharded
+    polygons_JSON_sharded = list()
+    polygon_idx = 0
+    for polygon in polygons_JSON:
+        perimeter_lines_contour = plan.load_perimeter(polygon["vertices"], wall_lines, scale=resolution_scale)
+        polygons_sharded = plan.shard_polygon(polygon["vertices"], perimeter_lines_contour, scale, resolution_scale)
+        for (polygon_area_shoelace, area, vertices) in polygons_sharded:
+            polygon["id"] = polygon_idx
+            polygon["area"] = area
+            polygon["polygon_area_shoelace"] = polygon_area_shoelace
+            polygon["vertices"] = vertices
+            polygons_JSON_sharded.append(polygon)
+            polygon_idx += 1
+    polygons_JSON = polygons_JSON_sharded
     for polygon in polygons_JSON[:]:
         perimeter_lines_contour = plan.load_perimeter(polygon["vertices"], wall_lines, scale=resolution_scale)
         perimeter_wall_line_ids = [wall_line_ids[wall_lines.index(perimeter_line_contour)] for perimeter_line_contour in perimeter_lines_contour]
