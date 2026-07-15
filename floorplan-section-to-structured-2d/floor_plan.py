@@ -138,6 +138,7 @@ class FloorPlan:
             **self.hyperparameters["modelling"]["HoughLinesTransformation"]
         )
         lines = self.normalize(lines)
+        print(lines)
         if offset and lines is not None:
             canvas = cv2.imread(floor_plan_path)
             height_in_pixels, width_in_pixels, _ = canvas.shape
@@ -685,6 +686,7 @@ class FloorPlan:
         return polygon_smoothened
 
     def polygonize(self, wall_lines):
+        print(wall_lines)
         canvas = np.ones((1080, 1920), dtype=np.uint8) * 255
         for wall_line in wall_lines:
             X1, Y1, X2, Y2 = wall_line[0]
@@ -716,6 +718,7 @@ class FloorPlan:
             perimeter_lines_contours.append(perimeter_lines_contour)
             polygonized.append((area, coordinates))
 
+        print(polygonized)
         if not polygonized:
             return polygonized, perimeter_lines_contours, list()
         coordinates_all = np.vstack([polygon[1] for polygon in polygonized])
