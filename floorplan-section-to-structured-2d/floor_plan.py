@@ -549,6 +549,8 @@ class FloorPlan:
                     if wall_line not in perimeter_lines:
                         perimeter_lines.append(wall_line)
 
+        print(perimeter_lines)
+        print(perimeter_lines_unbound)
         return perimeter_lines if perimeter_lines else perimeter_lines_unbound
 
     def load_perimeter_(self, coordinates, wall_lines):
