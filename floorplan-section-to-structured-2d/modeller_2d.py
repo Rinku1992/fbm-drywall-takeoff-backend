@@ -2975,7 +2975,7 @@ class FloorPlan2D(FloorPlan):
         if not wall_lines:
             return None, None, None, None
         polygons, polygons_perimeter_walls, external_contour = self.polygonize(wall_lines)
-        if len(polygons) < 5:
+        if not polygons:
             return None, None, None, None
         external_contour_normalized = [(round(scale_x * coordinate[0]), round(scale_y * coordinate[1])) for coordinate in external_contour]
         perimeter_lines, outer_drywall_surfaces = self.perimeter_lines(wall_lines)
@@ -3109,7 +3109,7 @@ class FloorPlan2D(FloorPlan):
         if not wall_lines:
             return None, None, None, None
         polygons, polygons_perimeter_walls, external_contour = self.polygonize(wall_lines)
-        if len(polygons) < 5:
+        if not polygons:
             return None, None, None, None
         external_contour_normalized = [(round(scale_x * coordinate[0]), round(scale_y * coordinate[1])) for coordinate in external_contour]
         perimeter_lines, outer_drywall_surfaces = self.perimeter_lines(wall_lines)
