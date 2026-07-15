@@ -525,6 +525,11 @@ class FloorPlan:
                                             and tgt_max <= ref_max + tolerance
                                         ):
                                             perimeter_segments.append(wall_line)
+                                        if (
+                                            ref_min >= tgt_min - tolerance
+                                            and ref_max <= tgt_max + tolerance
+                                        ):
+                                            perimeter_lines_unbound.append(wall_line)
 
                     if abs(target_X1 - X1) <= tolerance_x and abs(target_Y1 - Y1) <= tolerance_y and abs(target_X2 - X2) <= tolerance_x and abs(target_Y2 - Y2) <= tolerance_y:
                         perimeter_line_found = True
