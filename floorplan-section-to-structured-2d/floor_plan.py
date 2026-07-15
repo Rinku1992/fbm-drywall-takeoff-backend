@@ -138,7 +138,7 @@ class FloorPlan:
             **self.hyperparameters["modelling"]["HoughLinesTransformation"]
         )
         lines = self.normalize(lines)
-        print(lines)
+        #print(lines)
         if offset and lines is not None:
             canvas = cv2.imread(floor_plan_path)
             height_in_pixels, width_in_pixels, _ = canvas.shape
@@ -447,7 +447,7 @@ class FloorPlan:
             tolerance_x *= scale_x
             tolerance_y *= scale_y
         perimeter_lines = list()
-        perimeter_lines_unbound = list()
+        #perimeter_lines_unbound = list()
         for source_coordinate in coordinates:
             for target_coordinate in coordinates:
                 if math.hypot(target_coordinate[0] - source_coordinate[0], target_coordinate[1] - source_coordinate[1]) == 0:
@@ -468,13 +468,13 @@ class FloorPlan:
                     if orientation == "horizontal" and orientation_target == "horizontal":
                         if abs(np.median([Y1, Y2]) - np.median([target_Y1, target_Y2])) <= tolerance_y and target_X1 - X1 >= -tolerance_x and target_X2 - X2 <= tolerance_x:
                             perimeter_segments.append(wall_line)
-                        if abs(np.median([Y1, Y2]) - np.median([target_Y1, target_Y2])) <= tolerance_y and X1 - target_X1 >= -tolerance_x and X2 - target_X2 <= tolerance_x:
-                            perimeter_lines_unbound.append(wall_line)
+                        #if abs(np.median([Y1, Y2]) - np.median([target_Y1, target_Y2])) <= tolerance_y and X1 - target_X1 >= -tolerance_x and X2 - target_X2 <= tolerance_x:
+                        #    perimeter_lines_unbound.append(wall_line)
                     if orientation == "vertical" and orientation_target == "vertical":
                         if abs(np.median([X1, X2]) - np.median([target_X1, target_X2])) <= tolerance_x and target_Y1 - Y1 >= -tolerance_y and target_Y2 - Y2 <= tolerance_y:
                             perimeter_segments.append(wall_line)
-                        if abs(np.median([X1, X2]) - np.median([target_X1, target_X2])) <= tolerance_x and Y1 - target_Y1 >= -tolerance_y and Y2 - target_Y2 <= tolerance_y:
-                            perimeter_lines_unbound.append(wall_line)
+                        #if abs(np.median([X1, X2]) - np.median([target_X1, target_X2])) <= tolerance_x and Y1 - target_Y1 >= -tolerance_y and Y2 - target_Y2 <= tolerance_y:
+                        #    perimeter_lines_unbound.append(wall_line)
                     if orientation == "inclined" and orientation_target == "inclined":
                         dx = X2 - X1
                         dy = Y2 - Y1
@@ -525,11 +525,11 @@ class FloorPlan:
                                             and tgt_max <= ref_max + tolerance
                                         ):
                                             perimeter_segments.append(wall_line)
-                                        if (
-                                            ref_min >= tgt_min - tolerance
-                                            and ref_max <= tgt_max + tolerance
-                                        ):
-                                            perimeter_lines_unbound.append(wall_line)
+                                        #if (
+                                        #    ref_min >= tgt_min - tolerance
+                                        #    and ref_max <= tgt_max + tolerance
+                                        #):
+                                        #    perimeter_lines_unbound.append(wall_line)
 
                     if abs(target_X1 - X1) <= tolerance_x and abs(target_Y1 - Y1) <= tolerance_y and abs(target_X2 - X2) <= tolerance_x and abs(target_Y2 - Y2) <= tolerance_y:
                         perimeter_line_found = True
@@ -549,9 +549,9 @@ class FloorPlan:
                     if wall_line not in perimeter_lines:
                         perimeter_lines.append(wall_line)
 
-        print(perimeter_lines)
-        print(perimeter_lines_unbound)
-        return perimeter_lines if perimeter_lines else perimeter_lines_unbound
+        #print(perimeter_lines)
+        #print(perimeter_lines_unbound)
+        return perimeter_lines
 
     def load_perimeter_(self, coordinates, wall_lines):
         perimeter_lines =list()
@@ -698,7 +698,7 @@ class FloorPlan:
         return polygon_smoothened
 
     def polygonize(self, wall_lines):
-        print(wall_lines)
+        #print(wall_lines)
         canvas = np.ones((1080, 1920), dtype=np.uint8) * 255
         for wall_line in wall_lines:
             X1, Y1, X2, Y2 = wall_line[0]
@@ -730,7 +730,7 @@ class FloorPlan:
             perimeter_lines_contours.append(perimeter_lines_contour)
             polygonized.append((area, coordinates))
 
-        print(polygonized)
+        #print(polygonized)
         if not polygonized:
             return polygonized, perimeter_lines_contours, list()
         coordinates_all = np.vstack([polygon[1] for polygon in polygonized])
