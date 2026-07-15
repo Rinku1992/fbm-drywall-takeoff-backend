@@ -447,6 +447,7 @@ class FloorPlan:
             tolerance_x *= scale_x
             tolerance_y *= scale_y
         perimeter_lines = list()
+        perimeter_lines_unbound = list()
         for source_coordinate in coordinates:
             for target_coordinate in coordinates:
                 if math.hypot(target_coordinate[0] - source_coordinate[0], target_coordinate[1] - source_coordinate[1]) == 0:
@@ -467,9 +468,13 @@ class FloorPlan:
                     if orientation == "horizontal" and orientation_target == "horizontal":
                         if abs(np.median([Y1, Y2]) - np.median([target_Y1, target_Y2])) <= tolerance_y and target_X1 - X1 >= -tolerance_x and target_X2 - X2 <= tolerance_x:
                             perimeter_segments.append(wall_line)
+                        if abs(np.median([Y1, Y2]) - np.median([target_Y1, target_Y2])) <= tolerance_y and X1 - target_X1 >= -tolerance_x and X2 - target_X2 <= tolerance_x:
+                            perimeter_lines_unbound.append(wall_line)
                     if orientation == "vertical" and orientation_target == "vertical":
                         if abs(np.median([X1, X2]) - np.median([target_X1, target_X2])) <= tolerance_x and target_Y1 - Y1 >= -tolerance_y and target_Y2 - Y2 <= tolerance_y:
                             perimeter_segments.append(wall_line)
+                        if abs(np.median([X1, X2]) - np.median([target_X1, target_X2])) <= tolerance_x and Y1 - target_Y1 >= -tolerance_y and Y2 - target_Y2 <= tolerance_y:
+                            perimeter_lines_unbound.append(wall_line)
                     if orientation == "inclined" and orientation_target == "inclined":
                         dx = X2 - X1
                         dy = Y2 - Y1
@@ -539,7 +544,7 @@ class FloorPlan:
                     if wall_line not in perimeter_lines:
                         perimeter_lines.append(wall_line)
 
-        return perimeter_lines
+        return perimeter_lines if perimeter_lines else perimeter_lines_unbound
 
     def load_perimeter_(self, coordinates, wall_lines):
         perimeter_lines =list()
