@@ -312,7 +312,17 @@ CREATE TABLE role_permissions (
 );
 ```
 
-15. <b><i>sku</i></b>
+16. <b><i>user_regions</i></b>
+```sql
+CREATE TABLE user_regions (
+    user_id TEXT REFERENCES users(user_id) ON DELETE CASCADE,
+    region_id INT REFERENCES regions(region_id) ON DELETE CASCADE,
+
+    PRIMARY KEY (user_id, region_id)
+);
+```
+
+17. <b><i>sku</i></b>
 ```sql
 CREATE TABLE sku (
     sku_id TEXT PRIMARY KEY,
@@ -338,7 +348,7 @@ CREATE TABLE sku (
 );
 ```
 
-16. <b><i>external_otp_tokens</i></b>
+18. <b><i>external_otp_tokens</i></b>
 ```sql
 CREATE TABLE external_otp_tokens (
     email         TEXT PRIMARY KEY,
