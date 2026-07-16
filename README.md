@@ -243,8 +243,8 @@ CREATE TABLE groups (
 10. <b><i>user_groups</i></b>
 ```sql
 CREATE TABLE user_groups (
-    user_id INT REFERENCES users(id) ON DELETE CASCADE,
-    group_id INT REFERENCES groups(id) ON DELETE CASCADE,
+    user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
+    group_id INT REFERENCES groups(group_id) ON DELETE CASCADE,
 
     PRIMARY KEY (user_id, group_id)
 );
