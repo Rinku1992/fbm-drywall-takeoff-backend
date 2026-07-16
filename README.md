@@ -260,7 +260,28 @@ CREATE TABLE organizations (
 );
 ```
 
-11. <b><i>sku</i></b>
+11. <b><i>regions</i></b>
+```sql
+CREATE TABLE regions (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+12. <b><i>organization_regions</i></b>
+```sql
+CREATE TABLE organization_regions (
+    organization_id UUID NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
+    region_id INT NOT NULL REFERENCES regions(id) ON DELETE CASCADE,
+
+    PRIMARY KEY (organization_id, region_id),
+    CONSTRAINT region_unique
+        UNIQUE (organization_id, region_id)
+);
+```
+
+13. <b><i>sku</i></b>
 ```sql
 CREATE TABLE sku (
     sku_id TEXT PRIMARY KEY,
@@ -286,7 +307,7 @@ CREATE TABLE sku (
 );
 ```
 
-12. <b><i>external_otp_tokens</i></b>
+14. <b><i>external_otp_tokens</i></b>
 ```sql
 CREATE TABLE external_otp_tokens (
     email         TEXT PRIMARY KEY,
