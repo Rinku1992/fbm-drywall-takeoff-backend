@@ -10,6 +10,8 @@ from scipy.spatial import cKDTree
 from floor_plan import FloorPlan
 from gltf_generator import load_gltf
 
+from prompts import SLOPED_CEILING_CHOICES
+
 __all__ = ["Extrapolate3D"]
 
 
@@ -399,9 +401,11 @@ class Extrapolate3D(FloorPlan):
         height_in_pixels = self._load_polygon_height_in_pixels(polygon)
         pixel_aspect_ratio_average = (self._hyperparameters["pixel_aspect_ratio"]["horizontal"] + self._hyperparameters["pixel_aspect_ratio"]["vertical"]) / 2
         width_in_pixels = round(polygon["polygon_drywall"]["thickness"] / pixel_aspect_ratio_average)
-        polygon_slope = min(90, max(0, math.degrees(math.atan2(polygon["pitch"]["rise"], polygon["pitch"]["run"]))))
-        if polygon_slope == 90:
-            polygon_slope = 0
+        polygon_slope = 0
+        if polygon["type"] in SLOPED_CEILING_CHOICES:
+            polygon_slope = min(90, max(0, math.degrees(math.atan2(polygon["pitch"]["rise"], polygon["pitch"]["run"]))))
+            if polygon_slope == 90:
+                polygon_slope = 0
         polygon = dict(
             id=polygon["id"],
             area=polygon["area"],
