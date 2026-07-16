@@ -512,7 +512,7 @@ POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR = """
             - Convert using known height annotations
             - Derive pitch
 
-        - The `tilt_axis` of a sloped ceiling is in the direction against the axial projection of the inclination. The `ceiling_axis` runs through the central axial line of the ceiling in the direction of the inclination. The `tile_axis` is one of the axial lines (x-> horizontal, y-> vertical). `tile_axis` can only have a value "horizontal" or "vertical" or "NULL" depending on the angular orientation of the ceiling plane against. Mention "NULL" only if slope angle is 0. The slope of the ceiling / `ceiling_axis` is measured against its axial line / `tile_axis` (x-> horizontal, y-> vertical).
+        - The `tilt_axis` of a sloped ceiling is in the direction against the axial projection of the inclination. The `ceiling_axis` runs through the central axial line of the ceiling in the direction of the inclination. The `tilt_axis` is one of the axial lines (x-> horizontal, y-> vertical). `tilt_axis` can only have a value "horizontal" or "vertical" or "NULL" depending on the angular orientation of the ceiling plane against. Mention "NULL" only if slope angle is 0. The slope of the ceiling / `ceiling_axis` is measured against its axial line / `tilt_axis` (x-> horizontal, y-> vertical).
           - If slope direction aligns with:
             horizontal walls → tilt_axis = "horizontal"
             vertical walls → tilt_axis = "vertical"
@@ -1143,7 +1143,7 @@ POLYGON_DETECTOR = """
             - Convert using known height annotations
             - Derive pitch
 
-        - The `tilt_axis` of a sloped ceiling is in the direction against the axial projection of the inclination. The `ceiling_axis` runs through the central axial line of the ceiling in the direction of the inclination. The `tile_axis` is one of the axial lines (x-> horizontal, y-> vertical). `tile_axis` can only have a value "horizontal" or "vertical" or "NULL" depending on the angular orientation of the ceiling plane against. Mention "NULL" only if slope angle is 0. The slope of the ceiling / `ceiling_axis` is measured against its axial line / `tile_axis` (x-> horizontal, y-> vertical).
+        - The `tilt_axis` of a sloped ceiling is in the direction against the axial projection of the inclination. The `ceiling_axis` runs through the central axial line of the ceiling in the direction of the inclination. The `tilt_axis` is one of the axial lines (x-> horizontal, y-> vertical). `tilt_axis` can only have a value "horizontal" or "vertical" or "NULL" depending on the angular orientation of the ceiling plane against. Mention "NULL" only if slope angle is 0. The slope of the ceiling / `ceiling_axis` is measured against its axial line / `tilt_axis` (x-> horizontal, y-> vertical).
           - If slope direction aligns with:
             horizontal walls → tilt_axis = "horizontal"
             vertical walls → tilt_axis = "vertical"
