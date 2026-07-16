@@ -230,16 +230,13 @@ CREATE TABLE users (
 9. <b><i>groups</i></b>
 ```sql
 CREATE TABLE groups (
-    group_id TEXT NOT NULL,
-    user_id TEXT NOT NULL,
 
-    is_admin BOOLEAN DEFAULT FALSE,
+    id SERIAL PRIMARY KEY,
+    region_id INT REFERENCES regions(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
 
-    organization_id TEXT,
-
-    PRIMARY KEY (group_id, user_id),
-    CONSTRAINT group_unique
-        UNIQUE (group_id, user_id)
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(region_id, name)
 );
 ```
 
