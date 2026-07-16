@@ -278,6 +278,18 @@ CREATE TABLE organization_regions (
 );
 ```
 
+13. <b><i>roles</i></b>
+```sql
+CREATE TABLE roles (
+
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    description TEXT,
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
 13. <b><i>sku</i></b>
 ```sql
 CREATE TABLE sku (
