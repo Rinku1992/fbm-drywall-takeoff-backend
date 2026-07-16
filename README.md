@@ -290,7 +290,19 @@ CREATE TABLE roles (
 );
 ```
 
-13. <b><i>sku</i></b>
+14. <b><i>permissions</i></b>
+```sql
+CREATE TABLE permissions (
+
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    description TEXT,
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+15. <b><i>sku</i></b>
 ```sql
 CREATE TABLE sku (
     sku_id TEXT PRIMARY KEY,
@@ -316,7 +328,7 @@ CREATE TABLE sku (
 );
 ```
 
-14. <b><i>external_otp_tokens</i></b>
+16. <b><i>external_otp_tokens</i></b>
 ```sql
 CREATE TABLE external_otp_tokens (
     email         TEXT PRIMARY KEY,
