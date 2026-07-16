@@ -260,7 +260,7 @@ CREATE TABLE organizations (
 11. <b><i>regions</i></b>
 ```sql
 CREATE TABLE regions (
-    id SERIAL PRIMARY KEY,
+    region_id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
@@ -270,7 +270,7 @@ CREATE TABLE regions (
 ```sql
 CREATE TABLE organization_regions (
     organization_id UUID NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
-    region_id INT NOT NULL REFERENCES regions(id) ON DELETE CASCADE,
+    region_id INT NOT NULL REFERENCES regions(region_id) ON DELETE CASCADE,
 
     PRIMARY KEY (organization_id, region_id),
     CONSTRAINT region_unique
@@ -282,7 +282,7 @@ CREATE TABLE organization_regions (
 ```sql
 CREATE TABLE roles (
 
-    id SERIAL PRIMARY KEY,
+    role_id SERIAL PRIMARY KEY,
     name VARCHAR(50) NOT NULL UNIQUE,
     description TEXT,
 
@@ -294,7 +294,7 @@ CREATE TABLE roles (
 ```sql
 CREATE TABLE permissions (
 
-    id SERIAL PRIMARY KEY,
+    permission_id SERIAL PRIMARY KEY,
     name VARCHAR(50) NOT NULL UNIQUE,
     description TEXT,
 
