@@ -302,6 +302,16 @@ CREATE TABLE permissions (
 );
 ```
 
+15. <b><i>role_permissions</i></b>
+```sql
+CREATE TABLE role_permissions (
+    role_id INT NOT NULL REFERENCES roles(role_id) ON DELETE CASCADE,
+    permission_id INT NOT NULL REFERENCES permissions(permission_id) ON DELETE CASCADE,
+
+    PRIMARY KEY (role_id, permission_id)
+);
+```
+
 15. <b><i>sku</i></b>
 ```sql
 CREATE TABLE sku (
