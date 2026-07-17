@@ -54,7 +54,7 @@ class AccessControlService:
                 UNION
 
                 SELECT up.organization_id
-                FRO {self._credentials["CloudSQL"]["table_name_user_partner_organizations"]} up JOIN users u ON up.user_id = u.user_id
+                FROM {self._credentials["CloudSQL"]["table_name_user_partner_organizations"]} up JOIN {self._credentials["CloudSQL"]["table_name_users"]} u ON up.user_id = u.user_id
                 WHERE LOWER(u.user_email) = LOWER(%s)
             ),
 
