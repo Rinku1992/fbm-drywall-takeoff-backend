@@ -775,11 +775,11 @@ async def load_projects(request: Request):
         ) pc
             ON LOWER(p.project_id) = pc.project_id
 
-        WHERE LOWER(p.created_by) IN (%s)
+        WHERE LOWER(p.created_by) = ANY(%s)
 
         ORDER BY p.created_at DESC NULLS LAST;
     """
-    projects = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_id, ", ".join(peers),), fetch=True))
+    projects = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(peers,), fetch=True))
 
     logging.info("SYSTEM: Project Metadata retrieved successfully")
     return respond_with_UI_payload(
