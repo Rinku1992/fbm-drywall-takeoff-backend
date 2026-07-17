@@ -12,7 +12,7 @@ class AccessControlService:
         self._credentials = credentials
         self._pg_pool = pg_pool
 
-    async def _load_scope(self, user_id):
+    async def load_scope(self, user_id):
         query = f"""
             SELECT
             p.permission_name as permission_name
