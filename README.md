@@ -220,7 +220,7 @@ CREATE TABLE users (
     role_id INT REFERENCES roles(role_id) ON DELETE CASCADE,
 
     user_email TEXT NOT NULL,
-    organization_id TEXT,
+    organization_id INT,
     user_name TEXT,
     user_location TEXT,
     is_external BOOLEAN
@@ -253,7 +253,7 @@ CREATE TABLE user_groups (
 11. <b><i>organizations</i></b>
 ```sql
 CREATE TABLE organizations (
-    organization_id UUID PRIMARY KEY,
+    organization_id SERIAL PRIMARY KEY,
     organization_name VARCHAR(255) NOT NULL,
     organization_slug VARCHAR(100) UNIQUE NOT NULL,
 
@@ -279,7 +279,7 @@ CREATE TABLE regions (
 13. <b><i>organization_regions</i></b>
 ```sql
 CREATE TABLE organization_regions (
-    organization_id UUID NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
+    organization_id INT NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
     region_id INT NOT NULL REFERENCES regions(region_id) ON DELETE CASCADE,
 
     PRIMARY KEY (organization_id, region_id),
@@ -335,8 +335,8 @@ CREATE TABLE user_regions (
 18. <b><i>user_partner_organizations</i></b>
 ```sql
 CREATE TABLE user_partner_organizations (
-    user_id TEXT REFERENCES users(user_id) ON DELETE CASCADE,
-    organization_id UUID REFERENCES organizations(organization_id) ON DELETE CASCADE,
+    user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
+    organization_id INT REFERENCES organizations(organization_id) ON DELETE CASCADE,
 
     PRIMARY KEY (user_id, organization_id)
 );
