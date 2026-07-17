@@ -808,7 +808,7 @@ async def load_project_plans(request: Request):
     peers = await access_control.load_regional_users(user_id)
 
     query = f"""
-        page_stats AS (
+        WITH page_stats AS (
             SELECT
                 LOWER(plan_id) AS plan_id,
                 COUNT(*) FILTER (
