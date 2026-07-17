@@ -217,8 +217,9 @@ CREATE TABLE sessions (
 ```sql
 CREATE TABLE users (
     user_id SERIAL PRIMARY KEY,
-    user_email TEXT NOT NULL,
+    role_id INT REFERENCES roles(role_id) ON DELETE CASCADE,
 
+    user_email TEXT NOT NULL,
     organization_id TEXT,
     user_name TEXT,
     user_location TEXT,
