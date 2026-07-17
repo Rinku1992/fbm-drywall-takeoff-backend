@@ -656,11 +656,13 @@ def load_hyperparameters() -> dict:
 CREDENTIALS = load_gcp_credentials()
 pg_pool = dict()
 DRYWALL_TEMPLATES = None
+access_control = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global DRYWALL_TEMPLATES
     global pg_pool
+    global access_control
 
     for attempt in range(10):
         try:
