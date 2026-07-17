@@ -66,5 +66,5 @@ class AccessControlService:
             ORDER BY u.user_email;
         """
         visible_users = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id,), fetch=True))
-        visible_users = [visible_users["user_email"] for visible_user in visible_users]
+        visible_users = [visible_user["user_email"] for visible_user in visible_users]
         return visible_users
