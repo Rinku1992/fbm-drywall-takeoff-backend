@@ -220,7 +220,7 @@ CREATE TABLE users (
     role_id INT REFERENCES roles(role_id) ON DELETE CASCADE,
 
     user_email TEXT NOT NULL,
-    organization_id INT,
+    organization_id INT REFERENCES organizations(organization_id) ON DELETE CASCADE,
     user_name TEXT,
     user_location TEXT,
     is_external BOOLEAN
