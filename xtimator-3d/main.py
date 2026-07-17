@@ -819,7 +819,21 @@ async def load_project_plans(request: Request):
     if is_user_not_authenticated:
         logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
         return respond_with_UI_payload(is_user_not_authenticated)
-    peers = await access_control.load_regional_users(user_id)
+    is_admin = await access_control.is_admin(user_id)
+    if bool(is_admin):
+        if is_admin.super:
+            where_clause = "TRUE"
+            params = (project_id,)
+
+        elif is_admin.local:
+            peers = await access_control.load_local_users(user_id)
+            where_clause = "LOWER(pl.user_id) = ANY(%s)"
+            params = (peers, project_id, peers,)
+
+    else:
+        peers = await access_control.load_regional_users(user_id)
+        where_clause = "LOWER(pl.user_id) = ANY(%s)"
+        params = (peers, project_id, peers,)
 
     query = f"""
         WITH page_stats AS (
@@ -855,7 +869,7 @@ async def load_project_plans(request: Request):
                     ON LOWER(pl.plan_id) = ps.plan_id
                 WHERE
                     LOWER(pl.project_id) = LOWER(p.project_id)
-                    AND LOWER(pl.user_id) = ANY(%s)
+                    AND {where_clause}
             ) AS project_plans
 
         FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} p
@@ -868,11 +882,11 @@ async def load_project_plans(request: Request):
                     FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} pl
                     WHERE
                         LOWER(pl.project_id) = LOWER(p.project_id)
-                        AND LOWER(pl.user_id) = ANY(%s)
+                        AND {where_clause}
                 )
             )
     """
-    rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(peers, project_id, peers,), fetch=True))
+    rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
 
     if not rows:
         return respond_with_UI_payload(dict(project_metadata=dict(), project_plans=list()))
