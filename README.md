@@ -305,7 +305,7 @@ CREATE TABLE roles (
 CREATE TABLE permissions (
 
     permission_id SERIAL PRIMARY KEY,
-    name VARCHAR(50) NOT NULL UNIQUE,
+    permission_name VARCHAR(50) NOT NULL UNIQUE,
     description TEXT,
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
