@@ -271,7 +271,7 @@ CREATE TABLE organizations (
 ```sql
 CREATE TABLE regions (
     region_id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE,
+    region_name VARCHAR(100) NOT NULL UNIQUE,
     created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 ```
@@ -293,7 +293,7 @@ CREATE TABLE organization_regions (
 CREATE TABLE roles (
 
     role_id SERIAL PRIMARY KEY,
-    name VARCHAR(50) NOT NULL UNIQUE,
+    role_name VARCHAR(50) NOT NULL UNIQUE,
     description TEXT,
 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
