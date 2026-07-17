@@ -6,6 +6,20 @@ from helper import pg_run
 
 __all__ = ["AccessControlService"]
 
+class Admin:
+
+    def __init__(self, role_name):
+        self._role_name = role_name
+
+    def __bool__(self):
+        self._role_name.lower().find("admin") != -1
+
+    def local(self):
+        self._role_name.lower() == "admin"
+
+    def super(self):
+        self._role_name.lower() == "super admin"
+
 class AccessControlService:
 
     def __init__(self, credentials, pg_pool):
@@ -30,7 +44,7 @@ class AccessControlService:
         user_scopes = [user_scope["permission_name"] for user_scope in user_scopes]
         return user_scopes
 
-    async def load_visible_users(self, user_id):
+    async def load_regional_users(self, user_id):
         query = f"""
             WITH visible_organizations AS (
                 SELECT organization_id
@@ -70,3 +84,15 @@ class AccessControlService:
         visible_users = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id, user_id, user_id,), fetch=True))
         visible_users = [visible_user["user_email"] for visible_user in visible_users]
         return visible_users
+
+    async def is_admin(self, user_id):
+        query = f"""
+            SELECT
+            r.role_name as role_name
+            FROM {self._credentials["CloudSQL"]["table_name_users"]} u
+            JOIN {self._credentials["CloudSQL"]["table_name_roles"]} r
+                ON u.role_id = r.role_id
+            WHERE LOWER(u.user_email) = LOWER(%s);
+        """
+        role_name = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id,), fetch=True))
+        return Admin(role_name[0]["role_name"])
