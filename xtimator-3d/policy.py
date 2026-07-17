@@ -85,6 +85,19 @@ class AccessControlService:
         visible_users = [visible_user["user_email"].lower() for visible_user in visible_users]
         return visible_users
 
+    async def load_local_users(self, user_id):
+        query = f"""
+            SELECT u2.user_email as user_email
+            FROM users u1
+            JOIN users u2
+                ON u2.organization_id = u1.organization_id
+            WHERE u1.user_id = %s
+            ORDER BY u2.user_email;
+        """
+        visible_users = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id,), fetch=True))
+        visible_users = [visible_user["user_email"].lower() for visible_user in visible_users]
+        return visible_users
+
     async def is_admin(self, user_id):
         query = f"""
             SELECT
