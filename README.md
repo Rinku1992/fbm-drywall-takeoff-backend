@@ -216,9 +216,8 @@ CREATE TABLE sessions (
 8. <b><i>users</i></b>
 ```sql
 CREATE TABLE users (
-    user_id TEXT PRIMARY KEY,
-
-    group_ids TEXT[] DEFAULT ARRAY[]::TEXT[],
+    user_id SERIAL PRIMARY KEY,
+    user_email TEXT NOT NULL,
 
     organization_id TEXT,
     user_name TEXT,
@@ -325,7 +324,7 @@ CREATE TABLE role_permissions (
 17. <b><i>user_regions</i></b>
 ```sql
 CREATE TABLE user_regions (
-    user_id TEXT REFERENCES users(user_id) ON DELETE CASCADE,
+    user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
     region_id INT REFERENCES regions(region_id) ON DELETE CASCADE,
 
     PRIMARY KEY (user_id, region_id)
