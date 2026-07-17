@@ -138,7 +138,7 @@ async def is_authenticated(credentials, pg_pool, request, user_id=None):
         SELECT
             is_external
         FROM {credentials["CloudSQL"]["table_name_users"]}
-        WHERE LOWER(user_id) = LOWER(%s)
+        WHERE LOWER(user_email) = LOWER(%s)
         LIMIT 1;
     """
     is_external = await run_in_threadpool(
