@@ -670,6 +670,7 @@ async def lifespan(app: FastAPI):
                 pg_pool,
                 CREDENTIALS
             )
+            access_control = AccessControlService(CREDENTIALS, pg_pool)
 
             break
         except Exception as e:
@@ -752,101 +753,9 @@ async def load_projects(request: Request):
     if is_user_not_authenticated:
         logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
         return respond_with_UI_payload(is_user_not_authenticated)
+    peers = access_control.load_regional_users(user_id)
 
     query = f"""
-        WITH current_user_cte AS (
-            SELECT LOWER(%s) AS user_id
-        ),
-
-        current_user_groups AS (
-            SELECT DISTINCT
-                LOWER(group_id) AS group_id
-            FROM {CREDENTIALS["CloudSQL"]["table_name_users"]} u
-            CROSS JOIN unnest(
-                COALESCE(u.group_ids, ARRAY[]::text[])
-            ) AS group_id
-            JOIN current_user_cte cu
-                ON LOWER(u.user_id) = cu.user_id
-        ),
-
-        admin_groups AS (
-            SELECT DISTINCT
-                g.organization_id
-            FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
-            JOIN current_user_groups cug
-                ON LOWER(g.group_id) = cug.group_id
-            WHERE COALESCE(g.is_admin, FALSE) = TRUE
-        ),
-
-        has_global_admin AS (
-            SELECT EXISTS (
-                SELECT 1
-                FROM admin_groups
-                WHERE organization_id IS NULL
-            ) AS is_global_admin
-        ),
-
-        same_group_users AS (
-            SELECT DISTINCT
-                LOWER(g.user_id) AS user_id
-            FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
-            JOIN current_user_groups cug
-                ON LOWER(g.group_id) = cug.group_id
-        ),
-
-        same_org_users AS (
-            SELECT DISTINCT
-                LOWER(g.user_id) AS user_id
-            FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
-            JOIN admin_groups ag
-                ON ag.organization_id = g.organization_id
-            WHERE ag.organization_id IS NOT NULL
-        ),
-
-        fallback_user AS (
-            SELECT user_id
-            FROM current_user_cte
-            WHERE NOT EXISTS (
-                SELECT 1
-                FROM current_user_groups
-            )
-        ),
-
-        visible_users AS (
-            SELECT DISTINCT
-                LOWER(g.user_id) AS user_id
-            FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
-            WHERE EXISTS (
-                SELECT 1
-                FROM has_global_admin
-                WHERE is_global_admin = TRUE
-            )
-
-            UNION
-
-            SELECT user_id
-            FROM same_org_users
-            WHERE EXISTS (
-                SELECT 1
-                FROM admin_groups
-                WHERE organization_id IS NOT NULL
-            )
-
-            UNION
-
-            SELECT user_id
-            FROM same_group_users
-            WHERE NOT EXISTS (
-                SELECT 1
-                FROM admin_groups
-            )
-
-            UNION
-
-            SELECT LOWER(user_id)
-            FROM fallback_user
-        )
-
         SELECT
             p.*,
             CASE
@@ -866,14 +775,11 @@ async def load_projects(request: Request):
         ) pc
             ON LOWER(p.project_id) = pc.project_id
 
-        WHERE LOWER(p.created_by) IN (
-            SELECT user_id
-            FROM visible_users
-        )
+        WHERE LOWER(p.created_by) IN (%s)
 
         ORDER BY p.created_at DESC NULLS LAST;
     """
-    projects = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_id,), fetch=True))
+    projects = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_id, ", ".join(peers),), fetch=True))
 
     logging.info("SYSTEM: Project Metadata retrieved successfully")
     return respond_with_UI_payload(
