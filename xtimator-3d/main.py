@@ -805,85 +805,9 @@ async def load_project_plans(request: Request):
     if is_user_not_authenticated:
         logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
         return respond_with_UI_payload(is_user_not_authenticated)
+    peers = await access_control.load_regional_users(user_id)
 
     query = f"""
-        WITH current_user_cte AS (
-            SELECT LOWER(%s) AS user_id
-        ),
-
-        current_user_groups AS (
-            SELECT DISTINCT LOWER(group_id) AS group_id
-            FROM {CREDENTIALS["CloudSQL"]["table_name_users"]} u
-            CROSS JOIN unnest(
-                COALESCE(u.group_ids, ARRAY[]::text[])
-            ) AS group_id
-            JOIN current_user_cte cu
-                ON LOWER(u.user_id) = cu.user_id
-        ),
-
-        admin_groups AS (
-            SELECT DISTINCT
-                g.organization_id
-            FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
-            JOIN current_user_groups cug
-                ON LOWER(g.group_id) = cug.group_id
-            WHERE COALESCE(g.is_admin, FALSE) = TRUE
-        ),
-
-        global_admin AS (
-            SELECT EXISTS (
-                SELECT 1
-                FROM admin_groups
-                WHERE organization_id IS NULL
-            ) AS is_global_admin
-        ),
-
-        org_admin_users AS (
-            SELECT DISTINCT
-                LOWER(g.user_id) AS user_id
-            FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
-            JOIN admin_groups ag
-                ON ag.organization_id = g.organization_id
-            WHERE ag.organization_id IS NOT NULL
-        ),
-
-        matching_users AS (
-            SELECT DISTINCT
-                LOWER(g.user_id) AS user_id
-            FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
-            JOIN current_user_groups cug
-                ON LOWER(g.group_id) = cug.group_id
-        ),
-
-        fallback_user AS (
-            SELECT cu.user_id
-            FROM current_user_cte cu
-            WHERE NOT EXISTS (
-                SELECT 1
-                FROM current_user_groups
-            )
-        ),
-
-        visible_users AS (
-
-            SELECT user_id
-            FROM org_admin_users
-
-            UNION
-
-            SELECT user_id
-            FROM matching_users
-            WHERE NOT EXISTS (
-                SELECT 1
-                FROM admin_groups
-            )
-
-            UNION
-
-            SELECT LOWER(user_id)
-            FROM fallback_user
-        ),
-
         page_stats AS (
             SELECT
                 LOWER(plan_id) AS plan_id,
@@ -917,13 +841,7 @@ async def load_project_plans(request: Request):
                     ON LOWER(pl.plan_id) = ps.plan_id
                 WHERE
                     LOWER(pl.project_id) = LOWER(p.project_id)
-                    AND (
-                        (SELECT is_global_admin FROM global_admin)
-                        OR LOWER(pl.user_id) IN (
-                            SELECT user_id
-                            FROM visible_users
-                        )
-                    )
+                    AND LOWER(pl.user_id) = ANY(%s)
             ) AS project_plans
 
         FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} p
@@ -931,21 +849,16 @@ async def load_project_plans(request: Request):
         WHERE
             LOWER(p.project_id) = LOWER(%s)
             AND (
-                (SELECT is_global_admin FROM global_admin)
-
-                OR EXISTS (
+                EXISTS (
                     SELECT 1
                     FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} pl
                     WHERE
                         LOWER(pl.project_id) = LOWER(p.project_id)
-                        AND LOWER(pl.user_id) IN (
-                            SELECT user_id
-                            FROM visible_users
-                        )
+                        AND LOWER(pl.user_id) = ANY(%s)
                 )
             )
     """
-    rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_id, project_id,), fetch=True))
+    rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(peers, project_id, peers,), fetch=True))
 
     if not rows:
         return respond_with_UI_payload(dict(project_metadata=dict(), project_plans=list()))
