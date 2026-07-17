@@ -13,7 +13,7 @@ class AccessControlService:
     async def _load_scope(self, user_id):
         query = f"""
             SELECT
-            p.name as permission_name
+            p.permission_name as permission_name
             FROM {self._credentials["CloudSQL"]["table_name_users"]} u
             JOIN {self._credentials["CloudSQL"]["table_name_roles"]} r
                 ON u.role_id = r.role_id
@@ -25,6 +25,7 @@ class AccessControlService:
         """
         await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id,), fetch=True))
         user_scopes = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id,), fetch=True))
+        user_scopes = [user_scope["permission_name"] for user_scope in user_scopes]
         return user_scopes
 
     async def load_visible_users(self, user_id):
@@ -54,10 +55,7 @@ class AccessControlService:
             )
 
             SELECT DISTINCT
-                u.user_id,
-                u.user_email,
-                u.user_name,
-                u.organization_id
+                u.user_email as user_email
             FROM {self._credentials["CloudSQL"]["table_name_users"]} u
             JOIN {self._credentials["CloudSQL"]["table_name_user_regions"]} ur
                 ON ur.user_id = u.user_id
@@ -68,4 +66,5 @@ class AccessControlService:
             ORDER BY u.user_email;
         """
         visible_users = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id,), fetch=True))
+        visible_users = [visible_users["user_email"] for visible_user in visible_users]
         return visible_users
