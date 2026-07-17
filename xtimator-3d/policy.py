@@ -4,6 +4,8 @@ from fastapi.concurrency import run_in_threadpool
 from helper import pg_run
 
 
+__all__ = ["AccessControlService"]
+
 class AccessControlService:
 
     def __init__(self, credentials, pg_pool):
