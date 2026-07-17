@@ -227,30 +227,7 @@ CREATE TABLE users (
 );
 ```
 
-9. <b><i>groups</i></b>
-```sql
-CREATE TABLE groups (
-
-    id SERIAL PRIMARY KEY,
-    region_id INT REFERENCES regions(id) ON DELETE CASCADE,
-    name VARCHAR(100) NOT NULL,
-
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(region_id, name)
-);
-```
-
-10. <b><i>user_groups</i></b>
-```sql
-CREATE TABLE user_groups (
-    user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
-    group_id INT REFERENCES groups(group_id) ON DELETE CASCADE,
-
-    PRIMARY KEY (user_id, group_id)
-);
-```
-
-11. <b><i>organizations</i></b>
+9. <b><i>organizations</i></b>
 ```sql
 CREATE TABLE organizations (
     organization_id SERIAL PRIMARY KEY,
@@ -267,7 +244,7 @@ CREATE TABLE organizations (
 );
 ```
 
-12. <b><i>regions</i></b>
+10. <b><i>regions</i></b>
 ```sql
 CREATE TABLE regions (
     region_id SERIAL PRIMARY KEY,
@@ -276,7 +253,7 @@ CREATE TABLE regions (
 );
 ```
 
-13. <b><i>organization_regions</i></b>
+11. <b><i>organization_regions</i></b>
 ```sql
 CREATE TABLE organization_regions (
     organization_id INT NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
@@ -288,7 +265,7 @@ CREATE TABLE organization_regions (
 );
 ```
 
-14. <b><i>roles</i></b>
+12. <b><i>roles</i></b>
 ```sql
 CREATE TABLE roles (
 
@@ -300,7 +277,7 @@ CREATE TABLE roles (
 );
 ```
 
-15. <b><i>permissions</i></b>
+13. <b><i>permissions</i></b>
 ```sql
 CREATE TABLE permissions (
 
@@ -312,7 +289,7 @@ CREATE TABLE permissions (
 );
 ```
 
-16. <b><i>role_permissions</i></b>
+14. <b><i>role_permissions</i></b>
 ```sql
 CREATE TABLE role_permissions (
     role_id INT NOT NULL REFERENCES roles(role_id) ON DELETE CASCADE,
@@ -322,7 +299,7 @@ CREATE TABLE role_permissions (
 );
 ```
 
-17. <b><i>user_regions</i></b>
+15. <b><i>user_regions</i></b>
 ```sql
 CREATE TABLE user_regions (
     user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
@@ -332,7 +309,7 @@ CREATE TABLE user_regions (
 );
 ```
 
-18. <b><i>user_partner_organizations</i></b>
+16. <b><i>user_partner_organizations</i></b>
 ```sql
 CREATE TABLE user_partner_organizations (
     user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
@@ -342,7 +319,7 @@ CREATE TABLE user_partner_organizations (
 );
 ```
 
-18. <b><i>sku</i></b>
+17. <b><i>sku</i></b>
 ```sql
 CREATE TABLE sku (
     sku_id TEXT PRIMARY KEY,
@@ -368,7 +345,7 @@ CREATE TABLE sku (
 );
 ```
 
-19. <b><i>external_otp_tokens</i></b>
+18. <b><i>external_otp_tokens</i></b>
 ```sql
 CREATE TABLE external_otp_tokens (
     email         TEXT PRIMARY KEY,
