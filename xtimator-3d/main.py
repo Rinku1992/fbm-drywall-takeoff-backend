@@ -755,7 +755,21 @@ async def load_projects(request: Request):
     if is_user_not_authenticated:
         logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
         return respond_with_UI_payload(is_user_not_authenticated)
-    peers = await access_control.load_regional_users(user_id)
+    is_admin = await access_control.is_admin(user_id)
+    if bool(is_admin):
+        if is_admin.super:
+            where_clause = "TRUE"
+            params = ()
+
+        elif is_admin.local:
+            peers = await access_control.load_local_users(user_id)
+            where_clause = "LOWER(p.created_by) = ANY(%s)"
+            params = (peers,)
+
+    else:
+        peers = await access_control.load_regional_users(user_id)
+        where_clause = "LOWER(p.created_by) = ANY(%s)"
+        params = (peers,)
 
     query = f"""
         SELECT
@@ -777,11 +791,11 @@ async def load_projects(request: Request):
         ) pc
             ON LOWER(p.project_id) = pc.project_id
 
-        WHERE LOWER(p.created_by) = ANY(%s)
+        WHERE {where_clause}
 
         ORDER BY p.created_at DESC NULLS LAST;
     """
-    projects = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(peers,), fetch=True))
+    projects = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
 
     logging.info("SYSTEM: Project Metadata retrieved successfully")
     return respond_with_UI_payload(
