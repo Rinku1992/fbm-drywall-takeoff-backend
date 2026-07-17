@@ -753,7 +753,7 @@ async def load_projects(request: Request):
     if is_user_not_authenticated:
         logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
         return respond_with_UI_payload(is_user_not_authenticated)
-    peers = access_control.load_regional_users(user_id)
+    peers = await access_control.load_regional_users(user_id)
 
     query = f"""
         SELECT
