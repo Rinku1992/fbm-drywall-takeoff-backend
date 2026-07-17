@@ -4,8 +4,6 @@ from fastapi.concurrency import run_in_threadpool
 from helper import pg_run
 
 
-__all__ = ["AccessControlService"]
-
 class AccessControlService:
 
     def __init__(self, credentials, pg_pool):
@@ -16,12 +14,12 @@ class AccessControlService:
         query = f"""
             SELECT
             p.name as permission_name
-            FROM users u
-            JOIN roles r
+            FROM {self._credentials["CloudSQL"]["table_name_users"]} u
+            JOIN {self._credentials["CloudSQL"]["table_name_roles"]} r
                 ON u.role_id = r.role_id
-            JOIN role_permissions rp
+            JOIN {self._credentials["CloudSQL"]["table_name_role_permissions"]} rp
                 ON r.role_id = rp.role_id
-            JOIN permissions p
+            JOIN {self._credentials["CloudSQL"]["table_name_permissions"]} p
                 ON p.permission_id = rp.permission_id
             WHERE LOWER(u.user_email) = LOWER(%s);
         """
