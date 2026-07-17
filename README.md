@@ -37,8 +37,8 @@ CREATE TABLE projects (
 2. <b><i>plans</i></b>
 ```sql
 CREATE TABLE plans (
-    plan_id TEXT PRIMARY KEY,
-    project_id TEXT NOT NULL,
+    plan_id TEXT REFERENCES plans(plan_id) ON DELETE CASCADE,
+    project_id TEXT REFERENCES projects(project_id) ON DELETE CASCADE,
     user_id TEXT NOT NULL,
 
     status TEXT,
@@ -65,8 +65,8 @@ CREATE TABLE plans (
 3. <b><i>pages</i></b>
 ```sql
 CREATE TABLE pages (
-    plan_id TEXT NOT NULL,
-    project_id TEXT NOT NULL,
+    plan_id TEXT REFERENCES plans(plan_id) ON DELETE CASCADE,
+    project_id TEXT REFERENCES projects(project_id) ON DELETE CASCADE,
     user_id TEXT,
 
     page_number INTEGER NOT NULL,
@@ -99,8 +99,8 @@ CREATE TABLE pages (
 4. <b><i>models</i></b>
 ```sql
 CREATE TABLE models (
-    plan_id TEXT NOT NULL,
-    project_id TEXT NOT NULL,
+    plan_id TEXT REFERENCES plans(plan_id) ON DELETE CASCADE,
+    project_id TEXT REFERENCES projects(project_id) ON DELETE CASCADE,
     user_id TEXT,
 
     page_number INTEGER NOT NULL,
@@ -137,8 +137,8 @@ CREATE TABLE models (
 5. <b><i>model_revisions_2d</i></b>
 ```sql
 CREATE TABLE model_revisions_2d (
-    plan_id TEXT NOT NULL,
-    project_id TEXT NOT NULL,
+    plan_id TEXT REFERENCES plans(plan_id) ON DELETE CASCADE,
+    project_id TEXT REFERENCES projects(project_id) ON DELETE CASCADE,
     user_id TEXT,
 
     page_number INTEGER NOT NULL,
@@ -167,8 +167,8 @@ CREATE TABLE model_revisions_2d (
 6. <b><i>model_revisions_3d</i></b>
 ```sql
 CREATE TABLE model_revisions_3d (
-    plan_id TEXT NOT NULL,
-    project_id TEXT NOT NULL,
+    plan_id TEXT REFERENCES plans(plan_id) ON DELETE CASCADE,
+    project_id TEXT REFERENCES projects(project_id) ON DELETE CASCADE,
     user_id TEXT,
 
     page_number INTEGER NOT NULL,
@@ -198,10 +198,10 @@ CREATE TABLE model_revisions_3d (
 7. <b><i>sessions</i></b>
 ```sql
 CREATE TABLE sessions (
-    session_id TEXT NOT NULL,
+    session_id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
-    project_id TEXT NOT NULL,
-    plan_id TEXT,
+    project_id TEXT REFERENCES projects(project_id) ON DELETE CASCADE,
+    plan_id TEXT REFERENCES plans(plan_id) ON DELETE CASCADE,
     page_number INTEGER NOT NULL,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
