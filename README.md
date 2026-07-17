@@ -37,7 +37,7 @@ CREATE TABLE projects (
 2. <b><i>plans</i></b>
 ```sql
 CREATE TABLE plans (
-    plan_id TEXT REFERENCES plans(plan_id) ON DELETE CASCADE,
+    plan_id TEXT PRIMARY KEY,
     project_id TEXT REFERENCES projects(project_id) ON DELETE CASCADE,
     user_id TEXT NOT NULL,
 
