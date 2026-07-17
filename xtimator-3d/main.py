@@ -77,6 +77,7 @@ from helper import (
     create_session,
     is_session_active,
 )
+from policy import AccessControlService
 from prompts import VISUAL_GROUNDING_DETECTOR, SLOPED_CEILING_CHOICES
 
 
