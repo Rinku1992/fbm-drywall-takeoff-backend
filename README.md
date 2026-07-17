@@ -332,6 +332,16 @@ CREATE TABLE user_regions (
 );
 ```
 
+18. <b><i>user_partner_organizations</i></b>
+```sql
+CREATE TABLE user_partner_organizations (
+    user_id TEXT REFERENCES users(user_id) ON DELETE CASCADE,
+    organization_id UUID REFERENCES organizations(organization_id) ON DELETE CASCADE,
+
+    PRIMARY KEY (user_id, organization_id)
+);
+```
+
 18. <b><i>sku</i></b>
 ```sql
 CREATE TABLE sku (
