@@ -1607,6 +1607,9 @@ async def update_floorplan_to_2d(request: Request):
     if is_user_not_authenticated:
         logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
         return respond_with_UI_payload(is_user_not_authenticated)
+     user_scope = await access_control.load_scope(user_id, project_id, plan_id, index)
+     if not user_scope.update:
+         return respond_with_UI_payload(dict(email=user_id, permission="denied", message="Requires elevation in access privilege to update this item"))
 
     hyperparameters = load_hyperparameters()
 
@@ -1717,6 +1720,9 @@ async def update_scale(request: Request):
     if is_user_not_authenticated:
         logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
         return respond_with_UI_payload(is_user_not_authenticated)
+    user_scope = await access_control.load_scope(user_id, project_id, plan_id, page_number)
+    if not user_scope.update:
+         return respond_with_UI_payload(dict(email=user_id, permission="denied", message="Requires elevation in access privilege to update this item"))
 
     query = f"UPDATE {CREDENTIALS["CloudSQL"]["table_name_models"]} SET scale = %s WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
     await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(scale, project_id, plan_id, page_number, page_section_number,)))
@@ -2086,6 +2092,9 @@ async def compute_takeoff(request: Request):
     if is_user_not_authenticated:
         logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
         return respond_with_UI_payload(is_user_not_authenticated)
+    user_scope = await access_control.load_scope(user_id, project_id, plan_id, index)
+    if load_preview == False and not user_scope.update:
+         return respond_with_UI_payload(dict(email=user_id, permission="denied", message="Requires elevation in access privilege to update this item"))
 
     query = f"SELECT scale FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
     query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
