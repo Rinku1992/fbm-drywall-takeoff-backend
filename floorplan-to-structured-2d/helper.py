@@ -726,50 +726,42 @@ async def trigger_email_notification(
     message = f"Plan: {plan_id} | Page Number: {page_number} | Extraction: {status}"
     if notify_group:
         query = f"""
-            WITH current_user_cte AS (
-                SELECT %s AS user_id
-            ),
-
-            current_user_groups AS (
-                SELECT DISTINCT group_id
-                FROM {credentials["CloudSQL"]["table_name_users"]} u
-                CROSS JOIN unnest(COALESCE(u.group_ids, ARRAY[]::text[])) AS group_id
-                JOIN current_user_cte cu
-                    ON LOWER(u.user_id) = LOWER(cu.user_id)
-            ),
-
-            matching_users AS (
-                SELECT DISTINCT
-                    g.user_id
-                FROM {credentials["CloudSQL"]["table_name_groups"]} g
-                JOIN current_user_groups cug
-                    ON g.group_id = cug.group_id
-            ),
-
-            fallback_user AS (
-                SELECT cu.user_id
-                FROM current_user_cte cu
-                WHERE NOT EXISTS (
-                    SELECT 1
-                    FROM current_user_groups
-                )
-            ),
-
-            final_users AS (
-                SELECT user_id
-                FROM matching_users
+            WITH visible_organizations AS (
+                SELECT organization_id
+                FROM {self._credentials["CloudSQL"]["table_name_users"]}
+                WHERE LOWER(user_email) = LOWER(%s)
 
                 UNION
 
-                SELECT user_id
-                FROM fallback_user
+                SELECT up.organization_id
+                FROM {self._credentials["CloudSQL"]["table_name_user_partner_organizations"]} up JOIN {self._credentials["CloudSQL"]["table_name_users"]} u ON up.user_id = u.user_id
+                WHERE LOWER(u.user_email) = LOWER(%s)
+            ),
+
+            visible_regions AS (
+                SELECT DISTINCT ur.region_id
+                FROM {self._credentials["CloudSQL"]["table_name_user_regions"]} ur
+                JOIN {self._credentials["CloudSQL"]["table_name_organization_regions"]} ogr
+                    ON ogr.region_id = ur.region_id JOIN users u on u.user_id = ur.user_id
+                WHERE LOWER(u.user_email) = LOWER(%s)
+                    AND ogr.organization_id IN (
+                        SELECT organization_id
+                        FROM visible_organizations
+                    )
             )
 
-            SELECT LOWER(user_id) AS user_id
-            FROM final_users
+            SELECT DISTINCT
+                u.user_email as user_email
+            FROM {self._credentials["CloudSQL"]["table_name_users"]} u
+            JOIN {self._credentials["CloudSQL"]["table_name_user_regions"]} ur
+                ON ur.user_id = u.user_id
+            WHERE ur.region_id IN (
+                SELECT region_id
+                FROM visible_regions
+            )
+            ORDER BY u.user_email;
         """
-        query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(user_id,), fetch=True))
-        user_ids_group = [row["user_id"] for row in query_output]
+        user_ids_group = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id, user_id, user_id,), fetch=True))
         for user_id_group in user_ids_group:
             trigger(
                 credentials,
