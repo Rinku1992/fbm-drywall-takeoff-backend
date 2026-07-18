@@ -58,7 +58,7 @@ class AccessControlService:
             return Scope(user_scopes)
         query = f"""
             SELECT
-            p.permission_name as permission_name
+            p.permission_name AS permission_name
             FROM {self._credentials["CloudSQL"]["table_name_users"]} u
             JOIN {self._credentials["CloudSQL"]["table_name_roles"]} r
                 ON u.role_id = r.role_id
@@ -99,7 +99,7 @@ class AccessControlService:
             )
 
             SELECT DISTINCT
-                u.user_email as user_email
+                u.user_email AS user_email
             FROM {self._credentials["CloudSQL"]["table_name_users"]} u
             JOIN {self._credentials["CloudSQL"]["table_name_user_regions"]} ur
                 ON ur.user_id = u.user_id
@@ -115,7 +115,7 @@ class AccessControlService:
 
     async def load_organization_users(self, user_id):
         query = f"""
-            SELECT u2.user_email as user_email
+            SELECT u2.user_email AS user_email
             FROM users u1
             JOIN users u2
                 ON u2.organization_id = u1.organization_id
@@ -129,7 +129,7 @@ class AccessControlService:
     async def is_admin(self, user_id):
         query = f"""
             SELECT
-            r.role_name as role_name
+            r.role_name AS role_name
             FROM {self._credentials["CloudSQL"]["table_name_users"]} u
             JOIN {self._credentials["CloudSQL"]["table_name_roles"]} r
                 ON u.role_id = r.role_id
