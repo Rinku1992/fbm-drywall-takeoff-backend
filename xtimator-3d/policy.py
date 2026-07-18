@@ -125,7 +125,7 @@ class AccessControlService:
             FROM users u1
             JOIN users u2
                 ON u2.organization_id = u1.organization_id
-            WHERE u1.user_email = %s
+            WHERE LOWER(u1.user_email) = LOWER(%s)
             ORDER BY u2.user_email;
         """
         visible_users = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id,), fetch=True))
