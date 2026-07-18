@@ -993,101 +993,31 @@ async def load_plan_pages(request: Request):
     if is_user_not_authenticated:
         logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
         return respond_with_UI_payload(is_user_not_authenticated)
+    is_admin = await access_control.is_admin(user_id)
+    if bool(is_admin):
+        if is_admin.super:
+            where_clause = "TRUE"
+            params = (project_id, plan_id,)
+
+        elif is_admin.local:
+            peers = await access_control.load_local_users(user_id)
+            where_clause = "LOWER(user_id) = ANY(%s)"
+            params = (project_id, plan_id, peers,)
+
+    else:
+        peers = await access_control.load_regional_users(user_id)
+        where_clause = "LOWER(user_id) = ANY(%s)"
+        params = (project_id, plan_id, peers,)
 
     query = f"""
-        WITH current_user_cte AS (
-            SELECT LOWER(%s) AS user_id
-        ),
-
-        current_user_groups AS (
-            SELECT DISTINCT LOWER(group_id) AS group_id
-            FROM {CREDENTIALS["CloudSQL"]["table_name_users"]} u
-            CROSS JOIN unnest(
-                COALESCE(u.group_ids, ARRAY[]::text[])
-            ) AS group_id
-            JOIN current_user_cte cu
-                ON LOWER(u.user_id) = cu.user_id
-        ),
-
-        admin_groups AS (
-            SELECT DISTINCT
-                g.organization_id
-            FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
-            JOIN current_user_groups cug
-                ON LOWER(g.group_id) = cug.group_id
-            WHERE COALESCE(g.is_admin, FALSE) = TRUE
-        ),
-
-        global_admin AS (
-            SELECT EXISTS (
-                SELECT 1
-                FROM admin_groups
-                WHERE organization_id IS NULL
-            ) AS is_global_admin
-        ),
-
-        org_admin_users AS (
-            SELECT DISTINCT
-                LOWER(g.user_id) AS user_id
-            FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
-            JOIN admin_groups ag
-                ON ag.organization_id = g.organization_id
-            WHERE ag.organization_id IS NOT NULL
-        ),
-
-        matching_users AS (
-            SELECT DISTINCT
-                LOWER(g.user_id) AS user_id
-            FROM {CREDENTIALS["CloudSQL"]["table_name_groups"]} g
-            JOIN current_user_groups cug
-                ON LOWER(g.group_id) = cug.group_id
-        ),
-
-        fallback_user AS (
-            SELECT cu.user_id
-            FROM current_user_cte cu
-            WHERE NOT EXISTS (
-                SELECT 1
-                FROM current_user_groups
-            )
-        ),
-
-        visible_users AS (
-            SELECT user_id
-            FROM org_admin_users
-
-            UNION
-
-            SELECT user_id
-            FROM matching_users
-            WHERE NOT EXISTS (
-                SELECT 1
-                FROM admin_groups
-            )
-
-            UNION
-
-            SELECT LOWER(user_id)
-            FROM fallback_user
-        )
-
         SELECT *
         FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]}
         WHERE
             LOWER(project_id) = LOWER(%s)
             AND LOWER(plan_id) = LOWER(%s)
-            AND (
-                (SELECT is_global_admin FROM global_admin)
-
-                OR
-
-                LOWER(user_id) IN (
-                    SELECT user_id
-                    FROM visible_users
-                )
-            )
+            AND {where_clause}
     """
-    rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_id, project_id, plan_id,), fetch=True))
+    rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
 
     if not rows:
         return respond_with_UI_payload(dict(plan_metadata=dict(), plan_pages=list()))
