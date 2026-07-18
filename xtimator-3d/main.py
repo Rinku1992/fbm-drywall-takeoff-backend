@@ -1001,6 +1001,7 @@ async def load_plan_pages(request: Request):
 
         elif is_admin.local:
             peers = await access_control.load_organization_users(user_id)
+            print(peers)
             where_clause = "LOWER(user_id) = ANY(%s)"
             params = (project_id, plan_id, peers,)
 
