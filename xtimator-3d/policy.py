@@ -20,6 +20,23 @@ class Admin:
     def super(self):
         return self._role_name.lower() == "super admin"
 
+class Scope:
+
+    def __init__(self, scopes):
+        self._scopes = [scope.lower() for scope in scopes]
+
+    def read(self):
+        return "read" in self._scopes
+
+    def write(self):
+        return "write" in self._scopes
+
+    def update(self):
+        return "update" in self._scopes
+
+    def delete(self):
+        return "delete" in self._scopes
+
 class AccessControlService:
 
     def __init__(self, credentials, pg_pool):
@@ -42,7 +59,7 @@ class AccessControlService:
         await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id,), fetch=True))
         user_scopes = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id,), fetch=True))
         user_scopes = [user_scope["permission_name"] for user_scope in user_scopes]
-        return user_scopes
+        return Scope(user_scopes)
 
     async def load_regional_users(self, user_id):
         query = f"""
