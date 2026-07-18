@@ -46,7 +46,7 @@ class AccessControlService:
     async def _is_owner(self, project_id, plan_id, page_number, user_id):
         query = f"""
             SELECT user_id FROM {self._credentials["CloudSQL"]["table_name_models"]}
-            WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;
+            WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s LIMIT 1;
         """
         user_owner = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(project_id, plan_id, page_number,), fetch=True))
         return user_id.lower() == user_owner.lower()
