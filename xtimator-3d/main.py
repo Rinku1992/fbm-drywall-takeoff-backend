@@ -1721,6 +1721,7 @@ async def update_scale(request: Request):
         logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
         return respond_with_UI_payload(is_user_not_authenticated)
     user_scope = await access_control.load_scope(user_id, project_id, plan_id, page_number)
+    print(user_scope._scopes)
     if not user_scope.update:
          return respond_with_UI_payload(dict(email=user_id, permission="denied", message="Requires elevation in access privilege to update this item"))
 
