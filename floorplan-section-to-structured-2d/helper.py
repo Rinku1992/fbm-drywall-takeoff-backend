@@ -782,11 +782,11 @@ def load_publisher_client(credentials):
 
 async def load_organization_slug(credentials, pg_pool, user_id):
     query = f"""SELECT COALESCE(o.organization_slug, 
-            NULLIF(split_part(u.user_id,'@',2),''), 
-            u.user_id) AS org_or_domain
+            NULLIF(split_part(u.user_email,'@',2),''), 
+            u.user_email) AS org_or_domain
         FROM {credentials["CloudSQL"]["table_name_users"]} u
         LEFT JOIN {credentials["CloudSQL"]["table_name_organizations"]} o ON TEXT(u.organization_id) = TEXT(o.organization_id)
-        WHERE LOWER(u.user_id) = LOWER(%s);
+        WHERE LOWER(u.user_email) = LOWER(%s);
     """
     query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(user_id,), fetch=True))
     if query_output and query_output[0]["org_or_domain"]:
