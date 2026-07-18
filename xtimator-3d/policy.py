@@ -49,7 +49,7 @@ class AccessControlService:
             WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s LIMIT 1;
         """
         user_owner = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(project_id, plan_id, page_number,), fetch=True))
-        return user_id.lower() == user_owner.lower()
+        return user_id.lower() == user_owner[0]["user_id"].lower()
 
     async def load_scope(self, user_id, project_id, plan_id, page_number):
         is_owner = await self._is_owner(project_id, plan_id, page_number, user_id)
