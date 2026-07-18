@@ -762,7 +762,7 @@ async def load_projects(request: Request):
             params = ()
 
         elif is_admin.local:
-            peers = await access_control.load_local_users(user_id)
+            peers = await access_control.load_organization_users(user_id)
             where_clause = "LOWER(p.created_by) = ANY(%s)"
             params = (peers,)
 
@@ -826,7 +826,7 @@ async def load_project_plans(request: Request):
             params = (project_id,)
 
         elif is_admin.local:
-            peers = await access_control.load_local_users(user_id)
+            peers = await access_control.load_organization_users(user_id)
             where_clause = "LOWER(pl.user_id) = ANY(%s)"
             params = (peers, project_id, peers,)
 
@@ -1000,7 +1000,7 @@ async def load_plan_pages(request: Request):
             params = (project_id, plan_id,)
 
         elif is_admin.local:
-            peers = await access_control.load_local_users(user_id)
+            peers = await access_control.load_organization_users(user_id)
             where_clause = "LOWER(user_id) = ANY(%s)"
             params = (project_id, plan_id, peers,)
 
@@ -1467,7 +1467,7 @@ async def load_2d_all(request: Request):
             params = (project_id, plan_id,)
 
         elif is_admin.local:
-            peers = await access_control.load_local_users(user_id)
+            peers = await access_control.load_organization_users(user_id)
             where_clause = "LOWER(user_id) = ANY(%s)"
             params = (project_id, plan_id, peers,)
 
