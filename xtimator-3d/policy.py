@@ -51,7 +51,11 @@ class AccessControlService:
         user_owner = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(project_id, plan_id, page_number,), fetch=True))
         return user_id.lower() == user_owner.lower()
 
-    async def load_scope(self, user_id):
+    async def load_scope(self, user_id, project_id, plan_id, page_number):
+        is_owner = self._is_owner(project_id, plan_id, page_number, user_id)
+        if is_owner:
+            user_scopes = ["read, write", "update", "delete"]
+            return Scope(user_scopes)
         query = f"""
             SELECT
             p.permission_name as permission_name
