@@ -440,23 +440,11 @@ async def insert_model_2d(
         GCS_URL_target_drywalls_page
     )))
 
-async def is_duplicate(pg_pool, credentials, pdf_path, project_id, user_id):
+async def is_duplicate(pg_pool, credentials, access_control, pdf_path, project_id, user_id):
     sha_256 = sha256(pdf_path)
     organization_slug_target = await load_organization_slug(credentials, pg_pool, user_id)
-    query = f"""
-        SELECT EXISTS (
-        SELECT 1
-        FROM {credentials["CloudSQL"]["table_name_users"]} u
-        CROSS JOIN unnest(COALESCE(u.group_ids, ARRAY[]::text[])) AS gid(group_id)
-        JOIN {credentials["CloudSQL"]["table_name_groups"]} g
-            ON LOWER(g.group_id) = LOWER(gid.group_id)
-        WHERE LOWER(u.user_id) = LOWER(%s)
-            AND COALESCE(g.is_admin, FALSE) = TRUE
-            AND g.organization_id IS NULL
-        ) AS is_global_admin;
-    """
-    query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(user_id,), fetch=True))
-    target_user_is_global_admin = query_output[0]["is_global_admin"]
+    is_admin = await access_control.is_admin(user_id)
+    target_user_is_global_admin = is_admin.super
     query = f"SELECT plan_id, sha256, status, user_id FROM {credentials["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s)"
     query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id,), fetch=True))
     for plan_target in list(query_output):
