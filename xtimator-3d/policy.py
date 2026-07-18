@@ -14,9 +14,11 @@ class Admin:
     def __bool__(self):
         return self._role_name.lower().find("admin") != -1
 
+    @property
     def local(self):
         return self._role_name.lower() == "admin"
 
+    @property
     def super(self):
         return self._role_name.lower() == "super admin"
 
@@ -25,15 +27,19 @@ class Scope:
     def __init__(self, scopes):
         self._scopes = [scope.lower() for scope in scopes]
 
+    @property
     def read(self):
         return "read" in self._scopes
 
+    @property
     def write(self):
         return "write" in self._scopes
 
+    @property
     def update(self):
         return "update" in self._scopes
 
+    @property
     def delete(self):
         return "delete" in self._scopes
 
