@@ -12,13 +12,13 @@ class Admin:
         self._role_name = role_name
 
     def __bool__(self):
-        self._role_name.lower().find("admin") != -1
+        return self._role_name.lower().find("admin") != -1
 
     def local(self):
-        self._role_name.lower() == "admin"
+        return self._role_name.lower() == "admin"
 
     def super(self):
-        self._role_name.lower() == "super admin"
+        return self._role_name.lower() == "super admin"
 
 class AccessControlService:
 
