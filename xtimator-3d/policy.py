@@ -85,7 +85,7 @@ class AccessControlService:
         visible_users = [visible_user["user_email"].lower() for visible_user in visible_users]
         return visible_users
 
-    async def load_local_users(self, user_id):
+    async def load_organization_users(self, user_id):
         query = f"""
             SELECT u2.user_email as user_email
             FROM users u1
