@@ -1379,7 +1379,7 @@ async def enforce_early_stopping(credentials, pg_pool, project_id, plan_id, user
 async def load_organization_slug(credentials, pg_pool, user_id):
     query = f"""SELECT COALESCE(o.organization_slug, 
             NULLIF(split_part(u.user_email,'@',2),''), 
-            u.user_id) AS org_or_domain
+            u.user_email) AS org_or_domain
         FROM {credentials["CloudSQL"]["table_name_users"]} u
         LEFT JOIN {credentials["CloudSQL"]["table_name_organizations"]} o ON TEXT(u.organization_id) = TEXT(o.organization_id)
         WHERE LOWER(u.user_email) = LOWER(%s);
