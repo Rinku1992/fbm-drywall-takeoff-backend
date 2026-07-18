@@ -2679,7 +2679,7 @@ async def verify_otp(request: PayloadVerifyExternalOtp):
             status_code=404
         )
 
-    user_id = users[0]["user_id"]
+    user_id = users[0]["user_email"]
 
     query = f"""
         UPDATE {CREDENTIALS["CloudSQL"]["table_name_otp"]}
