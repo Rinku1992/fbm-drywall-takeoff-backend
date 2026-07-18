@@ -2429,7 +2429,7 @@ async def request_otp(request: PayloadRequestExternalOtp):
         SELECT
             is_external
         FROM {CREDENTIALS["CloudSQL"]["table_name_users"]}
-        WHERE LOWER(user_id) = LOWER(%s)
+        WHERE LOWER(user_email) = LOWER(%s)
         LIMIT 1;
     """
     is_external = await run_in_threadpool(
@@ -2534,7 +2534,7 @@ async def verify_otp(request: PayloadVerifyExternalOtp):
         SELECT
             is_external
         FROM {CREDENTIALS["CloudSQL"]["table_name_users"]}
-        WHERE LOWER(user_id) = LOWER(%s)
+        WHERE LOWER(user_email) = LOWER(%s)
         LIMIT 1;
     """
     is_external = await run_in_threadpool(
@@ -2659,9 +2659,9 @@ async def verify_otp(request: PayloadVerifyExternalOtp):
 
     query = f"""
         SELECT
-            user_id
+            user_email
         FROM {CREDENTIALS["CloudSQL"]["table_name_users"]}
-        WHERE LOWER(user_id) = LOWER(%s)
+        WHERE LOWER(user_email) = LOWER(%s)
         LIMIT 1;
     """
 
