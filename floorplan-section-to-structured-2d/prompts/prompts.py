@@ -1375,9 +1375,25 @@ DRYWALL_PREDICTOR = """
           -> Fire separation requirements (CBC, IRC R302)
           -> Moisture and mold resistance needs
           -> Typical residential drywall standards in the provided project location
-        - Enforce cost reduction
+          -> Required wall height and the vertical position of each drywall layer
+          -> Cost reduction while satisfying all applicable code and performance requirements
         - A single drywall material preference for each wall is MANDATORY.
         - Optionally predict an additional vertically stacked drywall preferences for each of the walls (only if stacked drywall preferences applicable else leave the list empty). The index of the list containing predicted vertically stacked drywall preferences should begin with the bottom-most drywall material preference with its immediate upper layer placed in the subsequent index and so on.
+        - Vertically stacked drywall is permitted only when the wall surface can be logically divided into multiple vertical zones, such as:
+          -> A moisture-resistant lower zone and standard drywall upper zone
+          -> A fire-rated lower or upper zone
+          -> A garage or utility-area assembly with different vertical protection requirements
+          -> A code-driven change in material requirement at a specific elevation
+          -> Another clearly justified construction condition
+        - If vertically stacked drywall is predicted:
+          -> The first element MUST represent the bottom-most drywall layer.
+          -> Each subsequent element MUST represent the immediately higher drywall layer.
+          -> The vertical layers MUST be contiguous.
+          -> No vertical gaps are permitted.
+          -> No vertical overlaps are permitted.
+          -> The sum of all stacked layer heights MUST equal the total drywall-applied wall surface height within a maximum tolerance of 0.01 feet.
+        - The following invariant MUST always hold:
+          total_wall_height = sum(heights_stacked[i] for i in range(len(heights_stacked)))
         - If vertically stacked drywall preferences list is non-empty **STRICTLY** include the single drywall material preference into the list along with the additional stack to ensure that the MANDATED single drywall preference prediction and the OPTIONAL vertically stacked drywall preferences prediction can be referred independently by the user as per the preference (single/stacked).
 
       JURISDICTION_AND_CODE_SELECTION:
@@ -1440,6 +1456,7 @@ DRYWALL_PREDICTOR = """
             "color_code": <color code for the predicted perimeter wall 1 drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>,
             "materials_vertically_stacked": ["<vertically stacked drywall material preference 1 for perimeter wall 1 (optional)>", "<vertically stacked drywall material preference 2 for perimeter wall 1 (optional)>"],
             "color_codes_stacked": [<color code for the vertically stacked drywall type 1 in a BGR tuple (`Blue`, `Green`, `Red`) for perimeter wall 1>, <color code for the vertically stacked drywall type 2 in a BGR tuple (`Blue`, `Green`, `Red`) for perimeter wall 1>]
+            "heights_stacked": [<height of the vertically stacked drywall type 1 for perimeter wall 1 in feet>, <height of the vertically stacked drywall type 2 of perimeter wall 1 in feet>]
             "thickness": <thickness of the predicted wall drywall type in feet>,
             "layers": <number of required drywall layers>,
             "fire_rating": <fire-rating of the predicted drywall type in hours>,
@@ -1455,6 +1472,7 @@ DRYWALL_PREDICTOR = """
             "color_code": <color code for the predicted perimeter wall 2 drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>,
             "materials_vertically_stacked": ["<vertically stacked drywall material preference 1 for perimeter wall 2 (optional)>", "<vertically stacked drywall material preference 2 for perimeter wall 2 (optional)>"],
             "color_codes_stacked": [<color code for the vertically stacked drywall type 1 in a BGR tuple (`Blue`, `Green`, `Red`) for perimeter wall 2>, <color code for the vertically stacked drywall type 2 in a BGR tuple (`Blue`, `Green`, `Red`) for perimeter wall 2>]
+            "heights_stacked": [<height of the vertically stacked drywall type 1 for perimeter wall 2 in feet>, <height of the vertically stacked drywall type 2 of perimeter wall 2 in feet>]
             "thickness": <thickness of the predicted wall drywall type in feet>,
             "layers": <number of required drywall layers>,
             "fire_rating": <fire-rating of the predicted drywall type in hours>,
