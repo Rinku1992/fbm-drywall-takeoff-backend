@@ -339,6 +339,7 @@ class Extrapolate3D(FloorPlan):
                     height=polygon_type["height"],
                     type=polygon_type["type"],
                     type_stacked=polygon_type["type_stacked"],
+                    height_stacked=polygon_type["height_stacked"],
                     enabled=polygon_type["enabled"],
                     thickness=polygon_type["thickness"],
                     layers=polygon_type["layers"],
