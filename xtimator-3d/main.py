@@ -2240,33 +2240,63 @@ async def compute_takeoff(request: Request):
         if polygon["polygon_drywall"]["type"].upper() == "DISABLED":
             polygon["polygon_drywall"]["enabled"] = False
             continue
-        drywall_template = query_drywall(polygon["polygon_drywall"]["type"], DRYWALL_TEMPLATES)
-        if not drywall_template:
-            continue
-        surface_area_flat, surface_area_sloped = polygon["area"], polygon["area"]
-        if polygon["type"] in SLOPED_CEILING_CHOICES:
-            surface_area_sloped = plan.compute_sloped_area_polygon(
-                polygon["area"],
-                polygon["pitch"],
+        if polygon["polygon_drywall"]["type_stacked"]:
+            for drywall_type in polygon["polygon_drywall"]["type_stacked"]:
+                drywall_template = query_drywall(drywall_type, DRYWALL_TEMPLATES)
+                if not drywall_template:
+                    continue
+                surface_area_flat, surface_area_sloped = polygon["area"], polygon["area"]
+                if polygon["type"] in SLOPED_CEILING_CHOICES:
+                    surface_area_sloped = plan.compute_sloped_area_polygon(
+                        polygon["area"],
+                        polygon["pitch"],
+                    )
+                waste_factor_delta = waste_factor_average_delta * (drywall_weights[polygon["polygon_drywall"]["type"]] / normalization_variance_aware)
+                waste_factor = max(0, float(drywall_template["waste"]) + waste_factor_delta) / 100
+                net_sqft = surface_area_flat
+                drywall_area = max(1, polygon["polygon_drywall"]["layers"]) * surface_area_sloped
+                total_sqft = drywall_area * (1 + waste_factor)
+                sheet_size = drywall_template["sheet_size"]
+                sheet_area_sqft = float(sheet_size.split('x')[0]) * float(sheet_size.split('x')[1])
+                sheets_required_total = math.ceil(total_sqft / sheet_area_sqft)
+                sheets_required_no_waste = math.ceil(net_sqft / sheet_area_sqft)
+                drywall_takeoff["per_drywall"]["roof"][polygon["polygon_drywall"]["type"]] = dict(
+                    total_sqft=round(drywall_takeoff["per_drywall"]["roof"][polygon["polygon_drywall"]["type"]]["total_sqft"]+total_sqft, 2),
+                    net_sqft=round(drywall_takeoff["per_drywall"]["roof"][polygon["polygon_drywall"]["type"]]["net_sqft"]+net_sqft, 2),
+                    waste_percentage=round(waste_factor*100, 2),
+                    sheet_size=sheet_size,
+                    sheets_required_total=drywall_takeoff["per_drywall"]["roof"][polygon["polygon_drywall"]["type"]]["sheets_required_total"]+sheets_required_total,
+                    sheets_required_no_waste=drywall_takeoff["per_drywall"]["roof"][polygon["polygon_drywall"]["type"]]["sheets_required_no_waste"]+sheets_required_no_waste
+                )
+                drywall_takeoff["total"]["roof"] += total_sqft
+        else:
+            drywall_template = query_drywall(polygon["polygon_drywall"]["type"], DRYWALL_TEMPLATES)
+            if not drywall_template:
+                continue
+            surface_area_flat, surface_area_sloped = polygon["area"], polygon["area"]
+            if polygon["type"] in SLOPED_CEILING_CHOICES:
+                surface_area_sloped = plan.compute_sloped_area_polygon(
+                    polygon["area"],
+                    polygon["pitch"],
+                )
+            waste_factor_delta = waste_factor_average_delta * (drywall_weights[polygon["polygon_drywall"]["type"]] / normalization_variance_aware)
+            waste_factor = max(0, float(drywall_template["waste"]) + waste_factor_delta) / 100
+            net_sqft = surface_area_flat
+            drywall_area = max(1, polygon["polygon_drywall"]["layers"]) * surface_area_sloped
+            total_sqft = drywall_area * (1 + waste_factor)
+            sheet_size = drywall_template["sheet_size"]
+            sheet_area_sqft = float(sheet_size.split('x')[0]) * float(sheet_size.split('x')[1])
+            sheets_required_total = math.ceil(total_sqft / sheet_area_sqft)
+            sheets_required_no_waste = math.ceil(net_sqft / sheet_area_sqft)
+            drywall_takeoff["per_drywall"]["roof"][polygon["polygon_drywall"]["type"]] = dict(
+                total_sqft=round(drywall_takeoff["per_drywall"]["roof"][polygon["polygon_drywall"]["type"]]["total_sqft"]+total_sqft, 2),
+                net_sqft=round(drywall_takeoff["per_drywall"]["roof"][polygon["polygon_drywall"]["type"]]["net_sqft"]+net_sqft, 2),
+                waste_percentage=round(waste_factor*100, 2),
+                sheet_size=sheet_size,
+                sheets_required_total=drywall_takeoff["per_drywall"]["roof"][polygon["polygon_drywall"]["type"]]["sheets_required_total"]+sheets_required_total,
+                sheets_required_no_waste=drywall_takeoff["per_drywall"]["roof"][polygon["polygon_drywall"]["type"]]["sheets_required_no_waste"]+sheets_required_no_waste
             )
-        waste_factor_delta = waste_factor_average_delta * (drywall_weights[polygon["polygon_drywall"]["type"]] / normalization_variance_aware)
-        waste_factor = max(0, float(drywall_template["waste"]) + waste_factor_delta) / 100
-        net_sqft = surface_area_flat
-        drywall_area = max(1, polygon["polygon_drywall"]["layers"]) * surface_area_sloped
-        total_sqft = drywall_area * (1 + waste_factor)
-        sheet_size = drywall_template["sheet_size"]
-        sheet_area_sqft = float(sheet_size.split('x')[0]) * float(sheet_size.split('x')[1])
-        sheets_required_total = math.ceil(total_sqft / sheet_area_sqft)
-        sheets_required_no_waste = math.ceil(net_sqft / sheet_area_sqft)
-        drywall_takeoff["per_drywall"]["roof"][polygon["polygon_drywall"]["type"]] = dict(
-            total_sqft=round(drywall_takeoff["per_drywall"]["roof"][polygon["polygon_drywall"]["type"]]["total_sqft"]+total_sqft, 2),
-            net_sqft=round(drywall_takeoff["per_drywall"]["roof"][polygon["polygon_drywall"]["type"]]["net_sqft"]+net_sqft, 2),
-            waste_percentage=round(waste_factor*100, 2),
-            sheet_size=sheet_size,
-            sheets_required_total=drywall_takeoff["per_drywall"]["roof"][polygon["polygon_drywall"]["type"]]["sheets_required_total"]+sheets_required_total,
-            sheets_required_no_waste=drywall_takeoff["per_drywall"]["roof"][polygon["polygon_drywall"]["type"]]["sheets_required_no_waste"]+sheets_required_no_waste
-        )
-        drywall_takeoff["total"]["roof"] += total_sqft
+            drywall_takeoff["total"]["roof"] += total_sqft
 
     drywall_takeoff["total"]["wall"] = round(drywall_takeoff["total"]["wall"], 2)
     drywall_takeoff["total"]["roof"] = round(drywall_takeoff["total"]["roof"], 2)
