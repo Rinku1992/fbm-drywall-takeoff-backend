@@ -560,7 +560,7 @@ POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR = """
         - A single drywall material preference for each wall is MANDATORY.
 
         WALL_DRYWALL_STACKING_INSTRUCTIONS:
-          - Optionally predict an additional vertically stacked drywall preferences for each of the walls (only if stacked drywall preferences applicable else leave the list empty). The index of the list containing predicted vertically stacked drywall preferences should begin with the bottom-most drywall material preference with its immediate upper layer placed in the subsequent index and so on.
+          - Optionally predict an additional vertically stacked drywall preferences for each of the walls (only if stacked drywall preferences applicable else leave all 3 lists `materials_vertically_stacked`, `color_codes_stacked` and `heights_stacked` empty). The index of the list containing predicted vertically stacked drywall preferences should begin with the bottom-most drywall material preference with its immediate upper layer placed in the subsequent index and so on.
           - Vertically stacked drywall is permitted only when the wall surface can be logically divided into multiple vertical zones, such as:
             -> A moisture-resistant lower zone and standard drywall upper zone
             -> A fire-rated lower or upper zone
@@ -1415,7 +1415,7 @@ DRYWALL_PREDICTOR = """
         - A single drywall material preference for each wall is MANDATORY.
 
         WALL_DRYWALL_STACKING_NSTRUACTIONS:
-          - Optionally predict an additional vertically stacked drywall preferences for each of the walls (only if stacked drywall preferences applicable else leave the list empty). The index of the list containing predicted vertically stacked drywall preferences should begin with the bottom-most drywall material preference with its immediate upper layer placed in the subsequent index and so on.
+          - Optionally predict an additional vertically stacked drywall preferences for each of the walls (only if stacked drywall preferences applicable else leave all 3 lists `materials_vertically_stacked`, `color_codes_stacked` and `heights_stacked` empty). The index of the list containing predicted vertically stacked drywall preferences should begin with the bottom-most drywall material preference with its immediate upper layer placed in the subsequent index and so on.
           - Vertically stacked drywall is permitted only when the wall surface can be logically divided into multiple vertical zones, such as:
             -> A moisture-resistant lower zone and standard drywall upper zone
             -> A fire-rated lower or upper zone
