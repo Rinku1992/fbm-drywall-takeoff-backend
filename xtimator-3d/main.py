@@ -2189,14 +2189,15 @@ async def compute_takeoff(request: Request):
                 continue
             if drywall["type_stacked"]:
                 stack_length = len(drywall["type_stacked"])
-                for drywall_type in drywall["type_stacked"]:
+                drywall_negate_area_stacked = drywall_negate_area / stack_length
+                for drywall_type, drywall_height in zip(drywall["type_stacked"], drywall["height_stacked"]):
                     drywall_template = query_drywall(drywall_type, DRYWALL_TEMPLATES)
                     if not drywall_template:
                         continue
                     waste_factor_delta = waste_factor_average_delta * (drywall_weights[drywall_type] / normalization_variance_aware)
                     waste_factor = max(0, float(drywall_template["waste"]) + waste_factor_delta) / 100
-                    net_sqft = (surface_area_original / stack_length)
-                    drywall_area = max(1, drywall["layers"]) * (surface_area / stack_length)
+                    net_sqft = wall["length"] * drywall_height
+                    drywall_area = max(1, drywall["layers"]) * (net_sqft - drywall_negate_area_stacked)
                     total_sqft = drywall_area * (1 + waste_factor)
                     drywall_takeoff["total"]["wall"] += total_sqft
                     sheet_size = drywall_template["sheet_size"]
