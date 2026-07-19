@@ -788,6 +788,12 @@ class DrywallAssemblyWall(BaseModel):
             raise ValueError("Invalid BGR value")
         return v
 
+    @model_validator(mode="after")
+    def check_stack_count(self):
+        if not len(self.materials_vertically_stacked) == len(self.color_codes_stacked) == len(self.heights_stacked):
+            raise ValueError("Vertically stacked material count does not equate with stacked color codes count and stacked heights count")
+        return self
+
 class Pitch(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -1511,6 +1517,12 @@ class DrywallAssemblyWallNoHeight(BaseModel):
         if not all(0 <= c <= 255 for c in v):
             raise ValueError("Invalid BGR value")
         return v
+
+    @model_validator(mode="after")
+    def check_stack_count(self):
+        if not len(self.materials_vertically_stacked) == len(self.color_codes_stacked) == len(self.heights_stacked):
+            raise ValueError("Vertically stacked material count does not equate with stacked color codes count and stacked heights count")
+        return self
 
 class CeilingPredict(BaseModel):
     model_config = ConfigDict(extra="forbid")
