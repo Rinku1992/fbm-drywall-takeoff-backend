@@ -1598,6 +1598,8 @@ class FloorPlan2D(FloorPlan):
                     "drywall_assembly": {
                         "material": ("D12C - 1/2\" DW INTERIOR CEILING" if predict else '-'),
                         "color_code": [10, 78, 69],
+                        "materials_vertically_stacked": [],
+                        "color_codes_stacked": [],
                         "thickness": 0.04,
                         "layers": 1,
                         "fire_rating": 0,
@@ -1724,6 +1726,8 @@ class FloorPlan2D(FloorPlan):
                     "drywall_assembly": {
                         "material": "D12C - 1/2\" DW INTERIOR CEILING",
                         "color_code": [10, 78, 69],
+                        "materials_vertically_stacked": [],
+                        "color_codes_stacked": [],
                         "thickness": 0.04,
                         "layers": 1,
                         "fire_rating": 0,
@@ -1959,6 +1963,8 @@ class FloorPlan2D(FloorPlan):
             polygon_drywall=dict(
                 type=(model_polygon["ceiling"]["drywall_assembly"]["material"] if predict else '-'),
                 color=(tuple(model_polygon["ceiling"]["drywall_assembly"]["color_code"]) if predict else [175, 175, 175]),
+                type_stacked=(model_polygon["ceiling"]["drywall_assembly"]["materials_vertically_stacked"] if predict else '-'),
+                color_stacked=[],
                 thickness=(model_polygon["ceiling"]["drywall_assembly"]["thickness"] if predict else -1),
                 layers=(model_polygon["ceiling"]["drywall_assembly"]["layers"] if predict else -1),
                 fire_rating=(model_polygon["ceiling"]["drywall_assembly"]["fire_rating"] if predict else -1),
@@ -2011,6 +2017,8 @@ class FloorPlan2D(FloorPlan):
         payload_polygon["polygon_drywall"] = dict(
             type=predict_polygon["ceiling"]["drywall_assembly"]["material"],
             color=tuple(predict_polygon["ceiling"]["drywall_assembly"]["color_code"]),
+            type_stacked=predict_polygon["ceiling"]["drywall_assembly"]["materials_vertically_stacked"],
+            color_stacked=predict_polygon["ceiling"]["drywall_assembly"]["color_codes_stacked"],
             thickness=predict_polygon["ceiling"]["drywall_assembly"]["thickness"],
             layers=predict_polygon["ceiling"]["drywall_assembly"]["layers"],
             fire_rating=predict_polygon["ceiling"]["drywall_assembly"]["fire_rating"],
