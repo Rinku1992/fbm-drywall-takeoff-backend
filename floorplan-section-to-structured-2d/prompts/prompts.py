@@ -660,7 +660,7 @@ POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR = """
             "heights_stacked": [<height of the vertically stacked drywall type 1 for perimeter wall 1 in feet>, <height of the vertically stacked drywall type 2 of perimeter wall 1 in feet>]
             "thickness": <thickness of the predicted wall drywall type in feet>,
             "layers": <number of required drywall layers>,
-            "fire_rating": <fire-rating of the predicted drywall type in hours>,
+            "fire_rating": <average fire-rating of the predicted drywall types in hours>,
             "waste_factor": "<waste factor of the predicted drywall in percentage>"
           }},
           "code_references": ["<applied Dywall code reference 1>", "<applied Dywall code reference 2>", "<applied Dywall code reference 3>"],
@@ -685,7 +685,7 @@ POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR = """
             "heights_stacked": [<height of the vertically stacked drywall type 1 for perimeter wall 2 in feet>, <height of the vertically stacked drywall type 2 of perimeter wall 2 in feet>]
             "thickness": <thickness of the predicted wall drywall type in feet>,
             "layers": <number of required drywall layers>,
-            "fire_rating": <fire-rating of the predicted drywall type in hours>,
+            "fire_rating": <average fire-rating of the predicted drywall types in hours>,
             "waste_factor": "<waste factor of the predicted drywall in percentage>"
           }},
           "code_references": ["<applied Dywall code reference 1>", "<applied Dywall code reference 2>", "<applied Dywall code reference 3>"],
@@ -1448,7 +1448,7 @@ DRYWALL_PREDICTOR = """
           "color_code": <color code for the predicted ceiling drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>,
           "thickness": <thickness of the predicted ceiling drywall type in feet>,
           "layers": <number of required drywall layers>,
-          "fire_rating": <fire-rating of the predicted drywall type in hours>,
+          "fire_rating": <average fire-rating of the predicted drywall types in hours>,
           "waste_factor": "<waste factor of the predicted drywall in percentage>"
         }},
         "code_references": ["<applied Dywall code reference 1>", "<applied Dywall code reference 2>", "<applied Dywall code reference 3>"],
@@ -1465,7 +1465,7 @@ DRYWALL_PREDICTOR = """
             "heights_stacked": [<height of the vertically stacked drywall type 1 for perimeter wall 1 in feet>, <height of the vertically stacked drywall type 2 of perimeter wall 1 in feet>]
             "thickness": <thickness of the predicted wall drywall type in feet>,
             "layers": <number of required drywall layers>,
-            "fire_rating": <fire-rating of the predicted drywall type in hours>,
+            "fire_rating": <average fire-rating of the predicted drywall types in hours>,
             "waste_factor": "<waste factor of the predicted drywall in percentage>"
           }},
           "code_references": ["<applied Dywall code reference 1>", "<applied Dywall code reference 2>", "<applied Dywall code reference 3>"],
@@ -1481,7 +1481,7 @@ DRYWALL_PREDICTOR = """
             "heights_stacked": [<height of the vertically stacked drywall type 1 for perimeter wall 2 in feet>, <height of the vertically stacked drywall type 2 of perimeter wall 2 in feet>]
             "thickness": <thickness of the predicted wall drywall type in feet>,
             "layers": <number of required drywall layers>,
-            "fire_rating": <fire-rating of the predicted drywall type in hours>,
+            "fire_rating": <average fire-rating of the predicted drywall types in hours>,
             "waste_factor": "<waste factor of the predicted drywall in percentage>"
           }},
           "code_references": ["<applied Dywall code reference 1>", "<applied Dywall code reference 2>", "<applied Dywall code reference 3>"],
