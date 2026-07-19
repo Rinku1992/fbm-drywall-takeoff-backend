@@ -651,7 +651,7 @@ POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR = """
           "material": "<drywall material for the ceiling>",
           "color_code": <color code for the predicted ceiling drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>,
           "materials_vertically_stacked": ["<vertically stacked drywall material preference 1 for the ceiling (optional)>", "<vertically stacked drywall material preference 2 for the ceiling (optional)>"],
-          "color_codes_stacked": [<color code for the vertically stacked drywall type 1 in a BGR tuple (`Blue`, `Green`, `Red`) for the ceiling>, <color code for the vertically stacked drywall type 2 in a BGR tuple (`Blue`, `Green`, `Red`) for the ceiling>]
+          "color_codes_stacked": [<color code for the vertically stacked drywall type 1 in a BGR tuple (`Blue`, `Green`, `Red`) for the ceiling>, <color code for the vertically stacked drywall type 2 in a BGR tuple (`Blue`, `Green`, `Red`) for the ceiling>],
           "thickness": <thickness of the predicted ceiling drywall type in feet>,
           "layers": <number of required drywall layers>,
           "fire_rating": <fire-rating of the predicted drywall type in hours>,
@@ -1413,23 +1413,42 @@ DRYWALL_PREDICTOR = """
           -> Required wall height and the vertical position of each drywall layer
           -> Cost reduction while satisfying all applicable code and performance requirements
         - A single drywall material preference for each wall is MANDATORY.
-        - Optionally predict an additional vertically stacked drywall preferences for each of the walls (only if stacked drywall preferences applicable else leave the list empty). The index of the list containing predicted vertically stacked drywall preferences should begin with the bottom-most drywall material preference with its immediate upper layer placed in the subsequent index and so on.
-        - Vertically stacked drywall is permitted only when the wall surface can be logically divided into multiple vertical zones, such as:
-          -> A moisture-resistant lower zone and standard drywall upper zone
-          -> A fire-rated lower or upper zone
-          -> A garage or utility-area assembly with different vertical protection requirements
-          -> A code-driven change in material requirement at a specific elevation
-          -> Another clearly justified construction condition
-        - If vertically stacked drywall is predicted:
-          -> The first element MUST represent the bottom-most drywall layer.
-          -> Each subsequent element MUST represent the immediately higher drywall layer.
-          -> The vertical layers MUST be contiguous.
-          -> No vertical gaps are permitted.
-          -> No vertical overlaps are permitted.
-          -> The sum of all stacked layer heights MUST equal the total drywall-applied wall surface height within a maximum tolerance of 0.01 feet.
-        - The following invariant MUST always hold:
-          total_wall_height = sum(heights_stacked[i] for i in range(len(heights_stacked)))
-        - If vertically stacked drywall preferences list is non-empty **STRICTLY** include the single drywall material preference into the list along with the additional stack to ensure that the MANDATED single drywall preference prediction and the OPTIONAL vertically stacked drywall preferences prediction can be referred independently by the user as per the preference (single/stacked).
+
+        WALL_DRYWALL_STACKING_NSTRUACTIONS:
+          - Optionally predict an additional vertically stacked drywall preferences for each of the walls (only if stacked drywall preferences applicable else leave the list empty). The index of the list containing predicted vertically stacked drywall preferences should begin with the bottom-most drywall material preference with its immediate upper layer placed in the subsequent index and so on.
+          - Vertically stacked drywall is permitted only when the wall surface can be logically divided into multiple vertical zones, such as:
+            -> A moisture-resistant lower zone and standard drywall upper zone
+            -> A fire-rated lower or upper zone
+            -> A garage or utility-area assembly with different vertical protection requirements
+            -> A code-driven change in material requirement at a specific elevation
+            -> Another clearly justified construction condition
+          - If vertically stacked drywall is predicted:
+            -> The first element MUST represent the bottom-most drywall layer.
+            -> Each subsequent element MUST represent the immediately higher drywall layer.
+            -> The vertical layers MUST be contiguous.
+            -> No vertical gaps are permitted.
+            -> No vertical overlaps are permitted.
+            -> The sum of all stacked layer heights MUST equal the total drywall-applied wall surface height within a maximum tolerance of 0.01 feet.
+          - The following invariant MUST always hold:
+            total_wall_height = sum(heights_stacked[i] for i in range(len(heights_stacked)))
+          - If vertically stacked drywall preferences list is non-empty **STRICTLY** include the single drywall material preference into the list along with the additional stack to ensure that the MANDATED single drywall preference prediction and the OPTIONAL vertically stacked drywall preferences prediction can be referred independently by the user as per the preference (single/stacked).
+
+        CEILING_DRYWALL_STACKING_INSTRUCTIONS:
+          - A ceiling drywall assembly may contain either:
+            1. A single drywall material, or
+            2. Multiple vertically stacked drywall layers.
+          - Each ceiling drywall layer is applied over the SAME ceiling surface area.
+            Therefore, all vertically stacked ceiling drywall layers MUST have the same predicted ceiling area.
+          - The order of `materials_vertically_stacked` MUST start with the lowest/bottom-most drywall layer and proceed upward toward the ceiling assembly.
+          - The primary `material` field MUST always contain exactly one drywall material preference for the ceiling.
+          - If `materials_vertically_stacked` is non-empty, it MUST include the primary `material` as one of the layers.
+          - The number of entries in:
+              `materials_vertically_stacked`
+              `color_codes_stacked`
+            MUST be identical.
+          - The stacked ceiling layers are NOT vertically segmented by ceiling height. They are separate material layers installed over the same ceiling plane.
+          - If no additional ceiling drywall layer is required, all stacked arrays MUST be empty.
+          - If stacked layers are predicted, the primary single-material prediction MUST still remain independently available through the primary `material`, `color_code`.
 
       JURISDICTION_AND_CODE_SELECTION:
         Project Location:
@@ -1475,6 +1494,8 @@ DRYWALL_PREDICTOR = """
         "drywall_assembly": {{
           "material": "<drywall material for the ceiling>",
           "color_code": <color code for the predicted ceiling drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>,
+          "materials_vertically_stacked": ["<vertically stacked drywall material preference 1 for the ceiling (optional)>", "<vertically stacked drywall material preference 2 for the ceiling (optional)>"],
+          "color_codes_stacked": [<color code for the vertically stacked drywall type 1 in a BGR tuple (`Blue`, `Green`, `Red`) for the ceiling>, <color code for the vertically stacked drywall type 2 in a BGR tuple (`Blue`, `Green`, `Red`) for the ceiling>],
           "thickness": <thickness of the predicted ceiling drywall type in feet>,
           "layers": <number of required drywall layers>,
           "fire_rating": <average fire-rating of the predicted drywall types in hours>,
