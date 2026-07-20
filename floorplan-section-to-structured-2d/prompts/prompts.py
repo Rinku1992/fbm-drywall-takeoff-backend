@@ -797,7 +797,6 @@ class DrywallAssemblyWall(BaseModel):
     color_code: Tuple[int, int, int]
     materials_vertically_stacked: List
     color_codes_stacked: List
-    heights_stacked: Field(default_factory=list)
     thickness: float
     layers: int
     fire_rating: Optional[Union[str, float]]
@@ -1548,7 +1547,6 @@ class DrywallAssemblyWallNoHeight(BaseModel):
     color_code: Tuple[int, int, int]
     materials_vertically_stacked: List
     color_codes_stacked: List
-    heights_stacked: Field(default_factory=list)
     thickness: float
     layers: int
     fire_rating: Optional[Union[str, float]]
