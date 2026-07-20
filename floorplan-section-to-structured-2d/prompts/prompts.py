@@ -789,7 +789,7 @@ class DrywallAssemblyCeiling(BaseModel):
         return self
 
 class DrywallAssemblyWall(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="allow")
 
     material: str
     height: float
@@ -1541,7 +1541,7 @@ DRYWALL_PREDICTOR = """
 """
 
 class DrywallAssemblyWallNoHeight(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="allow")
 
     material: str
     color_code: Tuple[int, int, int]
