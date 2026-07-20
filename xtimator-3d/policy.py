@@ -88,7 +88,7 @@ class AccessControlService:
                 UNION
 
                 SELECT up.organization_id
-                FROM {self._credentials["CloudSQL"]["table_name_user_partner_organizations"]} up JOIN {self._credentials["CloudSQL"]["table_name_users"]} u ON up.user_id = u.user_id
+                FROM {self._credentials["CloudSQL"]["table_name_user_partner_organizations"]} up JOIN users u ON up.user_id = u.user_id
                 WHERE LOWER(u.user_email) = LOWER(%s)
             ),
 
@@ -112,7 +112,7 @@ class AccessControlService:
             WHERE ur.region_id IN (
                 SELECT region_id
                 FROM visible_regions
-            )
+            ) AND u.organization_id IN (select organization_id from visible_organizations)
             ORDER BY u.user_email;
         """
         visible_users = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id, user_id, user_id,), fetch=True))
