@@ -819,7 +819,7 @@ class DrywallAssemblyWall(BaseModel):
 
     @model_validator(mode="after")
     def check_stack_count(self):
-        if not len(self.materials_vertically_stacked) == len(self.color_codes_stacked) == len(self.heights_stacked):
+        if not len(self.materials_vertically_stacked) == len(self.color_codes_stacked):
             raise ValueError("Vertically stacked material count does not equate with stacked color codes count and stacked heights count for the walls")
         return self
 
@@ -1570,7 +1570,7 @@ class DrywallAssemblyWallNoHeight(BaseModel):
 
     @model_validator(mode="after")
     def check_stack_count(self):
-        if not len(self.materials_vertically_stacked) == len(self.color_codes_stacked) == len(self.heights_stacked):
+        if not len(self.materials_vertically_stacked) == len(self.color_codes_stacked):
             raise ValueError("Vertically stacked material count does not equate with stacked color codes count and stacked heights count")
         return self
 
