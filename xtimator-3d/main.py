@@ -758,16 +758,19 @@ async def load_projects(request: Request):
     is_admin = await access_control.is_admin(user_id)
     if bool(is_admin):
         if is_admin.super:
+            print(is_admin.super)
             where_clause = "TRUE"
             params = ()
 
         elif is_admin.local:
+            print(is_admin.local)
             peers = await access_control.load_organization_users(user_id)
             where_clause = "LOWER(p.created_by) = ANY(%s)"
             params = (peers,)
 
     else:
         peers = await access_control.load_regional_users(user_id)
+        print(peers)
         where_clause = "LOWER(p.created_by) = ANY(%s)"
         params = (peers,)
 
