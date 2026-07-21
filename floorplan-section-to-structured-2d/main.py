@@ -306,7 +306,7 @@ async def floorplan_section_to_structured_2d(request: Request):
     project_location_pincode = query_output[0]["project_location_pincode"]
     geolocator = Nominatim(user_agent="xtimator_app")
     pincode = f"{project_location_pincode}, {project_location}"
-    location = geolocator.geocode(pincode)
+    location = geolocator.geocode(pincode, language="en")
     project_address = location.address if location else pincode
     vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES, project_address)
     logging.info(f"SYSTEM: Extracting structured model from SECTION: {bounding_box_offset["title"]} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
