@@ -725,10 +725,10 @@ async def generate_project(request: Request):
     except Exception:
         body = dict()
     try:
-        print(parameters)
+        logging.error(parameters)
         payload_project = PayloadProject(**parameters)
     except ValidationError:
-        print(body)
+        logging.error(body)
         payload_project = PayloadProject(**body)
     is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=payload_project.created_by)
     if is_user_not_authenticated:
@@ -758,8 +758,8 @@ async def load_projects(request: Request):
         body = await request.json()
     except Exception:
         body = dict()
-    print(parameters)
-    print(body)
+    logging.error(parameters)
+    logging.error(body)
     user_id = parameters.get("user_id") or body.get("user_id")
     is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
     if is_user_not_authenticated:
