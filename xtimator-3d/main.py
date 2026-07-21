@@ -738,6 +738,7 @@ async def generate_project(request: Request):
     logging.info(payload_project)
     created_at = await insert_project(payload_project, pg_pool, CREDENTIALS)
     logging.info(f"SYSTEM: New Project {payload_project.project_name} generated successfully")
+    logging.info(payload_project)
     return respond_with_UI_payload(
         dict(
             project_id=payload_project.project_id,
