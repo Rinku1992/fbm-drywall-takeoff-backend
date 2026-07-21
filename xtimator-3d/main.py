@@ -1521,19 +1521,19 @@ async def load_2d_all(request: Request):
                 m.scale,
                 m.model_2d
             FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} m
-            JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} p
-                ON m.project_id = p.project_id
+            JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
+                ON m.project_id = pr.project_id
             WHERE
                 LOWER(m.project_id) = LOWER(%s)
                 AND LOWER(m.plan_id) = LOWER(%s)
                 AND m.page_number = %s
                 AND {where_clause}
-            ORDER BY page_number
+            ORDER BY m.page_number
         """
         if bool(is_admin) and is_admin.super:
-            params = (project_id, plan_id, int(page_number),)
+            params = (int(page_number),)
         else:
-            params = (project_id, plan_id, int(page_number), peers, region_names)
+            params = (int(page_number), peers, region_names)
     else:
         query = f"""
             SELECT
@@ -1542,8 +1542,8 @@ async def load_2d_all(request: Request):
                 m.scale,
                 m.model_2d
             FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} m
-            JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} p
-                ON m.project_id = p.project_id
+            JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
+                ON m.project_id = pr.project_id
             WHERE
                 LOWER(m.project_id) = LOWER(%s)
                 AND LOWER(m.plan_id) = LOWER(%s)
