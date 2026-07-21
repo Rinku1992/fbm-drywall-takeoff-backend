@@ -29,6 +29,7 @@ opencv-python==4.11.0.86
 geoip2
 roman
 numpy
+geopy
 scipy
 ruamel-yaml
 matplotlib
