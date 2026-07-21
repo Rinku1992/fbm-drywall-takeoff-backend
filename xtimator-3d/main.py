@@ -873,7 +873,7 @@ async def load_project_plans(request: Request):
                 LEFT JOIN page_stats ps
                     ON LOWER(pl.plan_id) = ps.plan_id
                 WHERE
-                    LOWER(pl.project_id) = LOWER(p.project_id)
+                    LOWER(pl.project_id) = LOWER(pr.project_id)
                     AND {where_clause}
             ) AS project_plans
 
@@ -886,7 +886,7 @@ async def load_project_plans(request: Request):
                     SELECT 1
                     FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} pl
                     WHERE
-                        LOWER(pl.project_id) = LOWER(p.project_id)
+                        LOWER(pl.project_id) = LOWER(pr.project_id)
                         AND {where_clause}
                 )
             )
