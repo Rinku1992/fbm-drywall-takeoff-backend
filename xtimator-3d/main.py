@@ -771,8 +771,9 @@ async def load_projects(request: Request):
 
     else:
         peers = await access_control.load_regional_users(user_id)
-        where_clause = "LOWER(p.created_by) = ANY(%s)"
-        params = (peers,)
+        region_names = await access_control.load_user_region_names(user_id)
+        where_clause = "LOWER(p.created_by) = ANY(%s) AND LOWER(p.FBM_branch) = ANY(%s)"
+        params = (peers, region_names,)
 
     query = f"""
         SELECT
@@ -835,8 +836,9 @@ async def load_project_plans(request: Request):
 
     else:
         peers = await access_control.load_regional_users(user_id)
-        where_clause = "LOWER(pl.user_id) = ANY(%s)"
-        params = (peers, project_id, peers,)
+        region_names = await access_control.load_user_region_names(user_id)
+        where_clause = "LOWER(pl.user_id) = ANY(%s) AND LOWER(p.FBM_branch) = ANY(%s)"
+        params = (peers, region_names, project_id, peers, region_names,)
 
     query = f"""
         WITH page_stats AS (
