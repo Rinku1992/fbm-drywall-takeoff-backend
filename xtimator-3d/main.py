@@ -1006,20 +1006,23 @@ async def load_plan_pages(request: Request):
 
         elif is_admin.local:
             peers = await access_control.load_organization_users(user_id)
-            where_clause = "LOWER(user_id) = ANY(%s)"
+            where_clause = "LOWER(pl.user_id) = ANY(%s)"
             params = (project_id, plan_id, peers,)
 
     else:
         peers = await access_control.load_regional_users(user_id)
-        where_clause = "LOWER(user_id) = ANY(%s)"
-        params = (project_id, plan_id, peers,)
+        region_names = await access_control.load_user_region_names(user_id)
+        where_clause = "LOWER(pl.user_id) = ANY(%s) AND LOWER(p.FBM_branch) = ANY(%s)"
+        params = (project_id, plan_id, peers, region_names,)
 
     query = f"""
-        SELECT *
-        FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]}
+        SELECT pl.*
+        FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} pl
+        JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} p
+            ON LOWER(pl.project_id) = LOWER(p.project_id)
         WHERE
-            LOWER(project_id) = LOWER(%s)
-            AND LOWER(plan_id) = LOWER(%s)
+            LOWER(pl.project_id) = LOWER(%s)
+            AND LOWER(pl.plan_id) = LOWER(%s)
             AND {where_clause}
     """
     rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
