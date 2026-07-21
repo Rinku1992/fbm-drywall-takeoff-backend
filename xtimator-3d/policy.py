@@ -130,7 +130,7 @@ class AccessControlService:
                 ON r.region_id = ur.region_id
             WHERE LOWER(u.user_email) = LOWER(%s);
         """
-        region_names = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id, user_id, user_id,), fetch=True))
+        region_names = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id,), fetch=True))
         region_names = [region_name["region_name"].lower() for region_name in region_names]
         return region_names
 
