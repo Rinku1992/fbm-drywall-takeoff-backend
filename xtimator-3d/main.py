@@ -725,22 +725,17 @@ async def generate_project(request: Request):
     except Exception:
         body = dict()
     try:
-        logging.error(parameters)
         payload_project = PayloadProject(**parameters)
     except ValidationError:
-        logging.error(body)
         payload_project = PayloadProject(**body)
     is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=payload_project.created_by)
     if is_user_not_authenticated:
         logging.warning(f"SYSTEM: User: {payload_project.created_by} is not authorized to access Drywall application")
         return respond_with_UI_payload(is_user_not_authenticated)
     geolocator = Nominatim(user_agent="xtimator_app")
-    logging.info("generating")
-    payload_project.project_location = ','.join(geolocator.geocode(payload_project.project_location_pincode).address.rsplit(',', 2)[1:]).strip()
-    logging.info(payload_project)
+    payload_project.FBM_branch = ','.join(geolocator.geocode(payload_project.project_location_pincode).address.rsplit(',', 2)[1:]).strip()
     created_at = await insert_project(payload_project, pg_pool, CREDENTIALS)
     logging.info(f"SYSTEM: New Project {payload_project.project_name} generated successfully")
-    logging.info(payload_project)
     return respond_with_UI_payload(
         dict(
             project_id=payload_project.project_id,
@@ -758,8 +753,6 @@ async def load_projects(request: Request):
         body = await request.json()
     except Exception:
         body = dict()
-    logging.error(parameters)
-    logging.error(body)
     user_id = parameters.get("user_id") or body.get("user_id")
     is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
     if is_user_not_authenticated:
