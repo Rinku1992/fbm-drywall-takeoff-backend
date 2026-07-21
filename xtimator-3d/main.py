@@ -725,8 +725,10 @@ async def generate_project(request: Request):
     except Exception:
         body = dict()
     try:
+        print(parameters)
         payload_project = PayloadProject(**parameters)
     except ValidationError:
+        print(body)
         payload_project = PayloadProject(**body)
     is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=payload_project.created_by)
     if is_user_not_authenticated:
