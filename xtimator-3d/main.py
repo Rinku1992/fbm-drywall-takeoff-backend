@@ -2787,7 +2787,7 @@ from fastapi import File, Form, UploadFile, File
 async def chat_gemini(prompt: str=Form(...),  image_png_bytes: UploadFile = File(...)):
     enable_logging_on_stdout()
 
-    bytes_canvas = await image.read()
+    bytes_canvas = await image_png_bytes.read()
     logging.info("SYSTEM: Received a Chat Request")
     query = Content(role="user", parts=[Part.from_text(prompt), Part.from_data(data=bytes_canvas, mime_type="image/png")])
     ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
