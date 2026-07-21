@@ -2791,8 +2791,9 @@ async def chat_gemini(request: Request):
     except Exception:
         body = dict()
     prompt = parameters.get("prompt") or body.get("prompt")
+    bytes_canvas = parameters.get("image_png_bytes") or body.get("image_png_bytes")
     logging.info("SYSTEM: Received a Chat Request")
-    query = Content(role="user", parts=[Part.from_text(prompt)])
+    query = Content(role="user", parts=[Part.from_text(prompt), Part.from_data(data=bytes_canvas, mime_type="image/png")])
     ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
     vertex_ai_client, vertex_ai_generation_config, is_cached = load_vertex_ai_client(
         CREDENTIALS,
