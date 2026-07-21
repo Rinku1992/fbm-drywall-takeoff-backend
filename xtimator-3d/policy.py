@@ -128,8 +128,6 @@ class AccessControlService:
                 ON u.user_id = ur.user_id
             JOIN {self._credentials["CloudSQL"]["table_name_regions"]} r
                 ON r.region_id = ur.region_id
-            JOIN {self._credentials["CloudSQL"]["table_name_organization_regions"]} ogr
-                ON u.organization_id = ogr.organization_id
             WHERE LOWER(u.user_email) = LOWER(%s);
         """
         region_names = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id, user_id, user_id,), fetch=True))
