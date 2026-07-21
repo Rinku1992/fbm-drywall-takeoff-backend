@@ -772,7 +772,7 @@ async def load_projects(request: Request):
     else:
         peers = await access_control.load_regional_users(user_id)
         region_names = await access_control.load_user_region_names(user_id)
-        where_clause = "LOWER(p.created_by) = ANY(%s) AND LOWER(p.FBM_branch) = ANY(%s)"
+        where_clause = "LOWER(p.created_by) = ANY(%s) AND LOWER(p.\"FBM_branch\") = ANY(%s)"
         params = (peers, region_names,)
 
     query = f"""
@@ -837,7 +837,7 @@ async def load_project_plans(request: Request):
     else:
         peers = await access_control.load_regional_users(user_id)
         region_names = await access_control.load_user_region_names(user_id)
-        where_clause = "LOWER(pl.user_id) = ANY(%s) AND LOWER(pr.FBM_branch) = ANY(%s)"
+        where_clause = "LOWER(pl.user_id) = ANY(%s) AND LOWER(pr.\"FBM_branch\") = ANY(%s)"
         params = (peers, region_names, project_id, peers, region_names,)
 
     query = f"""
@@ -1012,7 +1012,7 @@ async def load_plan_pages(request: Request):
     else:
         peers = await access_control.load_regional_users(user_id)
         region_names = await access_control.load_user_region_names(user_id)
-        where_clause = "LOWER(pl.user_id) = ANY(%s) AND LOWER(pr.FBM_branch) = ANY(%s)"
+        where_clause = "LOWER(pl.user_id) = ANY(%s) AND LOWER(pr.\"FBM_branch\") = ANY(%s)"
         params = (project_id, plan_id, peers, region_names,)
 
     query = f"""
@@ -1480,7 +1480,7 @@ async def load_2d_all(request: Request):
     else:
         peers = await access_control.load_regional_users(user_id)
         region_names = await access_control.load_user_region_names(user_id)
-        where_clause = "LOWER(m.user_id) = ANY(%s) AND LOWER(pr.FBM_branch) = ANY(%s)"
+        where_clause = "LOWER(m.user_id) = ANY(%s) AND LOWER(pr.\"FBM_branch\") = ANY(%s)"
 
     if load_lazy == "false":
         status = "IN PROGRESS"
@@ -1492,7 +1492,7 @@ async def load_2d_all(request: Request):
                 LOWER(pl.project_id) = LOWER(%s)
                 AND LOWER(pl.plan_id) = LOWER(%s)
                 AND LOWER(pl.user_id) = ANY(%s)
-                AND LOWER(pr.FBM_branch) = ANY(%s)
+                AND LOWER(pr.\"FBM_branch\") = ANY(%s)
         """
         query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, peers, region_names), fetch=True))
         if not query_output:
