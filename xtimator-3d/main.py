@@ -1556,8 +1556,6 @@ async def load_2d_all(request: Request):
             params = (project_id, plan_id,)
         else:
             params = (project_id, plan_id, peers, region_names,)
-    print(params)
-    print(query)
     rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
 
     page_to_model_2d_minimal = dict()
