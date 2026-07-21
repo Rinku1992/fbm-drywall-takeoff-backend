@@ -733,7 +733,7 @@ async def generate_project(request: Request):
         logging.warning(f"SYSTEM: User: {payload_project.created_by} is not authorized to access Drywall application")
         return respond_with_UI_payload(is_user_not_authenticated)
     geolocator = Nominatim(user_agent="xtimator_app")
-    payload_project.FBM_branch = ','.join(geolocator.geocode(payload_project.project_location_pincode).address.rsplit(',', 2)[1:]).strip()
+    payload_project.FBM_branch = ','.join(geolocator.geocode(payload_project.project_location_pincode, language="en").address.rsplit(',', 2)[1:]).strip()
     created_at = await insert_project(payload_project, pg_pool, CREDENTIALS)
     logging.info(f"SYSTEM: New Project {payload_project.project_name} generated successfully")
     return respond_with_UI_payload(
