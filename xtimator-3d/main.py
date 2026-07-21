@@ -837,7 +837,7 @@ async def load_project_plans(request: Request):
     else:
         peers = await access_control.load_regional_users(user_id)
         region_names = await access_control.load_user_region_names(user_id)
-        where_clause = "LOWER(pl.user_id) = ANY(%s) AND LOWER(p.FBM_branch) = ANY(%s)"
+        where_clause = "LOWER(pl.user_id) = ANY(%s) AND LOWER(pr.FBM_branch) = ANY(%s)"
         params = (peers, region_names, project_id, peers, region_names,)
 
     query = f"""
@@ -855,7 +855,7 @@ async def load_project_plans(request: Request):
         )
 
         SELECT
-            p.*,
+            pr.*,
 
             (
                 SELECT COALESCE(
@@ -877,10 +877,10 @@ async def load_project_plans(request: Request):
                     AND {where_clause}
             ) AS project_plans
 
-        FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} p
+        FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
 
         WHERE
-            LOWER(p.project_id) = LOWER(%s)
+            LOWER(pr.project_id) = LOWER(%s)
             AND (
                 EXISTS (
                     SELECT 1
@@ -1012,14 +1012,14 @@ async def load_plan_pages(request: Request):
     else:
         peers = await access_control.load_regional_users(user_id)
         region_names = await access_control.load_user_region_names(user_id)
-        where_clause = "LOWER(pl.user_id) = ANY(%s) AND LOWER(p.FBM_branch) = ANY(%s)"
+        where_clause = "LOWER(pl.user_id) = ANY(%s) AND LOWER(pr.FBM_branch) = ANY(%s)"
         params = (project_id, plan_id, peers, region_names,)
 
     query = f"""
         SELECT pl.*
         FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} pl
-        JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} p
-            ON LOWER(pl.project_id) = LOWER(p.project_id)
+        JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
+            ON LOWER(pl.project_id) = LOWER(pr.project_id)
         WHERE
             LOWER(pl.project_id) = LOWER(%s)
             AND LOWER(pl.plan_id) = LOWER(%s)
@@ -1472,29 +1472,29 @@ async def load_2d_all(request: Request):
     if bool(is_admin):
         if is_admin.super:
             where_clause = "TRUE"
-            params = (project_id, plan_id,)
 
         elif is_admin.local:
             peers = await access_control.load_organization_users(user_id)
-            where_clause = "LOWER(user_id) = ANY(%s)"
-            params = (project_id, plan_id, peers,)
+            where_clause = "LOWER(m.user_id) = ANY(%s)"
 
     else:
         peers = await access_control.load_regional_users(user_id)
-        where_clause = "LOWER(user_id) = ANY(%s)"
-        params = (project_id, plan_id, peers,)
+        region_names = await access_control.load_user_region_names(user_id)
+        where_clause = "LOWER(m.user_id) = ANY(%s) AND LOWER(pr.FBM_branch) = ANY(%s)"
 
     if load_lazy == "false":
         status = "IN PROGRESS"
         query = f"""
-            SELECT pages
-            FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]}
+            SELECT pl.pages
+            FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} pl
+            FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
             WHERE
-                LOWER(project_id) = LOWER(%s)
-                AND LOWER(plan_id) = LOWER(%s)
-                AND {where_clause}
+                LOWER(pl.project_id) = LOWER(%s)
+                AND LOWER(pl.plan_id) = LOWER(%s)
+                AND LOWER(pl.user_id) = ANY(%s)
+                AND LOWER(pr.FBM_branch) = ANY(%s)
         """
-        query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_id, project_id, plan_id,), fetch=True))
+        query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, peers, region_names), fetch=True))
         if not query_output:
             return respond_with_UI_payload(dict(error="Floor Plan already exists"))
         n_pages = query_output[0]["pages"]
@@ -1516,42 +1516,46 @@ async def load_2d_all(request: Request):
     if page_number != '':
         query = f"""
             SELECT
-                page_number,
-                page_section_number,
-                scale,
-                model_2d
-            FROM {CREDENTIALS["CloudSQL"]["table_name_models"]}
+                m.page_number,
+                m.page_section_number,
+                m.scale,
+                m.model_2d
+            FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} m
+            JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} p
+                ON m.project_id = p.project_id
             WHERE
-                LOWER(project_id) = LOWER(%s)
-                AND LOWER(plan_id) = LOWER(%s)
-                AND page_number = %s
+                LOWER(m.project_id) = LOWER(%s)
+                AND LOWER(m.plan_id) = LOWER(%s)
+                AND m.page_number = %s
                 AND {where_clause}
             ORDER BY page_number
         """
         if bool(is_admin) and is_admin.super:
             params = (project_id, plan_id, int(page_number),)
         else:
-            params = (project_id, plan_id, int(page_number), peers,)
+            params = (project_id, plan_id, int(page_number), peers, region_names)
     else:
         query = f"""
             SELECT
-                page_number,
-                page_section_number,
-                scale,
-                model_2d
-            FROM {CREDENTIALS["CloudSQL"]["table_name_models"]}
+                m.page_number,
+                m.page_section_number,
+                m.scale,
+                m.model_2d
+            FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} m
+            JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} p
+                ON m.project_id = p.project_id
             WHERE
-                LOWER(project_id) = LOWER(%s)
-                AND LOWER(plan_id) = LOWER(%s)
+                LOWER(m.project_id) = LOWER(%s)
+                AND LOWER(m.plan_id) = LOWER(%s)
                 AND {where_clause}
             ORDER BY
-                page_number,
-                page_section_number
+                m.page_number,
+                m.page_section_number
         """
         if bool(is_admin) and is_admin.super:
             params = (project_id, plan_id,)
         else:
-            params = (project_id, plan_id, peers,)
+            params = (project_id, plan_id, peers, region_names,)
     rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
 
     page_to_model_2d_minimal = dict()
