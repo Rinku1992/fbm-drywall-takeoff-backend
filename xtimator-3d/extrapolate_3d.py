@@ -27,27 +27,11 @@ class Extrapolate3D(FloorPlan):
         self._polygons_3d = list()
 
     def _load_wall_width_in_pixels(self, wall_line, half=True):
-        X1, Y1, X2, Y2 = wall_line["wall_line"][0]['x'], wall_line["wall_line"][0]['y'], wall_line["wall_line"][1]['x'], wall_line["wall_line"][1]['y']
-        orientation = self.classify_line(X1, Y1, X2, Y2)
         wall_width = wall_line["thickness"]
         imperial_W = self._hyperparameters["pixel_aspect_ratio"]["width"]
-        if orientation == "horizontal":
-            if half:
-                return int(round(wall_width / imperial_W)) / 2
-            return int(round(wall_width / imperial_W))
-        if orientation == "vertical":
-            if half:
-                return int(round(wall_width / imperial_W)) / 2
-            return int(round(wall_width / imperial_W))
         if half:
-            return math.hypot(
-                int(round(wall_width / imperial_X)),
-                int(round(wall_width / imperial_Y))
-            ) / 2
-        return math.hypot(
-            int(round(wall_width / imperial_X)),
-            int(round(wall_width / imperial_Y))
-        )
+            return int(round(wall_width / imperial_W)) / 2
+        return int(round(wall_width / imperial_W))
 
     def _load_wall_heights_in_pixels(self, wall_line):
         wall_heights = [polygon_drywall["height"] for polygon_drywall in wall_line["polygons_drywall"]]
