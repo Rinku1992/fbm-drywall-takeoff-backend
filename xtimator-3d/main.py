@@ -2780,16 +2780,19 @@ async def verify_otp(request: PayloadVerifyExternalOtp):
     )
 
 
+from typing import Optional
 from helper import phoenix_call
 from vertexai.generative_models import Part, Content
 from fastapi import File, Form, UploadFile, File
 @app.post("/chat_gemini")
-async def chat_gemini(prompt: str=Form(...),  image_png_bytes: UploadFile = File(...)):
+async def chat_gemini(prompt: str=Form(...),  image_png_bytes: Optional[UploadFile]=File(None)):
     enable_logging_on_stdout()
 
-    bytes_canvas = await image_png_bytes.read()
     logging.info("SYSTEM: Received a Chat Request")
-    query = Content(role="user", parts=[Part.from_text(prompt), Part.from_data(data=bytes_canvas, mime_type="image/png")])
+    query = Content(role="user", parts=[Part.from_text(prompt)])
+    if image_png_bytes is not None:
+        bytes_canvas = await image_png_bytes.read()
+        query = Content(role="user", parts=[Part.from_text(prompt), Part.from_data(data=bytes_canvas, mime_type="image/png")])
     vertex_ai_client, vertex_ai_generation_config, is_cached = load_vertex_ai_client(
         CREDENTIALS,
         None,
