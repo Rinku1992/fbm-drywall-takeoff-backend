@@ -25,7 +25,6 @@ class Extrapolate3D(FloorPlan):
         self._height_in_pixels = int(round(self._height_in_feet / min(self._hyperparameters["pixel_aspect_ratio"]["vertical"], self._hyperparameters["pixel_aspect_ratio"]["horizontal"])))
         self._walls_3d = list()
         self._polygons_3d = list()
-        self._scale = None
 
     def _load_wall_width_in_pixels(self, wall_line, half=True):
         X1, Y1, X2, Y2 = wall_line["wall_line"][0]['x'], wall_line["wall_line"][0]['y'], wall_line["wall_line"][1]['x'], wall_line["wall_line"][1]['y']
@@ -562,7 +561,6 @@ class Extrapolate3D(FloorPlan):
         return [Path("/tmp/walls.gltf"), Path("/tmp/walls.bin")]
 
     def _scale_hyperparameters(self, scale):
-        self._scale = scale
         imperial_X, imperial_Y = self.compute_imperial_scale_from_DPI(scale)
         self.hyperparameters["pixel_aspect_ratio_to_feet"]["horizontal"] = imperial_X
         self.hyperparameters["pixel_aspect_ratio_to_feet"]["vertical"] = imperial_Y
