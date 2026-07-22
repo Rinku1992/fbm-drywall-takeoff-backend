@@ -65,6 +65,8 @@ class FloorPlan:
         pixel_aspect_ratio_new["horizontal"] = scale * pixel_aspect_ratio_standard["horizontal"]
         pixel_aspect_ratio_new["vertical"] = scale * pixel_aspect_ratio_standard["vertical"]
         pixel_aspect_ratio_new["area"] = scale * pixel_aspect_ratio_standard["area"]
+        pixel_aspect_ratio_new["height"] = scale * pixel_aspect_ratio_standard["height"]
+        pixel_aspect_ratio_new["width"] = scale * pixel_aspect_ratio_standard["width"]
 
         return pixel_aspect_ratio_new
 
