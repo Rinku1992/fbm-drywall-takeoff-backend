@@ -25,12 +25,13 @@ class Extrapolate3D(FloorPlan):
         self._height_in_pixels = int(round(self._height_in_feet / min(self._hyperparameters["pixel_aspect_ratio"]["vertical"], self._hyperparameters["pixel_aspect_ratio"]["horizontal"])))
         self._walls_3d = list()
         self._polygons_3d = list()
+        self._scale = None
 
     def _load_wall_width_in_pixels(self, wall_line, half=True):
         X1, Y1, X2, Y2 = wall_line["wall_line"][0]['x'], wall_line["wall_line"][0]['y'], wall_line["wall_line"][1]['x'], wall_line["wall_line"][1]['y']
         orientation = self.classify_line(X1, Y1, X2, Y2)
         wall_width = wall_line["thickness"]
-        imperial_X, imperial_Y = self.compute_imperial_scale_from_DPI(architectural_scale)
+        imperial_X, imperial_Y = self.compute_imperial_scale_from_DPI(self._scale)
         imperial_W = (imperial_X + imperial_Y) / 2
         if orientation == "horizontal":
             if half:
@@ -54,7 +55,7 @@ class Extrapolate3D(FloorPlan):
         wall_heights = [polygon_drywall["height"] for polygon_drywall in wall_line["polygons_drywall"]]
         if not wall_heights:
             return [self._height_in_pixels] * 2
-        imperial_X, imperial_Y = self.compute_imperial_scale_from_DPI(architectural_scale)
+        imperial_X, imperial_Y = self.compute_imperial_scale_from_DPI(self._scale)
         imperial_H = (imperial_X + imperial_Y) / 2
         return [round(wall_height / imperial_H) for wall_height in wall_heights]
 
@@ -62,7 +63,7 @@ class Extrapolate3D(FloorPlan):
         polygon_height = polygon["height"]
         if not polygon_height:
             return [self._height_in_pixels] * 2
-        imperial_X, imperial_Y = self.compute_imperial_scale_from_DPI(architectural_scale)
+        imperial_X, imperial_Y = self.compute_imperial_scale_from_DPI(self._scale)
         imperial_H = (imperial_X + imperial_Y) / 2
         return round(polygon_height / imperial_H)
 
@@ -565,6 +566,7 @@ class Extrapolate3D(FloorPlan):
         return [Path("/tmp/walls.gltf"), Path("/tmp/walls.bin")]
 
     def _scale_hyperparameters(self, scale):
+        self._scale = scale
         imperial_X, imperial_Y = self.compute_imperial_scale_from_DPI(scale)
         self.hyperparameters["pixel_aspect_ratio_to_feet"]["horizontal"] = imperial_X
         self.hyperparameters["pixel_aspect_ratio_to_feet"]["vertical"] = imperial_Y
