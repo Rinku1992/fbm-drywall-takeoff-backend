@@ -353,6 +353,21 @@ class Extrapolate3D(FloorPlan):
         self._walls_3d.append(wall)
 
     def _extrude_roof_3d(self, vertices, slope, tilt_axis, height_in_pixels, width_in_pixels):
+        def _forge_smooth_roof(vertices):
+            z_min = min([vertex['z'] for vertex in vertices])
+            z_max = max([vertex['z'] for vertex in vertices])
+
+            y_min = min(vertex["y"] for vertex in vertices)
+            y_max = max(vertex["y"] for vertex in vertices)
+
+            height_range = z_max - z_min
+            y_range = y_max - y_min
+
+            for vertex in vertices:
+                t = (vertex["y"] - y_min) / y_range
+                vertex["z"] = z_max - t * height_range
+            return vertices
+
         half_width = width_in_pixels // 2
 
         if slope == 0 or tilt_axis not in ("horizontal", "vertical"):
@@ -396,7 +411,7 @@ class Extrapolate3D(FloorPlan):
             front_face.append(dict(x=x, y=y, z=max(0, z - half_width)))
             back_face.append(dict(x=x, y=y, z=z + half_width))
 
-        return [front_face, back_face]
+        return [_forge_smooth_roof(front_face), _forge_smooth_roof(back_face)]
 
     def _add_polygon(self, polygon):
         height_in_pixels = self._load_polygon_height_in_pixels(polygon)
