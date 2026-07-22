@@ -30,7 +30,7 @@ class Extrapolate3D(FloorPlan):
         X1, Y1, X2, Y2 = wall_line["wall_line"][0]['x'], wall_line["wall_line"][0]['y'], wall_line["wall_line"][1]['x'], wall_line["wall_line"][1]['y']
         orientation = self.classify_line(X1, Y1, X2, Y2)
         wall_width = wall_line["thickness"]
-        imperial_W = (self._hyperparameters["pixel_aspect_ratio"]["horizontal"] + self._hyperparameters["pixel_aspect_ratio"]["vertical"]) / 2
+        imperial_W = self._hyperparameters["pixel_aspect_ratio"]["width"]
         if orientation == "horizontal":
             if half:
                 return int(round(wall_width / imperial_W)) / 2
@@ -53,14 +53,14 @@ class Extrapolate3D(FloorPlan):
         wall_heights = [polygon_drywall["height"] for polygon_drywall in wall_line["polygons_drywall"]]
         if not wall_heights:
             return [self._height_in_pixels] * 2
-        imperial_H = (self._hyperparameters["pixel_aspect_ratio"]["horizontal"] + self._hyperparameters["pixel_aspect_ratio"]["vertical"]) / 2
+        imperial_H = self._hyperparameters["pixel_aspect_ratio"]["height"]
         return [round(wall_height / imperial_H) for wall_height in wall_heights]
 
     def _load_polygon_height_in_pixels(self, polygon):
         polygon_height = polygon["height"]
         if not polygon_height:
             return [self._height_in_pixels] * 2
-        imperial_H = (self._hyperparameters["pixel_aspect_ratio"]["horizontal"] + self._hyperparameters["pixel_aspect_ratio"]["vertical"]) / 2
+        imperial_H = self._hyperparameters["pixel_aspect_ratio"]["height"]
         return round(polygon_height / imperial_H)
 
     def _load_model_2d(self, model_2d_path):
@@ -416,7 +416,7 @@ class Extrapolate3D(FloorPlan):
 
     def _add_polygon(self, polygon, scale):
         height_in_pixels = self._load_polygon_height_in_pixels(polygon)
-        imperial_W = (self._hyperparameters["pixel_aspect_ratio"]["horizontal"] + self._hyperparameters["pixel_aspect_ratio"]["vertical"]) / 2
+        imperial_W = self._hyperparameters["pixel_aspect_ratio"]["width"]
         width_in_pixels = round(polygon["polygon_drywall"]["thickness"] / imperial_W)
         polygon_slope = 0
         if polygon["type"] in SLOPED_CEILING_CHOICES:
@@ -561,16 +561,12 @@ class Extrapolate3D(FloorPlan):
         return [Path("/tmp/walls.gltf"), Path("/tmp/walls.bin")]
 
     def _scale_hyperparameters(self, scale):
-        imperial_X, imperial_Y = self.compute_imperial_scale_from_DPI(scale)
-        self.hyperparameters["pixel_aspect_ratio_to_feet"]["horizontal"] = imperial_X
-        self.hyperparameters["pixel_aspect_ratio_to_feet"]["vertical"] = imperial_Y
-        self.hyperparameters["pixel_aspect_ratio_to_feet"]["area"] = imperial_X * imperial_Y
         new_pixel_aspect_ratio_to_feet = self.compute_pixel_aspect_ratio(scale, self.hyperparameters["pixel_aspect_ratio_to_feet"])
         self.hyperparameters["pixel_aspect_ratio_to_feet"] = new_pixel_aspect_ratio_to_feet
         self.hyperparameters["modelling"]["pixel_aspect_ratio"] = new_pixel_aspect_ratio_to_feet
         self._hyperparameters = self.hyperparameters["modelling"]
         self._height_in_feet = self._hyperparameters["height_in_feet"]
-        self._height_in_pixels = int(round(self._height_in_feet / min(self._hyperparameters["pixel_aspect_ratio"]["vertical"], self._hyperparameters["pixel_aspect_ratio"]["horizontal"])))
+        self._height_in_pixels = int(round(self._height_in_feet / self._hyperparameters["pixel_aspect_ratio"]["height"]))
 
     def extrapolate(
         self,
