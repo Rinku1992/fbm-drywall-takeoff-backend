@@ -165,7 +165,7 @@ async def floorplan_to_structured_2d_sectioned(
 
 
 async def floorplan_to_page(credentials, pg_pool, project_id, plan_id, user_id, pdf_path, page_number, maximum_dpi, minimum_dpi):
-    floor_plan_path_preprocessed = preprocess(pdf_path, page_number, maximum_dpi=maximum_dpi, minimum_dpi=mimimum_dpi)
+    floor_plan_path_preprocessed = preprocess(pdf_path, page_number, maximum_dpi=maximum_dpi, minimum_dpi=minimum_dpi)
     await upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, user_id, credentials, pg_pool, index=str(page_number).zfill(4))
     return floor_plan_path_preprocessed
 
