@@ -46,5 +46,5 @@ modelling:
     width: 1000
     stride: 750
   scale_adoption:
-    dpi: 400
+    dpi: 300
     imperial_sampling: false
