@@ -31,7 +31,7 @@ CREATE TABLE projects (
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_by TEXT,
-    is_published BOOLEAN DEFAULT false
+    is_published BOOLEAN DEFAULT FALSE
 );
 ```
 
@@ -57,7 +57,7 @@ CREATE TABLE plans (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 
     multipage_elevation_map JSONB DEFAULT '{}'::jsonb,
-    is_published BOOLEAN DEFAULT false,
+    is_published BOOLEAN DEFAULT FALSE,
     PRIMARY KEY (project_id, plan_id),
     CONSTRAINT plan_unique
         UNIQUE (project_id, plan_id)
