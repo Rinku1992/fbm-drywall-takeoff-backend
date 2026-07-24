@@ -164,8 +164,8 @@ async def floorplan_to_structured_2d_sectioned(
     return floor_plan_modeller_2d.is_scale_detected, dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata), floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale)
 
 
-async def floorplan_to_page(credentials, pg_pool, project_id, plan_id, user_id, pdf_path, page_number, dpi):
-    floor_plan_path_preprocessed = preprocess(pdf_path, page_number, dpi=dpi)
+async def floorplan_to_page(credentials, pg_pool, project_id, plan_id, user_id, pdf_path, page_number, maximum_dpi, minimum_dpi):
+    floor_plan_path_preprocessed = preprocess(pdf_path, page_number, maximum_dpi=maximum_dpi, minimum_dpi=mimimum_dpi)
     await upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, user_id, credentials, pg_pool, index=str(page_number).zfill(4))
     return floor_plan_path_preprocessed
 
@@ -268,7 +268,8 @@ async def floorplan_section_to_structured_2d(request: Request):
             user_id,
             pdf_path,
             page_number,
-            hyperparameters["modelling"]["scale_adoption"]["dpi"]
+            hyperparameters["modelling"]["scale_adoption"]["dpi"]["maximum"],
+            hyperparameters["modelling"]["scale_adoption"]["dpi"]["minimum"]
         )
         elevation_processed_paths = load_elevation_pages(pdf_path, elevation_pages)
     except Exception as e:
