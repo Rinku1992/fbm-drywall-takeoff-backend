@@ -608,7 +608,7 @@ async def floorplan_to_structured_2d(request: Request):
                 if acknowledged_query["is_scale_detected"] == "NA":
                     future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
                     future.result()
-                    logging.warning(f"SYSTEM: Floorplan extraction has failed for Page Number: {page_number} with Error: {e}")
+                    logging.warning(f"SYSTEM: Floorplan extraction has failed for Page Number: {page_number}")
                     session_is_active = await is_session_active(CREDENTIALS, pg_pool, session_uuid, project_id, plan_id, user_id, page_number, completed_as_active=True)
                     if not session_is_active:
                         return respond_with_UI_payload(dict(status="ABORTED", message=f"Session Aborted"))
