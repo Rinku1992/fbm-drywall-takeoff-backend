@@ -795,7 +795,7 @@ async def load_projects(request: Request):
         ) pc
             ON LOWER(p.project_id) = pc.project_id
 
-        WHERE {where_clause} AND is_published = TRUE
+        WHERE {where_clause} AND p.is_published = TRUE
 
         ORDER BY p.created_at DESC NULLS LAST;
     """
@@ -887,7 +887,7 @@ async def load_project_plans(request: Request):
                     FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} pl
                     WHERE
                         LOWER(pl.project_id) = LOWER(pr.project_id)
-                        AND {where_clause}
+                        AND {where_clause} AND pl.is_published = TRUE
                 )
             )
     """
