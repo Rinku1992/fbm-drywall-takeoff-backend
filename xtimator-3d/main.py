@@ -852,6 +852,49 @@ async def publish_project(request: Request):
     logging.info(f"SYSTEM: Project: {project_id} Published successfully")
 
 
+@app.post("/retract_project")
+async def retract_project(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    project_id = parameters.get("project_id") or body.get("project_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
+    is_admin = await access_control.is_admin(user_id)
+    if bool(is_admin):
+        if is_admin.super:
+            where_clause = "TRUE"
+            params = ()
+
+        elif is_admin.local:
+            peers = await access_control.load_organization_users(user_id)
+            where_clause = "LOWER(p.created_by) = ANY(%s)"
+            params = (peers,)
+
+    else:
+        peers = await access_control.load_regional_users(user_id)
+        region_names = await access_control.load_user_region_names(user_id)
+        where_clause = "LOWER(p.created_by) = ANY(%s) AND LOWER(p.\"FBM_branch\") = ANY(%s)"
+        params = (peers, region_names,)
+
+    query = f"""
+        UPDATE
+        FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} p
+
+        SET is_published = FALSE
+        WHERE LOWER(project_id) = LOWER(%s);
+    """
+    projects = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id,)))
+
+    logging.info(f"SYSTEM: Project: {project_id} Retracted successfully")
+
+
 @app.post("/load_project_plans")
 async def load_project_plans(request: Request):
     enable_logging_on_stdout()
@@ -989,6 +1032,50 @@ async def publish_plan(request: Request):
         FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} p
 
         SET is_published = TRUE
+        WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);
+    """
+    projects = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id,)))
+
+    logging.info(f"SYSTEM: Plan: {plan_id} Published successfully")
+
+
+@app.post("/retract_plan")
+async def retract_plan(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    project_id = parameters.get("project_id") or body.get("project_id")
+    plan_id = parameters.get("plan_id") or body.get("plan_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
+    is_admin = await access_control.is_admin(user_id)
+    if bool(is_admin):
+        if is_admin.super:
+            where_clause = "TRUE"
+            params = ()
+
+        elif is_admin.local:
+            peers = await access_control.load_organization_users(user_id)
+            where_clause = "LOWER(p.created_by) = ANY(%s)"
+            params = (peers,)
+
+    else:
+        peers = await access_control.load_regional_users(user_id)
+        region_names = await access_control.load_user_region_names(user_id)
+        where_clause = "LOWER(p.created_by) = ANY(%s) AND LOWER(p.\"FBM_branch\") = ANY(%s)"
+        params = (peers, region_names,)
+
+    query = f"""
+        UPDATE
+        FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} p
+
+        SET is_published = FALSE
         WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);
     """
     projects = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id,)))
