@@ -795,7 +795,7 @@ async def load_projects(request: Request):
         ) pc
             ON LOWER(p.project_id) = pc.project_id
 
-        WHERE {where_clause}
+        WHERE {where_clause} AND is_published = TRUE
 
         ORDER BY p.created_at DESC NULLS LAST;
     """
