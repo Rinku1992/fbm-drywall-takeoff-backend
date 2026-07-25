@@ -6,7 +6,7 @@
 
 ## XTIMATOR User Guides
 * ### Onboarding External Organizations into Xtimator Application
-    * [User guide to onboard external organizations](https://fbm.atlassian.net/wiki/spaces/FBMAITEAM/pages/3429728263/User+Guide+Onboarding+External+Organizations+into+Xtimator+Application)
+    * <i>[User guide to onboard external organizations](https://fbm.atlassian.net/wiki/spaces/FBMAITEAM/pages/3429728263/User+Guide+Onboarding+External+Organizations+into+Xtimator+Application)</i>
 
 ## Installation
 ### Fully Managed Relational Database - Cloud SQL for PostgreSQL
