@@ -34,6 +34,7 @@ def process_page(pdf_path, page_index, image_path_page, maximum_dpi, minimum_dpi
     save(pdf_page, image_path_page)
     to_sharp(image_path_page)
     del pdf_page
+    return current_dpi
 
 def save(pdf_page, image_path_page):
     pdf_page.save(image_path_page, "PNG")
@@ -55,6 +56,6 @@ def to_sharp(image_path_page):
 def preprocess(pdf_path, page_index, maximum_dpi=400, minimum_dpi=250, image_path="/tmp/floor_plan.png"):
     image_path = Path(image_path)
     image_path_page = image_path.parent.joinpath(image_path.stem).with_suffix(f".{str(page_index).zfill(2)}{image_path.suffix}")
-    process_page(pdf_path, page_index, image_path_page, maximum_dpi, minimum_dpi)
+    dpi_in_use = process_page(pdf_path, page_index, image_path_page, maximum_dpi, minimum_dpi)
 
-    return image_path_page
+    return image_path_page, dpi_in_use
