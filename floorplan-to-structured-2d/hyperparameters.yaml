@@ -47,6 +47,6 @@ modelling:
   scale_adoption:
     dpi:
       maximum: 400
-      minimum: 250
+      minimum: 200
       in_use: 400
     imperial_sampling: false
