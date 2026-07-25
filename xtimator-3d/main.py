@@ -2674,16 +2674,16 @@ async def request_otp(request: PayloadRequestExternalOtp):
 
     query = f"""
         SELECT
-            is_external
+            is_external, is_locked
         FROM {CREDENTIALS["CloudSQL"]["table_name_users"]}
         WHERE LOWER(user_email) = LOWER(%s)
         LIMIT 1;
     """
-    is_external = await run_in_threadpool(
+    user_access_control = await run_in_threadpool(
         partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_email,), fetch=True)
     )
 
-    if not is_external:
+    if not user_access_control:
         return respond_with_UI_payload(
             dict(
                 user_type="EXTERNAL",
@@ -2691,12 +2691,20 @@ async def request_otp(request: PayloadRequestExternalOtp):
                 token="INVALID"
             )
         )
-    if not is_external[0]["is_external"]:
+    if not user_access_control[0]["is_external"]:
         return respond_with_UI_payload(
             dict(
                 user_type="INTERNAL",
                 email=user_email,
                 token="INVALID"
+            )
+        )
+    if user_access_control[0]["is_locked"]:
+        return respond_with_UI_payload(
+            dict(
+                user_type="EXTERNAL",
+                email=user_email,
+                token="ACCOUNT LOCKED"
             )
         )
 
