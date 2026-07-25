@@ -77,6 +77,7 @@ from helper import (
     load_organization_slug,
     create_session,
     is_session_active,
+    lock_user,
 )
 from policy import AccessControlService
 from prompts import VISUAL_GROUNDING_DETECTOR, SLOPED_CEILING_CHOICES
@@ -2870,11 +2871,12 @@ async def verify_otp(request: PayloadVerifyExternalOtp):
         await run_in_threadpool(
             partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_email,))
         )
+        await lock_user(CREDENTIALS, pg_pool, user_email)
 
         return respond_with_UI_payload(
             dict(
                 success=False,
-                message="Max attempts exceeded. Please request a new OTP",
+                message="Max attempts exceeded. User Account Locked",
                 error_code="MAX_ATTEMPTS_EXCEEDED"
             ),
             status_code=429
