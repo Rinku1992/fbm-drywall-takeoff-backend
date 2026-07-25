@@ -165,9 +165,9 @@ async def floorplan_to_structured_2d_sectioned(
 
 
 async def floorplan_to_page(credentials, pg_pool, project_id, plan_id, user_id, pdf_path, page_number, maximum_dpi, minimum_dpi):
-    floor_plan_path_preprocessed = preprocess(pdf_path, page_number, maximum_dpi=maximum_dpi, minimum_dpi=minimum_dpi)
+    floor_plan_path_preprocessed, dpi_in_use = preprocess(pdf_path, page_number, maximum_dpi=maximum_dpi, minimum_dpi=minimum_dpi)
     await upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, user_id, credentials, pg_pool, index=str(page_number).zfill(4))
-    return floor_plan_path_preprocessed
+    return floor_plan_path_preprocessed, dpi_in_use
 
 
 def load_elevation_pages(pdf_path, elevation_page_numbers):
@@ -260,7 +260,7 @@ async def floorplan_section_to_structured_2d(request: Request):
     publish_handler = load_publisher_client(CREDENTIALS)
     ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
     try:
-        floor_plan_processed_path = await floorplan_to_page(
+        floor_plan_processed_path, dpi_in_use = await floorplan_to_page(
             CREDENTIALS,
             pg_pool,
             project_id,
@@ -271,6 +271,7 @@ async def floorplan_section_to_structured_2d(request: Request):
             hyperparameters["modelling"]["scale_adoption"]["dpi"]["maximum"],
             hyperparameters["modelling"]["scale_adoption"]["dpi"]["minimum"]
         )
+        hyperparameters["modelling"]["scale_adoption"]["dpi"] = dpi_in_use
         elevation_processed_paths = load_elevation_pages(pdf_path, elevation_pages)
     except Exception as e:
         future = publish_handler(
