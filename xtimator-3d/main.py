@@ -78,6 +78,7 @@ from helper import (
     create_session,
     is_session_active,
     lock_user,
+    unlock_user,
 )
 from policy import AccessControlService
 from prompts import VISUAL_GROUNDING_DETECTOR, SLOPED_CEILING_CHOICES
@@ -2954,6 +2955,34 @@ async def verify_otp(request: PayloadVerifyExternalOtp):
             )
         )
     )
+
+
+@app.post("/lock_user_account")
+async def lock_user_account(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    user_id = parameters.get("user_id") or body.get("user_id")
+
+    await lock_user(CREDENTIALS, pg_pool, user_id)
+    logging.info(f"SYSTEM: User Account: {user_id} has been Locked")
+
+
+@app.post("/unlock_user_account")
+async def unlock_user_account(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    user_id = parameters.get("user_id") or body.get("user_id")
+
+    await unlock_user(CREDENTIALS, pg_pool, user_id)
+    logging.info(f"SYSTEM: User Account: {user_id} is Unlocked")
 
 
 from typing import Optional
