@@ -1445,3 +1445,19 @@ async def is_session_active(credentials, pg_pool, session_id, project_id, plan_i
     ))
     status = query_output[0]["status"]
     return status == "ACTIVE"
+
+async def lock_user(
+    credentials,
+    pg_pool,
+    user_id
+):
+    query = f"UPDATE {credentials["CloudSQL"]["table_name_users"]} SET is_locked = TRUE WHERE LOWER(user_email) = LOWER(%s);"
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(user_id,)))
+
+async def unlock_user(
+    credentials,
+    pg_pool,
+    user_id
+):
+    query = f"UPDATE {credentials["CloudSQL"]["table_name_users"]} SET is_locked = FALSE WHERE LOWER(user_email) = LOWER(%s);"
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(user_id,)))
