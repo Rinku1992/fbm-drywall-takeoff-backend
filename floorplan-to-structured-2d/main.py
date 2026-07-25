@@ -308,7 +308,8 @@ async def floorplan_to_structured_2d(request: Request):
             user_id,
             pdf_path,
             page_number,
-            hyperparameters["modelling"]["scale_adoption"]["dpi"]
+            hyperparameters["modelling"]["scale_adoption"]["dpi"]["maximum"],
+            hyperparameters["modelling"]["scale_adoption"]["dpi"]["minimum"]
         )
         hyperparameters["modelling"]["scale_adoption"]["dpi"]["in_use"] = dpi_in_use
     except Exception as e:
