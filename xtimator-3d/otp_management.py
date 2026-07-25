@@ -136,19 +136,23 @@ def is_jwt_authenticated(credentials, request, user_id):
 async def is_authenticated(credentials, pg_pool, request, user_id=None):
     query = f"""
         SELECT
-            is_external
+            is_external, is_locked
         FROM {credentials["CloudSQL"]["table_name_users"]}
         WHERE LOWER(user_email) = LOWER(%s)
         LIMIT 1;
     """
-    is_external = await run_in_threadpool(
+    user_access_control = await run_in_threadpool(
         partial(pg_run, credentials, pg_pool, query, params=(user_id,), fetch=True)
     )
 
-    if not is_external:
+    if not user_access_control:
         return dict(user_type="EXTERNAL", email=user_id, token="INVALID")
 
-    if is_external[0]["is_external"]:
+    user_type = "EXTERNAL" if user_access_control[0]["is_external"] else "INTERNAL"
+    if user_access_control[0]["is_locked"]:
+        return dict(user_type=user_type, email=user_id, token="ACCOUNT LOCKED")
+
+    if user_access_control[0]["is_external"]:
         is_user_authenticated, expiry = is_jwt_authenticated(credentials, request, user_id)
         if not is_user_authenticated:
             return dict(user_type="EXTERNAL", email=user_id, token="INVALID")
