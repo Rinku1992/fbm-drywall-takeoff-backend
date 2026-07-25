@@ -6,12 +6,6 @@ Image.MAX_IMAGE_PIXELS = 200000000
 
 
 def process_page(pdf_path, page_index, image_path_page, maximum_dpi, minimum_dpi, dpi_reduction_factor: float=0.75):
-    pdf_page = convert_from_path(
-        pdf_path,
-        dpi=dpi,
-        first_page=page_index+1,
-        last_page=page_index+1
-    )[0]
     current_dpi = maximum_dpi
 
     while True:
