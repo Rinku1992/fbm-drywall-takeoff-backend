@@ -225,9 +225,9 @@ def section_to_structured_2d(
 
 
 async def floorplan_to_page(credentials, pg_pool, project_id, plan_id, user_id, pdf_path, page_number, dpi):
-    floor_plan_path_preprocessed = preprocess(pdf_path, page_number, dpi=dpi)
+    floor_plan_path_preprocessed, dpi_in_use = preprocess(pdf_path, page_number, dpi=dpi)
     await upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, user_id, credentials, pg_pool, index=str(page_number).zfill(4))
-    return floor_plan_path_preprocessed
+    return floor_plan_path_preprocessed, dpi_in_use
 
 
 CREDENTIALS = load_gcp_credentials()
@@ -300,7 +300,7 @@ async def floorplan_to_structured_2d(request: Request):
     publish_handler = load_publisher_client(CREDENTIALS)
     subscriber_client = load_subscriber_client(CREDENTIALS)
     try:
-        floor_plan_processed_path = await floorplan_to_page(
+        floor_plan_processed_path, dpi_in_use = await floorplan_to_page(
             CREDENTIALS,
             pg_pool,
             project_id,
@@ -310,6 +310,7 @@ async def floorplan_to_structured_2d(request: Request):
             page_number,
             hyperparameters["modelling"]["scale_adoption"]["dpi"]
         )
+        hyperparameters["modelling"]["scale_adoption"]["dpi"]["in_use"] = dpi_in_use
     except Exception as e:
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
         future.result()
