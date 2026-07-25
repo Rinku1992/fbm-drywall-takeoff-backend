@@ -49,4 +49,5 @@ modelling:
     dpi:
       maximum: 400
       minimum: 250
+      in_use: 400
     imperial_sampling: false
