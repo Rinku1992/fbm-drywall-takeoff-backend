@@ -173,7 +173,7 @@ async def floorplan_to_page(credentials, pg_pool, project_id, plan_id, user_id, 
 def load_elevation_pages(pdf_path, elevation_page_numbers):
     elevation_paths_preprocessed = list()
     for elevation_page_number in elevation_page_numbers:
-        elevation_path_preprocessed = preprocess(
+        elevation_path_preprocessed, _ = preprocess(
             pdf_path,
             elevation_page_number,
             image_path=f"/tmp/elevation_plan_{str(elevation_page_number).zfill(4)}.png"
