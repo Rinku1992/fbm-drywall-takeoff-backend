@@ -271,7 +271,7 @@ async def floorplan_section_to_structured_2d(request: Request):
             hyperparameters["modelling"]["scale_adoption"]["dpi"]["maximum"],
             hyperparameters["modelling"]["scale_adoption"]["dpi"]["minimum"]
         )
-        hyperparameters["modelling"]["scale_adoption"]["dpi"] = dpi_in_use
+        hyperparameters["modelling"]["scale_adoption"]["dpi"]["in_use"] = dpi_in_use
         elevation_processed_paths = load_elevation_pages(pdf_path, elevation_pages)
     except Exception as e:
         future = publish_handler(
