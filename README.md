@@ -225,7 +225,8 @@ CREATE TABLE users (
     organization_id INT REFERENCES organizations(organization_id) ON DELETE CASCADE,
     user_name TEXT,
     user_location TEXT,
-    is_external BOOLEAN
+    is_external BOOLEAN,
+    is_locked BOOLEAN DEFAULT FALSE
 );
 ```
 
