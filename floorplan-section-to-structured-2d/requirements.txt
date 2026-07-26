@@ -7,7 +7,7 @@ google-cloud-secret-manager
 google-cloud-vision
 google-cloud-bigquery
 google-cloud-bigquery-storage
-cloud-sql-python-connector
+cloud-sql-python-connector[pg8000]
 sqlalchemy
 pg8000
 db-dtypes
