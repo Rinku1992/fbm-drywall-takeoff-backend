@@ -348,7 +348,16 @@ CREATE TABLE sku (
 );
 ```
 
-18. <b><i>external_otp_tokens</i></b>
+18. <b><i>internal_users_authentication_throttled</i></b>
+```sql
+CREATE TABLE internal_users_authentication_throttled(
+   user_email TEXT NOT NULL,
+   attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+   attempts INTEGER NOT NULL
+);
+```
+
+19. <b><i>external_otp_tokens</i></b>
 ```sql
 CREATE TABLE external_otp_tokens (
     email         TEXT PRIMARY KEY,
