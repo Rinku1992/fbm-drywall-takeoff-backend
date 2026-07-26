@@ -150,11 +150,17 @@ def close_pg_pool():
     global _pg_engine, _connector, _db_credentials
 
     if _pg_engine is not None:
-        _pg_engine.dispose()
+        try:
+            _pg_engine.dispose()
+        except Exception as e:
+            logging.warning(f"SYSTEM: {e}")
         _pg_engine = None
 
     if _connector is not None:
-        _connector.close()
+        try:
+            _connector.close()
+        except Exception as e:
+            logging.warning(f"SYSTEM: {e}")
         _connector = None
 
     _db_credentials = None
