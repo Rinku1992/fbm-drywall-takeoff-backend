@@ -3055,20 +3055,6 @@ async def authenticate_internal_user(request: Request):
         )
 
 
-@app.post("/lock_user_account")
-async def lock_user_account(request: Request):
-    enable_logging_on_stdout()
-    parameters = dict(request.query_params)
-    try:
-        body = await request.json()
-    except Exception:
-        body = dict()
-    user_id = parameters.get("user_id") or body.get("user_id")
-
-    await lock_user(CREDENTIALS, pg_pool, user_id)
-    logging.info(f"SYSTEM: User Account: {user_id} has been Locked")
-
-
 @app.post("/unlock_user_account")
 async def unlock_user_account(request: Request):
     enable_logging_on_stdout()
