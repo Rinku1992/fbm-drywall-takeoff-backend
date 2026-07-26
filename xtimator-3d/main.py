@@ -2975,7 +2975,6 @@ async def authenticate_internal_user(request: Request):
         body = dict()
     user_id = parameters.get("user_id") or body.get("user_id")
     is_authenticated = parameters.get("is_authenticated") or body.get("is_authenticated")
-    token_firebase = parameters.get("token") or body.get("token")
 
     query = f"""
         SELECT
