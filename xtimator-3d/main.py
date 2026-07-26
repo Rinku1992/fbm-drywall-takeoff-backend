@@ -2965,6 +2965,96 @@ async def verify_otp(request: PayloadVerifyExternalOtp):
     )
 
 
+@app.post("/authenticate_internal_user")
+async def authenticate_internal_user(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    user_id = parameters.get("user_id") or body.get("user_id")
+    is_authenticated = parameters.get("is_authenticated") or body.get("is_authenticated")
+    token_firebase = parameters.get("token") or body.get("token")
+
+    query = f"""
+        SELECT
+            is_external, is_locked
+        FROM {credentials["CloudSQL"]["table_name_users"]}
+        WHERE LOWER(user_email) = LOWER(%s)
+        LIMIT 1;
+    """
+    user_access_control = await run_in_threadpool(
+        partial(pg_run, credentials, pg_pool, query, params=(user_id,), fetch=True)
+    )
+
+    if not user_access_control:
+        return dict(user_type="INTERNAL", email=user_id, token="UNREGISTERED")
+
+    user_type = "EXTERNAL" if user_access_control[0]["is_external"] else "INTERNAL"
+    if user_access_control[0]["is_locked"]:
+        return respond_with_UI_payload(
+            dict(user_type=user_type, email=user_id, token="ACCOUNT LOCKED")
+        )
+    if user_access_control[0]["is_external"]:
+        return respond_with_UI_payload(
+            dict(user_type=user_type, email=user_id, token="EXTERNAL USER")
+        )
+    if is_authenticated:
+        query = f"""
+            DELETE
+            FROM {credentials["CloudSQL"]["table_name_internal_users_authentication_throttled"]}
+            WHERE LOWER(user_email) = LOWER(%s)
+            LIMIT 1;
+        """
+        await run_in_threadpool(
+            partial(pg_run, credentials, pg_pool, query, params=(user_id,))
+        )
+        return respond_with_UI_payload(
+            dict(user_type=user_type, email=user_id, token="SUCCESS")
+        )
+    if not is_authenticated:
+        query = f"""
+            SELECT
+                attempts
+            FROM {credentials["CloudSQL"]["table_name_internal_users_authentication_throttled"]}
+            WHERE LOWER(user_email) = LOWER(%s)
+            LIMIT 1;
+        """
+        user_access_control = await run_in_threadpool(
+            partial(pg_run, credentials, pg_pool, query, params=(user_id,), fetch=True)
+        )
+        failed_attempts = 1
+        if user_access_control and user_access_control[0]["attempts"]:
+            failed_attempts = user_access_control[0]["attempts"]
+            if failed_attempts >= 5:
+                await lock_user(CREDENTIALS, pg_pool, user_id)
+                return respond_with_UI_payload(
+                    dict(user_type=user_type, email=user_id, token="ACCOUNT LOCKED")
+                )
+        query = f"""
+            INSERT INTO {credentials["CloudSQL"]["table_name_internal_users_authentication_throttled"]} AS t (
+            user_email,
+            attempted_at,
+            attempts
+            )
+            VALUES (
+                %s,
+                CURRENT_TIMESTAMP,
+                %s
+            )
+            ON CONFLICT (user_email) DO UPDATE SET
+                attempts = t.attempts + 1,
+                attempted_at = CURRENT_TIMESTAMP
+        """
+        await run_in_threadpool(
+            partial(pg_run, credentials, pg_pool, query, params=(user_id, 1,))
+        )
+        return respond_with_UI_payload(
+            dict(user_type=user_type, email=user_id, token=f"AUTHENTICATION FAILED ({failed_attempts}/5)")
+        )
+
+
 @app.post("/lock_user_account")
 async def lock_user_account(request: Request):
     enable_logging_on_stdout()
