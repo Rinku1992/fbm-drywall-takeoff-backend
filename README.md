@@ -351,7 +351,7 @@ CREATE TABLE sku (
 18. <b><i>internal_users_authentication_throttled</i></b>
 ```sql
 CREATE TABLE internal_users_authentication_throttled(
-   user_email TEXT NOT NULL,
+   user_email TEXT PRIMARY KEY,
    attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
    attempts INTEGER NOT NULL
 );
