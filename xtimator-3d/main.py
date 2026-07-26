@@ -2979,12 +2979,12 @@ async def authenticate_internal_user(request: Request):
     query = f"""
         SELECT
             is_external, is_locked
-        FROM {credentials["CloudSQL"]["table_name_users"]}
+        FROM {CREDENTIALS["CloudSQL"]["table_name_users"]}
         WHERE LOWER(user_email) = LOWER(%s)
         LIMIT 1;
     """
     user_access_control = await run_in_threadpool(
-        partial(pg_run, credentials, pg_pool, query, params=(user_id,), fetch=True)
+        partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_id,), fetch=True)
     )
 
     if not user_access_control:
@@ -3002,12 +3002,12 @@ async def authenticate_internal_user(request: Request):
     if is_authenticated:
         query = f"""
             DELETE
-            FROM {credentials["CloudSQL"]["table_name_internal_users_authentication_throttled"]}
+            FROM {CREDENTIALS["CloudSQL"]["table_name_internal_users_authentication_throttled"]}
             WHERE LOWER(user_email) = LOWER(%s)
             LIMIT 1;
         """
         await run_in_threadpool(
-            partial(pg_run, credentials, pg_pool, query, params=(user_id,))
+            partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_id,))
         )
         return respond_with_UI_payload(
             dict(user_type=user_type, email=user_id, token="SUCCESS")
@@ -3016,12 +3016,12 @@ async def authenticate_internal_user(request: Request):
         query = f"""
             SELECT
                 attempts
-            FROM {credentials["CloudSQL"]["table_name_internal_users_authentication_throttled"]}
+            FROM {CREDENTIALS["CloudSQL"]["table_name_internal_users_authentication_throttled"]}
             WHERE LOWER(user_email) = LOWER(%s)
             LIMIT 1;
         """
         user_access_control = await run_in_threadpool(
-            partial(pg_run, credentials, pg_pool, query, params=(user_id,), fetch=True)
+            partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_id,), fetch=True)
         )
         failed_attempts = 1
         if user_access_control and user_access_control[0]["attempts"]:
@@ -3032,7 +3032,7 @@ async def authenticate_internal_user(request: Request):
                     dict(user_type=user_type, email=user_id, token="ACCOUNT LOCKED")
                 )
         query = f"""
-            INSERT INTO {credentials["CloudSQL"]["table_name_internal_users_authentication_throttled"]} AS t (
+            INSERT INTO {CREDENTIALS["CloudSQL"]["table_name_internal_users_authentication_throttled"]} AS t (
             user_email,
             attempted_at,
             attempts
@@ -3047,7 +3047,7 @@ async def authenticate_internal_user(request: Request):
                 attempted_at = CURRENT_TIMESTAMP
         """
         await run_in_threadpool(
-            partial(pg_run, credentials, pg_pool, query, params=(user_id, 1,))
+            partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_id, 1,))
         )
         return respond_with_UI_payload(
             dict(user_type=user_type, email=user_id, token=f"AUTHENTICATION FAILED ({failed_attempts}/5)")
