@@ -146,7 +146,7 @@ async def is_authenticated(credentials, pg_pool, request, user_id=None):
     )
 
     if not user_access_control:
-        return dict(user_type="EXTERNAL", email=user_id, token="INVALID")
+        return dict(user_type="EXTERNAL", email=user_id, token="UNREGISTERED")
 
     user_type = "EXTERNAL" if user_access_control[0]["is_external"] else "INTERNAL"
     if user_access_control[0]["is_locked"]:
