@@ -308,7 +308,7 @@ def load_pg_pool(credentials):
         return _pg_engine
 
     if _connector is None:
-        _connector = Connector()
+        _connector = Connector(refresh_strategy="LAZY")
 
     pg = credentials["CloudSQL"]
 
