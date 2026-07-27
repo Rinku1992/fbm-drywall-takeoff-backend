@@ -3049,7 +3049,7 @@ async def authenticate_internal_user(request: Request):
             partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_id, 1,))
         )
         return respond_with_UI_payload(
-            dict(user_type=user_type, email=user_id, token=f"AUTHENTICATION FAILED ({failed_attempts}/5)")
+            dict(user_type=user_type, email=user_id, token=f"AUTHENTICATION FAILED ({failed_attempts + 1}/5)")
         )
 
 
