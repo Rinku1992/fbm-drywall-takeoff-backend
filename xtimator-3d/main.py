@@ -3003,8 +3003,7 @@ async def authenticate_internal_user(request: Request):
         query = f"""
             DELETE
             FROM {CREDENTIALS["CloudSQL"]["table_name_internal_users_authentication_throttled"]}
-            WHERE LOWER(user_email) = LOWER(%s)
-            LIMIT 1;
+            WHERE LOWER(user_email) = LOWER(%s);
         """
         await run_in_threadpool(
             partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_id,))
