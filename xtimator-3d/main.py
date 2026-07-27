@@ -3022,7 +3022,7 @@ async def authenticate_internal_user(request: Request):
         user_access_control = await run_in_threadpool(
             partial(pg_run, CREDENTIALS, pg_pool, query, params=(user_id,), fetch=True)
         )
-        failed_attempts = 1
+        failed_attempts = 0
         if user_access_control and user_access_control[0]["attempts"]:
             failed_attempts = user_access_control[0]["attempts"]
             if failed_attempts >= 5:
