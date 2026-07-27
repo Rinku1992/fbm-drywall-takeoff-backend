@@ -78,7 +78,7 @@ def load_vertex_ai_client(credentials, ip_address, prompts=None, default_region=
                 cached_content = CachedContent.create(
                     model_name=credentials["VertexAI"]["llm"]["model_name"],
                     contents=prompts,
-                    ttl=datetime.timedelta(minutes=60),
+                    ttl=datetime.timedelta(minutes=120),
                     display_name="drywall_predictor_cache"
                 )
                 break
