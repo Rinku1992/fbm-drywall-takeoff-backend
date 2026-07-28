@@ -3172,4 +3172,5 @@ async def floorplan_to_2d_multi_family(request: Request):
             ),
             max_retry=CREDENTIALS["VertexAI"]["llm"]["max_retry"],
         )
+    print(response)
     return respond_with_UI_payload(dict(response=response))
