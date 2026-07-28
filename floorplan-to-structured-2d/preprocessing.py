@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 from pdf2image import convert_from_path
 import cv2
