@@ -3114,19 +3114,48 @@ async def chat_gemini(prompt: str=Form(...),  image_png_bytes: Optional[UploadFi
 
 from prompts import RESIDENTIAL_MULTI_FAMILY_SCHEMA
 @app.post("/floorplan_to_2d_multi_family")
-async def floorplan_to_2d_multi_family(prompt: str=Form(...),  image_png_bytes: Optional[UploadFile]=File(None)):
+async def floorplan_to_2d_multi_family(request: Request):
     enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    project_id = parameters.get("project_id") or body.get("project_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
+    plan_id = parameters.get("plan_id") or body.get("plan_id")
 
-    logging.info("SYSTEM: Received a Chat Request")
-    query = Content(role="user", parts=[Part.from_text(prompt)])
-    if image_png_bytes is not None:
-        bytes_canvas = await image_png_bytes.read()
-        query = Content(role="user", parts=[Part.from_text(prompt), Part.from_data(data=bytes_canvas, mime_type="image/png")])
     vertex_ai_client, vertex_ai_generation_config, is_cached = load_vertex_ai_client(
         CREDENTIALS,
         None,
         prompts=[RESIDENTIAL_MULTI_FAMILY_SCHEMA]
     )
+
+    pdf_path = Path("/tmp/floor_plan.PDF")
+    GCS_URL_floorplan = await download_floorplan(plan_id, project_id, user_id, CREDENTIALS, pg_pool, destination_path=pdf_path)
+    with open(pdf_path, "rb") as f:
+        bytes_pdf = f.read()
+    reader = PdfReader(BytesIO(bytes_pdf))
+    pages = list()
+
+    for index, page in enumerate(reader.pages):
+        writer = PdfWriter()
+        writer.add_page(page)
+
+        buffer = BytesIO()
+        writer.write(buffer)
+
+        pages.append({
+            "page_number": index,
+            "bytes": buffer.getvalue()
+        })
+
+    parts = list()
+    for page in pages:
+        parts.append(Part.from_text(f"PAGE: {page["page_number"]}"))
+        parts.append(Part.from_data(page["bytes"], mime_type="application/pdf"))
+    query = Content(role="user", parts=parts)
+
     if is_cached:
         response = phoenix_call(
             lambda feedback_prompt, temperature: vertex_ai_client.generate_content(
@@ -3137,7 +3166,7 @@ async def floorplan_to_2d_multi_family(prompt: str=Form(...),  image_png_bytes: 
         )
     else:
         response = phoenix_call(
-            lambda feedback_prompt, temperature: vertex_ai_client(prompt).generate_content(
+            lambda feedback_prompt, temperature: vertex_ai_client(RESIDENTIAL_MULTI_FAMILY_SCHEMA).generate_content(
                 contents=[feedback_prompt, query] if feedback_prompt else [query],
                 generation_config={**vertex_ai_generation_config, "temperature": temperature},
             ),
