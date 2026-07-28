@@ -740,7 +740,7 @@ async def trigger_email_notification(
                 UNION
 
                 SELECT up.organization_id
-                FROM {credentials["CloudSQL"]["table_name_user_partner_organizations"]} up JOIN {self._credentials["CloudSQL"]["table_name_users"]} u ON up.user_id = u.user_id
+                FROM {credentials["CloudSQL"]["table_name_user_partner_organizations"]} up JOIN {credentials["CloudSQL"]["table_name_users"]} u ON up.user_id = u.user_id
                 WHERE LOWER(u.user_email) = LOWER(%s)
             ),
 
@@ -767,7 +767,7 @@ async def trigger_email_notification(
             )
             ORDER BY u.user_email;
         """
-        user_ids_group = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id, user_id, user_id,), fetch=True))
+        user_ids_group = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(user_id, user_id, user_id,), fetch=True))
         for user_id_group in user_ids_group:
             trigger(
                 credentials,
