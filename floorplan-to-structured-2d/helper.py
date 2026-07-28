@@ -734,20 +734,20 @@ async def trigger_email_notification(
         query = f"""
             WITH visible_organizations AS (
                 SELECT organization_id
-                FROM {self._credentials["CloudSQL"]["table_name_users"]}
+                FROM {credentials["CloudSQL"]["table_name_users"]}
                 WHERE LOWER(user_email) = LOWER(%s)
 
                 UNION
 
                 SELECT up.organization_id
-                FROM {self._credentials["CloudSQL"]["table_name_user_partner_organizations"]} up JOIN {self._credentials["CloudSQL"]["table_name_users"]} u ON up.user_id = u.user_id
+                FROM {credentials["CloudSQL"]["table_name_user_partner_organizations"]} up JOIN {self._credentials["CloudSQL"]["table_name_users"]} u ON up.user_id = u.user_id
                 WHERE LOWER(u.user_email) = LOWER(%s)
             ),
 
             visible_regions AS (
                 SELECT DISTINCT ur.region_id
-                FROM {self._credentials["CloudSQL"]["table_name_user_regions"]} ur
-                JOIN {self._credentials["CloudSQL"]["table_name_organization_regions"]} ogr
+                FROM {credentials["CloudSQL"]["table_name_user_regions"]} ur
+                JOIN {credentials["CloudSQL"]["table_name_organization_regions"]} ogr
                     ON ogr.region_id = ur.region_id JOIN users u on u.user_id = ur.user_id
                 WHERE LOWER(u.user_email) = LOWER(%s)
                     AND ogr.organization_id IN (
@@ -758,8 +758,8 @@ async def trigger_email_notification(
 
             SELECT DISTINCT
                 u.user_email as user_email
-            FROM {self._credentials["CloudSQL"]["table_name_users"]} u
-            JOIN {self._credentials["CloudSQL"]["table_name_user_regions"]} ur
+            FROM {credentials["CloudSQL"]["table_name_users"]} u
+            JOIN {credentials["CloudSQL"]["table_name_user_regions"]} ur
                 ON ur.user_id = u.user_id
             WHERE ur.region_id IN (
                 SELECT region_id
