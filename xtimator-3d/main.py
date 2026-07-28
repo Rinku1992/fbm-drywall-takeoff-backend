@@ -3110,3 +3110,37 @@ async def chat_gemini(prompt: str=Form(...),  image_png_bytes: Optional[UploadFi
             max_retry=CREDENTIALS["VertexAI"]["llm"]["max_retry"],
         )
     return respond_with_UI_payload(dict(response=response))
+
+
+from prompts import RESIDENTIAL_MULTI_FAMILY_SCHEMA
+@app.post("/floorplan_to_2d_multi_family")
+async def floorplan_to_2d_multi_family(prompt: str=Form(...),  image_png_bytes: Optional[UploadFile]=File(None)):
+    enable_logging_on_stdout()
+
+    logging.info("SYSTEM: Received a Chat Request")
+    query = Content(role="user", parts=[Part.from_text(prompt)])
+    if image_png_bytes is not None:
+        bytes_canvas = await image_png_bytes.read()
+        query = Content(role="user", parts=[Part.from_text(prompt), Part.from_data(data=bytes_canvas, mime_type="image/png")])
+    vertex_ai_client, vertex_ai_generation_config, is_cached = load_vertex_ai_client(
+        CREDENTIALS,
+        None,
+        prompts=[prompt]
+    )
+    if is_cached:
+        response = phoenix_call(
+            lambda feedback_prompt, temperature: vertex_ai_client.generate_content(
+                contents=[feedback_prompt, query] if feedback_prompt else [query],
+                generation_config={**vertex_ai_generation_config, "temperature": temperature},
+            ),
+            max_retry=CREDENTIALS["VertexAI"]["llm"]["max_retry"],
+        )
+    else:
+        response = phoenix_call(
+            lambda feedback_prompt, temperature: vertex_ai_client(prompt).generate_content(
+                contents=[feedback_prompt, query] if feedback_prompt else [query],
+                generation_config={**vertex_ai_generation_config, "temperature": temperature},
+            ),
+            max_retry=CREDENTIALS["VertexAI"]["llm"]["max_retry"],
+        )
+    return respond_with_UI_payload(dict(response=response))
