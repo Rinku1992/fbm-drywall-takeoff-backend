@@ -3125,7 +3125,7 @@ async def floorplan_to_2d_multi_family(prompt: str=Form(...),  image_png_bytes: 
     vertex_ai_client, vertex_ai_generation_config, is_cached = load_vertex_ai_client(
         CREDENTIALS,
         None,
-        prompts=[prompt]
+        prompts=[RESIDENTIAL_MULTI_FAMILY_SCHEMA]
     )
     if is_cached:
         response = phoenix_call(
