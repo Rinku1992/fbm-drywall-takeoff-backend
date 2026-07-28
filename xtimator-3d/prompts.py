@@ -672,14 +672,14 @@ RESIDENTIAL_MULTI_FAMILY_SCHEMA = """
     Example:
 
     "pages": [
-        {
+        {{
             "page_number": 12,
             "section_name": "LEVEL 2 FLOOR PLAN"
-        },
-        {
+        }},
+        {{
             "page_number": 13,
             "section_name": "LEVEL 2 FLOOR PLAN CONTINUED"
-        }
+        }}
     ]
     Confidence
 
@@ -700,55 +700,55 @@ RESIDENTIAL_MULTI_FAMILY_SCHEMA = """
 
     Output Format
 
-    Return only valid JSON.
+    Return only valid JSON and ensure to replace every consecutive pair of open/closed curly braces with a single one during the generation of the output.
 
-    {
+    {{
       "development_name": "",
       "confidence": 0.0,
       "buildings": [
-        {
+        {{
           "building_name": "",
           "confidence": 0.0,
           "floors": [
-            {
+            {{
               "floor_name": "",
               "confidence": 0.0,
               "unit_groups": [
-                {
+                {{
                   "group_name": "",
                   "individual_unit_plans": true,
                   "confidence": 0.0,
                   "units": [
-                    {
+                    {{
                       "unit_name": "",
                       "pages": [
-                        {
+                        {{
                           "page_number": 0,
                           "section_name": ""
-                        }
+                        }}
                       ],
                       "confidence": 0.0
-                    }
+                    }}
                   ]
-                }
+                }}
               ],
               "pages": [
-                {
+                {{
                   "page_number": 0,
                   "section_name": ""
-                }
+                }}
               ]
-            }
+            }}
           ],
           "pages": [
-            {
+            {{
               "page_number": 0,
               "section_name": ""
-            }
+            }}
           ]
-        }
+        }}
       ]
-    }
+    }}
 
     If no explicit development name exists, return an empty string.
 
