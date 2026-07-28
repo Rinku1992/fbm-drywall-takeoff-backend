@@ -3113,6 +3113,8 @@ async def chat_gemini(prompt: str=Form(...),  image_png_bytes: Optional[UploadFi
 
 
 from prompts import RESIDENTIAL_MULTI_FAMILY_SCHEMA
+from pypdf import PdfReader, PdfWriter
+from io import BytesIO
 @app.post("/floorplan_to_2d_multi_family")
 async def floorplan_to_2d_multi_family(request: Request):
     enable_logging_on_stdout()
