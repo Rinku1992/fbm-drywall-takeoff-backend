@@ -796,7 +796,7 @@ class DrywallAssemblyCeiling(BaseModel):
     materials_vertically_stacked: List
     color_codes_stacked: List
     thickness: float
-    layers: int
+    layers: Union[int, List]
     fire_rating: Optional[Union[str, float]]
     waste_factor: Union[str, int, float]
 
