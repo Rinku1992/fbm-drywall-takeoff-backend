@@ -30,7 +30,7 @@ class FloorPlan:
         return gray
 
     def compute_imperial_scale_from_DPI(self, architectural_scale):
-        DPI = self.hyperparameters["modelling"]["scale_adoption"]["dpi"]
+        DPI = self.hyperparameters["modelling"]["scale_adoption"]["dpi"]["in_use"]
         scale_on_paper_length = float(Fraction(architectural_scale.split('=')[0].strip('`')))
         imperial = DPI * scale_on_paper_length
         return (1 / imperial, 1 / imperial)
