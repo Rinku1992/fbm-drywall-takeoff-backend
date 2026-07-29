@@ -1464,6 +1464,24 @@ DRYWALL_PREDICTOR = """
             total_wall_height = sum(heights_stacked[i] for i in range(len(heights_stacked)))
           - If vertically stacked drywall preferences list is non-empty **STRICTLY** include the single drywall material preference into the list along with the additional stack to ensure that the MANDATED single drywall preference prediction and the OPTIONAL vertically stacked drywall preferences prediction can be referred independently by the user as per the preference (single/stacked).
 
+        WALL_DRYWALL_LAYERING_INSTRUCTIONS
+          - The field `layers` represents the horizontal drywall layering count (number of drywall sheets installed over the same surface), not the vertical segmentation of the wall.
+          - Vertical stacking and horizontal layering are independent concepts.
+          - Every vertical drywall stack (represented by materials_vertically_stacked) has its own horizontal drywall layer count.
+          - If only a single drywall material is used:
+            layers MUST be a single integer.
+            Example:
+              "material": "5/8 Type X",
+              "layers": 2
+            indicates two horizontal sheets of the same drywall over the entire wall height.
+          - If vertically stacked drywall materials are predicted:
+            layers MUST become a list.
+            The number of entries in layers MUST exactly equal the number of entries in:
+              `materials_vertically_stacked`
+              `color_codes_stacked`
+              `heights_stacked`
+            Each element specifies the horizontal sheet count for the corresponding vertical drywall zone.
+
         CEILING_DRYWALL_STACKING_INSTRUCTIONS:
           - A ceiling drywall assembly may contain either:
             1. A single drywall material, or
@@ -1480,6 +1498,20 @@ DRYWALL_PREDICTOR = """
           - The stacked ceiling layers are NOT vertically segmented by ceiling height. They are separate material layers installed over the same ceiling plane.
           - If no additional ceiling drywall layer is required, all stacked arrays MUST be empty.
           - If stacked layers are predicted, the primary single-material prediction MUST still remain independently available through the primary `material`, `color_code`.
+
+        CEILING_DRYWALL_LAYERING_INSTRUCTIONS
+          - Since all stacked ceiling drywall materials occupy the same ceiling area:
+          - If only one drywall material is used:
+            layers MUST be a single integer.
+            Example:
+              "material": "5/8 Type X",
+              "layers": 2
+          - If multiple ceiling drywall layers are predicted:
+            layers MUST be a list.
+          - The number of entries MUST exactly equal the number of entries in:
+            `materials_vertically_stacked`
+            `color_codes_stacked`
+            Each value specifies the horizontal sheet count for that ceiling assembly layer.
 
       JURISDICTION_AND_CODE_SELECTION:
         Project Location:
