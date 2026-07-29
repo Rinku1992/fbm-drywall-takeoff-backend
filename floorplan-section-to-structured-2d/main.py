@@ -143,8 +143,6 @@ async def floorplan_to_structured_2d_sectioned(
         ceiling_choices=CEILING_CHOICES
     )
     session_is_active = await is_session_active(credentials, pg_pool, session_uuid, project_id, plan_id, user_id, page_number)
-    print(session_is_active)
-    print("inserting")
     if session_is_active:
         await insert_model_2d(
             dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
