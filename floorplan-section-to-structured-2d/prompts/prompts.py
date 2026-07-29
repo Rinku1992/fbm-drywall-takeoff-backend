@@ -583,14 +583,14 @@ POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR = """
           - Vertical stacking and horizontal layering are independent concepts.
           - Every vertical drywall stack (represented by materials_vertically_stacked) has its own horizontal drywall layer count.
           - If only a single drywall material is used:
-            layers MUST be a single integer.
+            `layers` MUST be a single integer.
             Example:
               "material": "5/8 Type X",
               "layers": 2
             indicates two horizontal sheets of the same drywall over the entire wall height.
           - If vertically stacked drywall materials are predicted:
-            layers MUST become a list.
-            The number of entries in layers MUST exactly equal the number of entries in:
+            `layers` MUST become a list.
+            The number of entries in `layers` MUST exactly equal the number of entries in:
               `materials_vertically_stacked`
               `color_codes_stacked`
               `heights_stacked`
@@ -616,12 +616,12 @@ POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR = """
         CEILING_DRYWALL_LAYERING_INSTRUCTIONS
           - Since all stacked ceiling drywall materials occupy the same ceiling area:
           - If only one drywall material is used:
-            layers MUST be a single integer.
+            `layers` MUST be a single integer.
             Example:
               "material": "5/8 Type X",
               "layers": 2
           - If multiple ceiling drywall layers are predicted:
-            layers MUST be a list.
+            `layers` MUST be a list.
           - The number of entries MUST exactly equal the number of entries in:
             `materials_vertically_stacked`
             `color_codes_stacked`
@@ -1508,13 +1508,13 @@ DRYWALL_PREDICTOR = """
           - Vertical stacking and horizontal layering are independent concepts.
           - Every vertical drywall stack (represented by materials_vertically_stacked) has its own horizontal drywall layer count.
           - If only a single drywall material is used:
-            layers MUST be a single integer.
+            `layers` MUST be a single integer.
             Example:
               "material": "5/8 Type X",
               "layers": 2
             indicates two horizontal sheets of the same drywall over the entire wall height.
           - If vertically stacked drywall materials are predicted:
-            layers MUST become a list.
+            `layers` MUST become a list.
             The number of entries in layers MUST exactly equal the number of entries in:
               `materials_vertically_stacked`
               `color_codes_stacked`
@@ -1541,12 +1541,12 @@ DRYWALL_PREDICTOR = """
         CEILING_DRYWALL_LAYERING_INSTRUCTIONS
           - Since all stacked ceiling drywall materials occupy the same ceiling area:
           - If only one drywall material is used:
-            layers MUST be a single integer.
+            `layers` MUST be a single integer.
             Example:
               "material": "5/8 Type X",
               "layers": 2
           - If multiple ceiling drywall layers are predicted:
-            layers MUST be a list.
+            `layers` MUST be a list.
           - The number of entries MUST exactly equal the number of entries in:
             `materials_vertically_stacked`
             `color_codes_stacked`
