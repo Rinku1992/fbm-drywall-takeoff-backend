@@ -2429,7 +2429,9 @@ async def compute_takeoff(request: Request):
             polygon["polygon_drywall"]["enabled"] = False
             continue
         if polygon["polygon_drywall"]["type_stacked"]:
-            for drywall_type in polygon["polygon_drywall"]["type_stacked"]:
+            if not isinstance(polygon["polygon_drywall"]["layers"], list):
+                polygon["polygon_drywall"]["layers"] = [polygon["polygon_drywall"]["layers"]]
+            for drywall_type, layers in zip(polygon["polygon_drywall"]["type_stacked"], polygon["polygon_drywall"]["layers"]):
                 drywall_template = query_drywall(drywall_type, DRYWALL_TEMPLATES)
                 if not drywall_template:
                     continue
@@ -2442,7 +2444,7 @@ async def compute_takeoff(request: Request):
                 waste_factor_delta = waste_factor_average_delta * (drywall_weights[polygon["polygon_drywall"]["type"]] / normalization_variance_aware)
                 waste_factor = max(0, float(drywall_template["waste"]) + waste_factor_delta) / 100
                 net_sqft = surface_area_flat
-                drywall_area = max(1, polygon["polygon_drywall"]["layers"]) * surface_area_sloped
+                drywall_area = max(1, layers) * surface_area_sloped
                 total_sqft = drywall_area * (1 + waste_factor)
                 sheet_size = drywall_template["sheet_size"]
                 sheet_area_sqft = float(sheet_size.split('x')[0]) * float(sheet_size.split('x')[1])
