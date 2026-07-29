@@ -2457,7 +2457,7 @@ async def compute_takeoff(request: Request):
                 sheet_area_sqft = float(sheet_size.split('x')[0]) * float(sheet_size.split('x')[1])
                 sheets_required_total = math.ceil(total_sqft / sheet_area_sqft)
                 sheets_required_no_waste = math.ceil(net_sqft / sheet_area_sqft)
-                drywall_takeoff["per_drywall"]["roof"][polygon["polygon_drywall"]["type"]] = dict(
+                drywall_takeoff["per_drywall"]["roof"][drywall_type] = dict(
                     total_sqft=round(drywall_takeoff["per_drywall"]["roof"][drywall_type]["total_sqft"]+total_sqft, 2),
                     net_sqft=round(drywall_takeoff["per_drywall"]["roof"][drywall_type]["net_sqft"]+net_sqft, 2),
                     waste_percentage=round(waste_factor*100, 2),
