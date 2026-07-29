@@ -800,6 +800,18 @@ class DrywallAssemblyCeiling(BaseModel):
     fire_rating: Optional[Union[str, float]]
     waste_factor: Union[str, int, float]
 
+    @field_validator("layers")
+    @classmethod
+    def validate_layers(cls, layers):
+        if cls.materials_vertically_stacked:
+          if not isinstance(layers, list)
+            return [1 for _ in materials_vertically_stacked]
+          if not layers:
+            return [1 for _ in materials_vertically_stacked]
+        if not cls.materials_vertically_stacked:
+          if isinstance(layers, list):
+            return layers[0]
+
     @field_validator("thickness")
     @classmethod
     def validate_float(cls, v):
