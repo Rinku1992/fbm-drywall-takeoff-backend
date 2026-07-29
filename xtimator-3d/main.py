@@ -577,7 +577,9 @@ async def floorplan_to_preview_pages(
     user_id,
     n_pages,
     pdf_path,
-    pg_pool
+    pg_pool,
+    maximum_dpi,
+    minimum_dpi
 ):
     preview_pages = list()
     client = CloudStorageClient()
@@ -590,6 +592,8 @@ async def floorplan_to_preview_pages(
         user_id,
         pdf_path,
         n_pages,
+        maximum_dpi,
+        minimum_dpi
     )
     for floor_plan_processed_path, page in zip(floor_plan_processed_paths, pages["pages"]):
         metadata_page = dict(page_number=page["page_number"])
@@ -1287,6 +1291,7 @@ async def floorplan_to_preview(request: Request):
     )
     logging.info("SYSTEM: Floorplan Downloaded for preview generation")
 
+    hyperparameters = load_hyperparameters()
     payload_preview = await floorplan_to_preview_pages(
         CREDENTIALS,
         project_id,
@@ -1295,6 +1300,8 @@ async def floorplan_to_preview(request: Request):
         n_pages,
         pdf_path,
         pg_pool,
+        hyperparameters["modelling"]["scale_adoption"]["dpi"]["maximum"],
+        hyperparameters["modelling"]["scale_adoption"]["dpi"]["minimum"]
     )
 
     logging.info("SYSTEM: Preview generated Successfully")
