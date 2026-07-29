@@ -855,7 +855,7 @@ def plan_to_preview(
     plan_types = response.json()
     return plan_types
 
-async def floorplan_to_pages(credentials, pg_pool, project_id, plan_id, user_id, pdf_path, n_pages, batch_size=10):
+async def floorplan_to_pages(credentials, pg_pool, project_id, plan_id, user_id, pdf_path, n_pages, maximum_dpi, minimum_dpi, batch_size=10):
     organization_slug = await load_organization_slug(credentials, pg_pool, user_id)
     plan_types = plan_to_preview(credentials, project_id, plan_id, user_id, organization_slug)
     pages_to_insert = list()
@@ -890,7 +890,9 @@ async def floorplan_to_pages(credentials, pg_pool, project_id, plan_id, user_id,
                 future = executor.submit(
                     preprocess,
                     pdf_path,
-                    page_number
+                    page_number,
+                    maximum_dpi,
+                    minimum_dpi,
                 )
                 futures.append(future)
         for future in futures:
