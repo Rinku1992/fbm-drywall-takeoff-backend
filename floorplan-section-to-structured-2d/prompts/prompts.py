@@ -793,24 +793,23 @@ class DrywallAssemblyCeiling(BaseModel):
 
     material: str
     color_code: Tuple[int, int, int]
-    materials_vertically_stacked: List
-    color_codes_stacked: List
+    materials_vertically_stacked: List[str]
+    color_codes_stacked: List[Tuple[int, int, int]]
     thickness: float
-    layers: Union[int, List]
+    layers: Union[int, List[int]]
     fire_rating: Optional[Union[str, float]]
     waste_factor: Union[str, int, float]
 
     @field_validator("layers")
     @classmethod
     def validate_layers(cls, layers):
-        if cls.materials_vertically_stacked:
-          if not isinstance(layers, list)
-            return [1 for _ in materials_vertically_stacked]
-          if not layers:
-            return [1 for _ in materials_vertically_stacked]
-        if not cls.materials_vertically_stacked:
-          if isinstance(layers, list):
-            return layers[0]
+      if isinstance(layers, int):
+        if layers < 1:
+          raise ValueError("layers must be >= 1")
+      else:
+        if any(l < 1 for l in layers):
+          raise ValueError("Every stacked layer count must be >= 1")
+      return layers
 
     @field_validator("thickness")
     @classmethod
@@ -830,6 +829,34 @@ class DrywallAssemblyCeiling(BaseModel):
     def check_stack_count(self):
         if not len(self.materials_vertically_stacked) == len(self.color_codes_stacked):
             raise ValueError("Vertically stacked material count does not equate with stacked color codes count for the ceiling")
+        return self
+
+    @model_validator(mode="after")
+    def validate_layers(self):
+        if self.materials_vertically_stacked:
+            if self.material not in self.materials_vertically_stacked:
+              raise ValueError(
+                "Primary material must also appear in materials_vertically_stacked."
+              )
+            if not isinstance(self.layers, list):
+                self.layers = [1] * len(self.materials_vertically_stacked)
+
+            elif len(self.layers) != len(self.materials_vertically_stacked):
+                raise ValueError(
+                    "`layers` must contain one entry per stacked ceiling layer."
+                )
+
+        else:
+            if isinstance(self.layers, list):
+                if not self.layers:
+                    self.layers = 1
+                elif len(self.layers) == 1:
+                    self.layers = self.layers[0]
+                else:
+                    raise ValueError(
+                        "`layers` must be a single integer for non-stacked ceilings."
+                    )
+
         return self
 
 class DrywallAssemblyWall(BaseModel):
