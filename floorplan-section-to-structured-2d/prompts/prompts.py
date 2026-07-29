@@ -802,7 +802,7 @@ class DrywallAssemblyCeiling(BaseModel):
 
     @field_validator("layers")
     @classmethod
-    def validate_layers(cls, layers):
+    def validate_dtype_layers(cls, layers):
       if isinstance(layers, int):
         if layers < 1:
           raise ValueError("layers must be >= 1")
