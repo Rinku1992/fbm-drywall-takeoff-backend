@@ -826,13 +826,9 @@ class DrywallAssemblyCeiling(BaseModel):
         return v
 
     @model_validator(mode="after")
-    def check_stack_count(self):
+    def validate_stacked_layers(self):
         if not len(self.materials_vertically_stacked) == len(self.color_codes_stacked):
             raise ValueError("Vertically stacked material count does not equate with stacked color codes count for the ceiling")
-        return self
-
-    @model_validator(mode="after")
-    def validate_layers(self):
         if self.materials_vertically_stacked:
             if self.material not in self.materials_vertically_stacked:
               raise ValueError(
