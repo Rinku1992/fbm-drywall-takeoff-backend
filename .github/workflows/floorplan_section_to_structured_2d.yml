@@ -120,7 +120,7 @@ jobs:
             --max-instances ${{ env.MAX_INSTANCES }} \
             --concurrency 1 \
             --execution-environment gen2 \
-            --timeout 1800 \
+            --timeout 3600 \
             --ingress internal \
             --vpc-connector ${{ env.VPC_ACCESS_CONNECTOR }} \
             --vpc-egress all-traffic \
