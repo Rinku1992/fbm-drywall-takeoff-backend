@@ -646,7 +646,7 @@ def phoenix_call(generate_content_lambda, max_retry=5, base_delay=1.0, pydantic_
             exceptions.append(e)
             system_feedback = [Part.from_text(FEEDBACK_GENERATOR.format(max_retry=max_retry, exceptions=exceptions))]
             feedback_prompt = Content(role="model", parts=system_feedback)
-            temperature = min(0.5 * (n_iterations + 1) / max_retry, 0.5)
+            temperature = min(0.25 * (n_iterations + 1) / max_retry, 0.25)
             logging.warning(f"SYSTEM: Vertex AI Gemini: Response Generation/Parsing failed with ERROR: {e}: RETRYING ...")
             logging.warning(f"SYSTEM: RETRYING with TEMPERATURE: {temperature}")
 
