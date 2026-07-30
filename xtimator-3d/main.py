@@ -37,6 +37,7 @@ from pdf2image.pdf2image import pdfinfo_from_path
 
 from extrapolate_3d import Extrapolate3D
 from floor_plan import FloorPlan
+from email_notification import trigger_support
 from otp_management import (
     generate_otp,
     trigger_otp_email,
@@ -3084,6 +3085,28 @@ async def unlock_user_account(request: Request):
     )
     await unlock_user(CREDENTIALS, pg_pool, user_id)
     logging.info(f"SYSTEM: User Account: {user_id} is Unlocked")
+
+
+@app.post("/email_support_center")
+async def email_support_center(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    user_id = parameters.get("user_id") or body.get("user_id")
+    subject = parameters.get("subject") or body.get("subject")
+    content = parameters.get("content") or body.get("content")
+    trigger_support(
+        CREDENTIALS,
+        user_id,
+        CREDENTIALS["Email"]["support_center_id"],
+        "FBM Xtimator Team",
+        subject,
+        content,
+    )
+    logging.info("SYSTEM: Support email forwarded")
 
 
 from typing import Optional
