@@ -103,7 +103,6 @@ def trigger_support(
     credentials,
     sender,
     recipient,
-    team_name,
     subject,
     message,
 ):
@@ -112,7 +111,7 @@ def trigger_support(
         <p>Hi XtimatorSupport,</p>
         <p><b>Status:</b> {message}</p>
 
-        <p>Regards,<br>{team_name}</p>
+        <p>Regards,<br>{user_name.split('@')[0]}</p>
         """
 
         access_token = load_access_token(
