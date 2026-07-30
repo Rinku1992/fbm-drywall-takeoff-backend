@@ -109,9 +109,9 @@ def trigger_support(
     try:
         body_content = f"""
         <p>Hi XtimatorSupport,</p>
-        <p> {message}</p>
+        <br><p> {message}</p>
 
-        <p>Regards,<br>{user_name.split('@')[0]}</p>
+        <p>Regards,<br>{sender.split('@')[0]}</p>
         """
 
         access_token = load_access_token(
