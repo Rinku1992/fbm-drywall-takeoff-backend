@@ -109,7 +109,7 @@ def trigger_support(
     try:
         body_content = f"""
         <p>Hi XtimatorSupport,</p>
-        <p><b>Status:</b> {message}</p>
+        <p> {message}</p>
 
         <p>Regards,<br>{user_name.split('@')[0]}</p>
         """
