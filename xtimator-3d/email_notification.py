@@ -97,4 +97,30 @@ def trigger(
         send_email(access_token, sender, recipient, subject, body_content)
         logging.info("SYSTEM: Email triggered successfully.")
     except Exception as e:
-        logging.error(f"SYSTEM: An error occurred while sending email: {e}")
+        logging.error(f"SYSTEM: An error occurred while sending status email: {e}")
+
+def trigger_support(
+    credentials,
+    sender,
+    recipient,
+    team_name,
+    subject,
+    message,
+):
+    try:
+        body_content = f"""
+        <p>Hi XtimatorSupport,</p>
+        <p><b>Status:</b> {message}</p>
+
+        <p>Regards,<br>{team_name}</p>
+        """
+
+        access_token = load_access_token(
+            credentials["Email"]["tenant_id"],
+            credentials["Email"]["client_id"],
+            credentials["Email"]["client_secret"]
+        )
+        send_email(access_token, sender, recipient, subject, body_content)
+        logging.info("SYSTEM: Email triggered successfully.")
+    except Exception as e:
+        logging.error(f"SYSTEM: An error occurred while sending support email: {e}")
