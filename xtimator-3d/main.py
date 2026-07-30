@@ -3102,7 +3102,6 @@ async def email_support_center(request: Request):
         CREDENTIALS,
         user_id,
         CREDENTIALS["Email"]["support_center_id"],
-        "FBM Xtimator Team",
         subject,
         content,
     )
