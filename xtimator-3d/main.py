@@ -1794,7 +1794,6 @@ async def load_2d_timestamp(request: Request):
         body = dict()
     project_id = parameters.get("project_id") or body.get("project_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
-    user_id = parameters.get("user_id") or body.get("user_id")
     page_number = parameters.get("page_number", '') or body.get("page_number", '')
 
     query = f"SELECT created_at FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s LIMIT 1;"
