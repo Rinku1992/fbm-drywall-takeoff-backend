@@ -641,6 +641,7 @@ async def insert_model_2d(
         ON CONFLICT (project_id, plan_id, page_number, page_section_number) DO UPDATE SET
             model_2d = EXCLUDED.model_2d,
             scale = COALESCE(NULLIF(EXCLUDED.scale, ''), t.scale),
+            created_at = CURRENT_TIMESTAMP,
             updated_at = CURRENT_TIMESTAMP
     """
     await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(
