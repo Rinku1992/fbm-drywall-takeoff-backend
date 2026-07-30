@@ -1784,6 +1784,25 @@ async def load_2d_all(request: Request):
     return respond_with_UI_payload(walls_2d_all)
 
 
+@app.post("/load_2d_timestamp")
+async def load_2d_timestamp(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    project_id = parameters.get("project_id") or body.get("project_id")
+    plan_id = parameters.get("plan_id") or body.get("plan_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
+    page_number = parameters.get("page_number", '') or body.get("page_number", '')
+
+    query = f"SELECT created_at FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s LIMIT 1;"
+    query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, page_number,), fetch=True))
+    created_at = query_output[0]["created_at"]
+    return respond_with_UI_payload(dict(timestamp=created_at))
+
+
 @app.post("/update_floorplan_to_2d")
 async def update_floorplan_to_2d(request: Request):
     enable_logging_on_stdout()
