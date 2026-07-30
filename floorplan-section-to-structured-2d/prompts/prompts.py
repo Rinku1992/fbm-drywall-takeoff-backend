@@ -629,7 +629,7 @@ POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR = """
 
       JURISDICTION_AND_CODE_SELECTION:
         Project Location:
-          - State / Province / Region: {project_location}
+          - State / Province / Region / Pincode: {project_location}
 
         Regulatory Requirements:
           - Determine the applicable residential building code, fire code, drywall requirements, and construction practices for the specified project location.
@@ -1550,7 +1550,7 @@ DRYWALL_PREDICTOR = """
 
       JURISDICTION_AND_CODE_SELECTION:
         Project Location:
-          - State / Province / Region: {project_location}
+          - State / Province / Region / Pincode: {project_location}
 
         Regulatory Requirements:
           - Determine the applicable residential building code, fire code, drywall requirements, and construction practices for the specified project location.
