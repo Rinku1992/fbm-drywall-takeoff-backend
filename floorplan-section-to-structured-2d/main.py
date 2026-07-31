@@ -83,7 +83,6 @@ async def floorplan_to_structured_2d_sectioned(
     allow_none_scale=False,
     trust_scale=True,
 ):
-    print(predict_drywall)
     floor_plan_modeller_2d.reload(page_section_number)
     wall_segmented_sectioned_path = load_section_from_page(
         wall_segmented_path,
@@ -242,7 +241,7 @@ async def floorplan_section_to_structured_2d(request: Request):
     bounding_box_offset = parameters.get("bounding_box_offset") or body.get("bounding_box_offset")
     number_of_sections = parameters.get("number_of_sections") or body.get("number_of_sections")
     elevation_pages = parameters.get("elevation_pages") or body.get("elevation_pages")
-    predict_drywall = parameters.get("predict_drywall") or body.get("predict_drywall") or False
+    predict_drywall = parameters.get("predict_drywall") or body.get("predict_drywall") or True
     architectural_scale = parameters.get("architectural_scale") or body.get("architectural_scale")
     session_uuid = parameters.get("session_uuid") or body.get("session_uuid")
     page_number = int(page_number)
@@ -334,7 +333,8 @@ async def floorplan_section_to_structured_2d(request: Request):
         floorplan_page_statistics,
         floorplan_baseline_page_source,
         elevation_processed_paths,
-        predict_drywall,
+        #predict_drywall,
+        False,
         architectural_scale,
         vector_standard_ceiling_height,
         allow_none_scale=hyperparameters["modelling"]["enable_early_stopping"] and is_vector,
