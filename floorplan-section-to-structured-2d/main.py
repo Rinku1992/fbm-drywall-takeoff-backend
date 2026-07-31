@@ -83,6 +83,7 @@ async def floorplan_to_structured_2d_sectioned(
     allow_none_scale=False,
     trust_scale=True,
 ):
+    print(predict_drywall)
     floor_plan_modeller_2d.reload(page_section_number)
     wall_segmented_sectioned_path = load_section_from_page(
         wall_segmented_path,
