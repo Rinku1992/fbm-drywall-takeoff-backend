@@ -3292,19 +3292,12 @@ class FloorPlan2D(FloorPlan):
                     (scale_x, scale_y)
                 )
                 futures.append(executor.submit(
-                    self._add_walls_polygon,
+                    self._sketch_walls_polygon,
                     polygon_vertices_normalized,
                     polygon_area_normalized,
                     polygon_perimeter_walls_normalized,
                     drywall_polygons,
-                    (scale_x, scale_y),
-                    height_default,
-                    floor_plan_path,
-                    elevation_paths,
-                    transcription_block_with_centroids,
                     index,
-                    offset,
-                    predict=False,
                 ))
             [future.result() for future in futures]
             futures = list()
@@ -3338,19 +3331,12 @@ class FloorPlan2D(FloorPlan):
                 index += len(polygons)
                 drywall_polygons = self._extrude_polygon_drywalls(polygon_perimeter_walls, polygon_vertices, (scale_x, scale_y))
                 futures.append(executor.submit(
-                    self._add_walls_polygon,
-                    polygon_vertices,
-                    polygon_area,
-                    polygon_perimeter_walls,
+                    self._sketch_walls_polygon,
+                    polygon_vertices_normalized,
+                    polygon_area_normalized,
+                    polygon_perimeter_walls_normalized,
                     drywall_polygons,
-                    (scale_x, scale_y),
-                    height_default,
-                    floor_plan_path,
-                    elevation_paths,
-                    transcription_block_with_centroids,
                     index,
-                    offset,
-                    predict=False,
                 ))
             [future.result() for future in futures]
         self._walls_2d = self._normalize_walls_2d(self._walls_2d, (scale_x, scale_y), height_default)
