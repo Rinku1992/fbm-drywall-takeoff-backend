@@ -2097,7 +2097,7 @@ class FloorPlan2D(FloorPlan):
             room_name='',
             polygon_ids_drywall_interior=polygon_ids_drywall_interior_filtered,
             polygon_drywall=dict(
-                type='',
+                type="--",
                 color=[25, 25, 25],
                 type_stacked=list(),
                 color_stacked=list(),
