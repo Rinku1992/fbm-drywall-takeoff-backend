@@ -1975,6 +1975,142 @@ class FloorPlan2D(FloorPlan):
         )
         self._polygons.append(polygon)
 
+    def _sketch_walls_polygon(
+        self,
+        vertices,
+        area,
+        perimeter_walls,
+        polygons,
+        index,
+    ):
+        def load_wall_payload(wall_line):
+            X1, Y1, X2, Y2 = wall_line[0]
+            wall_line_structured = [
+                dict(x=int(X1), y=int(Y1)),
+                dict(x=int(X2), y=int(Y2))
+            ]
+            for wall_2d in self._walls_2d:
+                if wall_2d["wall_line"] == wall_line_structured:
+                    return wall_2d
+
+        polygon_ids_drywall_interior = list()
+        for wall_line, polygon in zip(perimeter_walls, polygons):
+            wall_payload = load_wall_payload(wall_line)
+            if wall_payload:
+                if len(wall_payload["polygons_drywall"]) == 2:
+                    continue
+                wall_payload["polygons_drywall"].append(
+                    dict(
+                        id=f"{wall_payload["id"]}.b",
+                        room_name='',
+                        polygon=polygon["coordinates"] if isinstance(polygon, dict) else polygon[0]["coordinates"],
+                        type='',
+                        height=-1,
+                        color=[128, 128, 128],
+                        type_stacked=list(),
+                        color_stacked=list(),
+                        height_stacked=list(),
+                        thickness=-1,
+                        layers=-1,
+                        fire_rating=-1,
+                        recommendation='',
+                        waste_factor='',
+                        enabled=True
+                    )
+                )
+                polygon_ids_drywall_interior.append(f"{wall_payload["id"]}.b")
+            else:
+                X1, Y1, X2, Y2 = wall_line[0]
+                wall = dict(
+                    id=len(self._walls_2d),
+                    wall_line=[
+                        dict(x=int(X1), y=int(Y1)),
+                        dict(x=int(X2), y=int(Y2))
+                    ],
+                    thickness=-1,
+                    length=-1,
+                    type='',
+                    openings=list(),
+                    polygons_drywall=list()
+                )
+                wall["polygons_drywall"].append(
+                    dict(
+                        id=f"{len(self._walls_2d)}.a",
+                        room_name='',
+                        polygon=polygon["coordinates"] if isinstance(polygon, dict) else polygon[0]["coordinates"],
+                        type='',
+                        height=-1,
+                        color=[128, 128, 128],
+                        type_stacked=list(),
+                        color_stacked=list(),
+                        height_stacked=list(),
+                        thickness=-1,
+                        layers=-1,
+                        fire_rating=-1,
+                        recommendation='',
+                        waste_factor='',
+                        enabled=True,
+                    )
+                )
+                polygon_ids_drywall_interior.append(f"{len(self._walls_2d)}.a")
+                if isinstance(polygon, list):
+                    wall["polygons_drywall"].append(
+                        dict(
+                            id=f"{len(self._walls_2d)}.b",
+                            room_name='',
+                            polygon=polygon[1]["coordinates"],
+                            type='',
+                            height=-1,
+                            color=[128, 128, 128],
+                            type_stacked=list(),
+                            color_stacked=list(),
+                            height_stacked=list(),
+                            thickness=-1,
+                            layers=-1,
+                            fire_rating=-1,
+                            recommendation='',
+                            waste_factor='',
+                            enabled=True,
+                        )
+                    )
+                    polygon_ids_drywall_interior.append(f"{len(self._walls_2d)}.b")
+                self._walls_2d.append(wall)
+
+        polygon_ids_drywall_interior_filtered = list()
+        interior_wall_ids = set()
+        for polygon_id_drywall_interior in polygon_ids_drywall_interior:
+            wall_id = polygon_id_drywall_interior.split('.')[0]
+            if wall_id in interior_wall_ids:
+                continue
+            polygon_ids_drywall_interior_filtered.append(polygon_id_drywall_interior)
+            interior_wall_ids.add(wall_id)
+
+        polygon = dict(
+            id=index,
+            area=area,
+            vertices=vertices,
+            type='',
+            height=-1,
+            pitch=dict(rise=-1, run=-1),
+            slope_enabled=False,
+            tilt_axis='',
+            room_name='',
+            polygon_ids_drywall_interior=polygon_ids_drywall_interior_filtered,
+            polygon_drywall=dict(
+                type='',
+                color=[175, 175, 175],
+                type_stacked=list(),
+                color_stacked=list(),
+                thickness=-1,
+                layers=-1,
+                fire_rating=-1,
+                recommendation='',
+                waste_factor=-1,
+                enabled=True,
+            )
+        )
+        self._polygons.append(polygon)
+
     def _add_drywalls_polygon(
         self,
         polygon,
