@@ -2004,7 +2004,7 @@ class FloorPlan2D(FloorPlan):
                         id=f"{wall_payload["id"]}.b",
                         room_name='',
                         polygon=polygon["coordinates"] if isinstance(polygon, dict) else polygon[0]["coordinates"],
-                        type="DISABLED",
+                        type="--",
                         height=-1,
                         color=[0, 0, 0],
                         type_stacked=list(),
@@ -2038,7 +2038,7 @@ class FloorPlan2D(FloorPlan):
                         id=f"{len(self._walls_2d)}.a",
                         room_name='',
                         polygon=polygon["coordinates"] if isinstance(polygon, dict) else polygon[0]["coordinates"],
-                        type="DISABLED",
+                        type="--",
                         height=-1,
                         color=[0, 0, 0],
                         type_stacked=list(),
@@ -2059,7 +2059,7 @@ class FloorPlan2D(FloorPlan):
                             id=f"{len(self._walls_2d)}.b",
                             room_name='',
                             polygon=polygon[1]["coordinates"],
-                            type="DISABLED",
+                            type="--",
                             height=-1,
                             color=[0, 0, 0],
                             type_stacked=list(),
@@ -2089,7 +2089,7 @@ class FloorPlan2D(FloorPlan):
             id=index,
             area=area,
             vertices=vertices,
-            type="DISABLED",
+            type="--",
             height=-1,
             pitch=dict(rise=-1, run=-1),
             slope_enabled=False,
@@ -2581,7 +2581,7 @@ class FloorPlan2D(FloorPlan):
             if len(wall["polygons_drywall"]) == 2 and wall["polygons_drywall"][0]["polygon"] != wall["polygons_drywall"][1]["polygon"]:
                 continue
             for polygon_drywall in wall["polygons_drywall"]:
-                if polygon_drywall["type"] != "DISABLED" and polygon_drywall["type"] not in drywall_skus:
+                if polygon_drywall["type"] != "DISABLED" and polygon_drywall["type"] != "--" and polygon_drywall["type"] not in drywall_skus:
                     skus_levenshtein = list(map(lambda drywall_sku: Levenshtein.distance(polygon_drywall["type"], drywall_sku), drywall_skus))
                     target_sku_index = skus_levenshtein.index(min(skus_levenshtein))
                     polygon_drywall["type"] = drywall_skus[target_sku_index]
@@ -2808,7 +2808,7 @@ class FloorPlan2D(FloorPlan):
             polygon["polygon_area_shoelace"] = polygon_area_shoelace
             perimeter_wall_missing = False
             polygon["polygon_drywall"]["layers"] = 1
-            if polygon["polygon_drywall"]["type"] != "DISABLED" and polygon["polygon_drywall"]["type"] not in drywall_skus:
+            if polygon["polygon_drywall"]["type"] != "DISABLED" and polygon["polygon_drywall"]["type"] != "--" and polygon["polygon_drywall"]["type"] not in drywall_skus:
                 skus_levenshtein = list(map(lambda drywall_sku: Levenshtein.distance(polygon["polygon_drywall"]["type"], drywall_sku), drywall_skus))
                 target_sku_index = skus_levenshtein.index(min(skus_levenshtein))
                 polygon["polygon_drywall"]["type"] = drywall_skus[target_sku_index]
