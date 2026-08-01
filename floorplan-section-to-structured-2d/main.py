@@ -104,8 +104,9 @@ async def floorplan_to_structured_2d_sectioned(
             allow_none_scale=allow_none_scale,
             trust_scale=trust_scale,
         )
+        walls_2d_layout, polygons_layout = floor_plan_modeller_2d.model_to_sketch(walls_2d, polygons)
     else:
-        walls_2d, polygons, _, external_contour = floor_plan_modeller_2d.model(
+        walls_2d_layout, polygons_layout, _, external_contour = floor_plan_modeller_2d.model(
             bounding_box_offset_marginalized,
             image_path=wall_segmented_sectioned_path,
             elevation_paths=elevation_processed_paths,
@@ -117,10 +118,19 @@ async def floorplan_to_structured_2d_sectioned(
             allow_none_scale=allow_none_scale,
             trust_scale=trust_scale,
         )
-    if walls_2d and polygons:
-        floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons)
-        floor_plan_modeller_2d.load_ceiling_choices(polygons)
-        floor_plan_modeller_2d.load_wall_choices(walls_2d)
+    if predict_drywall:
+        if walls_2d and polygons:
+            floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons)
+            floor_plan_modeller_2d.load_ceiling_choices(polygons)
+            floor_plan_modeller_2d.load_wall_choices(walls_2d)
+            floor_plan_modeller_2d.load_drywall_choices(walls_2d_layout, polygons_layout)
+            floor_plan_modeller_2d.load_ceiling_choices(polygons_layout)
+            floor_plan_modeller_2d.load_wall_choices(walls_2d_layout)
+    else:
+        if walls_2d_layout and polygons_layout:
+            floor_plan_modeller_2d.load_drywall_choices(walls_2d_layout, polygons_layout)
+            floor_plan_modeller_2d.load_ceiling_choices(polygons_layout)
+            floor_plan_modeller_2d.load_wall_choices(walls_2d_layout)
         #model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path)
         #model_2d_path_sectioned = model_2d_path.parent.joinpath(f"{model_2d_path.stem}_sectioned_{page_section_number}").with_suffix(".png")
         #model_2d_path.rename(model_2d_path_sectioned)
@@ -144,19 +154,36 @@ async def floorplan_to_structured_2d_sectioned(
     )
     session_is_active = await is_session_active(credentials, pg_pool, session_uuid, project_id, plan_id, user_id, page_number)
     if session_is_active:
-        await insert_model_2d(
-            dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
-            floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale),
-            page_number,
-            page_sections,
-            page_section_number,
-            plan_id,
-            user_id,
-            project_id,
-            floorplan_baseline_page_source,
-            pg_pool,
-            credentials,
-        )
+        if predict_drywall:
+            await insert_model_2d(
+                dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
+                dict(walls_2d=walls_2d_layout, polygons=polygons_layout, metadata=metadata),
+                floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale),
+                page_number,
+                page_sections,
+                page_section_number,
+                plan_id,
+                user_id,
+                project_id,
+                floorplan_baseline_page_source,
+                pg_pool,
+                credentials,
+            )
+        else:
+            await insert_model_2d(
+                dict(walls_2d=list(), polygons=list(), metadata=metadata),
+                dict(walls_2d=walls_2d_layout, polygons=polygons_layout, metadata=metadata),
+                floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale),
+                page_number,
+                page_sections,
+                page_section_number,
+                plan_id,
+                user_id,
+                project_id,
+                floorplan_baseline_page_source,
+                pg_pool,
+                credentials,
+            )
     if floor_plan_modeller_2d.is_scale_detected:
         logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} and SECTION: {page_section_number} Generated Successfully")
     else:
