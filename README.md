@@ -112,6 +112,7 @@ CREATE TABLE models (
     scale TEXT,
 
     model_2d JSONB DEFAULT '{}'::JSONB,
+    layout_2d JSONB DEFAULT '{}'::JSONB,
     model_3d JSONB DEFAULT '{}'::JSONB,
     takeoff JSONB DEFAULT '{}'::JSONB,
     metadata JSONB DEFAULT '{}'::JSONB,
