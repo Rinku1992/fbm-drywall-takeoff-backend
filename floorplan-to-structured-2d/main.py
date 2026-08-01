@@ -367,6 +367,7 @@ async def floorplan_to_structured_2d(request: Request):
             return respond_with_UI_payload(dict(status="ABORTED", message=f"Session Aborted"))
         await insert_model_2d(
             dict(walls_2d=list(), polygons=list(), metadata=metadata),
+            dict(walls_2d=list(), polygons=list(), metadata=metadata),
             "0.25``:1`0``",
             page_number,
             0,
@@ -491,6 +492,7 @@ async def floorplan_to_structured_2d(request: Request):
             if not session_is_active:
                 return respond_with_UI_payload(dict(status="ABORTED", message=f"Session Aborted"))
             await insert_model_2d(
+                dict(walls_2d=list(), polygons=list(), metadata=metadata),
                 dict(walls_2d=list(), polygons=list(), metadata=metadata),
                 "0.25``:1`0``",
                 page_number,
