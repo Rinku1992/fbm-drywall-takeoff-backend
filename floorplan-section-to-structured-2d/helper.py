@@ -596,6 +596,7 @@ async def insert_page(
 
 async def insert_model_2d(
     model_2d,
+    layout_2d,
     scale,
     page_number,
     page_sections,
@@ -617,6 +618,7 @@ async def insert_model_2d(
             page_section_number,
             scale,
             model_2d,
+            layout_2d,
             model_3d,
             takeoff,
             target_drywalls,
@@ -632,6 +634,7 @@ async def insert_model_2d(
             %s,
             %s,
             %s::jsonb,
+            %s::jsonb,
             '{{}}'::jsonb,
             '{{}}'::jsonb,
             %s,
@@ -640,6 +643,7 @@ async def insert_model_2d(
         )
         ON CONFLICT (project_id, plan_id, page_number, page_section_number) DO UPDATE SET
             model_2d = EXCLUDED.model_2d,
+            layout_2d = EXCLUDED.layout_2d,
             scale = COALESCE(NULLIF(EXCLUDED.scale, ''), t.scale),
             created_at = CURRENT_TIMESTAMP,
             updated_at = CURRENT_TIMESTAMP
@@ -653,6 +657,7 @@ async def insert_model_2d(
         page_section_number,
         scale,
         json.dumps(model_2d),
+        json.dumps(layout_2d),
         target_drywalls,
     )))
 
