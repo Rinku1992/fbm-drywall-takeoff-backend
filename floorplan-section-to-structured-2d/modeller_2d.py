@@ -1761,6 +1761,52 @@ class FloorPlan2D(FloorPlan):
 
         return predict_polygon
 
+    @classmethod
+    def model_to_sketch(
+        cls,
+        walls_2d,
+        polygons,
+    ):
+        walls_2d_layout = deepcopy(walls_2d)
+        for wall_2d_layout in walls_2d_layout:
+            wall_2d_layout["thickness"] = -1
+            wall_2d_layout["length"] = -1
+            wall_2d_layout["type"] = ''
+            wall_2d_layout["openings"] = list()
+            for wall_2d_polygon_drywall in wall_2d_layout["polygons_drywall"]:
+                wall_2d_polygon_drywall["room_name"] = ''
+                wall_2d_polygon_drywall["type"] = "--"
+                wall_2d_polygon_drywall["height"] = -1
+                wall_2d_polygon_drywall["color"] = [0, 0, 0]
+                wall_2d_polygon_drywall["type_stacked"] = list()
+                wall_2d_polygon_drywall["color_stacked"] = list()
+                wall_2d_polygon_drywall["height_stacked"] = list()
+                wall_2d_polygon_drywall["thickness"] = -1
+                wall_2d_polygon_drywall["layers"] = -1
+                wall_2d_polygon_drywall["fire_rating"] = -1
+                wall_2d_polygon_drywall["recommendation"] = ''
+                wall_2d_polygon_drywall["waste_factor"] = ''
+
+        polygons_layout = deepcopy(polygons)
+        polygon_ids_drywall_interior_filtered = list()
+        for polygon_layout in polygons_layout:
+            polygon_layout["type"] = "--"
+            polygon_layout["height"] = -1
+            polygon_layout["pitch"] = dict(rise=-1, run=-1)
+            polygon_layout["tilt_axis"] = ''
+            polygon_layout["room_name"] = ''
+            polygon_layout["polygon_drywall"]["type"] = "--"
+            polygon_layout["polygon_drywall"]["color"] = [25, 25, 25]
+            polygon_layout["polygon_drywall"]["type_stacked"] = list()
+            polygon_layout["polygon_drywall"]["color_stacked"] = list()
+            polygon_layout["polygon_drywall"]["thickness"] = -1
+            polygon_layout["polygon_drywall"]["layers"] = -1
+            polygon_layout["polygon_drywall"]["fire_rating"] = -1
+            polygon_layout["polygon_drywall"]["recommendation"] = ''
+            polygon_layout["polygon_drywall"]["waste_factor"] = -1
+
+        return walls_2d_layout, polygons_layout
+
     def _add_walls_polygon(
         self,
         vertices,
