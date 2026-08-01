@@ -56,7 +56,7 @@ CREATE TABLE plans (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 
-    multipage_elevation_map JSONB DEFAULT '{}'::jsonb,
+    multipage_elevation_map JSONB DEFAULT '{}'::JSONB,
     is_published BOOLEAN DEFAULT FALSE,
     PRIMARY KEY (project_id, plan_id),
     CONSTRAINT plan_unique
@@ -86,8 +86,8 @@ CREATE TABLE pages (
     is_floorplan BOOLEAN DEFAULT FALSE,
 
     is_vector BOOLEAN,
-    vector_scale JSONB DEFAULT '{}'::jsonb,
-    vector_ceiling_height JSONB DEFAULT '{}'::jsonb,
+    vector_scale JSONB DEFAULT '{}'::JSONB,
+    vector_ceiling_height JSONB DEFAULT '{}'::JSONB,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -111,10 +111,10 @@ CREATE TABLE models (
 
     scale TEXT,
 
-    model_2d JSONB DEFAULT '{}'::jsonb,
-    model_3d JSONB DEFAULT '{}'::jsonb,
-    takeoff JSONB DEFAULT '{}'::jsonb,
-    metadata JSONB DEFAULT '{}'::jsonb,
+    model_2d JSONB DEFAULT '{}'::JSONB,
+    model_3d JSONB DEFAULT '{}'::JSONB,
+    takeoff JSONB DEFAULT '{}'::JSONB,
+    metadata JSONB DEFAULT '{}'::JSONB,
 
     source TEXT,
     target_drywalls TEXT,
@@ -150,7 +150,7 @@ CREATE TABLE model_revisions_2d (
 
     scale TEXT,
 
-    model JSONB NOT NULL DEFAULT '{}'::jsonb,
+    model JSONB NOT NULL DEFAULT '{}'::JSONB,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
@@ -180,8 +180,8 @@ CREATE TABLE model_revisions_3d (
 
     scale TEXT,
 
-    model JSONB NOT NULL DEFAULT '{}'::jsonb,
-    takeoff JSONB DEFAULT '{}'::jsonb,
+    model JSONB NOT NULL DEFAULT '{}'::JSONB,
+    takeoff JSONB DEFAULT '{}'::JSONB,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
@@ -340,7 +340,7 @@ CREATE TABLE sku (
     is_lightweight BOOLEAN NOT NULL DEFAULT FALSE,
     is_wide_stretch BOOLEAN NOT NULL DEFAULT FALSE,
 
-    color_code JSONB DEFAULT '{}'::jsonb,
+    color_code JSONB DEFAULT '{}'::JSONB,
 
     waste TEXT,
 
