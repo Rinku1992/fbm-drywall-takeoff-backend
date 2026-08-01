@@ -2801,9 +2801,10 @@ class FloorPlan2D(FloorPlan):
             if self._hyperparameters["modelling"]["scale_adoption"]["imperial_sampling"]:
                 polygon_area_pixels = cv2.contourArea(np.array(polygon["vertices"], dtype=np.float32))
                 polygon["area"] = polygon_area_pixels * imperial_scale_A
-            ceiling_types_levenshtein = list(map(lambda ceiling_type: Levenshtein.distance(polygon["type"], ceiling_type), CEILING_CHOICES))
-            target_ceiling_type_index = ceiling_types_levenshtein.index(min(ceiling_types_levenshtein))
-            polygon["type"] = CEILING_CHOICES[target_ceiling_type_index]
+            if polygon["type"] != "--":
+                ceiling_types_levenshtein = list(map(lambda ceiling_type: Levenshtein.distance(polygon["type"], ceiling_type), CEILING_CHOICES))
+                target_ceiling_type_index = ceiling_types_levenshtein.index(min(ceiling_types_levenshtein))
+                polygon["type"] = CEILING_CHOICES[target_ceiling_type_index]
             polygon_area_shoelace = cv2.contourArea(np.array(polygon["vertices"], dtype=np.float32))
             polygon["polygon_area_shoelace"] = polygon_area_shoelace
             perimeter_wall_missing = False
