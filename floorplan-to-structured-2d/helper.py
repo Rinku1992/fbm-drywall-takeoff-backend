@@ -606,7 +606,7 @@ async def insert_model_2d(
         ON CONFLICT (project_id, plan_id, page_number, page_section_number) DO UPDATE SET
     """
 
-   if insert_model and insert_layout:
+    if insert_model and insert_layout:
        query_conflict = """
             model_2d = EXCLUDED.model_2d,
             layout_2d = EXCLUDED.layout_2d,
