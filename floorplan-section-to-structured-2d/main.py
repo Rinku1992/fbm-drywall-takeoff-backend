@@ -81,6 +81,7 @@ async def floorplan_to_structured_2d_sectioned(
     predict,
     architectural_scale,
     standard_ceiling_height,
+    DPI_in_use,
     allow_none_scale=False,
     trust_scale=True,
 ):
@@ -151,7 +152,8 @@ async def floorplan_to_structured_2d_sectioned(
         scales_architectural=floor_plan_modeller_2d.scales_architectural,
         drywall_choices_color_codes=floor_plan_modeller_2d.drywall_choices_color_codes,
         wall_choices=WALL_CHOICES,
-        ceiling_choices=CEILING_CHOICES
+        ceiling_choices=CEILING_CHOICES,
+        DPI=DPI_in_use,
     )
     session_is_active = await is_session_active(credentials, pg_pool, session_uuid, project_id, plan_id, user_id, page_number)
     if session_is_active:
@@ -378,6 +380,7 @@ async def floorplan_section_to_structured_2d(request: Request):
         predict,
         architectural_scale,
         vector_standard_ceiling_height,
+        dpi_in_use,
         allow_none_scale=hyperparameters["modelling"]["enable_early_stopping"] and is_vector,
         trust_scale=is_vector,
     )
