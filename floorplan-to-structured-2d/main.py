@@ -155,6 +155,7 @@ def section_to_structured_2d(
     predict_drywall,
     architectural_scale,
     standard_ceiling_height,
+    DPI_in_use,
     allow_none_scale=False,
     trust_scale=True,
 ):
@@ -215,7 +216,8 @@ def section_to_structured_2d(
         scales_architectural=floor_plan_modeller_2d.scales_architectural,
         drywall_choices_color_codes=floor_plan_modeller_2d.drywall_choices_color_codes,
         wall_choices=WALL_CHOICES,
-        ceiling_choices=CEILING_CHOICES
+        ceiling_choices=CEILING_CHOICES,
+        DPI=DPI_in_use,
     )
     if floor_plan_modeller_2d.is_scale_detected:
         logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} and SECTION: {page_section_number} Generated Successfully")
@@ -368,7 +370,8 @@ async def floorplan_to_structured_2d(request: Request):
             scales_architectural=FloorPlan.scales_architectural,
             drywall_choices_color_codes=list(),
             wall_choices=WALL_CHOICES,
-            ceiling_choices=CEILING_CHOICES
+            ceiling_choices=CEILING_CHOICES,
+            DPI=dpi_in_use,
         )
         session_is_active = await is_session_active(CREDENTIALS, pg_pool, session_uuid, project_id, plan_id, user_id, page_number)
         if not session_is_active:
@@ -496,7 +499,8 @@ async def floorplan_to_structured_2d(request: Request):
                 scales_architectural=FloorPlan.scales_architectural,
                 drywall_choices_color_codes=list(),
                 wall_choices=WALL_CHOICES,
-                ceiling_choices=CEILING_CHOICES
+                ceiling_choices=CEILING_CHOICES,
+                DPI=dpi_in_use,
             )
             session_is_active = await is_session_active(CREDENTIALS, pg_pool, session_uuid, project_id, plan_id, user_id, page_number)
             if not session_is_active:
