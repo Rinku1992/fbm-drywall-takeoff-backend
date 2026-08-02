@@ -1717,9 +1717,9 @@ async def load_2d_all(request: Request):
             ORDER BY m.page_number
         """
         if bool(is_admin) and is_admin.super:
-            params = (int(page_number),)
+            params = (project_id, plan_id, int(page_number),)
         else:
-            params = (int(page_number), peers, region_names)
+            params = (project_id, plan_id, int(page_number), peers, region_names,)
     else:
         query = f"""
             SELECT
@@ -1865,9 +1865,9 @@ async def load_layout_2d_all(request: Request):
             ORDER BY m.page_number
         """
         if bool(is_admin) and is_admin.super:
-            params = (int(page_number),)
+            params = (project_id, plan_id, int(page_number),)
         else:
-            params = (int(page_number), peers, region_names)
+            params = (project_id, plan_id, int(page_number), peers, region_names,)
     else:
         query = f"""
             SELECT
