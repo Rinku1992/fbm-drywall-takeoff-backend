@@ -77,7 +77,8 @@ async def floorplan_to_structured_2d_sectioned(
     floorplan_page_statistics,
     floorplan_baseline_page_source,
     elevation_processed_paths,
-    predict_drywall,
+    model,
+    predict,
     architectural_scale,
     standard_ceiling_height,
     allow_none_scale=False,
@@ -91,7 +92,7 @@ async def floorplan_to_structured_2d_sectioned(
         page_section_number
     )
     bounding_box_offset_marginalized = apply_pixel_margin_to_bounding_box(bounding_box_offset)
-    if predict_drywall:
+    if model and predict:
         walls_2d, polygons, _, external_contour = floor_plan_modeller_2d.model_and_predict(
             bounding_box_offset_marginalized,
             image_path=wall_segmented_sectioned_path,
@@ -105,7 +106,7 @@ async def floorplan_to_structured_2d_sectioned(
             trust_scale=trust_scale,
         )
         walls_2d_layout, polygons_layout = floor_plan_modeller_2d.model_to_sketch(walls_2d, polygons)
-    else:
+    elif model and not predict:
         walls_2d_layout, polygons_layout, _, external_contour = floor_plan_modeller_2d.model(
             bounding_box_offset_marginalized,
             image_path=wall_segmented_sectioned_path,
@@ -252,6 +253,14 @@ app.add_middleware(
 
 @app.post("/floorplan_section_to_structured_2d")
 async def floorplan_section_to_structured_2d(request: Request):
+    def get_param(name, default=True):
+        value = parameters.get(name)
+        if value in (None, ''):
+            value = body.get(name)
+        if value in (None, ''):
+            value = default
+        return value
+
     enable_logging_on_stdout()
     parameters = dict(request.query_params)
     try:
@@ -268,7 +277,8 @@ async def floorplan_section_to_structured_2d(request: Request):
     bounding_box_offset = parameters.get("bounding_box_offset") or body.get("bounding_box_offset")
     number_of_sections = parameters.get("number_of_sections") or body.get("number_of_sections")
     elevation_pages = parameters.get("elevation_pages") or body.get("elevation_pages")
-    predict_drywall = parameters.get("predict_drywall") or body.get("predict_drywall") or True
+    model = get_param("model")
+    predict = get_param("predict")
     architectural_scale = parameters.get("architectural_scale") or body.get("architectural_scale")
     session_uuid = parameters.get("session_uuid") or body.get("session_uuid")
     page_number = int(page_number)
@@ -360,7 +370,8 @@ async def floorplan_section_to_structured_2d(request: Request):
         floorplan_page_statistics,
         floorplan_baseline_page_source,
         elevation_processed_paths,
-        predict_drywall,
+        model,
+        predict,
         architectural_scale,
         vector_standard_ceiling_height,
         allow_none_scale=hyperparameters["modelling"]["enable_early_stopping"] and is_vector,
