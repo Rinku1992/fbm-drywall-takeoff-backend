@@ -555,8 +555,6 @@ async def insert_page(
     )))
 
 async def insert_model_2d(
-    model_2d,
-    layout_2d,
     scale,
     page_number,
     page_sections,
@@ -566,9 +564,13 @@ async def insert_model_2d(
     project_id,
     target_drywalls,
     pg_pool,
-    credentials
+    credentials,
+    model_2d=list(),
+    layout_2d=lit(),
+    insert_model=False,
+    insert_layout=False,
     ):
-    query = f"""
+    query_conflict_partial = f"""
         INSERT INTO {credentials["CloudSQL"]["table_name_models"]} AS t (
             plan_id,
             project_id,
@@ -602,12 +604,32 @@ async def insert_model_2d(
             CURRENT_TIMESTAMP
         )
         ON CONFLICT (project_id, plan_id, page_number, page_section_number) DO UPDATE SET
+    """
+
+   if insert_model and insert_layout:
+       query_conflict = """
             model_2d = EXCLUDED.model_2d,
             layout_2d = EXCLUDED.layout_2d,
             scale = COALESCE(NULLIF(EXCLUDED.scale, ''), t.scale),
             created_at = CURRENT_TIMESTAMP,
             updated_at = CURRENT_TIMESTAMP
-    """
+        """
+    elif insert_model and not insert_layout:
+       query_conflict = """
+            model_2d = EXCLUDED.model_2d,
+            scale = COALESCE(NULLIF(EXCLUDED.scale, ''), t.scale),
+            created_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        """
+    elif not insert_model and insert_layout:
+       query_conflict = """
+            layout_2d = EXCLUDED.layout_2d,
+            scale = COALESCE(NULLIF(EXCLUDED.scale, ''), t.scale),
+            created_at = CURRENT_TIMESTAMP,
+            updated_at = CURRENT_TIMESTAMP
+        """
+    query = query_conflict_partial + query_conflict
+
     await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(
         plan_id,
         project_id,
