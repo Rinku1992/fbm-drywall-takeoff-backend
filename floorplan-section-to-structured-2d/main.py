@@ -119,7 +119,7 @@ async def floorplan_to_structured_2d_sectioned(
             allow_none_scale=allow_none_scale,
             trust_scale=trust_scale,
         )
-    if models and predict:
+    if model and predict:
         if walls_2d and polygons:
             floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons)
             floor_plan_modeller_2d.load_ceiling_choices(polygons)
@@ -155,7 +155,7 @@ async def floorplan_to_structured_2d_sectioned(
     )
     session_is_active = await is_session_active(credentials, pg_pool, session_uuid, project_id, plan_id, user_id, page_number)
     if session_is_active:
-        if predict_drywall:
+        if model and predict:
             await insert_model_2d(
                 dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
                 dict(walls_2d=walls_2d_layout, polygons=polygons_layout, metadata=metadata),
@@ -170,7 +170,7 @@ async def floorplan_to_structured_2d_sectioned(
                 pg_pool,
                 credentials,
             )
-        else:
+        elif model and not predict:
             await insert_model_2d(
                 dict(walls_2d=list(), polygons=list(), metadata=metadata),
                 dict(walls_2d=walls_2d_layout, polygons=polygons_layout, metadata=metadata),
