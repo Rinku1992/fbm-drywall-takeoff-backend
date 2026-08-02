@@ -466,12 +466,12 @@ async def insert_layout_2d(
         query = f"SELECT page_sections FROM {credentials["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
         query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id, plan_id, int(page_number), page_section_number,), fetch=True))
         page_sections = query_output[0]["page_sections"]
-    if not model_2d.get("metadata", None):
+    if not layout_2d.get("metadata", None):
         query = f"SELECT layout_2d->'metadata' AS metadata FROM {credentials["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s"
         query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id, plan_id, int(page_number), page_section_number,), fetch=True))
         metadata = query_output[0]["metadata"]
         metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
-        model_2d["metadata"] = metadata
+        layout_2d["metadata"] = metadata
     query = f"""
         INSERT INTO {credentials["CloudSQL"]["table_name_models"]} AS t (
             plan_id,
