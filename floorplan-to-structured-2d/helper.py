@@ -565,8 +565,8 @@ async def insert_model_2d(
     target_drywalls,
     pg_pool,
     credentials,
-    model_2d=list(),
-    layout_2d=lit(),
+    model_2d=dict(walls_2d=list(), polygons=list(), metadata=metadata),
+    layout_2d=dict(walls_2d=list(), polygons=list(), metadata=metadata),
     insert_model=False,
     insert_layout=False,
     ):
