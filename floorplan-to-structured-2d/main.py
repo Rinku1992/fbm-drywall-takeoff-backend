@@ -267,6 +267,14 @@ app.add_middleware(
 
 @app.post("/floorplan_to_structured_2d")
 async def floorplan_to_structured_2d(request: Request):
+    def get_param(name, default=True):
+        value = parameters.get(name)
+        if value in (None, ''):
+            value = body.get(name)
+        if value in (None, ''):
+            value = default
+        return value
+
     enable_logging_on_stdout()
     parameters = dict(request.query_params)
     try:
@@ -280,7 +288,8 @@ async def floorplan_to_structured_2d(request: Request):
     mask_factor = parameters.get("mask_factor") or body.get("mask_factor")
     bounding_box_offsets = parameters.get("bounding_box_offsets") or body.get("bounding_box_offsets")
     elevation_pages = parameters.get("elevation_pages") or body.get("elevation_pages")
-    predict_drywall = parameters.get("predict_drywall") or body.get("predict_drywall") or "true"
+    model = get_param("model")
+    predict = get_param("predict")
     architectural_scale = parameters.get("architectural_scale") or body.get("architectural_scale")
     session_uuid = parameters.get("session_uuid") or body.get("session_uuid")
     page_number = int(page_number)
@@ -555,6 +564,8 @@ async def floorplan_to_structured_2d(request: Request):
                 predict_drywall=predict_drywall,
                 architectural_scale=architectural_scale,
                 session_uuid=session_uuid,
+                model=model,
+                predict=predict,
             )
             session_is_active = await is_session_active(CREDENTIALS, pg_pool, session_uuid, project_id, plan_id, user_id, page_number)
             if not session_is_active:
