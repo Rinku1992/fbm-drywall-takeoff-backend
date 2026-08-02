@@ -374,8 +374,6 @@ async def floorplan_to_structured_2d(request: Request):
         if not session_is_active:
             return respond_with_UI_payload(dict(status="ABORTED", message=f"Session Aborted"))
         await insert_model_2d(
-            dict(walls_2d=list(), polygons=list(), metadata=metadata),
-            dict(walls_2d=list(), polygons=list(), metadata=metadata),
             "0.25``:1`0``",
             page_number,
             0,
@@ -386,6 +384,10 @@ async def floorplan_to_structured_2d(request: Request):
             floorplan_baseline_page_source,
             pg_pool,
             CREDENTIALS,
+            model_2d=dict(walls_2d=list(), polygons=list(), metadata=metadata),
+            layout_2d=dict(walls_2d=list(), polygons=list(), metadata=metadata),
+            insert_model=model,
+            insert_layout=predict,
         )
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
         future.result()
@@ -500,8 +502,6 @@ async def floorplan_to_structured_2d(request: Request):
             if not session_is_active:
                 return respond_with_UI_payload(dict(status="ABORTED", message=f"Session Aborted"))
             await insert_model_2d(
-                dict(walls_2d=list(), polygons=list(), metadata=metadata),
-                dict(walls_2d=list(), polygons=list(), metadata=metadata),
                 "0.25``:1`0``",
                 page_number,
                 len(bounding_box_offsets),
@@ -512,6 +512,10 @@ async def floorplan_to_structured_2d(request: Request):
                 floorplan_baseline_page_source,
                 pg_pool,
                 CREDENTIALS,
+                model_2d=dict(walls_2d=list(), polygons=list(), metadata=metadata),
+                layout_2d=dict(walls_2d=list(), polygons=list(), metadata=metadata),
+                insert_model=model,
+                insert_layout=predict,
             )
         future = publish_handler(dict(project_id=project_id, plan_id=plan_id, page_number=page_number))
         future.result()
