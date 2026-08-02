@@ -548,6 +548,8 @@ def floorplan_to_structured_2d(
     elevation_pages,
     architectural_scale,
     session_uuid,
+    model,
+    predict,
 ):
     headers = {
         "Authorization": f"Bearer {id_token}",
@@ -566,6 +568,8 @@ def floorplan_to_structured_2d(
             elevation_pages=elevation_pages,
             architectural_scale=architectural_scale,
             session_uuid=session_uuid,
+            model=model,
+            predict=predict,
         ),
     )
     return response.raise_for_status()
@@ -1313,6 +1317,14 @@ async def floorplan_to_preview(request: Request):
 
 @app.post("/floorplan_to_2d")
 async def floorplan_to_2d(request: Request):
+    def get_param(name, default=True):
+        value = parameters.get(name)
+        if value in (None, ''):
+            value = body.get(name)
+        if value in (None, ''):
+            value = default
+        return value
+
     enable_logging_on_stdout()
     parameters = dict(request.query_params)
     try:
@@ -1323,6 +1335,8 @@ async def floorplan_to_2d(request: Request):
     user_id = parameters.get("user_id") or body.get("user_id")
     plan_id = parameters.get("plan_id") or body.get("plan_id")
     pages_metadata = parameters.get("pages_metadata") or body.get("pages_metadata")
+    model = get_param("model")
+    predict = get_param("predict")
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
     is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
     if is_user_not_authenticated:
@@ -1449,7 +1463,9 @@ async def floorplan_to_2d(request: Request):
                     page_metadata["bounding_box_offsets"],
                     elevation_pages,
                     page_metadata.get("architectural_scale"),
-                    page_metadata["session_uuid"]
+                    page_metadata["session_uuid"],
+                    model,
+                    predict
                 )
             query_payloads = [dict(project_id=project_id, plan_id=plan_id, page_number=page_metadata["page_number"]) for page_metadata in pages_metadata]
             timeout = from_unix_epoch() + 7200
