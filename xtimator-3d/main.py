@@ -1784,6 +1784,154 @@ async def load_2d_all(request: Request):
     return respond_with_UI_payload(walls_2d_all)
 
 
+@app.post("/load_layout_2d_all")
+async def load_layout_2d_all(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    project_id = parameters.get("project_id") or body.get("project_id")
+    plan_id = parameters.get("plan_id") or body.get("plan_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
+    page_number = parameters.get("page_number", '') or body.get("page_number", '')
+    load_lazy = parameters.get("load_lazy", "true") or body.get("load_lazy", "true")
+    logging.info("SYSTEM: Received All Floorplan 2D Layouts Load Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Xtimator application")
+        return respond_with_UI_payload(is_user_not_authenticated)
+    is_admin = await access_control.is_admin(user_id)
+    if bool(is_admin):
+        if is_admin.super:
+            where_clause = "TRUE"
+
+        elif is_admin.local:
+            peers = await access_control.load_organization_users(user_id)
+            where_clause = "LOWER(m.user_id) = ANY(%s)"
+
+    else:
+        peers = await access_control.load_regional_users(user_id)
+        region_names = await access_control.load_user_region_names(user_id)
+        where_clause = "LOWER(m.user_id) = ANY(%s) AND LOWER(pr.\"FBM_branch\") = ANY(%s)"
+
+    if load_lazy == "false":
+        status = "IN PROGRESS"
+        query = f"""
+            SELECT pl.pages
+            FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} pl
+            FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
+            WHERE
+                LOWER(pl.project_id) = LOWER(%s)
+                AND LOWER(pl.plan_id) = LOWER(%s)
+                AND LOWER(pl.user_id) = ANY(%s)
+                AND LOWER(pr.\"FBM_branch\") = ANY(%s)
+        """
+        query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, peers, region_names), fetch=True))
+        if not query_output:
+            return respond_with_UI_payload(dict(error="Floor Plan already exists"))
+        n_pages = query_output[0]["pages"]
+        timeout = from_unix_epoch() + (n_pages * 900)
+        while from_unix_epoch() < timeout:
+            query = f"SELECT status FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);"
+            try:
+                query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id,), fetch=True))
+                status = query_output[0]["status"]
+                if status == "COMPLETED":
+                    break
+            except IndexError:
+                return respond_with_UI_payload(dict(error="Floor Plan does not exist"), status_code=500)
+            sleep(5)
+        if status != "COMPLETED":
+            return respond_with_UI_payload(dict(error=f"Floor Plan extraction not completed within {(n_pages * 900)/60} minutes"), status_code=500)
+
+    walls_2d_all = dict(pages=list())
+    if page_number != '':
+        query = f"""
+            SELECT
+                m.page_number,
+                m.page_section_number,
+                m.scale,
+                m.layout_2d
+            FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} m
+            JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
+                ON m.project_id = pr.project_id
+            WHERE
+                LOWER(m.project_id) = LOWER(%s)
+                AND LOWER(m.plan_id) = LOWER(%s)
+                AND m.page_number = %s
+                AND {where_clause}
+            ORDER BY m.page_number
+        """
+        if bool(is_admin) and is_admin.super:
+            params = (int(page_number),)
+        else:
+            params = (int(page_number), peers, region_names)
+    else:
+        query = f"""
+            SELECT
+                m.page_number,
+                m.page_section_number,
+                m.scale,
+                m.layout_2d
+            FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} m
+            JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
+                ON m.project_id = pr.project_id
+            WHERE
+                LOWER(m.project_id) = LOWER(%s)
+                AND LOWER(m.plan_id) = LOWER(%s)
+                AND {where_clause}
+            ORDER BY
+                m.page_number,
+                m.page_section_number
+        """
+        if bool(is_admin) and is_admin.super:
+            params = (project_id, plan_id,)
+        else:
+            params = (project_id, plan_id, peers, region_names,)
+    rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
+
+    page_to_layout_2d_minimal = dict()
+    rows = sorted(rows, key=lambda row: f"{row["page_number"]}-{row["page_section_number"]}")
+    for row in rows:
+        if not row["layout_2d"]:
+            continue
+
+        walls_2d = json.loads(row["layout_2d"]) if isinstance(row["layout_2d"], str) else row["layout_2d"]
+        page_to_layout_2d_minimal[row["page_number"]] = dict(
+            page_section_number=row["page_section_number"],
+            scale=row["scale"],
+            walls_2d=walls_2d["walls_2d"],
+            polygons=walls_2d["polygons"],
+            metadata=walls_2d["metadata"]
+        )
+        if walls_2d["walls_2d"] and walls_2d["polygons"]:
+            page = {
+                "plan_id": plan_id,
+                "page_number": row["page_number"],
+                "page_section_number": row["page_section_number"],
+                "scale": row["scale"],
+                "walls_2d": walls_2d.get("walls_2d", list()),
+                "polygons": walls_2d.get("polygons", list()),
+                **walls_2d.get("metadata", dict()),
+            }
+            walls_2d_all["pages"].append(page)
+    for page_number in list(set(page_to_layout_2d_minimal.keys()) - set([page["page_number"] for page in walls_2d_all["pages"]])):
+        page = {
+            "plan_id": plan_id,
+            "page_number": page_number,
+            "page_section_number": page_to_layout_2d_minimal[page_number]["page_section_number"],
+            "scale": page_to_layout_2d_minimal[page_number]["scale"],
+            "walls_2d": page_to_layout_2d_minimal[page_number]["walls_2d"],
+            "polygons": page_to_layout_2d_minimal[page_number]["polygons"],
+            **page_to_layout_2d_minimal[page_number]["metadata"],
+        }
+        walls_2d_all["pages"].append(page)
+
+    return respond_with_UI_payload(walls_2d_all)
+
+
 @app.post("/load_2d_timestamp")
 async def load_2d_timestamp(request: Request):
     enable_logging_on_stdout()
