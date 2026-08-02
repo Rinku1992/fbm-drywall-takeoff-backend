@@ -119,7 +119,7 @@ async def floorplan_to_structured_2d_sectioned(
             allow_none_scale=allow_none_scale,
             trust_scale=trust_scale,
         )
-    if predict_drywall:
+    if models and predict:
         if walls_2d and polygons:
             floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons)
             floor_plan_modeller_2d.load_ceiling_choices(polygons)
@@ -127,7 +127,7 @@ async def floorplan_to_structured_2d_sectioned(
             floor_plan_modeller_2d.load_drywall_choices(walls_2d_layout, polygons_layout)
             floor_plan_modeller_2d.load_ceiling_choices(polygons_layout)
             floor_plan_modeller_2d.load_wall_choices(walls_2d_layout)
-    else:
+    elif model and not predict:
         if walls_2d_layout and polygons_layout:
             floor_plan_modeller_2d.load_drywall_choices(walls_2d_layout, polygons_layout)
             floor_plan_modeller_2d.load_ceiling_choices(polygons_layout)
