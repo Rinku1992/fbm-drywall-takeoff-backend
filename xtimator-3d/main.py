@@ -2086,6 +2086,85 @@ async def update_floorplan_to_2d(request: Request):
     return respond_with_UI_payload(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), disable_caching=True)
 
 
+@app.post("/update_floorplan_to_layout_2d")
+async def update_floorplan_to_layout_2d(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    walls_2d_JSON = parameters.get("walls_2d") or body.get("walls_2d")
+    polygons_JSON = parameters.get("polygons") or body.get("polygons")
+    scale = parameters.get("scale") or body.get("scale")
+    project_id = parameters.get("project_id") or body.get("project_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
+    plan_id = parameters.get("plan_id") or body.get("plan_id")
+    index = parameters.get("page_number") or body.get("page_number")
+    page_section_number = parameters.get("page_section_number") or body.get("page_section_number")
+    logging.info("SYSTEM: Received a Floorplan 2D Model Update Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
+    user_scope = await access_control.load_scope(user_id, project_id, plan_id, index)
+    if not user_scope.update:
+         return respond_with_UI_payload(dict(
+             email=user_id,
+             permission="denied",
+             message=(
+                "You don't have permission to update this item. "
+                "Please contact your administrator if you need access."
+            ),
+         ))
+
+    hyperparameters = load_hyperparameters()
+
+    query = f"SELECT layout_2d->'walls_2d' AS walls_2d, layout_2d->'polygons' AS polygons FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
+    query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
+    walls_2d = query_output[0]["walls_2d"]
+    walls_2d_JSON_outdated = json.loads(walls_2d) if isinstance(walls_2d, str) else walls_2d
+    polygons = query_output[0]["polygons"]
+    polygons_JSON_outdated = json.loads(polygons) if isinstance(polygons, str) else polygons
+
+    plan = FloorPlan(hyperparameters)
+    wall_lines = [[[wall_2d["wall_line"][0]['x'], wall_2d["wall_line"][0]['y'], wall_2d["wall_line"][1]['x'], wall_2d["wall_line"][1]['y']]] for wall_2d in walls_2d_JSON]
+    wall_lines = plan.normalize(wall_lines)
+    wall_line_ids = [wall_2d["id"] for wall_2d in walls_2d_JSON]
+
+    query = f"SELECT layout_2d->'metadata' AS metadata FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
+    query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
+    metadata = query_output[0]["metadata"]
+    metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
+    height, width = metadata["height_in_pixels"], metadata["width_in_pixels"]
+    scale_x = width / 1920
+    scale_y = height / 1080
+    resolution_scale = (scale_x, scale_y,)
+
+    polygons_JSON = plan.reshape_polygons(polygons_JSON, walls_2d_JSON, architectural_scale=scale, resolution_scale=resolution_scale)
+    for polygon in polygons_JSON[:]:
+        perimeter_lines_contour = plan.load_perimeter(polygon["vertices"], wall_lines, scale=resolution_scale)
+        perimeter_wall_line_ids = [wall_line_ids[wall_lines.index(perimeter_line_contour)] for perimeter_line_contour in perimeter_lines_contour]
+        polygon_ids_drywall_interior = list()
+        for perimeter_wall_line_id in perimeter_wall_line_ids:
+            for wall_2d in walls_2d_JSON[:]:
+                if wall_2d["id"] == perimeter_wall_line_id:
+                    drywall_indices = plan.direction_polygon_interior(polygon["vertices"], wall_2d)
+                    for drywall_index in drywall_indices:
+                        polygon_ids_drywall_interior.append(f"{perimeter_wall_line_id}.{drywall_index}")
+                        if drywall_index == 'a':
+                            wall_2d["polygons_drywall"][0]["room_name"] = polygon["room_name"]
+                        else:
+                            wall_2d["polygons_drywall"][1]["room_name"] = polygon["room_name"]
+                    break
+        polygon["polygon_ids_drywall_interior"] = polygon_ids_drywall_interior
+
+    walls_2d_JSON, polygons_JSON = plan.detect_and_recover_from_polygon_drywall_anomaly(walls_2d_JSON, polygons_JSON, walls_2d_JSON_outdated, polygons_JSON_outdated)
+    await insert_layout_2d(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), scale, index, plan_id, user_id, project_id, None, None, pg_pool, CREDENTIALS, page_section_number=page_section_number)
+    logging.info("SYSTEM: Floorplan 2D Layout Updated Successfully")
+    return respond_with_UI_payload(dict(walls_2d=walls_2d_JSON, polygons=polygons_JSON), disable_caching=True)
+
+
 @app.post("/update_scale")
 async def update_scale(request: Request):
     enable_logging_on_stdout()
