@@ -59,6 +59,7 @@ from helper import (
     sha256,
     upload_floorplan,
     insert_model_2d,
+    insert_layout_2d,
     is_duplicate,
     delete_plan,
     load_floorplan_to_structured_2d_ID_token,
