@@ -293,7 +293,6 @@ async def floorplan_to_structured_2d(request: Request):
     architectural_scale = parameters.get("architectural_scale") or body.get("architectural_scale")
     session_uuid = parameters.get("session_uuid") or body.get("session_uuid")
     page_number = int(page_number)
-    predict_drywall = predict_drywall.upper() == "TRUE"
     logging.info("SYSTEM: Received a Floorplan 2D Model Generation Request")
 
     query = f"SELECT user_id FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s)"
