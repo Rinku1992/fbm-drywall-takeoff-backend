@@ -29,8 +29,9 @@ class FloorPlan:
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         return gray
 
-    def compute_imperial_scale_from_DPI(self, architectural_scale):
-        DPI = self.hyperparameters["modelling"]["scale_adoption"]["dpi"]["in_use"]
+    def compute_imperial_scale_from_DPI(self, architectural_scale, DPI=None):
+        if not DPI:
+            DPI = self.hyperparameters["modelling"]["scale_adoption"]["dpi"]["in_use"]
         scale_on_paper_length = float(Fraction(architectural_scale.split('=')[0].strip('`')))
         imperial = DPI * scale_on_paper_length
         return (1 / imperial, 1 / imperial)
@@ -571,7 +572,7 @@ class FloorPlan:
 
         return True
 
-    def reshape_polygons(self, polygons, walls_2d, architectural_scale=None, resolution_scale=None):
+    def reshape_polygons(self, polygons, walls_2d, architectural_scale=None, resolution_scale=None, DPI=None):
         def load_overlapped_polygons(open_polygon, polygons, open_edges_flagged_grouped):
             overlapped_polygons = list()
             open_polygon_vertices = open_polygon["vertices"]
@@ -615,7 +616,7 @@ class FloorPlan:
             return master_polygons
 
         def club_polygons(polygon_ids_singleton, polygons):
-            imperial_scale_X, imperial_scale_Y = self.compute_imperial_scale_from_DPI(architectural_scale)
+            imperial_scale_X, imperial_scale_Y = self.compute_imperial_scale_from_DPI(architectural_scale, DPI=DPI)
             imperial_scale_A = imperial_scale_X * imperial_scale_Y
             for polygon_id_singleton in polygon_ids_singleton:
                 polygons_to_club = list(filter(lambda polygon: polygon["id"] in polygon_id_singleton, polygons[:]))
