@@ -560,7 +560,6 @@ async def floorplan_to_structured_2d(request: Request):
                 bounding_box_offset=bounding_box_offset,
                 number_of_sections=len(bounding_box_offsets),
                 elevation_pages=elevation_pages,
-                predict_drywall=predict_drywall,
                 architectural_scale=architectural_scale,
                 session_uuid=session_uuid,
                 model=model,
