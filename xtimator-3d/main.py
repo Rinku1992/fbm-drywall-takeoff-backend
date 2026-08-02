@@ -2044,12 +2044,13 @@ async def update_floorplan_to_2d(request: Request):
     query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, index, page_section_number,), fetch=True))
     metadata = query_output[0]["metadata"]
     metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
-    height, width = metadata["height_in_pixels"], metadata["width_in_pixels"]
+    height, width = metadata["height_in_pixels"], metadata["width_in_pixels"],
+    DPI = metadata["DPI"]
     scale_x = width / 1920
     scale_y = height / 1080
     resolution_scale = (scale_x, scale_y,)
 
-    polygons_JSON = plan.reshape_polygons(polygons_JSON, walls_2d_JSON, architectural_scale=scale, resolution_scale=resolution_scale)
+    polygons_JSON = plan.reshape_polygons(polygons_JSON, walls_2d_JSON, architectural_scale=scale, resolution_scale=resolution_scale, DPI=DPI)
     #polygons_JSON_sharded = list()
     #polygon_idx = 0
     #for polygon in polygons_JSON:
