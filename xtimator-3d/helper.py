@@ -446,6 +446,83 @@ async def insert_model_2d(
         GCS_URL_target_drywalls_page
     )))
 
+async def insert_layout_2d(
+    layout_2d,
+    scale,
+    page_number,
+    plan_id,
+    user_id,
+    project_id,
+    GCS_URL_floorplan_page,
+    GCS_URL_target_drywalls_page,
+    pg_pool,
+    credentials,
+    page_section_number=None,
+    page_sections=None,
+    ):
+    if not page_section_number:
+        page_section_number = 'I'
+    if not page_sections:
+        query = f"SELECT page_sections FROM {credentials["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
+        query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id, plan_id, int(page_number), page_section_number,), fetch=True))
+        page_sections = query_output[0]["page_sections"]
+    if not model_2d.get("metadata", None):
+        query = f"SELECT layout_2d->'metadata' AS metadata FROM {credentials["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s"
+        query_output = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id, plan_id, int(page_number), page_section_number,), fetch=True))
+        metadata = query_output[0]["metadata"]
+        metadata = json.loads(metadata) if isinstance(metadata, str) else metadata
+        model_2d["metadata"] = metadata
+    query = f"""
+        INSERT INTO {credentials["CloudSQL"]["table_name_models"]} AS t (
+            plan_id,
+            project_id,
+            user_id,
+            page_number,
+            page_sections,
+            page_section_number,
+            scale,
+            layout_2d,
+            model_3d,
+            takeoff,
+            source,
+            target_drywalls,
+            created_at,
+            updated_at
+        )
+        VALUES (
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s::jsonb,
+            '{{}}'::jsonb,
+            '{{}}'::jsonb,
+            %s,
+            %s,
+            CURRENT_TIMESTAMP,
+            CURRENT_TIMESTAMP
+        )
+        ON CONFLICT (project_id, plan_id, page_number, page_section_number) DO UPDATE SET
+            layout_2d = EXCLUDED.layout_2d,
+            scale = COALESCE(NULLIF(EXCLUDED.scale, ''), t.scale),
+            updated_at = CURRENT_TIMESTAMP
+    """
+    await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(
+        plan_id,
+        project_id,
+        user_id,
+        int(page_number),
+        int(page_sections),
+        page_section_number,
+        scale,
+        json.dumps(layout_2d),
+        GCS_URL_floorplan_page,
+        GCS_URL_target_drywalls_page
+    )))
+
 async def is_duplicate(pg_pool, credentials, access_control, pdf_path, project_id, user_id):
     sha_256 = sha256(pdf_path)
     organization_slug_target = await load_organization_slug(credentials, pg_pool, user_id)
