@@ -919,15 +919,15 @@ class CeilingModelAndPredict(BaseModel):
 class WallParameterModelAndPredict(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    room_name: Optional[str]
-    length: float
+    room_name: Optional[str] = Field(description="'<Detected Room Name the target perimeter wall belongs to / NULL>'")
+    length: float = Field(description="<length of target perimeter wall in feet>")
     confidence_length: float = Field(ge=0, le=1)
-    width: Optional[float]
-    wall_type: str
-    openings: List[Dict]
+    width: Optional[float] = Field(description="<width of the target perimeter wall in feet / None>")
+    wall_type: str = Field(description="'<type of the perimeter wall 2>'")
+    openings: List[Dict] = Field(description="[{{'opening_type': '<Type of the target perimeter wall opening 1>', 'count': <count of the opening type 1>, 'length': <length of the opening type 1 in feet>, 'height': <height of the opening type 1 in feet>}}]")
     drywall_assembly: DrywallAssemblyWall
-    code_references: List[str]
-    recommendation: Optional[str]
+    code_references: List[str] = Field(description="['<applied Dywall code reference 1>', '<applied Dywall code reference 2>', '<applied Dywall code reference 3>']")
+    recommendation: Optional[str] = Field(description="'<recommendation on special requirements for perimeter wall 2 including cost reduction (if any). Generate separate recommendations for single drywall material and the vetically stacked drywall materials (If predicted)>'")
 
     @field_validator("length")
     @classmethod
