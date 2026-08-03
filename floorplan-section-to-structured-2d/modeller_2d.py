@@ -88,7 +88,7 @@ class FloorPlan2D(FloorPlan):
             client_ip_address,
             prompts=[POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR.format(drywall_templates=drywall_templates, project_location=project_location)]
         )
-        is_cached["POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA"] = cache_enabled
+        is_cached["POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR"] = cache_enabled
         vertex_ai_client_metadata_extraction, _, cache_enabled = load_vertex_ai_client(
             credentials,
             client_ip_address,
@@ -118,7 +118,7 @@ class FloorPlan2D(FloorPlan):
             client_ip_address,
             prompts=[DRYWALL_PREDICTOR.format(drywall_templates=drywall_templates, project_location=project_location)]
         )
-        is_cached["DRYWALL_PREDICTOR_CALIFORNIA"] = cache_enabled
+        is_cached["DRYWALL_PREDICTOR"] = cache_enabled
         vertex_ai_client_wall_rectification, _, cache_enabled = load_vertex_ai_client(
             credentials,
             client_ip_address,
@@ -1517,7 +1517,7 @@ class FloorPlan2D(FloorPlan):
 
         try:
             if predict:
-                if self._is_cached["POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA"]:
+                if self._is_cached["POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR"]:
                     _, model_polygon = phoenix_call(
                         lambda feedback_prompt, temperature: self._vertex_ai_client_polygon_detection_and_drywall_prediction.generate_content(
                             contents=POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[query],
@@ -1698,7 +1698,7 @@ class FloorPlan2D(FloorPlan):
         ])
 
         try:
-            if self._is_cached["DRYWALL_PREDICTOR_CALIFORNIA"]:
+            if self._is_cached["DRYWALL_PREDICTOR"]:
                 _, predict_polygon = phoenix_call(
                     lambda feedback_prompt, temperature: self._vertex_ai_client_drywall_prediction.generate_content(
                         contents=[feedback_prompt, query] if feedback_prompt else [query],
