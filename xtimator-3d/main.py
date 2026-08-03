@@ -1232,9 +1232,9 @@ async def load_plan_pages(request: Request):
     rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id,), fetch=True))
 
     plan_pages = list()
+    client = CloudStorageClient()
     for row in rows:
         plan_page = dict(row)
-        client = CloudStorageClient()
         bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
         url = ''
         if plan_page["source"]:
