@@ -33,7 +33,7 @@ class FloorPlan:
         if not DPI:
             DPI = self.hyperparameters["modelling"]["scale_adoption"]["dpi"]["in_use"]
         scale_on_paper_length = float(Fraction(architectural_scale.split('=')[0].strip('`')))
-        imperial = float(DPI) * scale_on_paper_length
+        imperial = int(DPI) * scale_on_paper_length
         return (1 / imperial, 1 / imperial)
 
     def scale_walls_2d_and_polygons(self, walls_2d_JSON, polygons_JSON, scale):
