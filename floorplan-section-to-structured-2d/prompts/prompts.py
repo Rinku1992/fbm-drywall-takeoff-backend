@@ -858,16 +858,16 @@ class DrywallAssemblyCeiling(BaseModel):
 class DrywallAssemblyWall(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    material: str
-    height: float
+    material: str = Field(description="'<drywall material for the target perimeter wall>'")
+    height: float = Field(description="<height of the target perimeter wall surface the drywall is applied upon in feet>")
     confidence_height: float = Field(ge=0, le=1)
-    color_code: Tuple[int, int, int]
-    materials_vertically_stacked: List
-    color_codes_stacked: List
-    thickness: float
-    layers: int
-    fire_rating: Optional[Union[str, float]]
-    waste_factor: Union[str, int, float]
+    color_code: Tuple[int, int, int] = Field(description="<color code for the predicted target perimeter wall drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>")
+    materials_vertically_stacked: List = Field(description="['<vertically stacked drywall material preference 1 for target perimeter wall (optional)>', '<vertically stacked drywall material preference 2 for target perimeter wall (optional)>']")
+    color_codes_stacked: List = Field(description="[<color code for the vertically stacked drywall type 1 in a BGR tuple (`Blue`, `Green`, `Red`) for target perimeter wall>, <color code for the vertically stacked drywall type 2 in a BGR tuple (`Blue`, `Green`, `Red`) for target perimeter wall>]")
+    thickness: float = Field(description="<thickness of the predicted wall drywall type in feet>")
+    layers: int = Field(description="<number of required drywall layers>")
+    fire_rating: Optional[Union[str, float]] = Field(description="<average fire-rating of the predicted drywall types in hours>")
+    waste_factor: Union[str, int, float] = Field(description="'<waste factor of the predicted drywall in percentage>'")
 
     @field_validator("thickness", "height")
     @classmethod
