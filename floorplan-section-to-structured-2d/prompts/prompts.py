@@ -678,7 +678,7 @@ POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR = """
           "run": <run of the slope in float>
         }},
         "slope_enabled": <is sloping supported given the type of ceiling used (True/False)>,
-        "tilt_axis": <axial direction of the tilted slope / NULL>,
+        "tilt_axis": "<axial direction of the tilted slope / NULL>",
         "drywall_assembly": {{
           "material": "<drywall material for the ceiling>",
           "color_code": <color code for the predicted ceiling drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>,
@@ -892,24 +892,24 @@ class DrywallAssemblyWall(BaseModel):
 class Pitch(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    rise: float
-    run: float
+    rise: float = Field(description="<rise of the slope in float>")
+    run: float = Field(description="<run of the slope in float>")
 
 class CeilingModelAndPredict(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    room_name: Optional[str]
-    area: float
+    room_name: Optional[str] = Field(description="'<Detected Room Name the ceiling belongs to / NULL>'")
+    area: float = Field(description="<Area of the ceiling in SQFT (Square Feet)>")
     confidence_area: float = Field(ge=0, le=1)
-    ceiling_type: str
-    height: float
+    ceiling_type: str = Field(description="'<Type code of the ceiling>'")
+    height: float = Field(description="<height of the ceiling (centroid of the ceiling axis, if sloped)>")
     confidence_height: float = Field(ge=0, le=1)
     pitch: Pitch
-    slope_enabled: bool
-    tilt_axis: Optional[Literal["horizontal", "vertical", "NULL"]]
+    slope_enabled: bool = Field(description="<is sloping supported given the type of ceiling used (True/False)>")
+    tilt_axis: Optional[Literal["horizontal", "vertical", "NULL"]] = Field(description="'<axial direction of the tilted slope / NULL>'")
     drywall_assembly: DrywallAssemblyCeiling
-    code_references: List[str]
-    recommendation: Optional[str]
+    code_references: List[str] = Field(description="['<applied Dywall code reference 1>', '<applied Dywall code reference 2>', '<applied Dywall code reference 3>']")
+    recommendation: Optional[str] = Field(description="'<recommendation on special requirements including cost reduction (if any)>'")
 
     @field_validator("area", "height")
     @classmethod
