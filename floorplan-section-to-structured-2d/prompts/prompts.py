@@ -1,4 +1,4 @@
-from typing import List, Dict, Union, Optional, Tuple, Literal
+from typing import List, Dict, Union, Optional, Tuple, Literal, get_origin, get_args
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 import math
 import json
@@ -791,14 +791,14 @@ def ensure_not_nan(v: float) -> float:
 class DrywallAssemblyCeiling(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    material: str
-    color_code: Tuple[int, int, int]
-    materials_vertically_stacked: List[str]
-    color_codes_stacked: List[Tuple[int, int, int]]
-    thickness: float
-    layers: Union[int, List[int]]
-    fire_rating: Optional[Union[str, float]]
-    waste_factor: Union[str, int, float]
+    material: str = Field(description="'<drywall material for the ceiling>'")
+    color_code: Tuple[int, int, int] = Field(description="<color code for the predicted ceiling drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>")
+    materials_vertically_stacked: List[str] = Field(description="['<vertically stacked drywall material preference 1 for the ceiling (optional)>', '<vertically stacked drywall material preference 2 for the ceiling (optional)>']")
+    color_codes_stacked: List[Tuple[int, int, int]] = Field(description="[<color code for the vertically stacked drywall type 1 in a BGR tuple (`Blue`, `Green`, `Red`) for the ceiling>, <color code for the vertically stacked drywall type 2 in a BGR tuple (`Blue`, `Green`, `Red`) for the ceiling>]")
+    thickness: float = Field(description="<thickness of the predicted ceiling drywall type in feet>")
+    layers: Union[int, List[int]] = Field(description="<number of required drywall layers>")
+    fire_rating: Optional[Union[str, float]] = Field(description="<fire-rating of the predicted drywall type in hours>")
+    waste_factor: Union[str, int, float] = Field(description="'<waste factor of the predicted drywall in percentage>'")
 
     @field_validator("layers")
     @classmethod
@@ -1889,3 +1889,59 @@ OPENING_TYPE_CHOICES = {
     "Arched openings": [7, 102, 77],
     "Pass-through": [214, 98, 26]
 }
+
+def load_schema_pydantic(model: type[BaseModel]):
+    def build_annotation(annotation):
+        origin = get_origin(annotation)
+
+        if isinstance(annotation, type) and issubclass(annotation, BaseModel):
+            return build_model(annotation)
+
+        if origin is list:
+            return [build_annotation(get_args(annotation)[0])]
+
+        if origin is tuple:
+            return [
+                build_annotation(arg)
+                for arg in get_args(annotation)
+            ]
+
+        if origin is dict:
+            return {}
+
+        if origin is None:
+            if annotation is str:
+                return "<string>"
+            if annotation is int:
+                return "<integer>"
+            if annotation is float:
+                return "<float>"
+            if annotation is bool:
+                return "<boolean>"
+
+        if origin is not None:
+            args = [a for a in get_args(annotation) if a is not type(None)]
+            if args:
+                return build_annotation(args[0])
+
+        return "<value>"
+
+    def build_model(model_cls):
+
+        output = {}
+
+        for name, field in model_cls.model_fields.items():
+
+            value = build_annotation(field.annotation)
+
+            if isinstance(value, dict):
+                output[name] = value
+            else:
+                output[name] = (
+                    f"{value}"
+                    + (f" // {field.description}" if field.description else "")
+                )
+
+        return output
+
+    return json.dumps(build_model(model), indent=2)
