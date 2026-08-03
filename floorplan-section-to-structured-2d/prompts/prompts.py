@@ -1,5 +1,5 @@
 from typing import List, Dict, Union, Optional, Tuple, Literal, get_origin, get_args
-from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict, create_model
 import math
 import json
 from glob import glob
@@ -1945,3 +1945,18 @@ def load_schema_pydantic(model: type[BaseModel]):
         return output
 
     return json.dumps(build_model(model), indent=2)
+
+def prune_model(model: type[BaseModel], remove_fields: set[str]) -> type[BaseModel]:
+    fields = {
+        name: (
+            field.annotation,
+            field.default if not field.is_required() else ...
+        )
+        for name, field in model.model_fields.items()
+        if name not in remove_fields
+    }
+
+    return create_model(
+        f"{model.__name__}Pruned",
+        **fields,
+    )
