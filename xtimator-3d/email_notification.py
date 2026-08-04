@@ -1,5 +1,8 @@
 import logging
 import requests
+import mimetypes
+import base64
+from pathlib import Path
 
 
 def load_access_token(tenant_id, client_id, client_secret):
@@ -17,7 +20,18 @@ def load_access_token(tenant_id, client_id, client_secret):
     response.raise_for_status()
     return response.json()["access_token"]
 
-def send_email(access_token, sender_email, recipient_email, subject, body_content):
+def send_email(access_token, sender_email, recipient_email, subject, body_content, attachment_path=None):
+    if attachment_path:
+        mime_type, _ = mimetypes.guess_type(attachment_path)
+        if mime_type is None:
+            mime_type = "application/octet-stream"
+
+        attachment = {
+            "@odata.type": "#microsoft.graph.fileAttachment",
+            "name": Path(attachment_path).name,
+            "contentType": mime_type,
+            "contentBytes": base64.b64encode(attachment_bytes).decode("utf-8"),
+        }
     GRAPH_SENDMAIL_URL = f"https://graph.microsoft.com/v1.0/users/{sender_email}/sendMail"
     response = requests.post(
         GRAPH_SENDMAIL_URL,
