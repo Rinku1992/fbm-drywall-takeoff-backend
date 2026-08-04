@@ -1,4 +1,4 @@
-from typing import List, Set, Literal
+from typing import List, Set, Literal, Optional
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 
@@ -754,3 +754,62 @@ RESIDENTIAL_MULTI_FAMILY_SCHEMA = """
 
     Return only the JSON object with no Markdown, explanations, or additional text.
 """
+
+
+# ---------------------------------------------------------------------------
+# Multi-family Matcher (D14) — batched leftover resolution.
+# LIFTED UNCHANGED from feat/multifamily xtimator-3d/prompts.py:705-759.
+# Rules + area matching happen in code (helper.py); only the sections those
+# cannot resolve are sent here, ALL in ONE batched call. The model must return
+# null rather than force a wrong match (a wrong match silently multiplies the
+# wrong count).
+# ---------------------------------------------------------------------------
+
+UNIT_MATCH_RESOLVER = """
+    You are a precise architectural drawing-title matcher for multi-family residential plan sets.
+
+    You operate with strict determinism. You DO NOT force matches. When a section does not clearly correspond to one of the candidate unit types, you return null.
+
+    PROVIDED (as JSON in the user message):
+        - "unit_types": the candidate unit types, each { "unit_type": "<label>", "area": <sqft or null> }.
+        - "sections": drawing sections to match, each { "index": <int>, "title": "<section title>", "area": <sqft or null> }.
+
+    TASK:
+        For EACH section, choose the ONE unit type whose identity the section refers to, or null if none clearly matches.
+        - Match on the UNIT-TYPE IDENTITY named in the title; ignore boilerplate such as "FLOOR PLAN", "ENLARGED", "UNIT", "TYPE", "ROOM", and floor/level ordinals ("1ST", "LEVEL 2").
+        - Treat "BR" as "BEDROOM" and "BA" as "BATH" when comparing.
+        - Use "area" (square feet) as a tie-breaker/disambiguator when two names are close; a close area supports a match, a very different area argues against one.
+
+    RULES:
+        - NEVER force a match. If you are not confident, return null. A wrong match multiplies the wrong count downstream — a null is safe (the section defaults to x1).
+        - "matched_unit_type" MUST be one of the provided "unit_type" labels spelled EXACTLY as given, or null.
+        - Return EXACTLY one object per input section, echoing its "index".
+
+    OUTPUT:
+        Do NOT generate any text outside the JSON.
+        Refer the following as a template and ensure to replace every consecutive pair of open/closed curly braces with a single one during the generation of the output.
+        {{
+            "matches": [
+                {{
+                    "index": <int>,
+                    "matched_unit_type": "<one of the provided unit_type labels, or null>"
+                }}
+            ]
+        }}
+"""
+
+class UnitMatch(BaseModel):
+    index: int
+    matched_unit_type: Optional[str] = None
+
+class UnitMatchResponse(BaseModel):
+    matches: List[UnitMatch]
+
+    @model_validator(mode="after")
+    def validate_matches(self):
+        if not self.matches:
+            raise ValueError("matches must be non-empty")
+        indexes = [m.index for m in self.matches]
+        if len(indexes) != len(set(indexes)):
+            raise ValueError("Duplicate index detected in matches")
+        return self

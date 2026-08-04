@@ -21,6 +21,7 @@ import firebase_admin
 from firebase_admin import auth as auth_firebase, credentials as credentials_firebase
 
 import math
+import re
 import random
 random.seed(0)
 import cv2
@@ -65,7 +66,9 @@ from prompts import (
     ArchitecturalDrawingClassifierResponse,
     VISUAL_GROUNDING_DETECTOR,
     VisualGroundingDetectorResponse,
-    FEEDBACK_GENERATOR
+    FEEDBACK_GENERATOR,
+    UNIT_MATCH_RESOLVER,
+    UnitMatchResponse
 )
 from preprocessing import preprocess
 from email_notification import trigger
@@ -561,6 +564,23 @@ def load_floorplan_to_preview_ID_token(credentials):
     service_account_credentials = IDTokenCredentials.from_service_account_file(
         credentials["service_drywall_account_key"],
         target_audience=credentials["CloudRun"]["APIs"]["floorplan_to_preview"]
+    )
+    service_account_credentials.refresh(auth_req)
+    id_token = service_account_credentials.token
+    return id_token
+
+def load_unit_count_resolver_ID_token(credentials, audience):
+    """ID token for the unit-count-resolver service (D5a).
+
+    Same idiom as the two loaders above; the only difference is that the audience
+    is passed in rather than read from credentials["CloudRun"]["APIs"], because
+    the resolver URL comes from the UNIT_COUNT_RESOLVER_URL env var (the service
+    does not exist in gcp.yaml until it is first deployed).
+    """
+    auth_req = google.auth.transport.requests.Request()
+    service_account_credentials = IDTokenCredentials.from_service_account_file(
+        credentials["service_drywall_account_key"],
+        target_audience=audience
     )
     service_account_credentials.refresh(auth_req)
     id_token = service_account_credentials.token
@@ -1546,3 +1566,327 @@ async def unlock_user(
 ):
     query = f"UPDATE {credentials["CloudSQL"]["table_name_users"]} SET is_locked = FALSE WHERE LOWER(user_email) = LOWER(%s);"
     await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(user_id,)))
+
+
+# ═════════ Multi-family Matcher + Multiplier (D12, D13, D14) ═══════════════
+# LIFTED from feat/multifamily xtimator-3d/helper.py:2150-2455 (matcher) and
+# 2343-2455 (multiplier). Behaviour is UNCHANGED except for one addition,
+# marked [UNIT_MULTIPLY LOG] in summarize_unit_counts: an explicit per-section
+# log line (section title -> matched type -> count applied).
+#
+# NOT lifted here: the resolver itself (vector ranking, thumbnail triage,
+# extraction, D10 precedence, persistence). That moved to the standalone
+# unit-count-resolver Cloud Run service (master plan D5a).
+#
+# SCALING SEMANTICS (read from the code, reported in MF_REBUILD_REPORT.md,
+# NOT changed): the multiply is applied PER SECTION -- each section's takeoff
+# is multiplied by that section's own resolved count inside
+# _accumulate_scaled_takeoff -- but the only SCALED artifact produced is the
+# aggregate project_total. The per-section rows in section_rollup carry the
+# matched type/count/method but no scaled takeoff, and the caller's existing
+# drywall_takeoff_all rows are never modified. So: scaled per-section
+# internally, surfaced only as a project total.
+
+_UNIT_MATCH_FILLER = {
+    "floor", "plan", "plans", "type", "types", "room", "rooms", "unit", "units",
+    "enlarged", "dimensioned", "level", "building", "bldg", "sheet", "the", "and",
+}
+
+
+_UNIT_MATCH_ORDINAL_RE = re.compile(r"\b\d+\s*(?:st|nd|rd|th)\b")
+
+
+_UNIT_MATCH_ABBREV = [
+    (re.compile(r"\b(\d+)\s*br\b"), r"\1 bedroom"),
+    (re.compile(r"\b(\d+)\s*ba\b"), r"\1 bath"),
+    (re.compile(r"\bbr\b"), "bedroom"),
+    (re.compile(r"\bba\b"), "bath"),
+]
+
+
+_UNIT_MATCH_AREA_TOLERANCE = 0.05
+
+
+def _normalize_unit_label(label):
+    """Normalize a unit-type label or section title to a token list for matching:
+    lowercase, drop floor ordinals, expand BR/BA, strip punctuation and filler
+    words (D14). Deterministic and auditable."""
+    text = (label or "").lower()
+    text = _UNIT_MATCH_ORDINAL_RE.sub(" ", text)
+    for pattern, replacement in _UNIT_MATCH_ABBREV:
+        text = pattern.sub(replacement, text)
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    return [token for token in text.split() if token and token not in _UNIT_MATCH_FILLER]
+
+
+def _match_section_by_rules(section_tokens, normalized_types):
+    """Rule match: a unit type matches when ALL its (normalized) tokens appear in
+    the section's tokens. Prefer the most specific (largest) match; a tie between
+    equally specific types is AMBIGUOUS (deferred, not forced). `normalized_types`
+    is a list of (unit_type, token_list). Returns (unit_type|None, method)."""
+    section_set = set(section_tokens)
+    candidates = []
+    for unit_type, type_tokens in normalized_types:
+        type_set = set(type_tokens)
+        if type_set and type_set <= section_set:
+            candidates.append((unit_type, len(type_set)))
+    if not candidates:
+        return None, "none"
+    candidates.sort(key=lambda c: -c[1])
+    if len(candidates) > 1 and candidates[0][1] == candidates[1][1]:
+        return None, "ambiguous"
+    return candidates[0][0], "rule"
+
+
+def _match_section_by_area(section_area, types_with_area, tolerance=_UNIT_MATCH_AREA_TOLERANCE):
+    """Area fallback (D14): pick the unit type whose area is within `tolerance` of
+    the section's area and closest. Ambiguous (two equally close within tolerance)
+    or no section area -> None. `types_with_area` is a list of (unit_type, area)."""
+    if section_area is None:
+        return None
+    scored = []
+    for unit_type, area in types_with_area:
+        if area is None or area <= 0:
+            continue
+        relative_diff = abs(area - section_area) / area
+        if relative_diff <= tolerance:
+            scored.append((unit_type, relative_diff))
+    if not scored:
+        return None
+    scored.sort(key=lambda s: s[1])
+    if len(scored) > 1 and abs(scored[0][1] - scored[1][1]) < 1e-9:
+        return None   # equally close -> ambiguous, do not force
+    return scored[0][0]
+
+
+def _match_leftovers_llm(credentials, client_ip_address, leftovers, unit_types, context):
+    """ONE batched LLM call (D14) for the sections that rules + area could not
+    resolve. Returns {section_key: matched_unit_type_or_None}. Never raises; on any
+    failure returns {} (callers treat missing as no-match)."""
+    valid_types = {unit_type["unit_type"] for unit_type in unit_types}
+    request_payload = {
+        "unit_types": [{"unit_type": u["unit_type"], "area": u.get("area")} for u in unit_types],
+        "sections": [
+            {"index": index, "title": section["title"], "area": section.get("area")}
+            for index, section in enumerate(leftovers)
+        ],
+    }
+    try:
+        vertex_ai_client, generation_config, is_cached = load_vertex_ai_client(
+            credentials, client_ip_address, prompts=[UNIT_MATCH_RESOLVER]
+        )
+        query = Content(role="user", parts=[Part.from_text(json.dumps(request_payload))])
+        if is_cached:
+            response, _ = phoenix_call(
+                lambda feedback_prompt, temperature: vertex_ai_client.generate_content(
+                    contents=[feedback_prompt, query] if feedback_prompt else [query],
+                    generation_config={**generation_config, "temperature": temperature},
+                ),
+                max_retry=credentials["VertexAI"]["llm"]["max_retry"],
+                pydantic_model=UnitMatchResponse,
+                verify_field_counts=dict(matches=len(leftovers)),
+            )
+        else:
+            response, _ = phoenix_call(
+                lambda feedback_prompt, temperature: vertex_ai_client(UNIT_MATCH_RESOLVER).generate_content(
+                    contents=[feedback_prompt, query] if feedback_prompt else [query],
+                    generation_config={**generation_config, "temperature": temperature},
+                ),
+                max_retry=credentials["VertexAI"]["llm"]["max_retry"],
+                pydantic_model=UnitMatchResponse,
+                verify_field_counts=dict(matches=len(leftovers)),
+            )
+    except Exception as e:
+        logging.warning(f"[UNIT_MULTIPLY] [{context}] batched match LLM failed: {e}; leftovers -> no match")
+        return {}
+
+    resolved = {}
+    for match in response.matches:
+        if 0 <= match.index < len(leftovers):
+            # Only accept a label the resolver actually offered (never invent a type).
+            matched = match.matched_unit_type if match.matched_unit_type in valid_types else None
+            resolved[leftovers[match.index]["key"]] = matched
+    return resolved
+
+
+def match_sections_to_unit_types(credentials, client_ip_address, sections, unit_types, project_id, plan_id):
+    """Map each takeoff section to a resolved unit type (item 7 / D14). Does NOT
+    multiply — produces the section->type mapping only.
+
+    Args:
+        sections: list of {"key": <hashable>, "title": <page_section_number/title>,
+                  "area": <sqft or None>}.
+        unit_types: the resolved plans.unit_counts["unit_counts"] list
+                    ({"unit_type", "count", "area"}); empty when nothing resolved.
+
+    Returns {section_key: {"matched_unit_type": <str or None>, "method":
+    "rule"|"area"|"llm"|"none"}}. Honest "no match" (None) whenever nothing
+    resolves — never a forced/wrong match.
+    """
+    context = f"project={project_id} plan={plan_id}"
+    result = {}
+
+    # No resolved unit types -> every section is a no-match (defaults x1 in item 8).
+    if not unit_types:
+        for section in sections:
+            result[section["key"]] = {"matched_unit_type": None, "method": "none"}
+            logging.info(
+                f"[UNIT_MULTIPLY] [{context}] section \"{section['title']}\" → no match "
+                f"(no resolved unit types), will default ×1"
+            )
+        return result
+
+    normalized_types = [(u["unit_type"], _normalize_unit_label(u["unit_type"])) for u in unit_types]
+    types_with_area = [(u["unit_type"], u.get("area")) for u in unit_types]
+
+    leftovers = []
+    for section in sections:
+        section_tokens = _normalize_unit_label(section["title"])
+        matched, method = _match_section_by_rules(section_tokens, normalized_types)
+        if matched is None:
+            area_match = _match_section_by_area(section.get("area"), types_with_area)
+            if area_match is not None:
+                matched, method = area_match, "area"
+        if matched is not None:
+            result[section["key"]] = {"matched_unit_type": matched, "method": method}
+            logging.info(
+                f"[UNIT_MULTIPLY] [{context}] section \"{section['title']}\" → matched {matched} ({method})"
+            )
+        else:
+            leftovers.append(section)
+
+    # Stage 3: ONE batched LLM call for everything rules + area left unresolved.
+    if leftovers:
+        logging.info(f"[UNIT_MULTIPLY] [{context}] {len(leftovers)} section(s) unresolved by rules/area → batched LLM")
+        llm_matches = _match_leftovers_llm(credentials, client_ip_address, leftovers, unit_types, context)
+        for section in leftovers:
+            matched = llm_matches.get(section["key"])
+            if matched is not None:
+                result[section["key"]] = {"matched_unit_type": matched, "method": "llm"}
+                logging.info(
+                    f"[UNIT_MULTIPLY] [{context}] section \"{section['title']}\" → matched {matched} (llm)"
+                )
+            else:
+                result[section["key"]] = {"matched_unit_type": None, "method": "none"}
+                logging.info(
+                    f"[UNIT_MULTIPLY] [{context}] section \"{section['title']}\" → no match, will default ×1"
+                )
+
+    return result
+
+
+def _num(value):
+    """Numeric value or 0 (booleans and non-numbers excluded)."""
+    if isinstance(value, bool):
+        return 0
+    return value if isinstance(value, (int, float)) else 0
+
+
+def _accumulate_scaled_takeoff(accumulator, takeoff, count):
+    """Add one section's takeoff (scaled by `count`) into the project accumulator.
+    Mirrors the compute_takeoff shape: total.{roof,wall} + per_drywall.{roof,wall}
+    .<type>.<numeric fields>. Non-numeric fields are ignored."""
+    total = takeoff.get("total") or {}
+    for surface in ("roof", "wall"):
+        accumulator["total"][surface] += _num(total.get(surface, 0)) * count
+    per_drywall = takeoff.get("per_drywall") or {}
+    for surface in ("roof", "wall"):
+        for drywall_type, fields in (per_drywall.get(surface) or {}).items():
+            bucket = accumulator["per_drywall"][surface].setdefault(drywall_type, {})
+            for field, value in (fields or {}).items():
+                numeric = _num(value)
+                if numeric or field in bucket:
+                    bucket[field] = bucket.get(field, 0) + numeric * count
+
+
+def _round_takeoff(accumulator):
+    """Round the accumulated project total for display (matches compute_takeoff)."""
+    for surface in ("roof", "wall"):
+        accumulator["total"][surface] = round(accumulator["total"][surface], 2)
+        for fields in accumulator["per_drywall"][surface].values():
+            for field in fields:
+                fields[field] = round(fields[field], 2)
+
+
+def summarize_unit_counts(credentials, client_ip_address, drywall_takeoff_all, unit_counts_payload, project_id, plan_id):
+    """Build the additive multi-family rollup for summarize_takeoff_all (item 8).
+
+    Matches each collected section (from drywall_takeoff_all) to a resolved unit
+    type, multiplies its takeoff by the resolved count (unmatched → ×1), and sums
+    into a project total. Returns a summary dict to attach to the response; the
+    caller's existing payload is not modified. Section area is passed to the matcher
+    ONLY if already present on the row (no new extraction) — otherwise absent.
+    """
+    context = f"project={project_id} plan={plan_id}"
+    unit_types = (unit_counts_payload or {}).get("unit_counts") or []
+    counts_by_type = {u["unit_type"]: u.get("count", 1) for u in unit_types}
+    logging.info(
+        f"[UNIT_MULTIPLY] [{context}] multiplier START — sections={len(drywall_takeoff_all)} "
+        f"resolved_source={(unit_counts_payload or {}).get('source', 'none_found')} unit_types={len(unit_types)}"
+    )
+
+    sections = [
+        {
+            "key": (row.get("page_number"), row.get("page_section_number")),
+            "title": str(row.get("page_section_number")),
+            "area": row.get("area"),   # present only if the row already carries it
+        }
+        for row in drywall_takeoff_all
+    ]
+    matches = match_sections_to_unit_types(credentials, client_ip_address, sections, unit_types, project_id, plan_id)
+
+    project_total = {"total": {"roof": 0.0, "wall": 0.0}, "per_drywall": {"roof": {}, "wall": {}}}
+    section_rollup = []
+    applied = False
+    for row in drywall_takeoff_all:
+        key = (row.get("page_number"), row.get("page_section_number"))
+        match = matches.get(key, {"matched_unit_type": None, "method": "none"})
+        matched_type = match["matched_unit_type"]
+        count = counts_by_type.get(matched_type, 1) if matched_type is not None else 1
+        if count != 1:
+            applied = True
+        takeoff = row.get("takeoff")
+        takeoff = json.loads(takeoff) if isinstance(takeoff, str) else (takeoff or {})
+        _accumulate_scaled_takeoff(project_total, takeoff, count)
+        section_rollup.append({
+            "page_number": row.get("page_number"),
+            "page_section_number": row.get("page_section_number"),
+            "matched_unit_type": matched_type,
+            "count": count,
+            "method": match["method"],
+        })
+        # [UNIT_MULTIPLY LOG] — item 12. The lifted line logged only
+        # `section "X" → <type> × <count>`. This states all three required facts
+        # explicitly — section title, matched type, and the count actually
+        # APPLIED to that section — plus the match method, so a ×1 caused by "no
+        # match" is distinguishable in logs from a ×1 that is the type's real
+        # resolved count. Behaviour is unchanged; this is logging only.
+        logging.info(
+            f"[UNIT_MULTIPLY] [{context}] section \"{row.get('page_section_number')}\" "
+            f"(page={row.get('page_number')}) → matched_type={matched_type or 'NO MATCH'} "
+            f"(method={match['method']}) → count_applied=×{count}"
+            f"{'' if matched_type is not None else ' [D13 default]'}"
+        )
+
+    _round_takeoff(project_total)
+    provenance = (unit_counts_payload or {}).get("provenance") or {}
+    summary = {
+        "applied": applied,   # False => every section ×1 (single-family / no counts)
+        "resolver": {
+            "source": (unit_counts_payload or {}).get("source", "none_found"),
+            "total_units": (unit_counts_payload or {}).get("total_units"),
+            "source_form": provenance.get("source_form"),
+            "source_pages": provenance.get("source_pages"),
+            "detection_path": provenance.get("detection_path"),
+            "disagreement": provenance.get("disagreement"),
+        },
+        "sections": section_rollup,
+        "project_total": project_total,
+    }
+    logging.info(
+        f"[UNIT_MULTIPLY] [{context}] ROLLUP applied={applied} sections={len(section_rollup)} "
+        f"project_total wall={project_total['total']['wall']} roof={project_total['total']['roof']}"
+    )
+    return summary
+
+

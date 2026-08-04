@@ -13,6 +13,7 @@ from collections import defaultdict
 from functools import partial
 import requests
 from requests.adapters import HTTPAdapter
+import httpx
 from contextlib import asynccontextmanager
 from geopy import Nominatim
 from fastapi import FastAPI, Request
@@ -81,6 +82,8 @@ from helper import (
     is_session_active,
     lock_user,
     unlock_user,
+    summarize_unit_counts,
+    load_unit_count_resolver_ID_token,
 )
 from policy import AccessControlService
 from prompts import VISUAL_GROUNDING_DETECTOR, SLOPED_CEILING_CHOICES
@@ -574,6 +577,80 @@ def floorplan_to_structured_2d(
         ),
     )
     return response.raise_for_status()
+
+
+def _is_multifamily_project_type(project_type):
+    """True when projects.project_type denotes multi-family (D4a).
+
+    The column is `projects.project_type` (main.py:502 in the insert_project
+    INSERT; PayloadProject.project_type at main.py:719). It is free text supplied
+    by the EXISTING frontend selector, and the exact literal it sends could not be
+    verified from the repo — nothing in the codebase constrains or enumerates the
+    value, and the DB was not reachable during the build. This predicate is
+    therefore tolerant: it normalises punctuation/case and accepts the recognised
+    multi-family spellings. Reported in MF_REBUILD_REPORT.md as an assumption to
+    confirm against real rows.
+
+    Matches:  MULTI_FAMILY, Multi-Family, multi family, MULTIFAMILY, MF
+    Rejects:  SINGLE_FAMILY, Commercial, None, ''
+    """
+    normalized = re.sub(r"[^a-z0-9]+", " ", (project_type or "").lower()).strip()
+    if normalized in ("mf", "multi family", "multifamily"):
+        return True
+    return "multi" in normalized and "family" in normalized
+
+
+async def trigger_unit_count_resolver(project_id, plan_id, user_id):
+    """Fire-and-forget trigger for the unit-count-resolver service (D5b).
+
+    Placement: end of /floorplan_to_preview, immediately before the 200 response —
+    i.e. once page classification is persisted and the pages are ready for the
+    frontend. See the "D5b rationale revised" section of MF_REBUILD_REPORT.md for
+    why this is NOT "after bounding boxes persist" (bounding boxes are not part of
+    the automatic upload phase at all).
+
+    Conditions: the project is multi-family AND MF_RESOLVER_ENABLED != false.
+    Contract: this must NEVER affect the upload flow. Every failure path —
+    missing env var, DB error, auth error, timeout, non-2xx — is logged and
+    swallowed. Nothing is raised, and nothing is awaited beyond the 5s timeout.
+    """
+    context = f"project={project_id} plan={plan_id}"
+    try:
+        # MF_RESOLVER_ENABLED gates the trigger. Default = enabled; unset behaves
+        # as enabled. Only "false"/"0"/"no" (case-insensitive) disable it.
+        if os.environ.get("MF_RESOLVER_ENABLED", "").strip().lower() in ("false", "0", "no"):
+            logging.info(f"[UNIT_COUNTS] [{context}] resolver DISABLED via MF_RESOLVER_ENABLED — not triggered")
+            return
+
+        resolver_url = os.environ.get("UNIT_COUNT_RESOLVER_URL", "").strip()
+        if not resolver_url:
+            logging.warning(f"[UNIT_COUNTS] [{context}] UNIT_COUNT_RESOLVER_URL not set — resolver not triggered")
+            return
+
+        query = f"SELECT project_type FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} WHERE LOWER(project_id) = LOWER(%s);"
+        rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id,), fetch=True))
+        project_type = rows[0]["project_type"] if rows else None
+        if not _is_multifamily_project_type(project_type):
+            logging.info(
+                f"[UNIT_COUNTS] [{context}] project_type={project_type!r} is not multi-family — "
+                f"resolver not triggered (single-family path unchanged)"
+            )
+            return
+
+        id_token = await run_in_threadpool(partial(load_unit_count_resolver_ID_token, CREDENTIALS, resolver_url))
+        async with httpx.AsyncClient(timeout=5) as client:
+            response = await client.post(
+                f"{resolver_url}/resolve_unit_counts",
+                headers={"Authorization": f"Bearer {id_token}", "Content-Type": "application/json"},
+                json=dict(project_id=project_id, plan_id=plan_id, user_id=user_id),
+            )
+        logging.info(
+            f"[UNIT_COUNTS] [{context}] project_type={project_type!r} — resolver TRIGGERED "
+            f"(HTTP {response.status_code})"
+        )
+    except Exception as e:
+        # Deliberately broad: the upload flow must never depend on the resolver.
+        logging.warning(f"[UNIT_COUNTS] [{context}] resolver trigger FAILED (contained, upload unaffected): {e}")
 
 
 async def floorplan_to_preview_pages(
@@ -1313,6 +1390,13 @@ async def floorplan_to_preview(request: Request):
     )
 
     logging.info("SYSTEM: Preview generated Successfully")
+
+    # D5b — Unit-Count Resolver trigger. Fires here, at the end of the preview
+    # path, because this is the point where page classification is persisted and
+    # the pages are ready for the frontend. Fire-and-forget: MF projects only,
+    # 5s timeout, all exceptions contained (see trigger_unit_count_resolver).
+    await trigger_unit_count_resolver(project_id, plan_id, user_id)
+
     return respond_with_UI_payload(payload_preview)
 
 
@@ -2815,7 +2899,27 @@ async def summarize_takeoff_all(request: Request):
             drywall_takeoff.pop("model_2d")
             drywall_takeoff_all.append(drywall_takeoff)
 
-    return respond_with_UI_payload(jsonable_encoder({"drywall_takeoff_all": drywall_takeoff_all}))
+    # Multi-family unit-count rollup (D12/D13): ADDITIVE. "drywall_takeoff_all" is
+    # unchanged. If unit_counts is {} / missing (single-family, or the resolver
+    # found nothing / failed / hasn't finished), every section multiplies ×1 and the
+    # numbers equal today's. Guarded so any failure falls back to exactly the prior
+    # response. Lifted from feat/multifamily xtimator-3d/main.py:2380-2398.
+    payload = {"drywall_takeoff_all": drywall_takeoff_all}
+    try:
+        unit_counts_query = f"SELECT unit_counts FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);"
+        unit_counts_rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, unit_counts_query, params=(project_id, plan_id), fetch=True))
+        unit_counts_payload = dict()
+        if unit_counts_rows:
+            unit_counts_raw = unit_counts_rows[0]["unit_counts"]
+            unit_counts_payload = json.loads(unit_counts_raw) if isinstance(unit_counts_raw, str) else (unit_counts_raw or dict())
+        resolver_ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
+        payload["unit_count_summary"] = await run_in_threadpool(partial(
+            summarize_unit_counts, CREDENTIALS, resolver_ip_address, drywall_takeoff_all, unit_counts_payload, project_id, plan_id
+        ))
+    except Exception as e:
+        logging.warning(f"[UNIT_MULTIPLY] Unit-count summary skipped (non-regression fallback): {e}")
+
+    return respond_with_UI_payload(jsonable_encoder(payload))
 
 
 @app.get("/insert_templates")
