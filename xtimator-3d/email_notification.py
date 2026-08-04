@@ -27,7 +27,7 @@ def send_email(access_token, sender_email, recipient_email, subject, body_conten
             "body": {"contentType": "HTML", "content": body_content},
             "toRecipients": [{"emailAddress": {"address": recipient_email}}],
         }
-    },
+    }
     if attachment_path:
         mime_type, _ = mimetypes.guess_type(attachment_path)
         if mime_type is None:
