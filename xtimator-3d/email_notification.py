@@ -21,6 +21,13 @@ def load_access_token(tenant_id, client_id, client_secret):
     return response.json()["access_token"]
 
 def send_email(access_token, sender_email, recipient_email, subject, body_content, attachment_path=None):
+    message_payload={
+        "message": {
+            "subject": subject,
+            "body": {"contentType": "HTML", "content": body_content},
+            "toRecipients": [{"emailAddress": {"address": recipient_email}}],
+        }
+    },
     if attachment_path:
         mime_type, _ = mimetypes.guess_type(attachment_path)
         if mime_type is None:
@@ -32,6 +39,14 @@ def send_email(access_token, sender_email, recipient_email, subject, body_conten
             "contentType": mime_type,
             "contentBytes": base64.b64encode(attachment_bytes).decode("utf-8"),
         }
+        message_payload={
+            "message": {
+                "subject": subject,
+                "body": {"contentType": "HTML", "content": body_content},
+                "toRecipients": [{"emailAddress": {"address": recipient_email}}],
+                "attachments": [attachment],
+            }
+        }
     GRAPH_SENDMAIL_URL = f"https://graph.microsoft.com/v1.0/users/{sender_email}/sendMail"
     response = requests.post(
         GRAPH_SENDMAIL_URL,
@@ -39,13 +54,7 @@ def send_email(access_token, sender_email, recipient_email, subject, body_conten
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json",
         },
-        json={
-            "message": {
-                "subject": subject,
-                "body": {"contentType": "HTML", "content": body_content},
-                "toRecipients": [{"emailAddress": {"address": recipient_email}}],
-            }
-        },
+        json=message_payload,
     )
 
     if response.status_code != 202:
