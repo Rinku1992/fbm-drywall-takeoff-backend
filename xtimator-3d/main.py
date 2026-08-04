@@ -582,17 +582,27 @@ def floorplan_to_structured_2d(
 def _is_multifamily_project_type(project_type):
     """True when projects.project_type denotes multi-family (D4a).
 
-    The column is `projects.project_type` (main.py:502 in the insert_project
-    INSERT; PayloadProject.project_type at main.py:719). It is free text supplied
-    by the EXISTING frontend selector, and the exact literal it sends could not be
-    verified from the repo — nothing in the codebase constrains or enumerates the
-    value, and the DB was not reachable during the build. This predicate is
-    therefore tolerant: it normalises punctuation/case and accepts the recognised
-    multi-family spellings. Reported in MF_REBUILD_REPORT.md as an assumption to
-    confirm against real rows.
+    TODO — CURRENTLY BYPASSED, DELIBERATELY. This predicate is dormant: the
+    MF_PROJECT_TYPE_GATE env var defaults to "false", so trigger_unit_count_resolver
+    fires for EVERY project and never calls this. Reason: the frontend MF/SF
+    selector D4a assumes does NOT exist yet, and `SELECT DISTINCT project_type
+    FROM projects` today returns only COMMERCIAL / RESIDENTIAL — neither of which
+    can express multi-family, so any gate built on this column would reject 100%
+    of projects and the resolver would never run. Interim decision by Ravikant
+    (2026-08-04): run for all project types until the selector exists; correctness
+    is protected by the D13 ×1 default for unmatched sections.
+
+    Keep this function. When the frontend lands and the column starts carrying a
+    multi-family value, set MF_PROJECT_TYPE_GATE=true to re-enable the check with
+    ZERO code change — then confirm the real literal matches the spellings below.
+
+    The column is `projects.project_type` (main.py:505 in the insert_project
+    INSERT; PayloadProject.project_type at main.py:796). It is free text, so this
+    predicate is tolerant: it normalises punctuation/case and accepts the
+    recognised multi-family spellings.
 
     Matches:  MULTI_FAMILY, Multi-Family, multi family, MULTIFAMILY, MF
-    Rejects:  SINGLE_FAMILY, Commercial, None, ''
+    Rejects:  SINGLE_FAMILY, COMMERCIAL, RESIDENTIAL, None, ''
     """
     normalized = re.sub(r"[^a-z0-9]+", " ", (project_type or "").lower()).strip()
     if normalized in ("mf", "multi family", "multifamily"):
@@ -609,7 +619,11 @@ async def trigger_unit_count_resolver(project_id, plan_id, user_id):
     why this is NOT "after bounding boxes persist" (bounding boxes are not part of
     the automatic upload phase at all).
 
-    Conditions: the project is multi-family AND MF_RESOLVER_ENABLED != false.
+    Conditions: MF_RESOLVER_ENABLED != false, AND — only when
+    MF_PROJECT_TYPE_GATE is on — the project is multi-family. The project-type
+    gate is OFF by default because the frontend MF/SF selector does not exist yet
+    (see _is_multifamily_project_type); today the resolver fires for every project.
+
     Contract: this must NEVER affect the upload flow. Every failure path —
     missing env var, DB error, auth error, timeout, non-2xx — is logged and
     swallowed. Nothing is raised, and nothing is awaited beyond the 5s timeout.
@@ -627,15 +641,33 @@ async def trigger_unit_count_resolver(project_id, plan_id, user_id):
             logging.warning(f"[UNIT_COUNTS] [{context}] UNIT_COUNT_RESOLVER_URL not set — resolver not triggered")
             return
 
-        query = f"SELECT project_type FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} WHERE LOWER(project_id) = LOWER(%s);"
-        rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id,), fetch=True))
-        project_type = rows[0]["project_type"] if rows else None
-        if not _is_multifamily_project_type(project_type):
+        # MF_PROJECT_TYPE_GATE — INTERIM. Default "false" = gate OFF = fire for
+        # every project, because the frontend MF/SF selector does not exist yet and
+        # projects.project_type only holds COMMERCIAL / RESIDENTIAL today (confirmed
+        # by SELECT DISTINCT). A gate on this column would reject every project and
+        # the resolver would never run. Set MF_PROJECT_TYPE_GATE=true once the
+        # selector ships to restore the D4a check — no code change needed.
+        # The query and the predicate below are intentionally KEPT, not deleted.
+        project_type_gate_on = os.environ.get("MF_PROJECT_TYPE_GATE", "false").strip().lower() in ("true", "1", "yes")
+        project_type = None
+        if project_type_gate_on:
+            query = f"SELECT project_type FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} WHERE LOWER(project_id) = LOWER(%s);"
+            rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id,), fetch=True))
+            project_type = rows[0]["project_type"] if rows else None
+            if not _is_multifamily_project_type(project_type):
+                logging.info(
+                    f"[UNIT_COUNTS] [{context}] trigger: project_type gate ON — "
+                    f"project_type={project_type!r} is not multi-family, NOT firing"
+                )
+                return
             logging.info(
-                f"[UNIT_COUNTS] [{context}] project_type={project_type!r} is not multi-family — "
-                f"resolver not triggered (single-family path unchanged)"
+                f"[UNIT_COUNTS] [{context}] trigger: project_type gate ON — "
+                f"project_type={project_type!r} is multi-family, firing"
             )
-            return
+        else:
+            logging.info(
+                f"[UNIT_COUNTS] [{context}] trigger: project_type gate OFF — firing for all projects"
+            )
 
         id_token = await run_in_threadpool(partial(load_unit_count_resolver_ID_token, CREDENTIALS, resolver_url))
         async with httpx.AsyncClient(timeout=5) as client:
@@ -645,8 +677,8 @@ async def trigger_unit_count_resolver(project_id, plan_id, user_id):
                 json=dict(project_id=project_id, plan_id=plan_id, user_id=user_id),
             )
         logging.info(
-            f"[UNIT_COUNTS] [{context}] project_type={project_type!r} — resolver TRIGGERED "
-            f"(HTTP {response.status_code})"
+            f"[UNIT_COUNTS] [{context}] resolver TRIGGERED (HTTP {response.status_code}, "
+            f"project_type_gate={'on' if project_type_gate_on else 'off'}, project_type={project_type!r})"
         )
     except Exception as e:
         # Deliberately broad: the upload flow must never depend on the resolver.

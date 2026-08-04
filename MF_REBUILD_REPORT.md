@@ -489,3 +489,69 @@ The test suites above cover pure logic only.
 6. Grace Commons for the scanned path and the serialized triage backoff.
 7. Decide the §5 question: should per-section rows expose scaled figures, or stay
    unscaled with only the project total scaled?
+
+---
+
+## 12. Addendum (2026-08-04) — project-type gate bypassed, trigger fires for ALL projects
+
+**Interim decision by Ravikant.** §2 of this report flagged the `projects.project_type`
+literal as unverified. It has now been checked with `SELECT DISTINCT project_type
+FROM projects`, and the finding invalidates the gate as designed:
+
+> **The column contains only `COMMERCIAL` and `RESIDENTIAL`.** The frontend MF/SF
+> selector that **D4a** assumes already exists **has not been built yet**.
+
+Neither value can express multi-family, so `_is_multifamily_project_type` rejects
+100% of real rows today (verified: both return `False`). Left as-is, the trigger
+would never fire for any project and the whole resolver path would be dead code
+in production.
+
+**Decision:** run the resolver for **every** project type until the frontend
+selector ships. Single-family / commercial safety is guaranteed by the **D13 ×1
+default** — a project with no resolvable unit counts stores `none_found` (or
+`extraction_failed`), `unit_counts` stays empty, every section multiplies ×1, and
+the takeoff equals today's exactly.
+
+### What changed
+
+`xtimator-3d/main.py:trigger_unit_count_resolver` — new env var
+**`MF_PROJECT_TYPE_GATE`**, default **`"false"`** (gate OFF):
+
+| `MF_PROJECT_TYPE_GATE` | Behaviour | Log line |
+|---|---|---|
+| unset / `false` / `0` / `no` **(default today)** | DB query skipped; fires for **all** projects | `trigger: project_type gate OFF — firing for all projects` |
+| `true` / `1` / `yes` | Original D4a check restored | `trigger: project_type gate ON — project_type=… is/is not multi-family` |
+
+The `SELECT project_type` query and `_is_multifamily_project_type` are **kept, not
+deleted** — the predicate is simply not called while the gate is off. When the
+frontend lands, flipping the env var to `true` restores the D4a behaviour with
+**zero code change**; the only follow-up is confirming the real MF literal matches
+the spellings the predicate accepts. A `TODO` at
+`_is_multifamily_project_type` records this, including today's actual DB values.
+
+`MF_RESOLVER_ENABLED` is unaffected and still the master off-switch: it is
+evaluated **before** the project-type gate, so `MF_RESOLVER_ENABLED=false` disables
+the trigger outright regardless of `MF_PROJECT_TYPE_GATE`.
+
+Gate parsing verified across 10 env-var spellings (unset, `''`, `false`, `FALSE`,
+`no`, `true`, `TRUE`, `1`, `yes`, `' True '`) — all resolve as intended, and the
+predicate still returns `False` for both `COMMERCIAL` and `RESIDENTIAL`.
+
+### Two consequences worth tracking
+
+1. **The resolver now runs on every upload, not a multi-family subset.** That is
+   the intent, but it multiplies the resolver's Vertex footprint by the full
+   project volume rather than the MF slice. D5c keeps each run small (vector path
+   = zero Gemini calls; scanned path = serialized batches; extraction = max 2
+   calls), so this should stay modest — but it is worth watching quota and cost
+   once deployed, since it was not the load profile D5a was sized against.
+
+2. **D13 protects unmatched sections, not mismatched ones.** The ×1 default makes
+   a *no-counts* project safe by construction. It does not protect a
+   non-residential project whose drawings happen to contain a schedule the
+   extractor reads as unit counts **and** whose section titles or areas then match
+   a resolved type. That requires two independent coincidences and the matcher is
+   built to return "no match" rather than force one (D14), so the risk is low —
+   but it is no longer zero the way a project-type gate would have made it. The
+   `[UNIT_MULTIPLY]` per-section log lines (§5) are how you would spot it: a
+   commercial project showing `count_applied=×N` for N > 1 is the signal.
