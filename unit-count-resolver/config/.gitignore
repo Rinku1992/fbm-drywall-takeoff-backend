@@ -1,0 +1,8 @@
+# gcp.yaml carries Cloud SQL + Vertex service-account key paths and the Azure
+# application secret. It is staged into the build context by the operator before
+# `docker build` (same convention as xtimator-page-classifier) and must NEVER be
+# committed — this repo already has credentials in its history that still need
+# rotation. This .gitignore also keeps the otherwise-empty config/ dir tracked so
+# the Dockerfile's `COPY config /app/config` has something to copy locally.
+gcp.yaml
+*.json

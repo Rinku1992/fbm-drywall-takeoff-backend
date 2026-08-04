@@ -1,0 +1,147 @@
+name: 'Manual UNIT-COUNT-RESOLVER Cloud Run Build and Deploy'
+
+# Copied from page_classifier.yml and adjusted for this service:
+#   - working-directory / image name / service name changed
+#   - the "Download checkpoint" step is REMOVED (no model weights here)
+#   - GPU flags (--gpu, --gpu-type) REMOVED
+#   - smaller CPU/memory; --no-cpu-throttling ADDED (see the deploy step comment)
+# Everything else — WIF auth, per-environment project/region/VPC selection,
+# --ingress internal, --no-allow-unauthenticated — is unchanged from the source
+# workflow so this service is deployed and secured exactly like its siblings.
+#
+# NOT RUN as part of the rebuild branch: deploy happens when access returns.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Select environment (dev, QA, uat, or prod)'
+        required: true
+        type: choice
+        options:
+          - dev
+          - QA
+          - uat
+          - prod
+
+jobs:
+  build-and-deploy:
+    name: 'Build, Push, and Deploy to Cloud Run'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    environment: ${{ github.event.inputs.environment }}
+    defaults:
+      run:
+        working-directory: unit-count-resolver
+
+    steps:
+      - name: 'Checkout Code'
+        uses: actions/checkout@v2
+
+      - name: 'Authenticate to Google Cloud'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ github.event.inputs.environment == 'QA' && vars.WIF_PROVIDER_QA || github.event.inputs.environment == 'uat' && vars.WIF_PROVIDER_UAT || github.event.inputs.environment == 'prod' && vars.WIF_PROVIDER_PROD || vars.WIF_PROVIDER_DEV }}
+          service_account: ${{ github.event.inputs.environment == 'QA' && vars.SERVICE_ACCOUNT_QA || github.event.inputs.environment == 'uat' && vars.SERVICE_ACCOUNT_UAT || github.event.inputs.environment == 'prod' && vars.SERVICE_ACCOUNT_PROD || vars.SERVICE_ACCOUNT_DEV }}
+
+      # Set GCP Project ID
+      - name: "Set GCP Project ID"
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
+            echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_QA }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "uat" ]; then
+            echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_UAT }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+            echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_PROD }}" >> $GITHUB_ENV
+          else
+            echo "GCP_PROJECT_ID=${{ vars.GCP_PROJECT_ID_DEV }}" >> $GITHUB_ENV
+          fi
+
+      # Set instance limits
+      - name: "Set Cloud Run instance limits"
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "dev" ]; then
+            echo "MIN_INSTANCES=1" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=5" >> $GITHUB_ENV
+          else
+            echo "MIN_INSTANCES=1" >> $GITHUB_ENV
+            echo "MAX_INSTANCES=10" >> $GITHUB_ENV
+          fi
+
+      #  Set dynamic region
+      - name: "Set Cloud Run region"
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "dev" ]; then
+            echo "REGION=us-central1" >> $GITHUB_ENV
+          else
+            echo "REGION=us-east4" >> $GITHUB_ENV
+          fi
+
+      - name: 'Set up Google Cloud SDK'
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: "Set Docker image path"
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+            echo "IMAGE_PATH=us-east4-docker.pkg.dev/prj-fbm-drywall-prod/fbm-drywall-prod-use4-repo/unit-count-resolver" >> $GITHUB_ENV
+            echo "DOCKER_REGISTRY=us-east4-docker.pkg.dev" >> $GITHUB_ENV
+          else
+            echo "IMAGE_PATH=gcr.io/${{ env.GCP_PROJECT_ID }}/unit-count-resolver" >> $GITHUB_ENV
+            echo "DOCKER_REGISTRY=gcr.io" >> $GITHUB_ENV
+          fi
+
+      - name: 'Build Docker Image'
+        run: |
+          docker build \
+          -t ${{ env.IMAGE_PATH }} \
+          .
+
+      - name: Docker Authentication
+        run: |
+          gcloud auth configure-docker ${{ env.DOCKER_REGISTRY }} --quiet
+
+      - name: "Set VPC Access Connector"
+        run: |
+          if [ "${{ github.event.inputs.environment }}" == "QA" ]; then
+            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_QA }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "uat" ]; then
+            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_UAT }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.environment }}" == "prod" ]; then
+            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_PROD }}" >> $GITHUB_ENV
+          else
+            echo "VPC_ACCESS_CONNECTOR=${{ vars.VPC_ACCESS_CONNECTOR_DEV }}" >> $GITHUB_ENV
+          fi
+
+      - name: 'Push Docker Image'
+        run: |
+          docker push ${{ env.IMAGE_PATH }}
+
+      # --no-cpu-throttling is REQUIRED, not cosmetic: this service returns 202
+      # and then does all of its work in a BackgroundTask. With the Cloud Run
+      # default (CPU throttled once the response is sent) that background job
+      # would be frozen the moment the 202 goes out and would never finish.
+      # drywall-takeoff-3d runs with cpu-throttling: false for the same reason.
+      - name: 'Deploy to Cloud Run'
+        run: |
+          gcloud run deploy unit-count-resolver \
+            --image ${{ env.IMAGE_PATH }} \
+            --platform managed \
+            --region ${{ env.REGION }} \
+            --project ${{ env.GCP_PROJECT_ID }} \
+            --service-account ${{ github.event.inputs.environment == 'QA' && vars.SERVICE_ACCOUNT_QA || github.event.inputs.environment == 'uat' && vars.SERVICE_ACCOUNT_UAT || github.event.inputs.environment == 'prod' && vars.SERVICE_ACCOUNT_PROD || vars.SERVICE_ACCOUNT_DEV }} \
+            --cpu 2 \
+            --memory 4Gi \
+            --min-instances ${{ env.MIN_INSTANCES }} \
+            --max-instances ${{ env.MAX_INSTANCES }} \
+            --concurrency 4 \
+            --execution-environment gen2 \
+            --no-cpu-throttling \
+            --timeout 1800 \
+            --ingress internal \
+            --vpc-connector ${{ env.VPC_ACCESS_CONNECTOR }} \
+            --vpc-egress all-traffic \
+            --no-allow-unauthenticated

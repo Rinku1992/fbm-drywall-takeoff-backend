@@ -1,0 +1,28 @@
+# unit-count-resolver — minimal dependency set.
+#
+# Deliberately a SUBSET of xtimator-3d/requirements.txt (same packages, same
+# unpinned style, except vertexai which xtimator-3d pins) so the lifted helpers
+# behave identically. Nothing for modelling/3D/CV is pulled in: this service only
+# reads a PDF, calls Gemini, and writes one JSONB column.
+
+# ─── Web service ──────────────────────────────────────────────
+fastapi
+uvicorn
+pydantic
+
+# ─── GCP: storage, Cloud SQL, Vertex ──────────────────────────
+google-cloud-storage
+cloud-sql-python-connector[pg8000]
+sqlalchemy
+pg8000
+vertexai==1.43.0
+google-auth
+
+# ─── PDF rendering + text layer (fitz) ────────────────────────
+pymupdf
+
+# ─── Region selection (load_nearest_region) ───────────────────
+geoip2
+
+# ─── Config loading (gcp.yaml) ────────────────────────────────
+ruamel-yaml
