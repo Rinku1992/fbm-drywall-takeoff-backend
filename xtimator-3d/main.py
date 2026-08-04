@@ -1735,6 +1735,8 @@ async def load_2d_all(request: Request):
         """
         if bool(is_admin) and is_admin.super:
             params = (project_id, plan_id, int(page_number),)
+        elif bool(is_admin) and is_admin.local:
+            params = (project_id, plan_id, int(page_number), peers,)
         else:
             params = (project_id, plan_id, int(page_number), peers, region_names,)
     else:
@@ -1757,6 +1759,8 @@ async def load_2d_all(request: Request):
         """
         if bool(is_admin) and is_admin.super:
             params = (project_id, plan_id,)
+        elif bool(is_admin) and is_admin.local:
+            params = (project_id, plan_id, peers,)
         else:
             params = (project_id, plan_id, peers, region_names,)
     rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
