@@ -29,6 +29,8 @@ def send_email(access_token, sender_email, recipient_email, subject, body_conten
         }
     }
     if attachment_path:
+        with open(attachment_path, "rb") as f:
+            attachment_bytes = base64.b64encode(f.read()).decode("utf-8")
         mime_type, _ = mimetypes.guess_type(attachment_path)
         if mime_type is None:
             mime_type = "application/octet-stream"
