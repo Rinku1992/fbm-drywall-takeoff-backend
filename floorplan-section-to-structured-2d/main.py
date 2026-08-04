@@ -345,13 +345,13 @@ async def floorplan_section_to_structured_2d(request: Request):
         page_number,
         output_path=f"/tmp/{project_id}/{plan_id}/{user_id}/floor_plan_wall_segmented_{str(page_number).zfill(4)}.png"
     )
-    query = f"SELECT project_location_pincode FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} WHERE LOWER(project_id) = LOWER(%s)"
+    query = f"SELECT project_location, project_location_pincode FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} WHERE LOWER(project_id) = LOWER(%s)"
     query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id,), fetch=True))
-    project_location_pincode = query_output[0]["project_location_pincode"]
+    project_location, project_location_pincode = query_output[0]["project_location"], query_output[0]["project_location_pincode"]
     geolocator = Nominatim(user_agent="xtimator_app")
-    project_address = project_location_pincode
-    if geolocator.geocode(project_location_pincode, language="en"):
-        project_state, project_country = geolocator.geocode(project_location_pincode, language="en").address.rsplit(',', 2)[1:]
+    project_address = f"{project_location_pincode}, {project_location}"
+    if geolocator.geocode(f"{project_location_pincode}, {project_location}", language="en"):
+        project_state, project_country = geolocator.geocode(f"{project_location_pincode}, {project_location}", language="en").address.rsplit(',', 2)[1:]
         project_address = f"{project_state} {project_location_pincode}, {project_country}"
     vertex_ai_clients = FloorPlan2D.load_vertex_ai_clients(CREDENTIALS, ip_address, DRYWALL_TEMPLATES, project_address)
     logging.info(f"SYSTEM: Extracting structured model from SECTION: {bounding_box_offset["title"]} / OFFSET: {bounding_box_offset} in PAGE: {page_number}")
