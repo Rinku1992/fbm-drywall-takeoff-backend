@@ -15,7 +15,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from contextlib import asynccontextmanager
 from geopy import Nominatim
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, File, Form, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.encoders import jsonable_encoder
@@ -25,6 +25,8 @@ from pydantic_core import ValidationError
 from concurrent.futures import ThreadPoolExecutor
 import traceback
 import asyncio
+import tempfile
+import shutil
 
 from google.cloud.storage import Client as CloudStorageClient
 from google.cloud import secretmanager
@@ -3356,22 +3358,40 @@ async def unlock_user_account(request: Request):
 
 
 @app.post("/email_support_center")
-async def email_support_center(request: Request):
+async def email_support_center(
+    request: Request,
+    user_id: str = Form(None),
+    subject: str = Form(None),
+    content: str = Form(None),
+    attachment: UploadFile | None = File(None),
+):
     enable_logging_on_stdout()
     parameters = dict(request.query_params)
     try:
         body = await request.json()
     except Exception:
         body = dict()
-    user_id = parameters.get("user_id") or body.get("user_id")
-    subject = parameters.get("subject") or body.get("subject")
-    content = parameters.get("content") or body.get("content")
+    user_id = parameters.get("user_id") or body.get("user_id") or user_id
+    subject = parameters.get("subject") or body.get("subject") or subject
+    content = parameters.get("content") or body.get("content") or content
+
+    attachment_path = None
+    if attachment is not None:
+        suffix = Path(attachment.filename).suffix
+        with tempfile.NamedTemporaryFile(
+            delete=False,
+            suffix=suffix,
+        ) as tmp:
+            shutil.copyfileobj(attachment.file, tmp)
+            attachment_path = tmp.name
+
     trigger_support(
         CREDENTIALS,
         user_id,
         CREDENTIALS["Email"]["support_center_id"],
         subject,
         content,
+        attachment_path=attachment_path,
     )
     logging.info("SYSTEM: Support email forwarded")
 
