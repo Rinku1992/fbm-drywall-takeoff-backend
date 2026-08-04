@@ -128,6 +128,7 @@ def trigger_support(
     recipient,
     subject,
     message,
+    attachment_path=None,
 ):
     try:
         body_content = f"""
@@ -142,7 +143,7 @@ def trigger_support(
             credentials["Email"]["client_id"],
             credentials["Email"]["client_secret"]
         )
-        send_email(access_token, sender, recipient, subject, body_content)
+        send_email(access_token, sender, recipient, subject, body_content, attachment_path=attachment_path)
         logging.info("SYSTEM: Email triggered successfully.")
     except Exception as e:
         logging.error(f"SYSTEM: An error occurred while sending support email: {e}")
