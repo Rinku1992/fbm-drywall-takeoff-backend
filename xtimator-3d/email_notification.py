@@ -20,7 +20,15 @@ def load_access_token(tenant_id, client_id, client_secret):
     response.raise_for_status()
     return response.json()["access_token"]
 
-def send_email(access_token, sender_email, recipient_email, subject, body_content, attachment_path=None):
+def send_email(
+    access_token,
+    sender_email,
+    recipient_email,
+    subject,
+    body_content,
+    attachment_path=None,
+    attachment_name=None
+):
     message_payload={
         "message": {
             "subject": subject,
@@ -37,7 +45,7 @@ def send_email(access_token, sender_email, recipient_email, subject, body_conten
 
         attachment = {
             "@odata.type": "#microsoft.graph.fileAttachment",
-            "name": Path(attachment_path).name,
+            "name": attachment_name if attachment_name else Path(attachment_path).name,
             "contentType": mime_type,
             "contentBytes": attachment_bytes,
         }
@@ -131,6 +139,7 @@ def trigger_support(
     subject,
     message,
     attachment_path=None,
+    attachment_name=None,
 ):
     try:
         body_content = f"""
@@ -145,7 +154,15 @@ def trigger_support(
             credentials["Email"]["client_id"],
             credentials["Email"]["client_secret"]
         )
-        send_email(access_token, sender, recipient, subject, body_content, attachment_path=attachment_path)
+        send_email(
+            access_token,
+            sender,
+            recipient,
+            subject,
+            body_content,
+            attachment_path=attachment_path,
+            attachment_name=attachment_name
+        )
         logging.info("SYSTEM: Email triggered successfully.")
     except Exception as e:
         logging.error(f"SYSTEM: An error occurred while sending support email: {e}")
