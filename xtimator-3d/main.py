@@ -3587,6 +3587,7 @@ async def email_support_center(
         subject,
         content,
         attachment_path=attachment_path,
+        attachment_name=attachment.filename,
     )
     logging.info("SYSTEM: Support email forwarded")
 
