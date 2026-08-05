@@ -758,6 +758,10 @@ async def trigger_email_notification(
     notify_group=False,
 ):
     message = f"Plan: {plan_id} | Page Number: {page_number} | Extraction: {status}"
+    query = f"""
+        SELECT project_name FROM FROM {credentials["CloudSQL"]["table_name_projects"]} WHERE LOWER(project_id) = LOWER(%s) 
+    """
+    project_name = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id,), fetch=True))
     if notify_group:
         query = f"""
             WITH visible_organizations AS (
