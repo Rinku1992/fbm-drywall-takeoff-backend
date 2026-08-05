@@ -1235,6 +1235,10 @@ async def load_plan_pages(request: Request):
             peers = await access_control.load_organization_users(user_id)
             where_clause = "LOWER(pl.user_id) = ANY(%s)"
             params = (project_id, plan_id, peers,)
+            peers_partner = await access_control.load_regional_users_partner_organizations(user_id)
+            region_names = await access_control.load_user_region_names(user_id)
+            where_clause_partner = "LOWER(pl.user_id) = ANY(%s) AND LOWER(pr.\"FBM_branch\") = ANY(%s)"
+            params_partner = (project_id, plan_id, peers_partner, region_names,)
 
     else:
         peers = await access_control.load_regional_users(user_id)
@@ -1253,12 +1257,29 @@ async def load_plan_pages(request: Request):
             AND {where_clause}
     """
     rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
+    rows_partner = list()
+    if is_admin.local:
+        query = f"""
+            SELECT pl.*
+            FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} pl
+            JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
+                ON LOWER(pl.project_id) = LOWER(pr.project_id)
+            WHERE
+                LOWER(pl.project_id) = LOWER(%s)
+                AND LOWER(pl.plan_id) = LOWER(%s)
+                AND {where_clause_partner}
+        """
+        rows_partner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params_partner, fetch=True))
 
-    if not rows:
+    if not rows and not rows_partner:
         return respond_with_UI_payload(dict(plan_metadata=dict(), plan_pages=list()))
 
-    row = rows[0]
-    plan_metadata = dict(row)
+    if rows:
+        row = rows[0]
+        plan_metadata = dict(row)
+    if is_admin.local and rows_partner:
+        row_partner = rows_partner[0]
+        plan_metadata = dict(row_partner)
 
     query = f"""
         SELECT
