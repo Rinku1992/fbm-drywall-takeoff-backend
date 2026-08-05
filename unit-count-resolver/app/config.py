@@ -46,7 +46,13 @@ UNIT_COUNT_TRIAGE_BACKOFF_SECONDS = float(os.environ.get("UNIT_COUNT_TRIAGE_BACK
 
 # Extraction (high-res) render DPI and how many candidate pages get sent (D7).
 UNIT_COUNT_EXTRACTION_DPI = int(os.environ.get("UNIT_COUNT_EXTRACTION_DPI", "200"))
-UNIT_COUNT_MAX_CANDIDATES = int(os.environ.get("UNIT_COUNT_MAX_CANDIDATES", "3"))
+# 3 -> 5 on 2026-08-05. Cheap insurance on top of the schedule-header signal: if
+# the right page ranks 4th or 5th rather than 1st, extraction still sees it and
+# the prompt's candidate-page tie-break can pick it. Still bounded — D7's point is
+# that high-res cost scales with the ANSWER, not the document, and 5 pages of a
+# 112-page set is well inside that. Raising this materially increases the
+# extraction payload (5 capped renders ~= 11MP each), so do not treat it as free.
+UNIT_COUNT_MAX_CANDIDATES = int(os.environ.get("UNIT_COUNT_MAX_CANDIDATES", "5"))
 
 # BUG FIX 3 — render cap. Aurora's 113M-pixel page renders broke extraction and
 # trip PIL's ~89M-pixel DecompressionBombError. Cap the LONGEST SIDE of any

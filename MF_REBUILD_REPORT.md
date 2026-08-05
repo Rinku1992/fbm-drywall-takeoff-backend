@@ -683,3 +683,138 @@ flagged with the exact reason string; the true 8/18/8/11=45 **not** flagged;
 no-total and prose-only cases correctly skipped), and 19 on the preview (10
 env-var spellings, count=1 no-op, float/int scaling, sheet integrality,
 non-numeric fields untouched, shape preserved). `compileall` clean on both folders.
+
+---
+
+## 14. Addendum (2026-08-05) — ranking bug: why the schedule page was never sent
+
+The Aurora unit schedule is at **fitz index 1 (viewer page 2)**, but all three
+live runs sent candidates `[2, 11, 12]`. Index 1 was never given to the extractor,
+so §13.1's prompt fix could not possibly have helped on this document — it was
+choosing among pages that did not contain the schedule.
+
+### 14.1 There is no indexing bug
+
+Traced hop by hop; the same 0-based integer is carried end to end with no
+arithmetic:
+
+| Hop | file:line |
+|---|---|
+| fitz iteration | `resolver.py:207` — `for page_index in range(n_pages)` |
+| text read | `resolver.py:209` — `doc.load_page(page_index)` |
+| scorer records | `resolver.py:221` — `{"page_number": page_index, ...}` |
+| log prints | `resolver.py:241` — `f"p{r['page_number']}"` |
+| candidates built | `resolver.py:488` — `[p["page_number"] for p in ...]` |
+| render passes back | `resolver.py:617-619` — `doc.load_page(page_index)` |
+
+So the logged `p2` is **fitz index 2 = viewer page 3**, not viewer page 2. The
+candidates `[2, 11, 12]` are viewer pages 3, 12, 13. Index 1 lost on score.
+
+### 14.2 Root cause — cap saturation collapsed the ranking into a tie
+
+Cap saturation across the 112-page set:
+
+| signal | cap | pages at/over cap |
+|---|---|---|
+| `number_rows` | 15 | **104 / 112** |
+| `keyword_hits` | 8 | 23 / 112 |
+| `unit_type_hits` | 12 | 13 / 112 |
+| **all three** | — | **12 / 112 → score exactly 4.5** |
+
+Twelve pages tied at the 4.5 maximum. The sort is `(-score, page_number)`
+(`resolver.py:238`), so the tie broke on **lowest page index**, and the top three
+were simply the three lowest-numbered saturated pages. Ranking had degenerated
+into *"the first three pages that max out every counter."*
+
+**This also answers "can 140 and 16 number-runs really tie?" — yes.** Both exceed
+the cap of 15, so both clamp to 1.0.
+
+The schedule page scored **3.8333 (rank 14)**: `ut=8, kw=21, nr=214`. Its `kw` and
+`nr` were far above their caps and contributed nothing extra, while `ut=8` fell
+short of the cap of 12.
+
+### 14.3 Why `ut` was only 8 — the regex prefers compliance tables
+
+`_UNIT_TYPE_RE` matches `1BR`, `STUDIO`, `n BED`, `n BA`, `UNIT TYPE`,
+`TYPE <A-Z0-9>`, `UNIT`. It does **not** match `VISTA` — which appears **64 times**
+on index 1. Its 8 matches were
+`['TYPES','TYPE\nGFA','TYPE\nGFA','UNIT','UNIT','UNIT','UNIT','TYPE OF']`.
+
+Indexes 11–14 are ICC A117.1 accessibility sheets, dense with `TYPE A` / `TYPE B` /
+`TYPE C`, scoring `ut=27`. **The unit-type regex systematically favours
+accessibility compliance tables over a real schedule whose types carry marketing
+names.** The extractor's wrong pick in §13.1 was the downstream symptom of this.
+
+Ground truth on index 1, read straight from the text layer:
+```
+TYPE  GFA (SF)  NO. UNITS  SUB-TOTAL (SF)
+VISTA I    1,872  X   8  = 14,976
+VISTA II   1,671  X  18  = 30,078
+VISTA III  1,791  X   8  = 14,328
+VISTA IV   1,260  X  11  = 13,860
+SUB-TOTAL                45
+```
+
+### 14.4 What was rejected, with measurements
+
+Both intuitive fixes were tested against the real PDF and **both fail**:
+
+| Option | top-3 | schedule rank | verdict |
+|---|---|---|---|
+| Uncap the signals | `[20, 23, 26]` | **7** | does not fix |
+| Widen candidates 3→5, no scoring change | `[2, 11, 12, 13, 14]` | **14** | does not fix |
+| Uncap **and** widen to 5 | `[20, 23, 26, 55, 53]` | **7** | does not fix |
+
+Uncapping just replaces one bad proxy with another: pages 20/23/26 are dense
+schedule-ish sheets with hundreds of number-rows and no unit counts.
+
+### 14.5 The fix — a schedule-header signal
+
+`_UNIT_SCHEDULE_HEADER_RE` (`resolver.py:89`) matches header-row vocabulary that a
+genuine unit mix/schedule has and a compliance table does not: `NO. UNITS`,
+`UNIT MIX`, `UNIT SCHEDULE`, `UNIT TABULATION`, `GFA`, `SUB-TOTAL`, `TOTAL UNITS`.
+Weighted **3.0** (capped at 6 hits) — the largest weight in the scorer, chosen to
+break the 4.5 tie. Existing caps and weights are unchanged.
+
+`UNIT_COUNT_MAX_CANDIDATES` 3 → **5** (`config.py`) as cheap insurance, on top of
+the scoring change rather than instead of it.
+
+Per-page features now log `sch=` alongside `ut/kw/nr` (`resolver.py:246`), and the
+log comment records that `p<N>` is the 0-indexed fitz page — so the next wrong
+pick is diagnosable from Cloud logs without a local rerun, which this
+investigation required.
+
+**Measured result on Aurora:**
+
+| rank | fitz | viewer | score | ut | kw | nr | sch | |
+|---|---|---|---|---|---|---|---|---|
+| 1 | **1** | **2** | **6.8333** | 8 | 21 | 214 | **9** | **the unit schedule** |
+| 2 | 2 | 3 | 5.0 | 12 | 34 | 140 | 1 | |
+| 3 | 11 | 12 | 5.0 | 27 | 30 | 16 | 1 | A117.1 sheet |
+| 4 | 12 | 13 | 5.0 | 27 | 30 | 16 | 1 | A117.1 sheet |
+| 5 | 13 | 14 | 5.0 | 27 | 30 | 16 | 1 | A117.1 sheet |
+
+Index 1 goes **14th → 1st**, the top score is now **unique** (12-way tie broken),
+margin **1.8333**. Candidates become `[1, 2, 11, 12, 13]` (viewer 2, 3, 12, 13, 14).
+
+### 14.6 Deliberately NOT done, and what is still unproven
+
+- **No compliance penalty.** A negative weight on `A117.1`/`ICC`/`TYPE A/B/C
+  DWELLING` also worked in testing (it pushed the A117.1 sheets out of the top 5
+  entirely), but the extractor prompt already rejects compliance tables
+  downstream. Penalising at rank as well would double the backfire risk for a
+  real schedule that shares a sheet with accessibility notes, for no extra
+  coverage. Decision by Ravikant.
+- **Consequence of that choice:** three A117.1 sheets are still in the candidate
+  list at ranks 3–5. Correctness now depends on the extractor prompt doing its
+  job — the two fixes are coupled, not independent.
+- **Tuned on ONE document.** `GFA` and `SUB-TOTAL` may be this architect's house
+  style. Aurora is the only PDF available locally (the repo contains no other),
+  so this is n=1. **It must be checked against Grace Commons, Xanthia and
+  Humboldt** — all scanned, so they exercise the triage path rather than this
+  scorer, but their schedules will still test the header vocabulary once
+  extracted.
+- **The `_UNIT_TYPE_RE` blind spot is not fixed.** It still cannot see
+  marketing-name unit types like `VISTA`. The schedule-header signal routes
+  around that rather than solving it; a set whose schedule lacks all of the
+  header phrases would still rank poorly.

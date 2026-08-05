@@ -1,0 +1,9 @@
+# Reference / test plan sets. These are large customer PDFs used for local
+# diagnosis (e.g. the Aurora Westlake set used to debug unit-count ranking).
+# They must never be committed — they are tens of MB and are customer documents.
+*.pdf
+*.PDF
+
+# Python bytecode
+__pycache__/
+*.py[cod]

@@ -86,19 +86,57 @@ _UNIT_COUNT_KEYWORD_RE = re.compile(
 # long dimension strings ("29'-0\"") that dominate ordinary plan sheets.
 _SMALL_INT_RE = re.compile(r"(?<![\d.])\d{1,3}(?![\d.])")
 
+# Unit-schedule HEADER vocabulary — added 2026-08-05 after the Aurora ranking
+# forensics. These are the phrases that label the header row of a real unit
+# mix / unit type schedule ("TYPE | GFA (SF) | NO. UNITS | SUB-TOTAL"). They are
+# far more specific than the three signals above, which on a 112-page CD set
+# saturate their caps on most pages and stop discriminating (nr hit its cap on
+# 104/112 Aurora pages). See MF_REBUILD_REPORT.md §14.
+_UNIT_SCHEDULE_HEADER_RE = re.compile(
+    r"NO\.?\s*(?:OF\s*)?UNITS?"      # "NO. UNITS", "NO OF UNITS"
+    r"|UNIT\s*MIX"
+    r"|UNIT\s*SCHEDULE"
+    r"|UNIT\s*TABULATION"
+    r"|\bGFA\b"                      # gross floor area — the schedule's area column
+    r"|SUB\s*-?\s*TOTAL"
+    r"|TOTAL\s*UNITS?",
+    re.IGNORECASE,
+)
+
 def _score_unit_count_page_text(text):
     """Score one page's text layer for unit-count likelihood (D8, multi-signal).
 
     Pure/deterministic; performs NO extraction. Returns (score, signals) where
     signals is a dict of the raw counts that fed the score:
-      - unit_type_hits: unit-type-like tokens (1BR, STUDIO, TYPE A, UNIT, ...)
-      - keyword_hits:   schedule/count vocabulary (schedule, mix, total, ...)
-      - number_rows:    lines ending in a small integer (number-column / table-row proxy)
+      - unit_type_hits:  unit-type-like tokens (1BR, STUDIO, TYPE A, UNIT, ...)
+      - keyword_hits:    schedule/count vocabulary (schedule, mix, total, ...)
+      - number_rows:     lines ending in a small integer (number-column / table-row proxy)
+      - schedule_header_hits: unit-schedule header phrases (NO. UNITS, GFA, ...)
     Each signal is capped before weighting so no single one (e.g. a stray
     keyword) can dominate the ranking.
+
+    SCHEDULE-HEADER SIGNAL (added 2026-08-05, weight 3.0 — the largest here).
+    On the Aurora run the other three signals saturated their caps on 12 pages
+    at once, producing an exact 4.5 tie that the sort then broke by LOWEST PAGE
+    INDEX — so "ranking" degenerated into "the first three pages that max out
+    every counter", and the real schedule (fitz index 1, ut=8 because
+    _UNIT_TYPE_RE does not match the marketing name "VISTA") placed 14th while
+    ICC A117.1 accessibility sheets placed 2nd-5th on their many "TYPE A/B/C"
+    matches. This signal fires on header vocabulary that a genuine unit schedule
+    has and a compliance table does not, and it is weighted high enough to break
+    that tie. Measured on the real PDF: index 1 goes 14th -> 1st.
+
+    Deliberately NOT added: a negative weight for accessibility/compliance
+    vocabulary. It also worked in testing, but the extractor prompt already
+    rejects compliance tables downstream, so penalising here as well would double
+    the backfire risk (a real schedule sharing a sheet with A117.1 notes) for no
+    extra coverage. See MF_REBUILD_REPORT.md §14.
     """
     if not text:
-        return 0.0, {"unit_type_hits": 0, "keyword_hits": 0, "number_rows": 0}
+        return 0.0, {
+            "unit_type_hits": 0, "keyword_hits": 0,
+            "number_rows": 0, "schedule_header_hits": 0,
+        }
 
     unit_type_hits = len(_UNIT_TYPE_RE.findall(text))
     keyword_hits = len(_UNIT_COUNT_KEYWORD_RE.findall(text))
@@ -106,16 +144,19 @@ def _score_unit_count_page_text(text):
         1 for line in text.splitlines()
         if line.strip() and _SMALL_INT_RE.search(line.strip().split()[-1])
     )
+    schedule_header_hits = len(_UNIT_SCHEDULE_HEADER_RE.findall(text))
 
     score = (
         2.0 * min(unit_type_hits, 12) / 12.0
         + 1.5 * min(keyword_hits, 8) / 8.0
         + 1.0 * min(number_rows, 15) / 15.0
+        + 3.0 * min(schedule_header_hits, 6) / 6.0
     )
     return round(score, 4), {
         "unit_type_hits": unit_type_hits,
         "keyword_hits": keyword_hits,
         "number_rows": number_rows,
+        "schedule_header_hits": schedule_header_hits,
     }
 
 def rank_unit_count_pages_vector(pdf_path, project_id, plan_id, top_k_log=5):
@@ -190,11 +231,18 @@ def rank_unit_count_pages_vector(pdf_path, project_id, plan_id, top_k_log=5):
 
         ranked = sorted(scored, key=lambda r: (-r["score"], r["page_number"]))
 
+        # Per-page features are logged so a wrong pick can be diagnosed from Cloud
+        # logs alone, without re-running the ranker against a local copy of the PDF
+        # (which is what the 2026-08-05 forensics required). `sch` is the
+        # schedule-header signal. NOTE: p<N> is the 0-indexed FITZ page number —
+        # viewer page N+1. The Aurora candidates logged as [2, 11, 12] were viewer
+        # pages 3, 12, 13.
         top_preview = ", ".join(
             f"p{r['page_number']}={r['score']}"
             f"(ut={r['signals']['unit_type_hits']},"
             f"kw={r['signals']['keyword_hits']},"
-            f"nr={r['signals']['number_rows']})"
+            f"nr={r['signals']['number_rows']},"
+            f"sch={r['signals']['schedule_header_hits']})"
             for r in ranked[:top_k_log]
         ) or "none"
         logging.info(
