@@ -1751,7 +1751,7 @@ async def load_2d_all(request: Request):
     if load_lazy == "false":
         status = "IN PROGRESS"
         query = f"""
-            SELECT pl.pages
+            SELECT m.pages
             FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} m
             JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
                 ON m.project_id = pr.project_id
@@ -1765,7 +1765,7 @@ async def load_2d_all(request: Request):
         elif bool(is_admin) and is_admin.local:
             params = (project_id, plan_id, peers,)
             query_partner = f"""
-                SELECT pl.pages
+                SELECT m.pages
                 FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} m
                 JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
                     ON m.project_id = pr.project_id
