@@ -1057,7 +1057,7 @@ async def load_project_plans(request: Request):
         if is_admin.local and not rows_partner:
             return respond_with_UI_payload(dict(project_metadata=dict(), project_plans=list()))
 
-    plans = list()
+    plans = dict()
     if rows:
         row = rows[0]
         project_metadata = dict(row)
