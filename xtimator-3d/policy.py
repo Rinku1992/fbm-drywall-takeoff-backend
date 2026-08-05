@@ -150,7 +150,7 @@ class AccessControlService:
             ) AND u.organization_id IN (select organization_id from partner_organizations)
             ORDER BY u.user_email;
         """
-        partner_users = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id, user_id, user_id,), fetch=True))
+        partner_users = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id, user_id,), fetch=True))
         partner_users = [partner_user["user_email"].lower() for partner_user in partner_users]
         return partner_users
 
