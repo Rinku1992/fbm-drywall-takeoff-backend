@@ -1789,7 +1789,7 @@ async def load_2d_all(request: Request):
             query_output_partner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query_partner, params=params_partner, fetch=True))
             query_output += query_output_partner
         if not query_output:
-            return respond_with_UI_payload(dict(error="Floor Plan already exists")
+            return respond_with_UI_payload(dict(error="Floor Plan already exists"))
         n_pages = query_output[0]["pages"]
         timeout = from_unix_epoch() + (n_pages * 900)
         while from_unix_epoch() < timeout:
