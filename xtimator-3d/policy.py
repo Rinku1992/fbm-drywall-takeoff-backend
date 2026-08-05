@@ -134,14 +134,64 @@ class AccessControlService:
         region_names = [region_name["region_name"].lower() for region_name in region_names]
         return region_names
 
-    async def load_organization_users(self, user_id):
+    async def load_organization_admin_users(self, user_id):
         query = f"""
-            SELECT u2.user_email AS user_email
-            FROM {self._credentials["CloudSQL"]["table_name_users"]} u1
-            JOIN {self._credentials["CloudSQL"]["table_name_users"]} u2
-                ON u2.organization_id = u1.organization_id
-            WHERE LOWER(u1.user_email) = LOWER(%s)
-            ORDER BY u2.user_email;
+            WITH me AS (
+                SELECT user_id, organization_id
+                FROM {self._credentials["CloudSQL"]["table_name_users"]}
+                WHERE LOWER(user_email) = LOWER(%s)
+            ),
+
+            partner_organizations AS (
+                SELECT organization_id
+                FROM {self._credentials["CloudSQL"]["table_name_user_partner_organizations"]}
+                WHERE user_id = (SELECT user_id FROM me)
+            ),
+
+            visible_regions AS (
+                SELECT DISTINCT ur.region_id
+                FROM {self._credentials["CloudSQL"]["table_name_user_regions"]} ur
+                JOIN {self._credentials["CloudSQL"]["table_name_organization_regions"]} ogr
+                  ON ogr.region_id = ur.region_id
+                WHERE ur.user_id = (SELECT user_id FROM me)
+                  AND ogr.organization_id IN (
+                        SELECT organization_id
+                        FROM partner_organizations
+                  )
+            )
+
+            (
+
+                SELECT
+                    u.user_email
+                FROM {self._credentials["CloudSQL"]["table_name_users"]} u
+                WHERE u.organization_id = (
+                    SELECT organization_id
+                    FROM me
+                )
+            )
+
+            UNION
+
+            (
+
+                SELECT DISTINCT
+                    u.user_email
+                FROM {self._credentials["CloudSQL"]["table_name_users"]} u
+                JOIN {self._credentials["CloudSQL"]["table_name_user_regions"]} ur
+                  ON ur.user_id = u.user_id
+                WHERE
+                    u.organization_id IN (
+                        SELECT organization_id
+                        FROM partner_organizations
+                    )
+                    AND ur.region_id IN (
+                        SELECT region_id
+                        FROM visible_regions
+                    )
+            )
+
+            ORDER BY user_email;
         """
         visible_users = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id,), fetch=True))
         visible_users = [visible_user["user_email"].lower() for visible_user in visible_users]
