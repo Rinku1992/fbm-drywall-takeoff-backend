@@ -137,8 +137,8 @@ class AccessControlService:
     async def load_organization_users(self, user_id):
         query = f"""
             SELECT u2.user_email AS user_email
-            FROM users u1
-            JOIN users u2
+            FROM {self._credentials["CloudSQL"]["table_name_users"]} u1
+            JOIN {self._credentials["CloudSQL"]["table_name_users"]} u2
                 ON u2.organization_id = u1.organization_id
             WHERE LOWER(u1.user_email) = LOWER(%s)
             ORDER BY u2.user_email;
