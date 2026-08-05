@@ -870,22 +870,6 @@ async def publish_project(request: Request):
     if is_user_not_authenticated:
         logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
         return respond_with_UI_payload(is_user_not_authenticated)
-    is_admin = await access_control.is_admin(user_id)
-    if bool(is_admin):
-        if is_admin.super:
-            where_clause = "TRUE"
-            params = ()
-
-        elif is_admin.local:
-            peers = await access_control.load_organization_users(user_id)
-            where_clause = "LOWER(p.created_by) = ANY(%s)"
-            params = (peers,)
-
-    else:
-        peers = await access_control.load_regional_users(user_id)
-        region_names = await access_control.load_user_region_names(user_id)
-        where_clause = "LOWER(p.created_by) = ANY(%s) AND LOWER(p.\"FBM_branch\") = ANY(%s)"
-        params = (peers, region_names,)
 
     query = f"""
         UPDATE
@@ -913,22 +897,6 @@ async def retract_project(request: Request):
     if is_user_not_authenticated:
         logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
         return respond_with_UI_payload(is_user_not_authenticated)
-    is_admin = await access_control.is_admin(user_id)
-    if bool(is_admin):
-        if is_admin.super:
-            where_clause = "TRUE"
-            params = ()
-
-        elif is_admin.local:
-            peers = await access_control.load_organization_users(user_id)
-            where_clause = "LOWER(p.created_by) = ANY(%s)"
-            params = (peers,)
-
-    else:
-        peers = await access_control.load_regional_users(user_id)
-        region_names = await access_control.load_user_region_names(user_id)
-        where_clause = "LOWER(p.created_by) = ANY(%s) AND LOWER(p.\"FBM_branch\") = ANY(%s)"
-        params = (peers, region_names,)
 
     query = f"""
         UPDATE
@@ -1057,22 +1025,6 @@ async def publish_plan(request: Request):
     if is_user_not_authenticated:
         logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
         return respond_with_UI_payload(is_user_not_authenticated)
-    is_admin = await access_control.is_admin(user_id)
-    if bool(is_admin):
-        if is_admin.super:
-            where_clause = "TRUE"
-            params = ()
-
-        elif is_admin.local:
-            peers = await access_control.load_organization_users(user_id)
-            where_clause = "LOWER(p.created_by) = ANY(%s)"
-            params = (peers,)
-
-    else:
-        peers = await access_control.load_regional_users(user_id)
-        region_names = await access_control.load_user_region_names(user_id)
-        where_clause = "LOWER(p.created_by) = ANY(%s) AND LOWER(p.\"FBM_branch\") = ANY(%s)"
-        params = (peers, region_names,)
 
     query = f"""
         UPDATE
@@ -1101,22 +1053,6 @@ async def retract_plan(request: Request):
     if is_user_not_authenticated:
         logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
         return respond_with_UI_payload(is_user_not_authenticated)
-    is_admin = await access_control.is_admin(user_id)
-    if bool(is_admin):
-        if is_admin.super:
-            where_clause = "TRUE"
-            params = ()
-
-        elif is_admin.local:
-            peers = await access_control.load_organization_users(user_id)
-            where_clause = "LOWER(p.created_by) = ANY(%s)"
-            params = (peers,)
-
-    else:
-        peers = await access_control.load_regional_users(user_id)
-        region_names = await access_control.load_user_region_names(user_id)
-        where_clause = "LOWER(p.created_by) = ANY(%s) AND LOWER(p.\"FBM_branch\") = ANY(%s)"
-        params = (peers, region_names,)
 
     query = f"""
         UPDATE
