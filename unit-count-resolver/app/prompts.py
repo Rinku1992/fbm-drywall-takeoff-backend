@@ -129,6 +129,34 @@ UNIT_COUNT_EXTRACTOR = """
             - page_number: <int>
             - image: <high-resolution image>
 
+    WHAT YOU ARE LOOKING FOR — THE UNIT TYPE SCHEDULE:
+        Your target is the UNIT TYPE SCHEDULE (also called unit mix, unit matrix, unit breakdown). It is identified by ALL of:
+            - rows keyed by DISTINCT UNIT-TYPE NAMES — marketing or plan names such as "VISTA", "1BR-A", "Type 2", "Studio S1", "PLAN A";
+            - a count column giving how many of each type the project contains;
+            - USUALLY a per-unit AREA column (SF / sq ft) — the single strongest signal that you have found the real schedule.
+        This is the table whose counts drive the drywall estimate. Prefer it over every other table on the page set.
+
+    TABLES YOU MUST NOT READ — ACCESSIBILITY / CODE-COMPLIANCE TABLES:
+        Plan sets also contain regulatory-compliance tables that superficially resemble a unit schedule. They are NOT the unit type schedule and you must NOT return them.
+        Recognise them by their row labels, which name ACCESSIBILITY CATEGORIES rather than unit types:
+            - "Accessible Dwelling Units", "Adaptable Dwelling Units"
+            - "Type A Dwelling Units", "Type B Dwelling Units", "Type C Dwelling Units"  (ANSI A117.1 / IBC / FHA categories)
+            - "Mobility Units", "Hearing/Visual Units", "UFAS", "ADA", "Fully Accessible"
+        Further tells: the rows describe COMPLIANCE PROVISION, not a floor plan; there is typically NO per-unit area column; the numbers are often round regulatory minimums or percentages; and the table sits near code-analysis notes.
+        NEGATIVE EXAMPLE — an accessibility table you must REJECT (this exact shape was wrongly returned on a real run):
+            Accessible Dwelling Units .... 10
+            Type A Dwelling Units ........ 10
+            Type B Dwelling Units ....... 100
+          Row labels are ANSI A117.1 categories, not unit types, and no areas are given. Returning this instead of the project's real unit schedule is a SERIOUS ERROR: the same physical unit is counted under several compliance categories, so these numbers do not describe how many apartments exist.
+
+    CHOOSING BETWEEN CANDIDATE PAGES:
+        The pages you are given were selected by a rough triage pass and may include the wrong page. When more than one page carries a table:
+            1. Choose the table whose rows are NAMED UNIT TYPES and which has a PER-UNIT AREA column.
+            2. If one candidate table has per-type areas and another does not, choose the one WITH areas.
+            3. Reject any accessibility/compliance table (above) even when it is the ONLY table present — in that case treat the page set as having no unit schedule and return the NOTHING FOUND answer.
+            4. Do NOT merge rows from two different tables, and do NOT sum an accessibility table into a unit schedule.
+        Report in `source_pages` only the page(s) the schedule you actually used came from.
+
     TASK:
         Read the unit-count information directly from the page IMAGE (interpret the 2D visual layout; do NOT rely on any parsed text stream). Produce:
         1. `per_type_counts`: for EACH unique unit type stated, an object with:
@@ -148,6 +176,7 @@ UNIT_COUNT_EXTRACTOR = """
           Returning this empty answer is ALWAYS preferable to guessing. NEVER invent a plausible-looking table to avoid an empty response. Do NOT return a partially-empty mixture (e.g. a source_form with no counts) — either report what is printed, or return the fully empty answer above.
         - Do NOT invent unit types or counts. Only what is printed. If a cell is unreadable, OMIT that type rather than guessing.
         - Units of measure: `area` is square feet as a number only (strip "SF" / "sq ft").
+        - INTERNAL CONSISTENCY: if the schedule prints a total row, your `per_type_counts` should sum to it. If your rows do not sum to the printed total, you have probably misread a row, skipped one, or mixed in rows from another table — re-read the grid before answering. Report what is printed; do not silently adjust a number to force the sum to balance.
 
     OUTPUT:
         Do NOT generate any text outside the JSON.

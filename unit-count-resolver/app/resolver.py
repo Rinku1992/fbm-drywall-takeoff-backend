@@ -713,6 +713,41 @@ def _looks_fabricated(extraction, pdf_path, source_pages, context):
     return True, reason
 
 
+def _check_internal_consistency(extraction, context):
+    """Cross-check the extracted per-type counts against the extracted total.
+
+    Added after the first live Aurora run (2026-08-05), which logged
+    `total=110` while its own per-type rows summed to 120 and still reported
+    `disagreement=no`. That flag only ever covered TABLE-vs-PROSE conflict
+    (`_apply_precedence`, and only when source_form == "mixed"), so an answer
+    that contradicted ITSELF passed through looking clean.
+
+    This check is independent of source_form: whenever BOTH per-type counts and
+    an explicit total are present and they disagree, the result is FLAGGED —
+    never rejected. A mismatch means the read is untrustworthy, but the numbers
+    are still what the model reported and are worth persisting for diagnosis;
+    silently dropping them would lose the evidence.
+
+    Returns (is_mismatch, reason_or_None).
+    """
+    if not extraction.per_type_counts or extraction.total_units is None:
+        return False, None
+    per_type_sum = sum(t.count for t in extraction.per_type_counts)
+    if per_type_sum == extraction.total_units:
+        return False, None
+    reason = f"internal_sum_mismatch(sum={per_type_sum}, total={extraction.total_units})"
+    logging.warning(
+        f"[UNIT_COUNTS] [{context}] INTERNAL INCONSISTENCY: per-type counts sum to "
+        f"{per_type_sum} but the extracted total_units is {extraction.total_units} "
+        f"(difference={per_type_sum - extraction.total_units:+d}). Breakdown: "
+        f"{ {t.unit_type: t.count for t in extraction.per_type_counts} }. "
+        f"Result FLAGGED as suspect (flagged_suspect=true) but NOT rejected — the "
+        f"read is likely wrong (misread row, skipped row, or rows merged from a "
+        f"second table). Verify against the source page before trusting these counts."
+    )
+    return True, reason
+
+
 def _persist_unit_counts(credentials, pg_pool, project_id, plan_id, payload, context):
     """Write the resolved unit-counts payload to plans.unit_counts (JSONB).
 
@@ -901,13 +936,27 @@ def resolve_unit_counts(
         logging.info(f"[UNIT_COUNTS] [{context}] resolver DONE (extraction_failed/suspect) in {perf_counter() - t0:.3f}s")
         return payload
 
+    # 3d. Internal consistency: do the per-type rows sum to the stated total?
+    # Flags, never rejects (see _check_internal_consistency).
+    sum_mismatch, sum_mismatch_reason = _check_internal_consistency(extraction, context)
+
     # 4. D10 precedence -> one resolved count per type.
     resolved, disagreement = _apply_precedence(extraction, context)
+
+    # The `disagreement` note carries table-vs-prose conflict only. Fold the
+    # internal-sum conflict into it too, so a single provenance field surfaces
+    # every "these numbers do not agree" signal to whoever reads the row.
+    if sum_mismatch_reason:
+        disagreement = (
+            f"{disagreement}; {sum_mismatch_reason}" if disagreement else sum_mismatch_reason
+        )
+
     payload = {
         **resolved,
         "provenance": _provenance(
             extraction.source_form, extraction.source_pages, candidate_pages,
-            detection_path, high_dpi, disagreement, attempts, False,
+            detection_path, high_dpi, disagreement, attempts, sum_mismatch,
+            suspect_reason=sum_mismatch_reason,
         ),
     }
 
@@ -918,6 +967,7 @@ def resolve_unit_counts(
     logging.info(
         f"[UNIT_COUNTS] [{context}] resolved: {breakdown} "
         f"total={resolved['total_units']} attempts={attempts}"
+        f"{' FLAGGED_SUSPECT=' + sum_mismatch_reason if sum_mismatch else ''}"
     )
 
     # 6. Persist.
@@ -925,7 +975,8 @@ def resolve_unit_counts(
     logging.info(
         f"[UNIT_COUNTS] [{context}] resolver DONE source={resolved['source']} "
         f"types={len(resolved['unit_counts'])} total={resolved['total_units']} "
-        f"disagreement={'yes' if disagreement else 'no'} attempts={attempts} "
+        f"disagreement={'yes' if disagreement else 'no'} "
+        f"flagged_suspect={'yes' if sum_mismatch else 'no'} attempts={attempts} "
         f"in {perf_counter() - t0:.3f}s"
     )
     return payload
