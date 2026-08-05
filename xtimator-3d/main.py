@@ -1959,6 +1959,9 @@ async def load_layout_2d_all(request: Request):
         elif is_admin.local:
             peers = await access_control.load_organization_users(user_id)
             where_clause = "LOWER(m.user_id) = ANY(%s)"
+            peers_partner = await access_control.load_regional_users_partner_organizations(user_id)
+            region_names = await access_control.load_user_region_names(user_id)
+            where_clause_partner = "LOWER(m.user_id) = ANY(%s) AND LOWER(pr.\"FBM_branch\") = ANY(%s)"
 
     else:
         peers = await access_control.load_regional_users(user_id)
@@ -1968,16 +1971,36 @@ async def load_layout_2d_all(request: Request):
     if load_lazy == "false":
         status = "IN PROGRESS"
         query = f"""
-            SELECT pl.pages
-            FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} pl
-            FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
+            SELECT m.pages
+            FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} m
+            JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
+                ON m.project_id = pr.project_id
             WHERE
-                LOWER(pl.project_id) = LOWER(%s)
-                AND LOWER(pl.plan_id) = LOWER(%s)
-                AND LOWER(pl.user_id) = ANY(%s)
-                AND LOWER(pr.\"FBM_branch\") = ANY(%s)
+                LOWER(m.project_id) = LOWER(%s)
+                AND LOWER(m.plan_id) = LOWER(%s)
+                AND {where_clause}
         """
-        query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, peers, region_names), fetch=True))
+        if bool(is_admin) and is_admin.super:
+            params = (project_id, plan_id,)
+        elif bool(is_admin) and is_admin.local:
+            params = (project_id, plan_id, peers,)
+            query_partner = f"""
+                SELECT m.pages
+                FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} m
+                JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
+                    ON m.project_id = pr.project_id
+                WHERE
+                    LOWER(m.project_id) = LOWER(%s)
+                    AND LOWER(m.plan_id) = LOWER(%s)
+                    AND {where_clause_partner}
+            """
+            params_partner = (project_id, plan_id, peers_partner, region_names,)
+        else:
+            params = (project_id, plan_id, peers, region_names,)
+        query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
+        if is_admin.local:
+            query_output_partner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query_partner, params=params_partner, fetch=True))
+            query_output += query_output_partner
         if not query_output:
             return respond_with_UI_payload(dict(error="Floor Plan already exists"))
         n_pages = query_output[0]["pages"]
@@ -2015,6 +2038,25 @@ async def load_layout_2d_all(request: Request):
         """
         if bool(is_admin) and is_admin.super:
             params = (project_id, plan_id, int(page_number),)
+        elif bool(is_admin) and is_admin.local:
+            params = (project_id, plan_id, int(page_number), peers,)
+            query_partner = f"""
+                SELECT
+                    m.page_number,
+                    m.page_section_number,
+                    m.scale,
+                    m.layout_2d
+                FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} m
+                JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
+                    ON m.project_id = pr.project_id
+                WHERE
+                    LOWER(m.project_id) = LOWER(%s)
+                    AND LOWER(m.plan_id) = LOWER(%s)
+                    AND m.page_number = %s
+                    AND {where_clause_partner}
+                ORDER BY m.page_number
+            """
+            params_partner = (project_id, plan_id, int(page_number), peers_partner, region_names,)
         else:
             params = (project_id, plan_id, int(page_number), peers, region_names,)
     else:
@@ -2037,9 +2079,32 @@ async def load_layout_2d_all(request: Request):
         """
         if bool(is_admin) and is_admin.super:
             params = (project_id, plan_id,)
+        elif bool(is_admin) and is_admin.local:
+            params = (project_id, plan_id, peers,)
+            query_partner = f"""
+                SELECT
+                    m.page_number,
+                    m.page_section_number,
+                    m.scale,
+                    m.layout_2d
+                FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} m
+                JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
+                    ON m.project_id = pr.project_id
+                WHERE
+                    LOWER(m.project_id) = LOWER(%s)
+                    AND LOWER(m.plan_id) = LOWER(%s)
+                    AND {where_clause_partner}
+                ORDER BY
+                    m.page_number,
+                    m.page_section_number
+            """
+            params_partner = (project_id, plan_id, peers_partner, region_names,)
         else:
             params = (project_id, plan_id, peers, region_names,)
     rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
+    if is_admin.local:
+        rows_partner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query_partner, params=params_partner, fetch=True))
+        rows += rows_partner
 
     page_to_layout_2d_minimal = dict()
     rows = sorted(rows, key=lambda row: f"{row["page_number"]}-{row["page_section_number"]}")
