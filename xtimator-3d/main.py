@@ -1052,6 +1052,8 @@ async def load_project_plans(request: Request):
         rows_partner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params_partner, fetch=True))
 
     if not rows:
+        if not is_admin.local:
+            return respond_with_UI_payload(dict(project_metadata=dict(), project_plans=list()))
         if is_admin.local and not rows_partner:
             return respond_with_UI_payload(dict(project_metadata=dict(), project_plans=list()))
 
