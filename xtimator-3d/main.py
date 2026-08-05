@@ -1057,15 +1057,21 @@ async def load_project_plans(request: Request):
         if is_admin.local and not rows_partner:
             return respond_with_UI_payload(dict(project_metadata=dict(), project_plans=list()))
 
-    project_plans = list()
+    plans = list()
     if rows:
         row = rows[0]
         project_metadata = dict(row)
         project_plans = project_metadata.pop("project_plans", list())
+        for project_plan in project_plans:
+            plans[project_plan["plan_id"].lower()] = project_plan
     if is_admin.local and rows_partner:
         row_partner = rows_partner[0]
         project_metadata = dict(row_partner)
-        project_plans += project_metadata.pop("project_plans", list())
+        partner_project_plans = project_metadata.pop("project_plans", list())
+        for partner_project_plan in partner_project_plans:
+            plans.setdefault(partner_project_plan["plan_id"].lower(), partner_project_plan)
+
+    project_plans = list(plans.values())
 
     logging.info("SYSTEM: Project Plans Data retrieved successfully")
     return respond_with_UI_payload(
