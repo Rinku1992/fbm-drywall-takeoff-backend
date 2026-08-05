@@ -820,6 +820,33 @@ async def load_projects(request: Request):
         ORDER BY p.created_at DESC NULLS LAST;
     """
     projects = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
+    if is_admin.local:
+        query = f"""
+            SELECT
+                p.*,
+                CASE
+                    WHEN COALESCE(pc.plan_count, 0) = 0
+                        THEN 'NOT STARTED'
+                    ELSE 'ACTIVE'
+                END AS status
+
+            FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} p
+
+            LEFT JOIN (
+                SELECT
+                    LOWER(project_id) AS project_id,
+                    COUNT(*) AS plan_count
+                FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]}
+                GROUP BY LOWER(project_id)
+            ) pc
+                ON LOWER(p.project_id) = pc.project_id
+
+            WHERE {where_clause_partner} AND p.is_published = TRUE
+
+            ORDER BY p.created_at DESC NULLS LAST;
+        """
+        projects_partner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params_partner, fetch=True))
+        projects += projects_partner
 
     logging.info("SYSTEM: Project Metadata retrieved successfully")
     return respond_with_UI_payload(
