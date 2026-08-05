@@ -1758,10 +1758,29 @@ async def load_2d_all(request: Request):
             WHERE
                 LOWER(pl.project_id) = LOWER(%s)
                 AND LOWER(pl.plan_id) = LOWER(%s)
-                AND LOWER(pl.user_id) = ANY(%s)
-                AND LOWER(pr.\"FBM_branch\") = ANY(%s)
+                AND {where_clause}
         """
-        query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, peers, region_names), fetch=True))
+        if bool(is_admin) and is_admin.super:
+            params = (project_id, plan_id,)
+        elif bool(is_admin) and is_admin.local:
+            params = (project_id, plan_id, peers,)
+            query_partner = f"""
+                SELECT pl.pages
+                FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} pl
+                JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
+                    ON pl.project_id = pr.project_id
+                WHERE
+                    LOWER(pl.project_id) = LOWER(%s)
+                    AND LOWER(pl.plan_id) = LOWER(%s)
+                    AND {where_clause_partner}
+            """
+            params_partner = (project_id, plan_id, peers_partner, region_names,)
+        else:
+            params = (project_id, plan_id, int(page_number), peers, region_names,)**
+        query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
+        if is_admin.local:
+            query_output_partner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query_partner, params=params_partner, fetch=True))
+            query_output += rows_partner
         if not query_output:
             return respond_with_UI_payload(dict(error="Floor Plan already exists"))
         n_pages = query_output[0]["pages"]
