@@ -761,7 +761,11 @@ async def trigger_email_notification(
     query = f"""
         SELECT project_name FROM FROM {credentials["CloudSQL"]["table_name_projects"]} WHERE LOWER(project_id) = LOWER(%s) 
     """
-    project_name = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id,), fetch=True))
+    project_name = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id,), fetch=True))[0]["project_name"]
+    query = f"""
+        SELECT plan_name FROM FROM {credentials["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s)
+    """
+    plan_name = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id, plan_id,), fetch=True))[0]["plan_name"]
     if notify_group:
         query = f"""
             WITH visible_organizations AS (
@@ -804,10 +808,12 @@ async def trigger_email_notification(
             trigger(
                 credentials,
                 credentials["Email"]["sender_email"],
-                user_id_group,
-                user_id_group,
+                user_id_group["user_email"],
+                user_id_group["user_email"],
                 plan_id,
+                plan_name,
                 project_id,
+                project_name,
                 page_number,
                 "FBM Xtimator Team",
                 message=message,
@@ -819,7 +825,9 @@ async def trigger_email_notification(
             user_id,
             user_id,
             plan_id,
+            plan_name,
             project_id,
+            project_name,
             page_number,
             "FBM Xtimator Team",
             message=message,
