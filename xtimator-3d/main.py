@@ -820,6 +820,7 @@ async def load_projects(request: Request):
         ORDER BY p.created_at DESC NULLS LAST;
     """
     projects = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
+    projects_partner = list()
     if is_admin.local:
         query = f"""
             SELECT
@@ -846,7 +847,14 @@ async def load_projects(request: Request):
             ORDER BY p.created_at DESC NULLS LAST;
         """
         projects_partner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params_partner, fetch=True))
-        projects += projects_partner
+    projects_all = dict()
+    if projects:
+        for project in projects:
+            projects_all[dict(project)["project_id"].lower()] = project
+    if is_admin.local and projects_partner:
+        for project_partner in projects_partner:
+            projects_all.setdefault(dict(project_partner)["project_id"].lower(), project_partner)
+    projects = list(projects_all.values())
 
     logging.info("SYSTEM: Project Metadata retrieved successfully")
     return respond_with_UI_payload(
@@ -1782,7 +1790,7 @@ async def load_2d_all(request: Request):
             query_output_partner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query_partner, params=params_partner, fetch=True))
             query_output += query_output_partner
         if not query_output:
-            return respond_with_UI_payload(dict(error="Floor Plan already exists"))
+            return respond_with_UI_payload(dict(error="Floor Plan already exists")
         n_pages = query_output[0]["pages"]
         timeout = from_unix_epoch() + (n_pages * 900)
         while from_unix_epoch() < timeout:
