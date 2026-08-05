@@ -3565,6 +3565,10 @@ async def email_support_center(
     user_id = parameters.get("user_id") or body.get("user_id") or user_id
     subject = parameters.get("subject") or body.get("subject") or subject
     content = parameters.get("content") or body.get("content") or content
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
 
     attachment_path = None
     if attachment is not None:
