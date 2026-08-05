@@ -1067,7 +1067,8 @@ async def load_project_plans(request: Request):
             plans[project_plan["plan_id"].lower()] = project_plan
     if is_admin.local and rows_partner:
         row_partner = rows_partner[0]
-        project_metadata = dict(row_partner)
+        if not project_metadata:
+            project_metadata = dict(row_partner)
         partner_project_plans = project_metadata.pop("project_plans", list())
         for partner_project_plan in partner_project_plans:
             plans.setdefault(partner_project_plan["plan_id"].lower(), partner_project_plan)
