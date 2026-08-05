@@ -555,3 +555,131 @@ predicate still returns `False` for both `COMMERCIAL` and `RESIDENTIAL`.
    but it is no longer zero the way a project-type gate would have made it. The
    `[UNIT_MULTIPLY]` per-section log lines (§5) are how you would spot it: a
    commercial project showing `count_applied=×N` for N > 1 is the signal.
+
+---
+
+## 13. Addendum (2026-08-05) — first live run: two fixes
+
+First live Aurora run (`PLAN_1785862120698`). The resolver machinery behaved
+exactly as designed — **1 attempt, temperature 0, render cap fired, 23s, honest
+provenance, and page 20 kept its 3 dropdowns** (the D5c bounded-footprint bet
+held; §9a regression did not reproduce). Two real defects surfaced.
+
+### 13.1 Extraction chose the wrong table
+
+**Symptom.** Ranking was correct — page 2 (the real unit schedule) was candidate
+#1. The **extractor** then read the **accessibility compliance table** on pages
+11–12 instead:
+
+| Returned (wrong) | Truth (page 2) |
+|---|---|
+| Accessible Dwelling Units = 10 | VISTA A = 8 |
+| Type A Dwelling Units = 10 | VISTA B = 18 |
+| Type B Dwelling Units = 100 | VISTA C = 8 |
+| areas all `null`, total 110 | VISTA D = 11, with areas, total 45 |
+
+Those row labels are **ANSI A117.1 / IBC compliance categories**, not unit types
+— the same apartment is counted under several of them, so 120 is not a unit
+count at all. Nothing in the prompt distinguished a unit schedule from any other
+table of labels-and-numbers.
+
+**Fix** (`unit-count-resolver/app/prompts.py`, `UNIT_COUNT_EXTRACTOR`) — three
+new sections, no code change:
+
+1. **"WHAT YOU ARE LOOKING FOR — THE UNIT TYPE SCHEDULE"** — defines the target
+   positively: rows keyed by distinct unit-type names, a count column, and
+   *usually a per-unit AREA column, called out as the strongest signal*.
+2. **"TABLES YOU MUST NOT READ"** — names the compliance vocabulary explicitly
+   (`Accessible/Adaptable Dwelling Units`, `Type A/B/C Dwelling Units`, ANSI
+   A117.1, UFAS, ADA, mobility/hearing-visual), lists the tells (no area column,
+   round regulatory numbers, sits near code-analysis notes), and carries the
+   **Aurora 10/10/100 shape as an explicit negative example**.
+3. **"CHOOSING BETWEEN CANDIDATE PAGES"** — the tie-break: prefer named types
+   *with* areas; when one candidate has areas and another does not, take the one
+   with areas; reject a compliance table **even when it is the only table
+   present** (return NOTHING FOUND instead); never merge rows across tables.
+
+An `INTERNAL CONSISTENCY` accuracy rule was also added, telling the model that
+rows failing to sum to a printed total means it has misread or mixed tables.
+
+**Ranking code was NOT touched** — it did its job.
+
+### 13.2 Internal inconsistency was invisible
+
+**Symptom.** Extraction reported `total=110` while its own per-type rows summed
+to **120**, and provenance still said `disagreement=no`. That flag is set in
+`_apply_precedence`, which compares **table vs prose** and only when
+`source_form == "mixed"` — an answer contradicting *itself* was never checked.
+
+**Fix** (`unit-count-resolver/app/resolver.py`, `_check_internal_consistency`) —
+independent of `source_form`. Whenever per-type counts **and** an explicit total
+are both present and disagree:
+
+- a loud `[UNIT_COUNTS] INTERNAL INCONSISTENCY:` warning with the sum, the total,
+  the signed difference, and the full per-type breakdown;
+- `flagged_suspect = true` and
+  `suspect_reason = "internal_sum_mismatch(sum=X, total=Y)"` in provenance;
+- the reason is folded into the existing `disagreement` field, so one provenance
+  field now surfaces *every* "these numbers disagree" signal;
+- the run-complete line reports `flagged_suspect=yes|no`.
+
+**The answer is flagged, NOT rejected** — as instructed. A mismatch means the
+read is untrustworthy, but the numbers are still evidence worth persisting.
+
+### 13.3 Where the multiplier actually needs to hook in
+
+**Finding: the "View Estimates" screen calls `/compute_takeoff`
+(`xtimator-3d/main.py:2666`) — NOT `/summarize_takeoff_all`
+(`main.py:2908`), which is the only place `summarize_unit_counts` is wired.**
+That fully explains the zero `[UNIT_MULTIPLY]` lines.
+
+Evidence:
+- Those two are the **only** endpoints in the repo that produce takeoff figures
+  (`grep` over `main.py` routes; no other service defines one).
+- `/compute_takeoff` returns exactly the shape the screen shows —
+  `total.wall`, `total.roof` (ceiling), and `per_drywall.<surface>.<SKU type>`
+  with `total_sqft`, `net_sqft`, `sheets_required_total`,
+  `sheets_required_no_waste` (`main.py:2731`, `main.py:2884-2907`).
+- It carries a `load_preview` flag (`main.py:2684`) that suppresses the DB write
+  (`main.py:2888`) — i.e. an explicit read-only "just show me" mode, which is
+  what a view screen calls.
+- `/summarize_takeoff_all` is the only reader of the stored `takeoff` column
+  (`main.py:2925`) and the only caller of `summarize_unit_counts`.
+
+**Important consequence:** `/compute_takeoff` is **per-section** — it takes
+`page_number` + `page_section_number` and returns ONE section. So the estimates
+screen is showing a *section* total, not a project total. The build request said
+to match "the sections in the response"; there is only ever one, so the preview
+matches that single section and scales it.
+
+**Temporary preview added** (`main.py`, `MF_SCALED_ESTIMATES_PREVIEW`, default
+`"false"`):
+
+- Off (default): **no-op** — the response is byte-identical to before.
+- On: reads `plans.unit_counts`, runs the **real matcher**
+  (`match_sections_to_unit_types`) against that one section, scales
+  `total.{roof,wall}` and every numeric `per_drywall` field by the matched count,
+  and logs the **same** `[UNIT_MULTIPLY]` line `summarize_takeoff_all` emits
+  (plus a `[SCALED-ESTIMATES-PREVIEW — TEMPORARY]` marker).
+- Scaling runs **after** `insert_takeoff`, so what is **persisted stays
+  unscaled** — only the returned view changes.
+- Wrapped in `try/except` returning the untouched takeoff on any failure.
+- `sheets_required_*` stay integral; non-numeric fields (e.g. SKU labels) are
+  untouched; the response shape never changes.
+
+Marked `TEMPORARY FOR TESTING` in a delimited block with removal instructions.
+`/summarize_takeoff_all` and `summarize_unit_counts` were **not modified**.
+
+This is a stopgap for observing the multiply, **not** an answer to §5. The real
+question — should per-section rows show scaled figures, or stay unscaled with
+only a project total scaled? — is now sharper, because the screen users actually
+look at is per-section and has no project-total view wired to it at all.
+
+### 13.4 Verification
+
+34/34 behavioural checks pass: 9 on the prompt's new content (including that the
+NOTHING FOUND rule survived), 6 on the consistency checker (Aurora 120-vs-110
+flagged with the exact reason string; the true 8/18/8/11=45 **not** flagged;
+no-total and prose-only cases correctly skipped), and 19 on the preview (10
+env-var spellings, count=1 no-op, float/int scaling, sheet integrality,
+non-numeric fields untouched, shape preserved). `compileall` clean on both folders.

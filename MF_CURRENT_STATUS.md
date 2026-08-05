@@ -18,6 +18,19 @@ The first implementation (branch `feat/multifamily`) worked end to end but had t
 
 **⚠ PROJECT-TYPE GATE BYPASSED (interim).** `projects.project_type` holds only `COMMERCIAL` / `RESIDENTIAL` — the D4a frontend MF/SF selector was never built, so no gate on that column can work. The trigger therefore **fires for every project**, behind `MF_PROJECT_TYPE_GATE` (default `false` = off). The predicate and query are kept; flip the var to `true` when the selector ships. SF/commercial correctness rests on the **D13 ×1 default**. Report §12.
 
+## First live run — Aurora, `PLAN_1785862120698` (2026-08-05)
+
+**PASSED — the machinery and the D5c bet.**
+- **Page 20 shows 3 dropdowns with the resolver enabled.** The page-20 regression did NOT reproduce; the bounded LLM footprint held (master plan §9a, D5c).
+- Resolver ran clean: **1 attempt, temperature 0, render cap fired, 23s job, honest provenance.** No hang, no OOM.
+
+**FAILED — extraction read the wrong table.**
+Ranking was CORRECT (page 2 was candidate #1) — the **extractor chose wrong among the candidates**. It returned the **accessibility compliance table** from pages 11–12 (Accessible / Type A / Type B Dwelling Units = 10/10/100, all areas null) instead of the real unit schedule on page 2 (4 Vista types, 8/18/8/11 = 45, with areas). Those are ANSI A117.1 categories, so the same apartment is counted under several of them — the number does not describe how many units exist.
+Also: extraction logged `total=110` while its own rows sum to **120**, and `disagreement=no` — that flag only ever compared table-vs-prose, never the answer against itself. **Both fixed this session** (prompt targets the unit type schedule + excludes compliance tables; new internal-sum check flags the mismatch). **Ranking code untouched — it worked.**
+
+**BLOCKED — multiplier still never exercised.**
+Zero `[UNIT_MULTIPLY]` lines on "View Estimates". **Cause found: that screen calls `/compute_takeoff` (`main.py:2666`), not `/summarize_takeoff_all` (`main.py:2908`) where the multiplier is wired.** `/compute_takeoff` is per-section and returns one section's totals. Interim: a TEMPORARY scaled-estimates preview behind `MF_SCALED_ESTIMATES_PREVIEW` (default off) so the multiply can be seen in the existing screen — to be removed once the report §5 display decision lands.
+
 **Constraint:** cannot deploy/test right now — deploy + test happen when access returns.
 
 ## What the rebuild changes vs the first implementation
@@ -61,8 +74,10 @@ Unchanged from the first implementation (lifted as-is): vector text-scan ranking
 - [ ] Set `UNIT_COUNT_RESOLVER_URL` on drywall-takeoff-3d (`--update-env-vars`, never `--set-env-vars`). Leave `MF_PROJECT_TYPE_GATE` unset for now
 - [ ] **When the frontend MF/SF selector ships:** set `MF_PROJECT_TYPE_GATE=true` and confirm the real MF literal matches `_is_multifamily_project_type`
 - [ ] **Watch after deploy:** resolver now runs on EVERY upload, not just MF — check Vertex quota/cost against the load profile D5a was sized for
-- [ ] Test: Aurora — 3 dropdowns on page 20, correct Vista counts 8/18/8/11=45, per-type logs visible
-- [ ] Test: matched-case multiplication actually scales; Ocean View SF regression identical to today
+- [x] Test: Aurora — **3 dropdowns on page 20 CONFIRMED** with the resolver enabled (2026-08-05); D5c footprint held, no regression
+- [ ] Test: Aurora — **correct Vista counts 8/18/8/11=45** — FAILED first run (read the accessibility table, 120). Re-run after this session's prompt + consistency fixes
+- [ ] **Re-run Aurora 2–3× for stability** — one clean run is not evidence the extractor reliably picks the right table
+- [ ] Test: matched-case multiplication actually scales; Ocean View SF regression identical to today (needs `MF_SCALED_ESTIMATES_PREVIEW=true`, or the real §5 display decision)
 - [ ] Test: Grace Commons (scanned path, serialized triage)
 
 ## Environment / infra notes (unchanged)
@@ -89,4 +104,5 @@ Unchanged from the first implementation (lifted as-is): vector text-scan ranking
 - 2026-08-03 — Aurora results: ran clean (no hang) but counts FABRICATED (40 vs true 45); scope locked with team = multiplication only; detached task confirmed failed.
 - 2026-08-04 — **Architecture decided (D5a/D5b/D5c):** separate `unit-count-resolver` service, triggered after classification+bounding-boxes persist, bounded/serialized LLM footprint. **Page-20 mechanism found in code (§9a):** silent full-page fallback in `detect_bounding_boxes` on sectioning-call failure. **Rebuild started:** fresh branch `feat/mf-resolver-service` off current main, lifting tested code from `feat/multifamily` with the three bug fixes applied during the lift. Build prompt issued to Claude Code.
 - 2026-08-04 — **Rebuild CODE-COMPLETE** (3 commits on `feat/mf-resolver-service`, not pushed/deployed). Service + all three bug fixes + trigger + matcher/multiplier + workflow + `MF_REBUILD_REPORT.md` done; compileall clean. **Three build-time corrections:** (1) D5b re-based — bounding boxes are user-triggered in `/floorplan_to_2d`, not part of the upload burst, so timing can't remove the collision window; the bounded footprint is the real protection. (2) Triage was already serial — only backoff was missing. (3) GCS path carries an `organization_slug` segment (resolver derives it from `user_id`, request body unchanged). **Blocking unknown:** the `projects.project_type` MF literal is unverified.
+- 2026-08-05 — **First live Aurora run.** PASSED: 3 dropdowns on page 20 with the resolver on (D5c held), 1 attempt / temp 0 / render cap fired / 23s / honest provenance, no hang or OOM. FAILED: extractor picked the ANSI A117.1 accessibility table (10/10/100, no areas) over the real Vista schedule (8/18/8/11=45), and its own `total=110` vs row-sum 120 went unflagged. BLOCKED: zero `[UNIT_MULTIPLY]` — **"View Estimates" calls `/compute_takeoff`, not `/summarize_takeoff_all`**. Fixes this session: extractor prompt now targets the unit type schedule and rejects compliance tables (Aurora shape as the negative example); new internal-sum check flags `internal_sum_mismatch` without rejecting; TEMPORARY `MF_SCALED_ESTIMATES_PREVIEW` preview on `/compute_takeoff` (default off) so the multiply can finally be observed. Ranking untouched — it was correct.
 - 2026-08-04 — **`project_type` resolved, and it invalidated the gate:** DB holds only `COMMERCIAL`/`RESIDENTIAL`; the D4a frontend selector was never built. **Interim decision (Ravikant): resolver fires for ALL projects**, gate preserved behind `MF_PROJECT_TYPE_GATE` (default off) for zero-code-change re-enable. SF safety = D13 ×1. Master plan + status docs committed to the branch (4 commits total). Report §12 records the decision and two consequences to watch (resolver now runs on every upload; D13 protects unmatched sections, not a false match).
