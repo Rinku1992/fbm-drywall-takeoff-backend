@@ -84,6 +84,7 @@ from helper import (
     unlock_user,
     summarize_unit_counts,
     load_unit_count_resolver_ID_token,
+    match_sections_to_unit_types,
 )
 from policy import AccessControlService
 from prompts import VISUAL_GROUNDING_DETECTOR, SLOPED_CEILING_CHOICES
@@ -683,6 +684,121 @@ async def trigger_unit_count_resolver(project_id, plan_id, user_id):
     except Exception as e:
         # Deliberately broad: the upload flow must never depend on the resolver.
         logging.warning(f"[UNIT_COUNTS] [{context}] resolver trigger FAILED (contained, upload unaffected): {e}")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TEMPORARY FOR TESTING — scaled-estimates preview on /compute_takeoff.
+#
+# WHY THIS EXISTS: the multiplier (summarize_unit_counts) is wired into
+# /summarize_takeoff_all, but the UI's "View Estimates" screen calls
+# /compute_takeoff instead, so the first live run produced ZERO [UNIT_MULTIPLY]
+# lines and the multiply has still never been exercised end to end. These two
+# helpers let a tester SEE scaled numbers in the existing screen without
+# touching /summarize_takeoff_all or the real display contract.
+#
+# REMOVE THIS BLOCK when the real display decision lands (MF_REBUILD_REPORT.md
+# §5: should per-section rows show scaled figures, or stay unscaled with only
+# the project total scaled?). It is gated OFF by default and must never become
+# the permanent mechanism.
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _mf_scaled_estimates_preview_enabled():
+    """TEMPORARY. True only when MF_SCALED_ESTIMATES_PREVIEW is explicitly on."""
+    return os.environ.get("MF_SCALED_ESTIMATES_PREVIEW", "false").strip().lower() in ("true", "1", "yes")
+
+
+def _scale_takeoff_in_place(drywall_takeoff, count):
+    """TEMPORARY. Multiply a single section's takeoff by `count`, in place.
+
+    Mirrors helper.py:_accumulate_scaled_takeoff's arithmetic (total.{roof,wall}
+    and per_drywall.{roof,wall}.<type>.<numeric fields>), but scales the existing
+    dict rather than accumulating into a project total — /compute_takeoff returns
+    exactly ONE section, so there is nothing to accumulate.
+
+    Shape is preserved exactly; only numeric values change. Non-numeric fields
+    are left alone. Booleans are excluded (bool is a subclass of int).
+    """
+    if count == 1:
+        return drywall_takeoff
+
+    def _num(value):
+        if isinstance(value, bool):
+            return None
+        return value if isinstance(value, (int, float)) else None
+
+    total = drywall_takeoff.get("total") or {}
+    for surface in ("roof", "wall"):
+        scaled = _num(total.get(surface))
+        if scaled is not None:
+            total[surface] = round(scaled * count, 2)
+
+    per_drywall = drywall_takeoff.get("per_drywall") or {}
+    for surface in ("roof", "wall"):
+        for _drywall_type, fields in (per_drywall.get(surface) or {}).items():
+            for field, value in list((fields or {}).items()):
+                scaled = _num(value)
+                if scaled is None:
+                    continue
+                # sheets_required_* are whole sheets; keep them integral.
+                fields[field] = scaled * count if isinstance(value, int) else round(scaled * count, 2)
+    return drywall_takeoff
+
+
+async def _apply_scaled_estimates_preview(drywall_takeoff, project_id, plan_id, page_number, page_section_number, request):
+    """TEMPORARY. Scale one section's takeoff by its matched unit count.
+
+    Runs ONLY when MF_SCALED_ESTIMATES_PREVIEW is on. Reuses the real matcher
+    (helper.py:match_sections_to_unit_types) and emits the same [UNIT_MULTIPLY]
+    per-section line summarize_takeoff_all does, so the logs are comparable.
+
+    Fully guarded: on ANY failure the takeoff is returned untouched, exactly as
+    if the flag were off.
+    """
+    context = f"project={project_id} plan={plan_id}"
+    try:
+        query = f"SELECT unit_counts FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);"
+        rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id), fetch=True))
+        unit_counts_payload = dict()
+        if rows:
+            raw = rows[0]["unit_counts"]
+            unit_counts_payload = json.loads(raw) if isinstance(raw, str) else (raw or dict())
+
+        unit_types = (unit_counts_payload or {}).get("unit_counts") or []
+        if not unit_types:
+            logging.info(
+                f"[UNIT_MULTIPLY] [{context}] scaled-estimates preview ON but no resolved unit "
+                f"types (source={(unit_counts_payload or {}).get('source', 'none_found')}) — "
+                f"section \"{page_section_number}\" left unscaled (×1)"
+            )
+            return drywall_takeoff
+
+        counts_by_type = {u["unit_type"]: u.get("count", 1) for u in unit_types}
+        key = (page_number, page_section_number)
+        sections = [{"key": key, "title": str(page_section_number), "area": None}]
+        ip_address = request.headers.get("X-Client-IP", (request.client.host if request.client else None))
+        matches = await run_in_threadpool(partial(
+            match_sections_to_unit_types, CREDENTIALS, ip_address, sections, unit_types, project_id, plan_id
+        ))
+        match = matches.get(key, {"matched_unit_type": None, "method": "none"})
+        matched_type = match["matched_unit_type"]
+        count = counts_by_type.get(matched_type, 1) if matched_type is not None else 1
+
+        logging.info(
+            f"[UNIT_MULTIPLY] [{context}] section \"{page_section_number}\" "
+            f"(page={page_number}) → matched_type={matched_type or 'NO MATCH'} "
+            f"(method={match['method']}) → count_applied=×{count}"
+            f"{'' if matched_type is not None else ' [D13 default]'} "
+            f"[SCALED-ESTIMATES-PREVIEW — TEMPORARY]"
+        )
+        return _scale_takeoff_in_place(drywall_takeoff, count)
+    except Exception as e:
+        logging.warning(
+            f"[UNIT_MULTIPLY] [{context}] scaled-estimates preview skipped "
+            f"(non-regression fallback): {e}"
+        )
+        return drywall_takeoff
+
+# ═══════════════ END TEMPORARY scaled-estimates preview block ═════════════════
 
 
 async def floorplan_to_preview_pages(
@@ -2898,6 +3014,17 @@ async def compute_takeoff(request: Request):
         )
         logging.info("SYSTEM: Drywall Takeoff computation saved")
     logging.info("SYSTEM: Drywall Takeoff Computed Successfully for the provided Floorplan")
+
+    # TEMPORARY FOR TESTING — scaled-estimates preview (MF_SCALED_ESTIMATES_PREVIEW).
+    # OFF by default: when the flag is unset/false this is a no-op and the response
+    # is byte-identical to before. Scaling is applied AFTER insert_takeoff above, so
+    # what is PERSISTED stays unscaled — only the returned view changes.
+    # Remove with the rest of the block above once MF_REBUILD_REPORT.md §5 is decided.
+    if _mf_scaled_estimates_preview_enabled():
+        drywall_takeoff = await _apply_scaled_estimates_preview(
+            drywall_takeoff, project_id, plan_id, index, page_section_number, request
+        )
+
     return respond_with_UI_payload(drywall_takeoff)
 
 
