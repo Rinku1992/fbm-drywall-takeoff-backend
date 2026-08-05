@@ -997,6 +997,7 @@ async def load_project_plans(request: Request):
             )
     """
     rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
+    rows_partner = list()
     if is_admin.local:
         query = f"""
             WITH page_stats AS (
