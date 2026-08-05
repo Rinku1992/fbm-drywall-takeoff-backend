@@ -8,7 +8,6 @@ from ruamel.yaml import YAML
 from pathlib import Path
 import json
 from time import time as from_unix_epoch
-from time import sleep
 from collections import defaultdict
 from functools import partial
 import requests
@@ -1509,7 +1508,7 @@ async def floorplan_to_2d(request: Request):
                 query = f"UPDATE {CREDENTIALS["CloudSQL"]["table_name_pages"]} SET mask_factor = %s, bounding_box_offsets = %s WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
                 await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(json.dumps(page_metadata["mask_factor"]), json.dumps(page_metadata["bounding_box_offsets"]), project_id, plan_id, page_number)))
                 if index != 0 and index % 25 == 0:
-                    sleep(120)
+                    await asyncio.sleep(120)
                 id_token = load_floorplan_to_structured_2d_ID_token(CREDENTIALS)
                 elevation_pages = load_elevation_map(elevation_map, page_number)
                 if not page_metadata.get("architectural_scale"):
@@ -1547,7 +1546,7 @@ async def floorplan_to_2d(request: Request):
                 if notifications_arrived_all:
                     all_pages_extracted = True
                     break
-                sleep(sleep_time)
+                await asyncio.sleep(sleep_time)
             if not all_pages_extracted:
                 raise AssertionError(f"Extraction has failed for PAGE(s): {[query_payload["page_number"] for query_payload in query_payloads]}")
             for page_metadata in pages_metadata:
@@ -1992,7 +1991,7 @@ async def load_layout_2d_all(request: Request):
                     break
             except IndexError:
                 return respond_with_UI_payload(dict(error="Floor Plan does not exist"), status_code=500)
-            sleep(5)
+            await asyncio.sleep(5)
         if status != "COMPLETED":
             return respond_with_UI_payload(dict(error=f"Floor Plan extraction not completed within {(n_pages * 900)/60} minutes"), status_code=500)
 
@@ -2545,7 +2544,7 @@ async def generate_drywall_overlaid_floorplan_download_signed_URL(request: Reque
                     break
             except IndexError:
                 return respond_with_UI_payload(dict(error="Floor Plan does not exist"), status_code=500)
-            sleep(5)
+            await asyncio.sleep(5)
         if status != "COMPLETED":
             return respond_with_UI_payload(dict(error=f"Floor Plan extraction not completed within {(n_pages * 900)/60} minutes"), status_code=500)
 
