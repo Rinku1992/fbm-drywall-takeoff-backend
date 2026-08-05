@@ -937,7 +937,7 @@ async def load_project_plans(request: Request):
             peers_partner = await access_control.load_regional_users_partner_organizations(user_id)
             region_names = await access_control.load_user_region_names(user_id)
             where_clause_partner = "LOWER(pl.user_id) = ANY(%s) AND LOWER(p.\"FBM_branch\") = ANY(%s)"
-            params_partner = (peers_partner, region_names,)
+            params_partner = (peers_partner, region_names, project_id, peers_partner, region_names,)
 
     else:
         peers = await access_control.load_regional_users(user_id)
