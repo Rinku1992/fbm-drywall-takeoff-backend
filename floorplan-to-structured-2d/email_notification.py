@@ -42,7 +42,9 @@ def trigger(
     sender,
     recipient,
     user_name,
+    plan_id,
     plan_name,
+    project_id,
     project_name,
     page_number,
     team_name,
@@ -83,8 +85,8 @@ def trigger(
         <p>{status_paragraph}</p>
         <p>{details_paragraph}</p>
         <p><b>Status:</b> {message}</p>
-        <p><b>Project:</b> {project_name}</p>
-        <p><b>Plan:</b> {plan_name}</p>
+        <p><b>Project:</b> {project_id} | {project_name}</p>
+        <p><b>Plan:</b> {plan_id} | {plan_name}</p>
 
         <p>Regards,<br>{team_name}</p>
         """
