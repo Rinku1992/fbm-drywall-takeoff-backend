@@ -39,7 +39,7 @@ def send_email(access_token, sender_email, recipient_email, subject, body_conten
             "@odata.type": "#microsoft.graph.fileAttachment",
             "name": Path(attachment_path).name,
             "contentType": mime_type,
-            "contentBytes": base64.b64encode(attachment_bytes).decode("utf-8"),
+            "contentBytes": attachment_bytes,
         }
         message_payload={
             "message": {
