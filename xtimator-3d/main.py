@@ -1752,12 +1752,12 @@ async def load_2d_all(request: Request):
         status = "IN PROGRESS"
         query = f"""
             SELECT pl.pages
-            FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} pl
+            FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} m
             JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
-                ON pl.project_id = pr.project_id
+                ON m.project_id = pr.project_id
             WHERE
-                LOWER(pl.project_id) = LOWER(%s)
-                AND LOWER(pl.plan_id) = LOWER(%s)
+                LOWER(m.project_id) = LOWER(%s)
+                AND LOWER(m.plan_id) = LOWER(%s)
                 AND {where_clause}
         """
         if bool(is_admin) and is_admin.super:
@@ -1768,7 +1768,7 @@ async def load_2d_all(request: Request):
                 SELECT pl.pages
                 FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} m
                 JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
-                    ON pl.project_id = pr.project_id
+                    ON m.project_id = pr.project_id
                 WHERE
                     LOWER(m.project_id) = LOWER(%s)
                     AND LOWER(m.plan_id) = LOWER(%s)
@@ -1780,7 +1780,7 @@ async def load_2d_all(request: Request):
         query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
         if is_admin.local:
             query_output_partner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query_partner, params=params_partner, fetch=True))
-            query_output += rows_partner
+            query_output += query_output_partner
         if not query_output:
             return respond_with_UI_payload(dict(error="Floor Plan already exists"))
         n_pages = query_output[0]["pages"]
