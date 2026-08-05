@@ -997,13 +997,72 @@ async def load_project_plans(request: Request):
             )
     """
     rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
+    if is_admin.local:
+        query = f"""
+            WITH page_stats AS (
+                SELECT
+                    LOWER(plan_id) AS plan_id,
+                    COUNT(*) FILTER (
+                        WHERE UPPER(status) IN ('COMPLETED', 'SCALE_NOT_DETECTED')
+                    ) AS pages_completed,
+                    COUNT(*) FILTER (
+                        WHERE UPPER(status) NOT IN ('COMPLETED', 'NOT STARTED', 'SCALE_NOT_DETECTED')
+                    ) AS pages_in_progress
+                FROM {CREDENTIALS["CloudSQL"]["table_name_pages"]}
+                GROUP BY LOWER(plan_id)
+            )
 
-    if not rows:
+            SELECT
+                pr.*,
+
+                (
+                    SELECT COALESCE(
+                        jsonb_agg(
+                            to_jsonb(pl)
+                            || jsonb_build_object(
+                                'pages_completed', COALESCE(ps.pages_completed, 0),
+                                'pages_in_progress', COALESCE(ps.pages_in_progress, 0)
+                            )
+                            ORDER BY pl.created_at
+                        ),
+                        '[]'::jsonb
+                    )
+                    FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} pl
+                    LEFT JOIN page_stats ps
+                        ON LOWER(pl.plan_id) = ps.plan_id
+                    WHERE
+                        LOWER(pl.project_id) = LOWER(pr.project_id)
+                        AND {where_clause}
+                ) AS project_plans
+
+            FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
+
+            WHERE
+                LOWER(pr.project_id) = LOWER(%s)
+                AND (
+                    EXISTS (
+                        SELECT 1
+                        FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} pl
+                        WHERE
+                            LOWER(pl.project_id) = LOWER(pr.project_id)
+                            AND {where_clause} AND pl.is_published = TRUE
+                    )
+                )
+        """
+        rows_partner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
+
+    if not rows and rows_partner:
         return respond_with_UI_payload(dict(project_metadata=dict(), project_plans=list()))
 
-    row = rows[0]
-    project_metadata = dict(row)
-    project_plans = project_metadata.pop("project_plans", list())
+    project_plans = list()
+    if rows:
+        row = rows[0]
+        project_metadata = dict(row)
+        project_plans = project_metadata.pop("project_plans", list())
+    if rows_partner:
+        row_partner = rows_partner[0]
+        project_metadata = dict(row_partner)
+        project_plans += project_metadata.pop("project_plans", list())
 
     logging.info("SYSTEM: Project Plans Data retrieved successfully")
     return respond_with_UI_payload(
