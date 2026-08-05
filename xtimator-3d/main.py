@@ -1032,7 +1032,7 @@ async def load_project_plans(request: Request):
                         ON LOWER(pl.plan_id) = ps.plan_id
                     WHERE
                         LOWER(pl.project_id) = LOWER(pr.project_id)
-                        AND {where_clause}
+                        AND {where_clause_partner}
                 ) AS project_plans
 
             FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
@@ -1045,21 +1045,22 @@ async def load_project_plans(request: Request):
                         FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} pl
                         WHERE
                             LOWER(pl.project_id) = LOWER(pr.project_id)
-                            AND {where_clause} AND pl.is_published = TRUE
+                            AND {where_clause_partner} AND pl.is_published = TRUE
                     )
                 )
         """
-        rows_partner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
+        rows_partner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params_partner, fetch=True))
 
-    if not rows and rows_partner:
-        return respond_with_UI_payload(dict(project_metadata=dict(), project_plans=list()))
+    if not rows:
+        if is_admin.local and not rows_partner:
+            return respond_with_UI_payload(dict(project_metadata=dict(), project_plans=list()))
 
     project_plans = list()
     if rows:
         row = rows[0]
         project_metadata = dict(row)
         project_plans = project_metadata.pop("project_plans", list())
-    if rows_partner:
+    if is_admin.local and rows_partner:
         row_partner = rows_partner[0]
         project_metadata = dict(row_partner)
         project_plans += project_metadata.pop("project_plans", list())
