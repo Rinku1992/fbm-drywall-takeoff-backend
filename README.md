@@ -23,7 +23,7 @@ CREATE TABLE projects (
 
     project_name TEXT,
     project_location TEXT,
-    project_location_pincode INTEGER,
+    project_location_pincode TEXT,
     "FBM_branch" TEXT,
     project_type TEXT,
     project_area TEXT,
