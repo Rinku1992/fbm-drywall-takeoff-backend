@@ -1766,17 +1766,17 @@ async def load_2d_all(request: Request):
             params = (project_id, plan_id, peers,)
             query_partner = f"""
                 SELECT pl.pages
-                FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} pl
+                FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} m
                 JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
                     ON pl.project_id = pr.project_id
                 WHERE
-                    LOWER(pl.project_id) = LOWER(%s)
-                    AND LOWER(pl.plan_id) = LOWER(%s)
+                    LOWER(m.project_id) = LOWER(%s)
+                    AND LOWER(m.plan_id) = LOWER(%s)
                     AND {where_clause_partner}
             """
             params_partner = (project_id, plan_id, peers_partner, region_names,)
         else:
-            params = (project_id, plan_id, int(page_number), peers, region_names,)**
+            params = (project_id, plan_id, peers, region_names,)
         query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
         if is_admin.local:
             query_output_partner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query_partner, params=params_partner, fetch=True))
