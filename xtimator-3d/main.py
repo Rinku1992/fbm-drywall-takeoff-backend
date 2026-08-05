@@ -1753,7 +1753,8 @@ async def load_2d_all(request: Request):
         query = f"""
             SELECT pl.pages
             FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} pl
-            FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
+            JOIN {CREDENTIALS["CloudSQL"]["table_name_projects"]} pr
+                ON pl.project_id = pr.project_id
             WHERE
                 LOWER(pl.project_id) = LOWER(%s)
                 AND LOWER(pl.plan_id) = LOWER(%s)
@@ -1774,7 +1775,7 @@ async def load_2d_all(request: Request):
                     break
             except IndexError:
                 return respond_with_UI_payload(dict(error="Floor Plan does not exist"), status_code=500)
-            sleep(5)
+            await asyncio.sleep(5)
         if status != "COMPLETED":
             return respond_with_UI_payload(dict(error=f"Floor Plan extraction not completed within {(n_pages * 900)/60} minutes"), status_code=500)
 
