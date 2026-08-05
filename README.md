@@ -8,6 +8,9 @@
 * ### Onboarding External Organizations into Xtimator Application
     * <i>[User guide to onboard external organizations](https://fbm.atlassian.net/wiki/spaces/FBMAITEAM/pages/3429728263/User+Guide+Onboarding+External+Organizations+into+Xtimator+Application)</i>
 
+## XTIMATOR Access Control Functional Architecture
+<img width="1657" height="949" alt="AccessControlFunctionalArchitecture" src="https://github.com/user-attachments/assets/3236d1a7-f132-4a0f-b81d-f70b6dc09c9e" />
+
 ## Installation
 ### Fully Managed Relational Database - Cloud SQL for PostgreSQL
 <b>Database Name: </b> <b><i>drywall_takeoff</i></b><br>
