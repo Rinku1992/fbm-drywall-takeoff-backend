@@ -806,6 +806,35 @@ class HeightValidatorHelper:
         return v
       return ensure_not_nan(v)
 
+class AreaValidatorHelper:
+
+    @field_validator("area", check_fields=False)
+    @classmethod
+    def validate_float(cls, v):
+      if "area" not in cls.validation_context:
+        return v
+      return ensure_not_nan(v)
+
+class LengthValidatorHelper:
+
+    @field_validator("length", check_fields=False)
+    @classmethod
+    def validate_float(cls, v):
+      if "length" not in cls.validation_context:
+        return v
+      return ensure_not_nan(v)
+
+class WidthValidatorHelper:
+
+    @field_validator("width", check_fields=False)
+    @classmethod
+    def validate_optional_float(cls, v):
+      if "width" not in cls.validation_context:
+        return v
+      if v is None:
+          return v
+      return ensure_not_nan(v)
+
 class LayersValidatorHelper:
 
     @field_validator("layers", check_fields=False)
@@ -878,6 +907,16 @@ class StackCountValidatorHelper:
             raise ValueError("Vertically stacked material count does not equate with stacked color codes count and stacked heights count for the walls")
         return self
 
+class WallCountValidatorHelper:
+
+    @model_validator(mode="after")
+    def check_wall_count(self):
+      if "wall_count" not in self.validation_context:
+          return self
+      if len(self.wall_parameters) < 1:
+          raise ValueError("At least one wall required")
+      return self
+
 class DrywallAssemblyCeiling(
   ThicknessValidatorHelper,
   LayersValidatorHelper,
@@ -923,7 +962,8 @@ class Pitch(BaseModel):
     rise: float = Field(description="<rise of the slope in float>")
     run: float = Field(description="<run of the slope in float>")
 
-class CeilingModelAndPredict(BaseModel):
+class CeilingModelAndPredict(AreaValidatorHelper, HeightValidatorHelper, BaseModel):
+    validation_context = ["area", "height"]
     model_config = ConfigDict(extra="forbid")
 
     room_name: Optional[str] = Field(description="'<Detected Room Name the ceiling belongs to / NULL>'")
@@ -939,12 +979,8 @@ class CeilingModelAndPredict(BaseModel):
     code_references: List[str] = Field(description="['<applied Dywall code reference 1>', '<applied Dywall code reference 2>', '<applied Dywall code reference 3>']")
     recommendation: Optional[str] = Field(description="'<recommendation on special requirements including cost reduction (if any)>'")
 
-    @field_validator("area", "height")
-    @classmethod
-    def validate_float(cls, v):
-        return ensure_not_nan(v)
-
-class WallParameterModelAndPredict(BaseModel):
+class WallParameterModelAndPredict(LengthValidatorHelper, WidthValidatorHelper, BaseModel):
+    validation_context = ["length", "width"]
     model_config = ConfigDict(extra="forbid")
 
     room_name: Optional[str] = Field(description="'<Detected Room Name the target perimeter wall belongs to / NULL>'")
@@ -957,29 +993,12 @@ class WallParameterModelAndPredict(BaseModel):
     code_references: List[str] = Field(description="['<applied Dywall code reference 1>', '<applied Dywall code reference 2>', '<applied Dywall code reference 3>']")
     recommendation: Optional[str] = Field(description="'<recommendation on special requirements for perimeter wall 2 including cost reduction (if any). Generate separate recommendations for single drywall material and the vetically stacked drywall materials (If predicted)>'")
 
-    @field_validator("length")
-    @classmethod
-    def validate_float(cls, v):
-        return ensure_not_nan(v)
-
-    @field_validator("width")
-    @classmethod
-    def validate_optional_float(cls, v):
-        if v is None:
-            return v
-        return ensure_not_nan(v)
-
-class PolygonDetectorAndDrywallPredictorResponse(BaseModel):
+class PolygonDetectorAndDrywallPredictorResponse(WallCountValidatorHelper, BaseModel):
+    validation_context = ["wall_count"]
     model_config = ConfigDict(extra="forbid")
 
     ceiling: CeilingModelAndPredict
     wall_parameters: List[WallParameterModelAndPredict]
-
-    @model_validator(mode="after")
-    def check_wall_count(self):
-        if len(self.wall_parameters) < 1:
-            raise ValueError("At least one wall required")
-        return self
 
 POLYGON_DETECTOR = """
   You are a licensed building-code-aware construction expert with Senior Architectural Drawing Interpretation Engine capabilities. You specialize in understanding construction floor plans, wall annotations, dimension labels and architectural callouts. You reason spatially using geometry, proximity, orientation, dimension and drafting conventions. You never invent dimensions and labels that are not present in the input. You return structured, deterministic outputs.
