@@ -895,7 +895,7 @@ class StackedLayersValidatorHelper:
                       "`layers` must be a single integer for non-stacked ceilings."
                   )
 
-        return self
+      return self
 
 class StackCountValidatorHelper:
 
@@ -904,8 +904,8 @@ class StackCountValidatorHelper:
       if "stack_count" not in self.active_validators:
           return self
       if not len(self.materials_vertically_stacked) == len(self.color_codes_stacked):
-            raise ValueError("Vertically stacked material count does not equate with stacked color codes count and stacked heights count for the walls")
-        return self
+          raise ValueError("Vertically stacked material count does not equate with stacked color codes count and stacked heights count for the walls")
+      return self
 
 class WallCountValidatorHelper:
 
