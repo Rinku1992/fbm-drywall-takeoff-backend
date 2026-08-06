@@ -759,12 +759,12 @@ async def trigger_email_notification(
 ):
     message = f"Plan: {plan_id} | Page Number: {page_number} | Extraction: {status}"
     query = f"""
-        SELECT project_name FROM FROM {credentials["CloudSQL"]["table_name_projects"]} WHERE LOWER(project_id) = LOWER(%s) 
+        SELECT project_name FROM {credentials["CloudSQL"]["table_name_projects"]} WHERE LOWER(project_id) = LOWER(%s) 
     """
     project_name = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id,), fetch=True))
     project_name = project_name[0]["project_name"]
     query = f"""
-        SELECT plan_name FROM FROM {credentials["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s)
+        SELECT plan_name FROM {credentials["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s)
     """
     plan_name = await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(project_id, plan_id,), fetch=True))
     plan_name = plan_name[0]["plan_name"]
