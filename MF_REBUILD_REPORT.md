@@ -1058,3 +1058,122 @@ a legitimate label can be image-only.
 
 **Not fixed here — the §15.5 substring weakness in `_looks_fabricated` remains.**
 The new check uses word boundaries; the older one still does not.
+
+---
+
+## 17. Addendum (2026-08-06) — mis-targeting: zoning map read as a unit schedule
+
+Run 7 confirmed the §16 delivery fix worked: the model returned **R-1 / R-2 /
+R-3 / R-MH** — *real labels genuinely printed on page 1*, from the vicinity map's
+zoning-district legend. It is reading the page now. It targeted the wrong thing on
+it, and invented counts (10/10/10/20) and one identical area (1570 ×4) around
+those real labels.
+
+### 17.1 Zoning codes excluded (item 1)
+
+New prompt section **LABELS YOU MUST NOT READ — ZONING / LAND-USE DISTRICT CODES**,
+parallel to the existing accessibility exclusion (which is unchanged). It names
+the form (`R-1`, `R-2`, `R-MH`, `C-x`, `PUD`, `POS`, …) explicitly as *form, not
+values to reuse*, gives the tells — scattered across a **map** as parcel shading
+rather than listed in rows, keyed to a colour/hatch legend, no per-unit area, and
+any nearby numbers are lot sizes/setbacks/densities/acreages — and states the
+distinction plainly: a zoning code says what **may be built on a parcel**; a unit
+type is a **dwelling plan type** built repeatedly, appearing with a per-type count
+and usually an area.
+
+### 17.2 Worked examples (item 2)
+
+Three **INPUT → OUTPUT pairs**, never bare sample outputs. This structure is the
+whole point: §13/§15 established that output-only examples with realistic labels
+get regurgitated (the `STUDIO/1BED/2BED/3BED` runs traced directly to
+`"Studio S1"` / `"2 Bed / 2 Bath"` sitting in the field description).
+
+Mitigations, all three applied together:
+- **Pairs** — each example shows fake page text *and* the correct extraction from
+  it, so what is taught is the reading procedure, not an answer shape.
+- **Obviously synthetic labels** — `PLAN-AA` / `PLAN-BB`, with an explicit note
+  that they appear in **no** real plan set, so their appearance in output is
+  self-evidently a copy.
+- **Explicit framing** — *"illustrate the extraction PROCEDURE only … NEVER copy
+  names, numbers, or structure from these examples into your answer; every value
+  you report must be visibly present in the provided pages."*
+
+The three cases: (a) a table, showing same-row alignment, comma stripping, and
+that a printed total is reported rather than recomputed; (b) prose with no
+breakdown → `total_units` set, `per_type_counts` **empty**, with an explicit
+instruction not to invent two names to "complete" it; (c) a negative case of
+zoning codes + an accessibility row → contributes **nothing**, and if no candidate
+page offers more, the empty result is correct.
+
+A regression check asserts no realistic residential name (`STUDIO`, `1 BED`,
+`1BR`, `Studio S1`, `VISTA`) reappears anywhere in the prompt.
+
+### 17.3 Text layer sent with each image (item 3)
+
+For **vector pages only**, each page now contributes three parts:
+`"PAGE: n"` → image → `"PAGE n TEXT:"` + `fitz.get_text()` truncated to
+`UNIT_COUNT_PAGE_TEXT_CHARS` (6000, configurable; 0 disables). Scanned pages are
+untouched — image only — so the scanned path behaves exactly as before.
+
+Prompt guidance is explicit about the division of labour: **image for LAYOUT**
+(which block is a schedule, which column holds counts, how rows align), **text
+layer for exact VALUES** (names, counts, areas — machine-readable and immune to
+visual misreading), with the text layer authoritative on characters and digits
+when the two disagree.
+
+This refines **D9** rather than reversing it. D9's reasoning was that parsed text
+*destroys table structure* — still true, and still why the image is sent and
+still what the image is for. What changed is that flattened text is no longer the
+*only* thing offered; it now accompanies the image instead of replacing it. The
+stale instruction *"do NOT rely on any parsed text stream"* was removed, and the
+two "visible on the supplied images" rules were widened to "in the image, or in
+that page's text layer".
+
+**Static verification on the real PDF** (no Vertex call): the assembled request is
+**15 parts — 5 images (8.25 MB) + 5 page texts + 5 page markers**, with
+`page_text_chars={1: 6000, 2: 6000, 11: 5170, 12: 5172, 13: 5174}`. Page 1's sent
+text contains the schedule, and the rows parse straight out of it:
+
+```
+('I', '1,872', '8')  ('II', '1,671', '18')  ('III', '1,791', '8')  ('IV', '1,260', '11')
+```
+
+That is the ground truth 8/18/8/11 = 45 with real, differing areas — now
+machine-readable in the request rather than a visual judgement.
+
+### 17.4 Identical-areas check (item 4)
+
+`_check_identical_areas` flags when **every** extracted type reports the same
+per-unit area. Distinct plan types are distinct because they differ in size; four
+types sharing one square-footage to the digit is what pattern-filling a column
+looks like. Requires ≥2 types **all** carrying a non-null area — a partially
+populated area column is normal and must not flag. Flags, never rejects, consistent
+with the other guards; all reasons are joined so provenance hides none of them.
+
+**This check is why item 4 mattered — verified, not assumed.** Run 7's output was
+tested against every guard:
+
+| guard | run-7 verdict | why |
+|---|---|---|
+| `_looks_fabricated` | silent | counts 10/10/10/20 are not uniform |
+| `_check_internal_consistency` | silent | no stated total to contradict |
+| `_check_names_grounded` | **silent** | R-1/R-2/R-MH **are** in the text layer — they are real labels, just from the wrong table |
+| `_check_identical_areas` | **FLAGGED** | 1570 ×4 |
+
+The grounding check added in §16 genuinely cannot catch this class: the names are
+real. Only the area signature betrays it.
+
+**Honest limitation:** had the model invented *differing* areas around those same
+zoning labels, **no** guard would fire — the prompt fix (§17.1) would be the only
+defence. The guards catch signatures, not wrongness in general.
+
+### 17.5 Verification
+
+60/60 new checks pass, plus all five earlier suites and the ranking verification
+(ranking untouched). `compileall` clean.
+
+Delivery path confirmed unchanged: extraction still passes `prompts=None`, so
+`is_cached` is forced `False` and `prompt_delivery` stays `system_instruction`
+**regardless of prompt length** — which matters, because the prompt is now 15,231
+chars / 2,326 words (~3,024 tokens), far above the 1024 switch that caused §16.
+The pin is doing exactly the job it was added for.

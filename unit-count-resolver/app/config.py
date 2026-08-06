@@ -61,6 +61,13 @@ UNIT_COUNT_MAX_RENDER_LONGEST_SIDE = int(os.environ.get("UNIT_COUNT_MAX_RENDER_L
 # Secondary guard on total pixels, kept below PIL's default 89,478,485 limit.
 UNIT_COUNT_MAX_RENDER_PIXELS = int(os.environ.get("UNIT_COUNT_MAX_RENDER_PIXELS", "80000000"))
 
+# Per-page text layer sent ALONGSIDE the image on vector pages (2026-08-06).
+# The image carries layout; the text layer carries exact characters and digits.
+# Truncated per page so a text-dense sheet cannot crowd out the images: Aurora's
+# schedule page is ~26k chars, of which the schedule itself sits in the first few
+# thousand. Set to 0 to disable and send images only.
+UNIT_COUNT_PAGE_TEXT_CHARS = int(os.environ.get("UNIT_COUNT_PAGE_TEXT_CHARS", "6000"))
+
 # BUG FIX 1 — fabrication guard. Extraction gets at most this many attempts, at a
 # FIXED temperature (no escalation). Master plan section 9 / D5c.
 UNIT_COUNT_EXTRACTION_MAX_ATTEMPTS = int(os.environ.get("UNIT_COUNT_EXTRACTION_MAX_ATTEMPTS", "2"))

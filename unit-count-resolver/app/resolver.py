@@ -42,6 +42,7 @@ from .config import (
     UNIT_COUNT_MAX_RENDER_PIXELS,
     UNIT_COUNT_EXTRACTION_MAX_ATTEMPTS,
     UNIT_COUNT_EXTRACTION_TEMPERATURE,
+    UNIT_COUNT_PAGE_TEXT_CHARS,
     UNIT_COUNT_DEBUG,
     UNIT_COUNT_DEBUG_RESPONSE_CHARS,
     UNIT_COUNT_DEBUG_GCS_PREFIX,
@@ -635,7 +636,7 @@ def _describe_part(part):
         return f"undescribable({e})"
 
 
-def _log_request_composition(query_parts, is_cached, context, attempt):
+def _log_request_composition(query_parts, is_cached, context, attempt, page_text_lengths=None):
     """UNIT_COUNT_DEBUG: prove what is actually IN the request being sent.
 
     The saved PNGs prove the pages RENDERED. This proves they are ATTACHED to
@@ -663,7 +664,8 @@ def _log_request_composition(query_parts, is_cached, context, attempt):
             f"[UNIT_COUNTS] [{context}] DEBUG request composition (attempt {attempt}): "
             f"parts={len(query_parts)} image_parts={images} "
             f"inline_bytes_total={total_bytes} ({total_bytes / 1e6:.2f} MB) "
-            f"prompt_delivery={path}"
+            f"prompt_delivery={path} "
+            f"page_text_chars={page_text_lengths if page_text_lengths else '{}'}"
         )
         for i, p in enumerate(query_parts):
             logging.info(f"[UNIT_COUNTS] [{context}]   DEBUG part[{i}] = {_describe_part(p)}")
@@ -708,6 +710,7 @@ def _extract_unit_counts(credentials, client_ip_address, pdf_path, candidate_pag
     try:
         query_parts = list()
         rendered = list()
+        page_text_lengths = dict()
         for page_index in candidate_pages:
             try:
                 page = doc.load_page(page_index)
@@ -718,6 +721,32 @@ def _extract_unit_counts(credentials, client_ip_address, pdf_path, candidate_pag
                 continue
             query_parts.append(Part.from_text(f"PAGE: {page_index}"))
             query_parts.append(Part.from_data(data=png_bytes, mime_type="image/png"))
+
+            # VECTOR PAGES: send the page's own text layer right after its image
+            # (2026-08-06). Run 7 showed the model reading the page but lifting
+            # labels off the vicinity map's zoning legend and inventing counts
+            # around them. The image alone leaves every character a visual
+            # judgement; the text layer makes names and digits machine-exact,
+            # while the image still supplies the layout that flattened text
+            # loses. Scanned pages have no usable text layer and are unchanged
+            # (image only), so the scanned path behaves exactly as before.
+            page_text = ""
+            if UNIT_COUNT_PAGE_TEXT_CHARS > 0:
+                try:
+                    page_text = page.get_text("text") or ""
+                except Exception as e:
+                    logging.warning(
+                        f"[UNIT_COUNTS] [{context} page={page_index}] text-layer read failed: {e}; image only"
+                    )
+                    page_text = ""
+            if len(page_text.strip()) >= _UNIT_COUNT_MIN_PAGE_TEXT_CHARS:
+                truncated = page_text[:UNIT_COUNT_PAGE_TEXT_CHARS]
+                suffix = "" if len(page_text) <= UNIT_COUNT_PAGE_TEXT_CHARS else "\n[...truncated...]"
+                query_parts.append(Part.from_text(f"PAGE {page_index} TEXT:\n{truncated}{suffix}"))
+                page_text_lengths[page_index] = len(truncated)
+            else:
+                page_text_lengths[page_index] = 0
+
             rendered.append(page_index)
 
             # UNIT_COUNT_DEBUG: persist the EXACT image the model is about to see.
@@ -784,7 +813,8 @@ def _extract_unit_counts(credentials, client_ip_address, pdf_path, candidate_pag
             # would otherwise report the final value on every line).
             this_attempt = attempts
             if UNIT_COUNT_DEBUG:
-                _log_request_composition(query_parts, is_cached, context, this_attempt)
+                _log_request_composition(query_parts, is_cached, context, this_attempt,
+                                         page_text_lengths=page_text_lengths)
             try:
                 if is_cached:
                     extraction, _ = phoenix_call(
@@ -919,6 +949,42 @@ def _looks_fabricated(extraction, pdf_path, source_pages, context):
         f"text layer of page(s) {pages}"
     )
     return True, reason
+
+
+def _check_identical_areas(extraction, context):
+    """Flag when every extracted type reports the SAME per-unit area.
+
+    Added 2026-08-06. Run 7 returned four types all with area 1570 alongside
+    counts 10/10/10/20 — the areas were the tell, not the counts. Distinct unit
+    PLAN types are distinct precisely because they differ in size; a real
+    schedule with four types sharing one square-footage to the digit is close to
+    impossible. It is what invention looks like when the model pattern-fills a
+    column rather than reading it.
+
+    Independent of every other guard: the counts here were NOT uniform (so
+    _looks_fabricated is silent) and the names may well be real labels lifted
+    from elsewhere on the page (so _check_names_grounded can be silent too).
+
+    Requires >= 2 types that ALL carry a non-null area. Types with a null area
+    are ignored — a partially-populated area column is normal and must not flag.
+
+    FLAGS, never rejects. Returns (is_suspect, reason).
+    """
+    areas = [t.area for t in extraction.per_type_counts if t.area is not None]
+    if len(areas) < 2 or len(areas) != len(extraction.per_type_counts):
+        return False, None
+    if len(set(areas)) != 1:
+        return False, None
+
+    value = areas[0]
+    logging.warning(
+        f"[UNIT_COUNTS] [{context}] IDENTICAL AREAS: all {len(areas)} extracted types report the "
+        f"same per-unit area {value}. Distinct plan types differ in size, so one shared "
+        f"square-footage across every type is almost certainly pattern-filled rather than read. "
+        f"Breakdown: { {t.unit_type: (t.count, t.area) for t in extraction.per_type_counts} }. "
+        f"Result FLAGGED (flagged_suspect=true) but NOT rejected."
+    )
+    return True, "identical_areas"
 
 
 def _check_names_grounded(extraction, pdf_path, candidate_pages, context):
@@ -1245,10 +1311,19 @@ def resolve_unit_counts(
             f"{disagreement}; {ungrounded_reason}" if disagreement else ungrounded_reason
         )
 
-    # Either guard is sufficient to mark the result suspect. suspect_reason
-    # carries both when both fired, so provenance never hides one behind the other.
-    flagged_suspect = sum_mismatch or names_ungrounded
-    suspect_reason = "; ".join(r for r in (sum_mismatch_reason, ungrounded_reason) if r) or None
+    # 4c. Identical areas across every type — the run-7 signature (1570 x4).
+    same_areas, same_areas_reason = _check_identical_areas(extraction, context)
+    if same_areas_reason:
+        disagreement = (
+            f"{disagreement}; {same_areas_reason}" if disagreement else same_areas_reason
+        )
+
+    # ANY guard is sufficient to mark the result suspect. suspect_reason carries
+    # every reason that fired, so provenance never hides one behind another.
+    flagged_suspect = sum_mismatch or names_ungrounded or same_areas
+    suspect_reason = "; ".join(
+        r for r in (sum_mismatch_reason, ungrounded_reason, same_areas_reason) if r
+    ) or None
 
     payload = {
         **resolved,

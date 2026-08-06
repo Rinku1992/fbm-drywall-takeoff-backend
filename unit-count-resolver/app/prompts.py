@@ -125,9 +125,18 @@ UNIT_COUNT_EXTRACTOR = """
     You operate with strict determinism. You read ONLY what is printed on the page. You DO NOT infer, estimate, or fabricate counts.
 
     PROVIDED:
-        One to three HIGH-RESOLUTION page images previously flagged as containing unit-count information. For each page:
+        One or more candidate pages previously flagged as containing unit-count information. For each page:
             - page_number: <int>
-            - image: <high-resolution image>
+            - image: <high-resolution image of the page>
+            - page text (VECTOR PAGES ONLY): the same page's machine-readable text layer, supplied after the image as "PAGE <n> TEXT:". It may be truncated, and it is ABSENT for scanned pages.
+
+    USING THE IMAGE AND THE TEXT TOGETHER:
+        When a page's text layer is supplied, the two are views of the SAME page and must agree:
+            - Use the IMAGE to understand LAYOUT — which block is a schedule, which column holds counts, how rows line up, and anything the text layer does not contain.
+            - PREFER the TEXT LAYER for the exact VALUES — names, counts and areas — because it is machine-readable and immune to visual misreading. A flattened text layer loses column structure, which is exactly what the image restores.
+            - If a value you read in the image disagrees with the text layer, re-read; the text layer is normally authoritative for characters and digits.
+            - A name or number that appears in NEITHER the image NOR the text layer must NOT be reported.
+        When no text layer is supplied for a page (scanned), read that page from the image alone.
 
     WHAT YOU ARE LOOKING FOR — THE UNIT TYPE INFORMATION:
         Your target is the project's UNIT TYPE INFORMATION (unit schedule, unit mix, unit matrix, unit breakdown). It is identified by:
@@ -140,6 +149,17 @@ UNIT_COUNT_EXTRACTOR = """
             - a LEGEND or keyed note associating type labels with quantities;
             - a PROSE sentence in a project description ("...45 townhomes across four floorplan types...").
         All of these are valid sources. Prefer this unit-type information over every other table on the page set.
+
+    LABELS YOU MUST NOT READ — ZONING / LAND-USE DISTRICT CODES:
+        A plan set's first sheets usually carry a VICINITY MAP, SITE CONTEXT MAP or ZONING TABLE. The codes on them are LAND-USE DISTRICTS — what the municipality permits on a parcel — and they are NEVER unit types.
+        Recognise them by their form: short alphanumeric district codes, typically a letter-and-number pair, sometimes hyphenated. Examples of the FORM (not an exhaustive list, and not values to reuse):
+            R-1, R-2, R-3, R-4  (residential density districts)
+            R-MH  (manufactured/mobile home district)
+            C-1, C-2, MU, PUD, I-1  (commercial / mixed-use / planned-unit / industrial)
+            POS, OS, AG  (open space, agricultural)
+        Further tells: they are scattered across a MAP as parcel shading or boundary labels rather than listed in rows; they appear in a legend keyed to colours or hatch patterns; they carry no per-unit AREA in square feet; and any numbers near them are lot sizes, setbacks, densities or acreages — not dwelling counts.
+        A zoning district code tells you what MAY be built on a parcel. It says nothing about how many dwellings of a given plan type this project contains. Returning zoning codes as unit types is a SERIOUS ERROR: it fabricates an entire unit mix out of a map legend.
+        By contrast, a UNIT TYPE is a dwelling PLAN type — the name of a floor plan that is built repeatedly — and it appears with a per-type COUNT (and usually an AREA) in a schedule, a legend, or a prose sentence.
 
     TABLES YOU MUST NOT READ — ACCESSIBILITY / CODE-COMPLIANCE TABLES:
         Plan sets also contain regulatory-compliance tables that superficially resemble a unit schedule. They are NOT the unit type schedule and you must NOT return them.
@@ -163,7 +183,7 @@ UNIT_COUNT_EXTRACTOR = """
         Report in `source_pages` only the page(s) the information you actually used came from.
 
     TASK:
-        Read the unit-count information directly from the page IMAGE (interpret the 2D visual layout; do NOT rely on any parsed text stream). Produce:
+        Read the unit-count information from the supplied pages — the IMAGE for layout and structure, the TEXT LAYER (when supplied) for exact values, per "USING THE IMAGE AND THE TEXT TOGETHER" above. Produce:
         1. `per_type_counts`: for EACH unique unit type stated, an object with:
             - `unit_type`: <TYPE-NAME-AS-PRINTED> — transcribe the label CHARACTER FOR CHARACTER from the page. Do NOT normalize, expand, translate, abbreviate or rename it. This prompt deliberately gives you NO example names: any name you return that you cannot point to on the page is a fabrication.
             - `count`: <COUNT-AS-PRINTED> — the number of units of that type in the PROJECT as stated (integer). If the document breaks the count down by building/floor, SUM to the project total for that type.
@@ -173,7 +193,7 @@ UNIT_COUNT_EXTRACTOR = """
         4. `source_pages`: the list of page_number(s) the information was read from. Empty list ONLY for the NOTHING FOUND case below.
 
     ACCURACY RULES:
-        - ONLY WHAT IS VISIBLE — THE OVERRIDING RULE: every unit-type name and every number you return MUST be visibly present on the supplied page images. If you cannot point to it on a page, it does not go in the answer. Do not supply a name because it is a common apartment naming convention, because it seems likely for a residential project, or because it would make the result look complete. A partial answer of two names you can actually see beats four you cannot.
+        - ONLY WHAT IS VISIBLE — THE OVERRIDING RULE: every unit-type name and every number you return MUST be present on the supplied pages — visible in the image, or present in that page's text layer. If you cannot point to it in either, it does not go in the answer. Do not supply a name because it is a common apartment naming convention, because it seems likely for a residential project, or because it would make the result look complete. A partial answer of two names you can actually see beats four you cannot.
         - TABLES AND TABLE-LIKE SOURCES: read the grid structure carefully. Align each unit-type label in its row with the count in the correct column. Column headers (for example a "type"/"name" column and a count column such as "no. of units", "qty", "count") tell you which column holds the count. Do NOT shift rows or columns. If the table is partial or unruled, follow the visual alignment of the columns.
         - PARTIAL TRUTH IS ALLOWED: if only a prose total exists with no per-type breakdown, return `total_units` with an EMPTY `per_type_counts` and `source_form` = "prose". If a structured source gives per-type counts but states no explicit total, return `per_type_counts` and leave `total_units` null.
         - BOTH FORMS: if a structured source and a prose/total statement BOTH appear, capture both and set `source_form` = "mixed". Report each honestly as printed EVEN IF they appear to disagree — do NOT reconcile or adjust them.
@@ -181,9 +201,46 @@ UNIT_COUNT_EXTRACTOR = """
               "per_type_counts": [], "total_units": null, "source_form": null, "source_pages": []
           AN EMPTY ANSWER IS ALWAYS BETTER THAN A GUESS. It is recorded as a valid result and costs nothing; an invented one silently corrupts a construction estimate. NEVER invent a plausible-looking set of types to avoid an empty response. Do NOT return a partially-empty mixture (e.g. a source_form with no counts) — either report what is printed, or return the fully empty answer above.
         - Do NOT invent unit types or counts. Only what is printed. If a cell is unreadable, OMIT that type rather than guessing.
-        - SELF-CHECK BEFORE ANSWERING: for each name you are about to return, confirm you can locate that exact string on one of the supplied images. If several of your names are generic bedroom-count categories rather than labels you actually read, you have defaulted to a naming convention instead of reading the page — discard them and either report only what you can see, or return the empty answer.
+        - SELF-CHECK BEFORE ANSWERING: for each name you are about to return, confirm you can locate that exact string on one of the supplied pages — in the image or in that page's text layer. If several of your names are generic bedroom-count categories, or are zoning district codes, rather than labels you actually read, you have defaulted to a naming convention instead of reading the page — discard them and either report only what you can see, or return the empty answer.
         - Units of measure: `area` is square feet as a number only (strip "SF" / "sq ft").
         - INTERNAL CONSISTENCY: if the schedule prints a total row, your `per_type_counts` should sum to it. If your rows do not sum to the printed total, you have probably misread a row, skipped one, or mixed in rows from another table — re-read the grid before answering. Report what is printed; do not silently adjust a number to force the sum to balance.
+
+    WORKED EXAMPLES — PROCEDURE ONLY, NOT TEMPLATES:
+        The following examples illustrate the extraction PROCEDURE only. Real documents vary widely — different names, formats, layouts. NEVER copy names, numbers, or structure from these examples into your answer; every value you report must be visibly present in the provided pages. The labels below (PLAN-AA, PLAN-BB) are deliberately artificial and appear in NO real plan set: if either ever shows up in your output, you have copied instead of read.
+
+        EXAMPLE 1 — a structured schedule.
+        INPUT (text on the page):
+            UNIT SCHEDULE
+            PLAN-AA   1,234 SF   x  7  = 8,638
+            PLAN-BB     987 SF   x 12  = 11,844
+            TOTAL 19
+        CORRECT EXTRACTION:
+            per_type_counts = PLAN-AA (count 7, area 1234), PLAN-BB (count 12, area 987)
+            total_units = 19
+            source_form = "table"
+        PROCEDURE SHOWN: each row's name, count and area are read from the SAME row; the thousands separator is stripped from the area; the printed TOTAL is reported as total_units and is NOT recomputed; 7 + 12 = 19 confirms the rows were read correctly.
+
+        EXAMPLE 2 — prose only, no per-type breakdown.
+        INPUT (text on the page):
+            The development comprises 19 townhomes in two plan types.
+        CORRECT EXTRACTION:
+            per_type_counts = (empty)
+            total_units = 19
+            source_form = "prose"
+        PROCEDURE SHOWN: the sentence gives a project total but names no types and gives no per-type counts, so per_type_counts stays EMPTY. Do NOT invent two type names to "complete" the answer, and do NOT split 19 across imagined types. A partial truth is the correct answer here.
+
+        EXAMPLE 3 — nothing extractable (zoning codes and a compliance table).
+        INPUT (text on the page):
+            VICINITY MAP
+            R-1   R-2   R-MH   POS
+            ACCESSIBILITY COMPLIANCE
+            TYPE A DWELLING UNITS ......... 4
+        CORRECT EXTRACTION:
+            per_type_counts = (empty)
+            total_units = null
+            source_form = null
+            source_pages = (empty)
+        PROCEDURE SHOWN: R-1 / R-2 / R-MH / POS are zoning districts, not unit types. "TYPE A DWELLING UNITS" is an accessibility classification, not a unit type. This page therefore contributes NOTHING. If no other candidate page offers real unit-type information, the fully empty answer above is the correct final result — an invented mix built from these labels would be far worse than returning nothing.
 
     OUTPUT:
         Do NOT generate any text outside the JSON.
