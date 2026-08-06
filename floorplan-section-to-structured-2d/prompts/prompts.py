@@ -797,6 +797,15 @@ class ThicknessValidatorHelper:
         return v
       return ensure_not_nan(v)
 
+class HeightValidatorHelper:
+
+    @field_validator("height", check_fields=False)
+    @classmethod
+    def validate_float(cls, v):
+      if "height" not in cls.validation_context:
+        return v
+      return ensure_not_nan(v)
+
 class LayersValidatorHelper:
 
     @field_validator("layers", check_fields=False)
@@ -859,6 +868,16 @@ class StackedLayersValidatorHelper:
 
         return self
 
+class StackCountValidatorHelper:
+
+    @model_validator(mode="after")
+    def check_stack_count(self):
+      if "stack_count" not in self.validation_context:
+          return self
+        if not len(self.materials_vertically_stacked) == len(self.color_codes_stacked):
+            raise ValueError("Vertically stacked material count does not equate with stacked color codes count and stacked heights count for the walls")
+        return self
+
 class DrywallAssemblyCeiling(
   ThicknessValidatorHelper,
   LayersValidatorHelper,
@@ -878,7 +897,13 @@ class DrywallAssemblyCeiling(
     fire_rating: Optional[Union[str, float]] = Field(description="<fire-rating of the predicted drywall type in hours>")
     waste_factor: Union[str, int, float] = Field(description="'<waste factor of the predicted drywall in percentage>'")
 
-class DrywallAssemblyWall(BaseModel):
+class DrywallAssemblyWall(
+  ThicknessValidatorHelper,
+  HeightValidatorHelper,
+  ColorCodeValidatorHelper,
+  BaseModel
+):
+    validation_context = ["thickness", "height", "color_code", "stack_count"]
     model_config = ConfigDict(extra="allow")
 
     material: str = Field(description="'<drywall material for the target perimeter wall>'")
@@ -891,26 +916,6 @@ class DrywallAssemblyWall(BaseModel):
     layers: int = Field(description="<number of required drywall layers>")
     fire_rating: Optional[Union[str, float]] = Field(description="<average fire-rating of the predicted drywall types in hours>")
     waste_factor: Union[str, int, float] = Field(description="'<waste factor of the predicted drywall in percentage>'")
-
-    @field_validator("thickness", "height")
-    @classmethod
-    def validate_float(cls, v):
-        return ensure_not_nan(v)
-
-    @field_validator("color_code")
-    @classmethod
-    def validate_bgr(cls, v):
-        if len(v) != 3:
-            raise ValueError("color_code must be BGR tuple")
-        if not all(0 <= c <= 255 for c in v):
-            raise ValueError("Invalid BGR value")
-        return v
-
-    @model_validator(mode="after")
-    def check_stack_count(self):
-        if not len(self.materials_vertically_stacked) == len(self.color_codes_stacked):
-            raise ValueError("Vertically stacked material count does not equate with stacked color codes count and stacked heights count for the walls")
-        return self
 
 class Pitch(BaseModel):
     model_config = ConfigDict(extra="forbid")
