@@ -793,7 +793,7 @@ class ThicknessValidatorHelper:
     @field_validator("thickness", check_fields=False)
     @classmethod
     def validate_float(cls, v):
-      if "thickness" not in cls.validation_context:
+      if "thickness" not in cls.active_validators:
         return v
       return ensure_not_nan(v)
 
@@ -802,7 +802,7 @@ class HeightValidatorHelper:
     @field_validator("height", check_fields=False)
     @classmethod
     def validate_float(cls, v):
-      if "height" not in cls.validation_context:
+      if "height" not in cls.active_validators:
         return v
       return ensure_not_nan(v)
 
@@ -811,7 +811,7 @@ class AreaValidatorHelper:
     @field_validator("area", check_fields=False)
     @classmethod
     def validate_float(cls, v):
-      if "area" not in cls.validation_context:
+      if "area" not in cls.active_validators:
         return v
       return ensure_not_nan(v)
 
@@ -820,7 +820,7 @@ class LengthValidatorHelper:
     @field_validator("length", check_fields=False)
     @classmethod
     def validate_float(cls, v):
-      if "length" not in cls.validation_context:
+      if "length" not in cls.active_validators:
         return v
       return ensure_not_nan(v)
 
@@ -829,7 +829,7 @@ class WidthValidatorHelper:
     @field_validator("width", check_fields=False)
     @classmethod
     def validate_optional_float(cls, v):
-      if "width" not in cls.validation_context:
+      if "width" not in cls.active_validators:
         return v
       if v is None:
           return v
@@ -840,7 +840,7 @@ class LayersValidatorHelper:
     @field_validator("layers", check_fields=False)
     @classmethod
     def validate_positive(cls, layers):
-      if "layers" not in cls.validation_context:
+      if "layers" not in cls.active_validators:
         return layers
       if isinstance(layers, int):
         if layers < 1:
@@ -855,7 +855,7 @@ class ColorCodeValidatorHelper:
     @field_validator("color_code", check_fields=False)
     @classmethod
     def validate_bgr(cls, v):
-        if "color_code" not in cls.validation_context:
+        if "color_code" not in cls.active_validators:
           return v
         if len(v) != 3:
             raise ValueError("color_code must be BGR tuple")
@@ -867,7 +867,7 @@ class StackedLayersValidatorHelper:
 
     @model_validator(mode="after")
     def validate_stacked_layers(self):
-        if "stacked_layers" not in self.validation_context:
+        if "stacked_layers" not in self.active_validators:
           return self
         if not len(self.materials_vertically_stacked) == len(self.color_codes_stacked):
             raise ValueError("Vertically stacked material count does not equate with stacked color codes count for the ceiling")
@@ -901,7 +901,7 @@ class StackCountValidatorHelper:
 
     @model_validator(mode="after")
     def check_stack_count(self):
-      if "stack_count" not in self.validation_context:
+      if "stack_count" not in self.active_validators:
           return self
         if not len(self.materials_vertically_stacked) == len(self.color_codes_stacked):
             raise ValueError("Vertically stacked material count does not equate with stacked color codes count and stacked heights count for the walls")
@@ -911,7 +911,7 @@ class WallCountValidatorHelper:
 
     @model_validator(mode="after")
     def check_wall_count(self):
-      if "wall_count" not in self.validation_context:
+      if "wall_count" not in self.active_validators:
           return self
       if len(self.wall_parameters) < 1:
           raise ValueError("At least one wall required")
@@ -924,7 +924,7 @@ class DrywallAssemblyCeiling(
   StackedLayersValidatorHelper,
   BaseModel
 ):
-    validation_context = ["thickness", "layers", "color_code", "stacked_layers"]
+    active_validators = ["thickness", "layers", "color_code", "stacked_layers"]
     model_config = ConfigDict(extra="forbid")
 
     material: str = Field(description="'<drywall material for the ceiling>'")
@@ -943,7 +943,7 @@ class DrywallAssemblyWall(
   StackCountValidatorHelper
   BaseModel
 ):
-    validation_context = ["thickness", "height", "color_code", "stack_count"]
+    active_validators = ["thickness", "height", "color_code", "stack_count"]
     model_config = ConfigDict(extra="allow")
 
     material: str = Field(description="'<drywall material for the target perimeter wall>'")
@@ -964,7 +964,7 @@ class Pitch(BaseModel):
     run: float = Field(description="<run of the slope in float>")
 
 class CeilingModelAndPredict(AreaValidatorHelper, HeightValidatorHelper, BaseModel):
-    validation_context = ["area", "height"]
+    active_validators = ["area", "height"]
     model_config = ConfigDict(extra="forbid")
 
     room_name: Optional[str] = Field(description="'<Detected Room Name the ceiling belongs to / NULL>'")
@@ -981,7 +981,7 @@ class CeilingModelAndPredict(AreaValidatorHelper, HeightValidatorHelper, BaseMod
     recommendation: Optional[str] = Field(description="'<recommendation on special requirements including cost reduction (if any)>'")
 
 class WallParameterModelAndPredict(LengthValidatorHelper, WidthValidatorHelper, BaseModel):
-    validation_context = ["length", "width"]
+    active_validators = ["length", "width"]
     model_config = ConfigDict(extra="forbid")
 
     room_name: Optional[str] = Field(description="'<Detected Room Name the target perimeter wall belongs to / NULL>'")
@@ -995,7 +995,7 @@ class WallParameterModelAndPredict(LengthValidatorHelper, WidthValidatorHelper, 
     recommendation: Optional[str] = Field(description="'<recommendation on special requirements for perimeter wall 2 including cost reduction (if any). Generate separate recommendations for single drywall material and the vetically stacked drywall materials (If predicted)>'")
 
 class PolygonDetectorAndDrywallPredictorResponse(WallCountValidatorHelper, BaseModel):
-    validation_context = ["wall_count"]
+    active_validators = ["wall_count"]
     model_config = ConfigDict(extra="forbid")
 
     ceiling: CeilingModelAndPredict
