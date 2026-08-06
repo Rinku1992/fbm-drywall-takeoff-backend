@@ -1,4 +1,4 @@
-from typing import List, Dict, Union, Optional, Tuple, Literal, get_origin, get_args
+from typing import List, Dict, Union, Optional, Tuple, Literal, ClassVar, get_origin, get_args
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict, create_model
 import math
 import json
@@ -924,7 +924,7 @@ class DrywallAssemblyCeiling(
   StackedLayersValidatorHelper,
   BaseModel
 ):
-    active_validators = ["thickness", "layers", "color_code", "stacked_layers"]
+    active_validators: ClassVar[set[str]] = {"thickness", "layers", "color_code", "stacked_layers"}
     model_config = ConfigDict(extra="forbid")
 
     material: str = Field(description="'<drywall material for the ceiling>'")
@@ -943,7 +943,7 @@ class DrywallAssemblyWall(
   StackCountValidatorHelper,
   BaseModel
 ):
-    active_validators = ["thickness", "height", "color_code", "stack_count"]
+    active_validators: ClassVar[set[str]] = {"thickness", "height", "color_code", "stack_count"}
     model_config = ConfigDict(extra="allow")
 
     material: str = Field(description="'<drywall material for the target perimeter wall>'")
@@ -964,7 +964,7 @@ class Pitch(BaseModel):
     run: float = Field(description="<run of the slope in float>")
 
 class CeilingModelAndPredict(AreaValidatorHelper, HeightValidatorHelper, BaseModel):
-    active_validators = ["area", "height"]
+    active_validators: ClassVar[set[str]] = {"area", "height"}
     model_config = ConfigDict(extra="forbid")
 
     room_name: Optional[str] = Field(description="'<Detected Room Name the ceiling belongs to / NULL>'")
@@ -981,7 +981,7 @@ class CeilingModelAndPredict(AreaValidatorHelper, HeightValidatorHelper, BaseMod
     recommendation: Optional[str] = Field(description="'<recommendation on special requirements including cost reduction (if any)>'")
 
 class WallParameterModelAndPredict(LengthValidatorHelper, WidthValidatorHelper, BaseModel):
-    active_validators = ["length", "width"]
+    active_validators: ClassVar[set[str]] = {"length", "width"}
     model_config = ConfigDict(extra="forbid")
 
     room_name: Optional[str] = Field(description="'<Detected Room Name the target perimeter wall belongs to / NULL>'")
@@ -995,7 +995,7 @@ class WallParameterModelAndPredict(LengthValidatorHelper, WidthValidatorHelper, 
     recommendation: Optional[str] = Field(description="'<recommendation on special requirements for perimeter wall 2 including cost reduction (if any). Generate separate recommendations for single drywall material and the vetically stacked drywall materials (If predicted)>'")
 
 class PolygonDetectorAndDrywallPredictorResponse(WallCountValidatorHelper, BaseModel):
-    active_validators = ["wall_count"]
+    active_validators: ClassVar[set[str]] = {"wall_count"}
     model_config = ConfigDict(extra="forbid")
 
     ceiling: CeilingModelAndPredict
