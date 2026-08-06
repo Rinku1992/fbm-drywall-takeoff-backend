@@ -940,6 +940,7 @@ class DrywallAssemblyWall(
   ThicknessValidatorHelper,
   HeightValidatorHelper,
   ColorCodeValidatorHelper,
+  StackCountValidatorHelper
   BaseModel
 ):
     validation_context = ["thickness", "height", "color_code", "stack_count"]
