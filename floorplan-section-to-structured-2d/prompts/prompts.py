@@ -2207,14 +2207,15 @@ POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CUSTOM = """
       - If a field cannot be determined, populate it according to the schema requirements (NULL, -1, empty list, etc.) rather than inventing additional fields.
 
   USER_SELECTED_PARAMETERS
-    The application may allow the user to preselect only a subset of wall, ceiling or drywall parameters.
+    The application may allow the user to preselect only a subset of walls, ceilings or drywall parameters.
 
     Examples include:
       - Wall height only
       - Wall drywall assemblies only
       - Ceiling height
-      - Drywall recommendations only
-      - Wall openings only
+      - Wall height and Wall drywall assemblies and ceiling height
+      - Ceiling Drywall assembly only
+      - Ceiling Drywall assembly and wall drywall assemblies
 
     When USER_SELECTED_PARAMETERS are provided:
       - Ignore every prediction task outside the requested parameters.
