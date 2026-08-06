@@ -793,6 +793,8 @@ class ThicknessValidatorHelper:
     @field_validator("thickness", check_fields=False)
     @classmethod
     def validate_float(cls, v):
+      if "thickness" not in cls.validation_context:
+        return v
       return ensure_not_nan(v)
 
 class LayersValidatorHelper:
@@ -800,6 +802,8 @@ class LayersValidatorHelper:
     @field_validator("layers", check_fields=False)
     @classmethod
     def validate_positive(cls, layers):
+      if "layers" not in cls.validation_context:
+        return layers
       if isinstance(layers, int):
         if layers < 1:
           raise ValueError("layers must be >= 1")
@@ -813,6 +817,8 @@ class ColorCodeValidatorHelper:
     @field_validator("color_code", check_fields=False)
     @classmethod
     def validate_bgr(cls, v):
+        if "color_code" not in cls.validation_context:
+          return v
         if len(v) != 3:
             raise ValueError("color_code must be BGR tuple")
         if not all(0 <= c <= 255 for c in v):
@@ -823,6 +829,8 @@ class StackedLayersValidatorHelper:
 
     @model_validator(mode="after")
     def validate_stacked_layers(self):
+        if "stacked_layers" not in self.validation_context:
+          return self
         if not len(self.materials_vertically_stacked) == len(self.color_codes_stacked):
             raise ValueError("Vertically stacked material count does not equate with stacked color codes count for the ceiling")
         if self.materials_vertically_stacked:
@@ -851,7 +859,14 @@ class StackedLayersValidatorHelper:
 
         return self
 
-class DrywallAssemblyCeiling(ThicknessValidatorHelper, LayersValidatorHelper, ColorCodeValidatorHelper, StackedLayersValidatorHelper, BaseModel):
+class DrywallAssemblyCeiling(
+  ThicknessValidatorHelper,
+  LayersValidatorHelper,
+  ColorCodeValidatorHelper,
+  StackedLayersValidatorHelper,
+  BaseModel
+):
+    validation_context = ["thickness", "layers", "color_code", "stacked_layers"]
     model_config = ConfigDict(extra="forbid")
 
     material: str = Field(description="'<drywall material for the ceiling>'")
