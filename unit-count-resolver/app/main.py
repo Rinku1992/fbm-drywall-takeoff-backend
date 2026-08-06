@@ -130,6 +130,9 @@ def _run_resolve_job(project_id, plan_id, user_id):
             str(pdf_path),
             project_id,
             plan_id,
+            # Only used when UNIT_COUNT_DEBUG is on, to place debug artifacts in
+            # the plan's own GCS folder.
+            organization_slug=organization_slug,
         )
         logging.info(f"[UNIT_COUNTS] [{context}] job COMPLETED in {perf_counter() - t0:.3f}s")
     except FileNotFoundError as e:

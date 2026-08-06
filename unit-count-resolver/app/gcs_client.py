@@ -45,3 +45,34 @@ def download_floorplan_pdf(credentials, organization_slug, project_id, plan_id, 
     logger.info(f"[UNIT_COUNTS] GCS download {gcs_url} -> {destination_path}")
     blob.download_to_filename(str(destination_path))
     return destination_path
+
+
+def upload_debug_bytes(credentials, organization_slug, project_id, plan_id, prefix,
+                       object_name, data, content_type="image/png"):
+    """Upload one debug artifact beside the plan's own GCS folder.
+
+    Used only when UNIT_COUNT_DEBUG is on, to persist the exact page images sent
+    to the extractor so a wrong answer can be inspected later rather than guessed
+    at. Destination:
+
+        gs://{bucket}/{organization_slug}/{project}/{plan}/{prefix}/{object_name}
+
+    Best-effort by design: returns the gs:// URL on success and None on any
+    failure. A debug upload must never affect the resolve job.
+    """
+    try:
+        bucket_name = credentials["CloudStorage"]["bucket_name"]
+        blob_path = (
+            f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/"
+            f"{prefix}/{object_name}"
+        )
+        client = CloudStorageClient()
+        client.bucket(bucket_name).blob(blob_path).upload_from_string(
+            data, content_type=content_type
+        )
+        gcs_url = f"gs://{bucket_name}/{blob_path}"
+        logger.info(f"[UNIT_COUNTS] debug artifact uploaded: {gcs_url} ({len(data)} bytes)")
+        return gcs_url
+    except Exception as e:
+        logger.warning(f"[UNIT_COUNTS] debug artifact upload FAILED (ignored): {e}")
+        return None

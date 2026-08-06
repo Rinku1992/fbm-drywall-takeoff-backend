@@ -129,12 +129,17 @@ UNIT_COUNT_EXTRACTOR = """
             - page_number: <int>
             - image: <high-resolution image>
 
-    WHAT YOU ARE LOOKING FOR — THE UNIT TYPE SCHEDULE:
-        Your target is the UNIT TYPE SCHEDULE (also called unit mix, unit matrix, unit breakdown). It is identified by ALL of:
-            - rows keyed by DISTINCT UNIT-TYPE NAMES — marketing or plan names such as "VISTA", "1BR-A", "Type 2", "Studio S1", "PLAN A";
-            - a count column giving how many of each type the project contains;
-            - USUALLY a per-unit AREA column (SF / sq ft) — the single strongest signal that you have found the real schedule.
-        This is the table whose counts drive the drywall estimate. Prefer it over every other table on the page set.
+    WHAT YOU ARE LOOKING FOR — THE UNIT TYPE INFORMATION:
+        Your target is the project's UNIT TYPE INFORMATION (unit schedule, unit mix, unit matrix, unit breakdown). It is identified by:
+            - DISTINCT UNIT-TYPE NAMES exactly as this document prints them. Every project names its types differently — read the names OFF THE PAGE. Do not expect, assume, or supply any particular naming style.
+            - a count of how many of each type the project contains;
+            - OFTEN a per-unit AREA figure (SF / sq ft) — a strong signal you have found the real unit information rather than some other table.
+        THE INFORMATION MAY BE PRESENTED IN ANY FORM (do not assume a full table):
+            - a complete schedule/matrix table;
+            - a PARTIAL or HALF-DRAWN table — some rows or borders missing, or a block of aligned text that is a table in all but ruling;
+            - a LEGEND or keyed note associating type labels with quantities;
+            - a PROSE sentence in a project description ("...45 townhomes across four floorplan types...").
+        All of these are valid sources. Prefer this unit-type information over every other table on the page set.
 
     TABLES YOU MUST NOT READ — ACCESSIBILITY / CODE-COMPLIANCE TABLES:
         Plan sets also contain regulatory-compliance tables that superficially resemble a unit schedule. They are NOT the unit type schedule and you must NOT return them.
@@ -143,38 +148,40 @@ UNIT_COUNT_EXTRACTOR = """
             - "Type A Dwelling Units", "Type B Dwelling Units", "Type C Dwelling Units"  (ANSI A117.1 / IBC / FHA categories)
             - "Mobility Units", "Hearing/Visual Units", "UFAS", "ADA", "Fully Accessible"
         Further tells: the rows describe COMPLIANCE PROVISION, not a floor plan; there is typically NO per-unit area column; the numbers are often round regulatory minimums or percentages; and the table sits near code-analysis notes.
-        NEGATIVE EXAMPLE — an accessibility table you must REJECT (this exact shape was wrongly returned on a real run):
-            Accessible Dwelling Units .... 10
-            Type A Dwelling Units ........ 10
-            Type B Dwelling Units ....... 100
-          Row labels are ANSI A117.1 categories, not unit types, and no areas are given. Returning this instead of the project's real unit schedule is a SERIOUS ERROR: the same physical unit is counted under several compliance categories, so these numbers do not describe how many apartments exist.
+        NEGATIVE EXAMPLE — the SHAPE of an accessibility table you must REJECT (this shape was wrongly returned on a real run). The numbers are shown as placeholders on purpose; do not carry any figure from this example into your answer:
+            Accessible Dwelling Units .... <N>
+            Type A Dwelling Units ........ <N>
+            Type B Dwelling Units ........ <N>
+          Row labels are ANSI A117.1 categories, not unit types, and no areas are given. Returning this instead of the project's real unit information is a SERIOUS ERROR: the same physical unit is counted under several compliance categories, so these numbers do not describe how many apartments exist.
 
     CHOOSING BETWEEN CANDIDATE PAGES:
-        The pages you are given were selected by a rough triage pass and may include the wrong page. When more than one page carries a table:
-            1. Choose the table whose rows are NAMED UNIT TYPES and which has a PER-UNIT AREA column.
-            2. If one candidate table has per-type areas and another does not, choose the one WITH areas.
-            3. Reject any accessibility/compliance table (above) even when it is the ONLY table present — in that case treat the page set as having no unit schedule and return the NOTHING FOUND answer.
-            4. Do NOT merge rows from two different tables, and do NOT sum an accessibility table into a unit schedule.
-        Report in `source_pages` only the page(s) the schedule you actually used came from.
+        The pages you are given were selected by a rough triage pass and may include the wrong page. When more than one page carries candidate information (in ANY of the forms above):
+            1. Choose the source whose rows/entries are NAMED UNIT TYPES and which gives a PER-UNIT AREA.
+            2. If one candidate gives per-type areas and another does not, choose the one WITH areas.
+            3. Reject any accessibility/compliance table (above) even when it is the ONLY table present — a partial table, legend or prose sentence elsewhere on the pages is still a better source than a compliance table. If a compliance table is genuinely the only thing present, return the NOTHING FOUND answer.
+            4. Do NOT merge rows from two different sources, and do NOT sum an accessibility table into the unit information.
+        Report in `source_pages` only the page(s) the information you actually used came from.
 
     TASK:
         Read the unit-count information directly from the page IMAGE (interpret the 2D visual layout; do NOT rely on any parsed text stream). Produce:
         1. `per_type_counts`: for EACH unique unit type stated, an object with:
-            - `unit_type`: the unit-type label EXACTLY as printed (e.g. "1BR-A", "Type 2", "2 Bed / 2 Bath", "Studio S1"). Do NOT normalize, expand, or rename it.
-            - `count`: the number of units of that type in the PROJECT as stated (integer). If the document breaks the count down by building/floor, SUM to the project total for that type.
-            - `area`: the per-unit area in SQUARE FEET if the sheet lists it for that type; otherwise null.
-        2. `total_units`: the project-wide total number of units if a total is explicitly stated on the page; otherwise null.
-        3. `source_form`: "table" if the counts come from a schedule/matrix, "prose" if from narrative text, "mixed" if BOTH a table and a prose/total statement are present. Use null ONLY for the NOTHING FOUND case below.
+            - `unit_type`: <TYPE-NAME-AS-PRINTED> — transcribe the label CHARACTER FOR CHARACTER from the page. Do NOT normalize, expand, translate, abbreviate or rename it. This prompt deliberately gives you NO example names: any name you return that you cannot point to on the page is a fabrication.
+            - `count`: <COUNT-AS-PRINTED> — the number of units of that type in the PROJECT as stated (integer). If the document breaks the count down by building/floor, SUM to the project total for that type.
+            - `area`: <AREA-AS-PRINTED> — the per-unit area in SQUARE FEET if the sheet lists it for that type; otherwise null.
+        2. `total_units`: the project-wide total number of units if a total is explicitly stated on the pages; otherwise null.
+        3. `source_form`: which KIND of source you read. Use "table" for any structured source — a full table, a partial/half-drawn table, or a legend/keyed note. Use "prose" when the counts come from a narrative sentence. Use "mixed" when BOTH a structured source and a prose/total statement are present. Use null ONLY for the NOTHING FOUND case below.
         4. `source_pages`: the list of page_number(s) the information was read from. Empty list ONLY for the NOTHING FOUND case below.
 
     ACCURACY RULES:
-        - TABLES: read the grid structure carefully. Align each unit-type label in its row with the count in the correct column. Column headers (e.g. "Type", "Name", "No. of Units", "Qty", "Count", "Total") tell you which column holds the count. Do NOT shift rows or columns.
-        - PARTIAL TRUTH IS ALLOWED: if only a prose total exists with no per-type breakdown, return `total_units` with an EMPTY `per_type_counts` and `source_form` = "prose". If a table gives per-type counts but states no explicit total, return `per_type_counts` and leave `total_units` null.
-        - BOTH FORMS: if a table and a prose/total statement BOTH appear, capture both and set `source_form` = "mixed". Report each honestly as printed EVEN IF they appear to disagree — do NOT reconcile or adjust them.
-        - NOTHING FOUND (this is a CORRECT and EXPECTED answer, not a failure): these pages were flagged by a low-resolution triage pass that can be wrong. If, at full resolution, the pages contain NO unit-count information at all, say so explicitly by returning ALL FOUR of:
+        - ONLY WHAT IS VISIBLE — THE OVERRIDING RULE: every unit-type name and every number you return MUST be visibly present on the supplied page images. If you cannot point to it on a page, it does not go in the answer. Do not supply a name because it is a common apartment naming convention, because it seems likely for a residential project, or because it would make the result look complete. A partial answer of two names you can actually see beats four you cannot.
+        - TABLES AND TABLE-LIKE SOURCES: read the grid structure carefully. Align each unit-type label in its row with the count in the correct column. Column headers (for example a "type"/"name" column and a count column such as "no. of units", "qty", "count") tell you which column holds the count. Do NOT shift rows or columns. If the table is partial or unruled, follow the visual alignment of the columns.
+        - PARTIAL TRUTH IS ALLOWED: if only a prose total exists with no per-type breakdown, return `total_units` with an EMPTY `per_type_counts` and `source_form` = "prose". If a structured source gives per-type counts but states no explicit total, return `per_type_counts` and leave `total_units` null.
+        - BOTH FORMS: if a structured source and a prose/total statement BOTH appear, capture both and set `source_form` = "mixed". Report each honestly as printed EVEN IF they appear to disagree — do NOT reconcile or adjust them.
+        - NOTHING FOUND (this is a CORRECT and EXPECTED answer, not a failure): these pages were flagged by a low-resolution triage pass that can be wrong. If, at full resolution, the pages contain NO unit-count information in ANY of the forms above — no table, no partial table, no legend, no prose statement — say so explicitly by returning ALL FOUR of:
               "per_type_counts": [], "total_units": null, "source_form": null, "source_pages": []
-          Returning this empty answer is ALWAYS preferable to guessing. NEVER invent a plausible-looking table to avoid an empty response. Do NOT return a partially-empty mixture (e.g. a source_form with no counts) — either report what is printed, or return the fully empty answer above.
+          AN EMPTY ANSWER IS ALWAYS BETTER THAN A GUESS. It is recorded as a valid result and costs nothing; an invented one silently corrupts a construction estimate. NEVER invent a plausible-looking set of types to avoid an empty response. Do NOT return a partially-empty mixture (e.g. a source_form with no counts) — either report what is printed, or return the fully empty answer above.
         - Do NOT invent unit types or counts. Only what is printed. If a cell is unreadable, OMIT that type rather than guessing.
+        - SELF-CHECK BEFORE ANSWERING: for each name you are about to return, confirm you can locate that exact string on one of the supplied images. If several of your names are generic bedroom-count categories rather than labels you actually read, you have defaulted to a naming convention instead of reading the page — discard them and either report only what you can see, or return the empty answer.
         - Units of measure: `area` is square feet as a number only (strip "SF" / "sq ft").
         - INTERNAL CONSISTENCY: if the schedule prints a total row, your `per_type_counts` should sum to it. If your rows do not sum to the printed total, you have probably misread a row, skipped one, or mixed in rows from another table — re-read the grid before answering. Report what is printed; do not silently adjust a number to force the sum to balance.
 
@@ -184,15 +191,16 @@ UNIT_COUNT_EXTRACTOR = """
         {{
             "per_type_counts": [
                 {{
-                    "unit_type": "<label exactly as printed>",
-                    "count": <int>,
-                    "area": <float or null>
+                    "unit_type": "<TYPE-NAME-AS-PRINTED>",
+                    "count": <COUNT-AS-PRINTED>,
+                    "area": <AREA-AS-PRINTED or null>
                 }}
             ],
-            "total_units": <int or null>,
+            "total_units": <TOTAL-AS-PRINTED or null>,
             "source_form": "<table | prose | mixed, or null when nothing was found>",
-            "source_pages": [<int>]
+            "source_pages": [<PAGE-NUMBER>]
         }}
+        The angle-bracket tokens above are PLACEHOLDERS describing what to put there. They are not values and contain no example names — substitute what you read from the pages.
 """
 
 unitCountSourceForm = Literal["table", "prose", "mixed"]

@@ -42,7 +42,11 @@ from .config import (
     UNIT_COUNT_MAX_RENDER_PIXELS,
     UNIT_COUNT_EXTRACTION_MAX_ATTEMPTS,
     UNIT_COUNT_EXTRACTION_TEMPERATURE,
+    UNIT_COUNT_DEBUG,
+    UNIT_COUNT_DEBUG_RESPONSE_CHARS,
+    UNIT_COUNT_DEBUG_GCS_PREFIX,
 )
+from .gcs_client import upload_debug_bytes
 from .prompts import (
     UNIT_COUNT_DETECTOR,
     UnitCountDetectionResponse,
@@ -583,7 +587,30 @@ def _capped_matrix(page, dpi, context, page_index):
     return fitz.Matrix(zoom, zoom), capped
 
 
-def _extract_unit_counts(credentials, client_ip_address, pdf_path, candidate_pages, high_dpi, context):
+def _log_raw_response(response, context, attempt):
+    """UNIT_COUNT_DEBUG: log the model's RAW text before anything parses it.
+
+    Called from inside the generate_content lambda, so it runs BEFORE
+    phoenix_call touches `response.text` — which is the only point where the
+    unparsed output still exists. A response that fails Pydantic validation is
+    otherwise invisible: all the caller ever sees is the exception.
+
+    Never raises: a debug log must not be able to fail a real extraction.
+    """
+    try:
+        raw = getattr(response, "text", None) or ""
+        truncated = raw[:UNIT_COUNT_DEBUG_RESPONSE_CHARS]
+        logging.info(
+            f"[UNIT_COUNTS] [{context}] DEBUG raw model response (attempt {attempt}, "
+            f"{len(raw)} chars, showing {len(truncated)}): {truncated!r}"
+        )
+    except Exception as e:
+        logging.warning(f"[UNIT_COUNTS] [{context}] DEBUG raw-response log failed (ignored): {e}")
+    return response
+
+
+def _extract_unit_counts(credentials, client_ip_address, pdf_path, candidate_pages, high_dpi, context,
+                         organization_slug=None, project_id=None, plan_id=None):
     """Render the candidate pages at HIGH DPI (capped) and run UNIT_COUNT_EXTRACTOR.
 
     BUG FIX 1 (item 7) — BOUNDED, FIXED-TEMPERATURE extraction.
@@ -626,9 +653,26 @@ def _extract_unit_counts(credentials, client_ip_address, pdf_path, candidate_pag
             query_parts.append(Part.from_data(data=png_bytes, mime_type="image/png"))
             rendered.append(page_index)
 
+            # UNIT_COUNT_DEBUG: persist the EXACT image the model is about to see.
+            # The render is capped and downscaled, so what the model reads is not
+            # what you get by opening the PDF yourself — this is the only way to
+            # check whether a schedule was legible at the DPI actually used.
+            if UNIT_COUNT_DEBUG and organization_slug:
+                upload_debug_bytes(
+                    credentials, organization_slug, project_id, plan_id,
+                    UNIT_COUNT_DEBUG_GCS_PREFIX,
+                    f"extraction_page_{page_index:04d}.png", png_bytes,
+                )
+
         if not rendered:
             logging.warning(f"[UNIT_COUNTS] [{context}] extraction rendered 0 pages; extraction=None")
             return None, 0
+
+        if UNIT_COUNT_DEBUG:
+            logging.info(
+                f"[UNIT_COUNTS] [{context}] DEBUG enabled — extraction sending pages "
+                f"{rendered} at dpi={high_dpi} (capped); raw response will be logged"
+            )
 
         try:
             vertex_ai_client, generation_config, is_cached = load_vertex_ai_client(
@@ -645,12 +689,24 @@ def _extract_unit_counts(credentials, client_ip_address, pdf_path, candidate_pag
 
         while attempts < UNIT_COUNT_EXTRACTION_MAX_ATTEMPTS:
             attempts += 1
+            # Bound the closure's attempt number for the debug log (late binding
+            # would otherwise report the final value on every line).
+            this_attempt = attempts
             try:
                 if is_cached:
                     extraction, _ = phoenix_call(
                         # `temperature` from phoenix_call is deliberately unused:
                         # fixed temperature, no escalation (item 7).
-                        lambda feedback_prompt, temperature: vertex_ai_client.generate_content(
+                        # _log_raw_response is a pass-through when UNIT_COUNT_DEBUG
+                        # is off; it returns the response object untouched, so
+                        # phoenix_call's parsing is unaffected either way.
+                        lambda feedback_prompt, temperature: _log_raw_response(
+                            vertex_ai_client.generate_content(
+                                contents=[feedback_prompt, query] if feedback_prompt else [query],
+                                generation_config={**generation_config, "temperature": fixed_temperature},
+                            ),
+                            context, this_attempt,
+                        ) if UNIT_COUNT_DEBUG else vertex_ai_client.generate_content(
                             contents=[feedback_prompt, query] if feedback_prompt else [query],
                             generation_config={**generation_config, "temperature": fixed_temperature},
                         ),
@@ -659,7 +715,13 @@ def _extract_unit_counts(credentials, client_ip_address, pdf_path, candidate_pag
                     )
                 else:
                     extraction, _ = phoenix_call(
-                        lambda feedback_prompt, temperature: vertex_ai_client(UNIT_COUNT_EXTRACTOR).generate_content(
+                        lambda feedback_prompt, temperature: _log_raw_response(
+                            vertex_ai_client(UNIT_COUNT_EXTRACTOR).generate_content(
+                                contents=[feedback_prompt, query] if feedback_prompt else [query],
+                                generation_config={**generation_config, "temperature": fixed_temperature},
+                            ),
+                            context, this_attempt,
+                        ) if UNIT_COUNT_DEBUG else vertex_ai_client(UNIT_COUNT_EXTRACTOR).generate_content(
                             contents=[feedback_prompt, query] if feedback_prompt else [query],
                             generation_config={**generation_config, "temperature": fixed_temperature},
                         ),
@@ -714,10 +776,17 @@ def _looks_fabricated(extraction, pdf_path, source_pages, context):
     """Sanity check for the Aurora failure shape (item 7).
 
     Rejects an accepted answer when BOTH hold:
-      1. every per-type count is the SAME round number (>= 2 types, value a
-         multiple of 5) — Aurora returned STUDIO/1BED/2BED/3BED = 10/10/10/10
-         against a true 8/18/8/11; and
+      1. every per-type count is IDENTICAL (>= 2 types, ANY value); and
       2. NONE of the extracted unit-type labels appears in the page's text layer.
+
+    WIDENED 2026-08-05. Condition 1 previously also required the shared value to
+    be a multiple of 5, on the theory that a fabricated answer looks like a tidy
+    round number (the first Aurora fabrication was 10/10/10/10). That extra clause
+    was an unnecessary escape hatch: a fabricated 7/7/7/7 is exactly as wrong and
+    would have sailed through. Uniformity ACROSS ALL TYPES combined with labels
+    that appear nowhere in the document is already a strong signal on its own —
+    real unit mixes are essentially never perfectly uniform — so the roundness
+    test only narrowed coverage for no gain.
 
     Condition 2 is checked ONLY for vector PDFs. If the pages have no usable text
     layer (scanned — the majority of real MF sets, master plan section 12) the check
@@ -733,14 +802,12 @@ def _looks_fabricated(extraction, pdf_path, source_pages, context):
     if len(set(counts)) != 1:
         return False, None
     value = counts[0]
-    if value % 5 != 0:
-        return False, None
 
     pages = source_pages or []
     text = _page_text_layer(pdf_path, pages)
     if text is None:
         logging.info(
-            f"[UNIT_COUNTS] [{context}] sanity check: uniform round counts "
+            f"[UNIT_COUNTS] [{context}] sanity check: uniform counts "
             f"({len(counts)} types all ={value}) but pages {pages} have no text layer "
             f"(scanned) — cannot verify, ACCEPTED"
         )
@@ -753,7 +820,7 @@ def _looks_fabricated(extraction, pdf_path, source_pages, context):
             return False, None
 
     reason = (
-        f"all {len(counts)} extracted types share the identical round count {value}, "
+        f"all {len(counts)} extracted types share the identical count {value}, "
         f"and none of the extracted type labels "
         f"({', '.join(t.unit_type for t in extraction.per_type_counts)}) appears in the "
         f"text layer of page(s) {pages}"
@@ -888,6 +955,7 @@ def resolve_unit_counts(
     plan_id,
     high_dpi=UNIT_COUNT_EXTRACTION_DPI,
     max_candidates=UNIT_COUNT_MAX_CANDIDATES,
+    organization_slug=None,
 ):
     """Resolver core: detect -> extract -> sanity-check -> resolve -> persist.
 
@@ -934,7 +1002,8 @@ def resolve_unit_counts(
     )
     t_extract = perf_counter()
     extraction, attempts = _extract_unit_counts(
-        credentials, client_ip_address, pdf_path, candidate_pages, high_dpi, context
+        credentials, client_ip_address, pdf_path, candidate_pages, high_dpi, context,
+        organization_slug=organization_slug, project_id=project_id, plan_id=plan_id,
     )
 
     # 3a. Every attempt failed -> extraction_failed. NEVER a made-up answer.

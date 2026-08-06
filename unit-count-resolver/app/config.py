@@ -68,3 +68,20 @@ UNIT_COUNT_EXTRACTION_TEMPERATURE = float(os.environ.get("UNIT_COUNT_EXTRACTION_
 
 # Where the resolver stages the PDF it pulls from GCS.
 RESOLVER_WORK_DIR = Path(os.environ.get("RESOLVER_WORK_DIR", "/tmp/unit_count_resolver"))
+
+# ─── Debug capture ────────────────────────────────────────────
+# UNIT_COUNT_DEBUG (default off) makes a run leave EVIDENCE behind instead of
+# only a verdict. When on:
+#   - the RAW model response is logged (truncated) BEFORE Pydantic parsing, so a
+#     wrong answer can be read directly rather than inferred from what survived
+#     validation;
+#   - the exact candidate PNGs sent to the model are uploaded to
+#     gs://{bucket}/{org}/{project}/{plan}/unit_count_debug/, so the next
+#     diagnosis can look at what the model actually saw.
+# Off by default: it writes objects to the artifacts bucket and puts model output
+# in the logs, neither of which should happen on every production run.
+UNIT_COUNT_DEBUG = os.environ.get("UNIT_COUNT_DEBUG", "false").strip().lower() in ("true", "1", "yes")
+# How much of the raw response to log. Enough to contain a full unit schedule.
+UNIT_COUNT_DEBUG_RESPONSE_CHARS = int(os.environ.get("UNIT_COUNT_DEBUG_RESPONSE_CHARS", "1500"))
+# GCS prefix (under the plan's own folder) for debug artifacts.
+UNIT_COUNT_DEBUG_GCS_PREFIX = os.environ.get("UNIT_COUNT_DEBUG_GCS_PREFIX", "unit_count_debug")

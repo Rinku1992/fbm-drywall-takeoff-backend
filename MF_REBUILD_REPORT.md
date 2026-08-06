@@ -818,3 +818,114 @@ margin **1.8333**. Candidates become `[1, 2, 11, 12, 13]` (viewer 2, 3, 12, 13, 
   marketing-name unit types like `VISTA`. The schedule-header signal routes
   around that rather than solving it; a set whose schedule lacks all of the
   header phrases would still rank poorly.
+
+---
+
+## 15. Addendum (2026-08-06) — extraction fix: stop seeding the model
+
+The model returned generic bedroom-count names (STUDIO / 1 BED / 2 BED / 3 BED)
+**twice** on a document whose types are named VISTA I–IV. The prompt was supplying
+those names itself.
+
+### 15.1 What was found in the prompt
+
+Three places handed the model example type names, the worst sitting directly on
+the field it fills in:
+
+1. **The `unit_type` field description** — the closest thing to a template for the
+   fabricated answer:
+   > `` `unit_type` ``: the unit-type label EXACTLY as printed (e.g. **"1BR-A", "Type 2", "2 Bed / 2 Bath", "Studio S1"**). Do NOT normalize, expand, or rename it.
+
+2. **The "WHAT YOU ARE LOOKING FOR" section**:
+   > rows keyed by DISTINCT UNIT-TYPE NAMES — marketing or plan names such as **"VISTA", "1BR-A", "Type 2", "Studio S1", "PLAN A"**
+
+3. **The §13.1 negative example**, which supplied concrete *numbers*:
+   > `Accessible Dwelling Units .... 10` / `Type A Dwelling Units ........ 10` / `Type B Dwelling Units ....... 100`
+
+`"Studio S1"` and `"2 Bed / 2 Bath"` are one normalisation step away from
+`STUDIO` and `2 BED`. The instruction said "as printed" while the examples
+demonstrated a naming convention — and the model followed the examples.
+
+### 15.2 The scrub
+
+- **All example names removed.** Every field now carries a placeholder —
+  `<TYPE-NAME-AS-PRINTED>`, `<COUNT-AS-PRINTED>`, `<AREA-AS-PRINTED>`,
+  `<TOTAL-AS-PRINTED>`, `<PAGE-NUMBER>` — in both the field descriptions and the
+  output template, with a closing note that these are placeholders, not values.
+- The prompt now **states that it withholds examples on purpose**: *"This prompt
+  deliberately gives you NO example names: any name you return that you cannot
+  point to on the page is a fabrication."*
+- **Negative example de-numbered** to `<N>` — the shape is still taught, the
+  figures are gone.
+- **New overriding accuracy rule**: every name and number returned must be
+  visibly present on the supplied images; *"A partial answer of two names you can
+  actually see beats four you cannot."*
+- **New self-check**: if several returned names are generic bedroom-count
+  categories rather than labels actually read, the model has defaulted to a
+  convention — discard and return only what is visible, or the empty answer.
+- **D8 restored.** The section was renamed *UNIT TYPE SCHEDULE* → *UNIT TYPE
+  INFORMATION*, and all four valid forms are now listed explicitly: a full table,
+  a **partial/half-drawn table**, a **legend/keyed note**, or a **prose
+  sentence**. The previous wording said "table" throughout, which contradicted D8
+  and told the model to ignore three of the four forms real documents use.
+  `source_form` guidance now maps partial tables and legends onto `"table"`.
+- **Empty-beats-guess strengthened**: *"AN EMPTY ANSWER IS ALWAYS BETTER THAN A
+  GUESS. It is recorded as a valid result and costs nothing; an invented one
+  silently corrupts a construction estimate."*
+
+### 15.3 `_looks_fabricated` widened
+
+Condition 1 previously required the shared count to be a **multiple of 5** (the
+first Aurora fabrication was 10/10/10/10). That was an unnecessary escape hatch —
+a fabricated 7/7/7/7 is exactly as wrong and sailed straight through. The clause
+is removed: **any** identical count across ≥2 types, combined with labels that
+appear nowhere in the text layer, now flags. Real unit mixes are essentially never
+perfectly uniform, so the roundness test only narrowed coverage.
+
+Vector-only gating is unchanged: a scanned set has no cheap ground truth, and
+failing closed there would break every legitimate scanned extraction.
+
+### 15.4 `UNIT_COUNT_DEBUG` (default off)
+
+The last two diagnoses had to *infer* what the model did. This makes a run leave
+evidence:
+
+- **Raw model response logged before parsing** (1500 chars, configurable).
+  Implemented by wrapping the `generate_content` call inside the lambda
+  `phoenix_call` invokes — the only point where the unparsed text still exists.
+  A response that fails Pydantic validation is otherwise completely invisible;
+  all the caller ever sees is the exception.
+- **Candidate PNGs uploaded** to
+  `gs://{bucket}/{org}/{project}/{plan}/unit_count_debug/extraction_page_NNNN.png`.
+  These are the *capped, downscaled* renders actually sent — not what you get by
+  opening the PDF yourself — so this is the only way to check whether a schedule
+  was legible at the DPI used.
+
+`phoenix_call` was **not** modified (it is a verbatim lift from `origin/main`).
+When the flag is off, `_log_raw_response` is not called at all and the lambda is
+byte-identical in behaviour to before. Both the logger and the uploader are
+best-effort: the logger cannot raise (verified against a response whose `.text`
+throws) and returns the response object unchanged; the uploader returns `None` on
+any failure. `organization_slug` is threaded through `resolve_unit_counts` purely
+so debug artifacts land in the plan's own folder, and the PNG upload additionally
+requires it to be present.
+
+### 15.5 Verification and one pre-existing weakness found
+
+50/50 new checks pass (27 prompt-scrub, 9 fabrication-check, 14 debug-mode), plus
+all three earlier suites and the ranking verification — ranking output on Aurora
+is unchanged, as required.
+
+**Pre-existing weakness, NOT fixed (out of scope, flagged for later):**
+`_looks_fabricated` matches labels against the text layer by **substring**:
+
+```python
+if label and label in haystack:   # label "a" matches "plan", "labels", "matching"
+```
+
+A short unit-type label — `"A"`, `"B"`, `"C"`, which are entirely plausible real
+plan names — will almost always be found inside ordinary words, silently
+disabling the whole check for such documents. This was caught because a test
+using single-letter labels failed; the test was wrong, but the weakness is real
+and predates this change. A word-boundary match would fix it. **Not changed here
+— this session was scoped to a minimal extraction fix.**
