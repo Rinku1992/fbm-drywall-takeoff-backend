@@ -929,3 +929,132 @@ disabling the whole check for such documents. This was caught because a test
 using single-letter labels failed; the test was wrong, but the weakness is real
 and predates this change. A word-boundary match would fix it. **Not changed here
 — this session was scoped to a minimal extraction fix.**
+
+---
+
+## 16. Addendum (2026-08-06) — attachment audit: the images WERE attached
+
+Run 2 returned `STUDIO/1BED/2BED/3BED = 10/40/40/10, total=100` at temperature 0
+from a page whose debug PNG legibly shows `VISTA I–IV = 8/18/8/11, SUB-TOTAL 45`.
+The stated suspicion was that the page images never reached the request.
+
+### 16.1 Answering it plainly: the parts are attached, and correct
+
+**No attachment bug. The images are in the request.** Traced hop by hop:
+
+| Hop | file:line | Result |
+|---|---|---|
+| pixmap render | `resolver.py:713` — `page.get_pixmap(matrix=matrix).tobytes("png")` | real PNG bytes |
+| text part | `resolver.py:717` — `Part.from_text(f"PAGE: {page_index}")` | one per page |
+| image part | `resolver.py:718` — `Part.from_data(data=png_bytes, mime_type="image/png")` | one per page, **mime correct** |
+| Content assembly | `resolver.py:775` — `Content(role="user", parts=query_parts)` | interleaved text/image |
+| the call | `resolver.py:800/821` — `contents=[query]` | present in **all four** lambda branches |
+
+Measured payload for Aurora's five candidates: **8.25 MB** (2.59 / 1.60 / 1.35 /
+1.35 / 1.35 MB) — non-empty, and comfortably inside Vertex's ~20 MB inline
+ceiling, so the 3→5 candidate widening did not overflow the request either.
+
+**The `UNIT_COUNT_DEBUG` wrapper did not alter anything.** Diffing
+`_extract_unit_counts` between `3601ca8a` (Aug 4, the run that read real content)
+and `08e6efd4` shows the render→bytes→Part→Content path is **byte-identical**.
+The wrapper's only effect is `_log_raw_response(...) if UNIT_COUNT_DEBUG else ...`
+around the same `generate_content(contents=[query], ...)` call — same parts, same
+order, nothing dropped. Ruled out.
+
+### 16.2 What DID change: the prompt-delivery path flipped silently
+
+`load_vertex_ai_client` (`shared.py:16`) contains a hidden switch:
+
+```python
+if prompts and GenerativeModel(...).count_tokens(prompts).total_tokens >= 1024:
+    is_cached = True
+    cached_content = CachedContent.create(contents=prompts, ...)   # prompt as a USER TURN
+    vertex_ai_client = GenerativeModel.from_cached_content(cached_content)
+```
+
+Below 1024 tokens the prompt is a **system instruction**. Above it, the prompt
+becomes **cached content** and the model is rebuilt with **no system instruction
+at all** — so the request degenerates into two consecutive `user` turns:
+
+1. the entire extractor prompt, *including a complete JSON output template*
+2. the page images
+
+The extractor prompt crossed that threshold during the 2026-08-05/06 fixes:
+
+| revision | chars | words | vs 1024-token threshold | outcome |
+|---|---|---|---|---|
+| `3601ca8a` Aug 4 | 4,033 | 583 | below (~760 tok at 1.3 tok/word) | **read real page content** |
+| `7bcac550` Aug 5 | 7,279 | 1,092 | above | — |
+| `08e6efd4` Aug 6 | 9,878 | 1,495 | **certainly above** | **fabricated** |
+
+**Falsification check passed:** `UNIT_COUNT_DETECTOR` is 419 words, never crossed
+the threshold, stayed on the system-instruction path — and detection has kept
+working correctly throughout. The only prompt that crossed is the only one
+producing fabrications.
+
+That is a plausible mechanism for the exact symptom: with the instruction demoted
+from system role to ordinary conversation text — and that text containing a full
+JSON schema — a model has materially less pressure to ground its answer in the
+images of the following turn.
+
+**Stated honestly: this is the strongest available hypothesis, not a proof.**
+Confirming it requires a live Vertex call, which cannot be made here. What *is*
+proven is that the delivery path changed between the working and failing runs,
+and that the images were attached in both.
+
+### 16.3 The fix
+
+`prompts=None` at `resolver.py:786`, pinning extraction to the system-instruction
+path — exactly the delivery run 1 used. `shared.py` is **not** modified (verbatim
+lift from `origin/main`), and the triage call is left alone (its prompt is far
+from the threshold, and it works).
+
+Nothing is lost by skipping the cache: `load_vertex_ai_client` only ever *creates*
+a `CachedContent` (with a fixed `display_name`, never looked up or reused), so on
+this path the cached branch added a per-call cache-creation round trip and reused
+nothing. The comment at the call site records why the pin is load-bearing, so it
+is not "tidied" back later.
+
+### 16.4 Request-composition logging (item 2)
+
+The saved PNGs prove pages **rendered**; they say nothing about what was **sent**.
+`_log_request_composition` (`resolver.py:625`) now logs, per attempt: total part
+count, image-part count, each part's type/mime/byte-length (**never content**),
+the summed inline bytes, and **which delivery path is active** — the last being
+invisible at the call site and the thing that changed here. Zero image parts
+triggers an explicit warning that any returned counts are invented. Gated on
+`UNIT_COUNT_DEBUG`; `_describe_part` is fully defensive and degrades to
+`undescribable(...)` rather than raising.
+
+### 16.5 Name grounding (item 3)
+
+`_check_names_grounded` (`resolver.py:906`) asks the question no existing guard
+asked: **do the extracted names appear in the document at all?**
+
+The live failure slipped through both existing guards — verified, not assumed:
+`_looks_fabricated` requires every count to be *identical* and 10/40/40/10 is not
+(confirmed by test: it returns `False`), and `_check_internal_consistency` only
+compares rows against a stated total.
+
+If **none** of the extracted names appears in the text layer of **any** candidate
+page, the result is flagged `flagged_suspect=true`,
+`suspect_reason="names_not_in_text_layer"`. Vector-only, matching the existing
+guard's scope. **Flags, never rejects.** Either guard alone is sufficient, and
+when both fire `suspect_reason` carries both.
+
+Matching uses **word boundaries**, not the substring test `_looks_fabricated`
+uses — that weakness was recorded in §15.5 and is deliberately not repeated here
+(a substring test lets a one-character name like `"A"` match inside "plan").
+
+Verified against the real Aurora text layer: the live failure
+`STUDIO/1BED/2BED/3BED` is **flagged**, the true `VISTA I–IV = 8/18/8/11` is
+**not**, and partial grounding (one real name among unknowns) is accepted, since
+a legitimate label can be image-only.
+
+### 16.6 Verification
+
+34/34 new checks pass, plus all four earlier suites and the ranking verification
+(Aurora ranking output unchanged). `compileall` clean.
+
+**Not fixed here — the §15.5 substring weakness in `_looks_fabricated` remains.**
+The new check uses word boundaries; the older one still does not.

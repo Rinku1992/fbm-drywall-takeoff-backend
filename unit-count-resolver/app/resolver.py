@@ -609,6 +609,73 @@ def _log_raw_response(response, context, attempt):
     return response
 
 
+def _describe_part(part):
+    """One part's shape for the request-composition log — TYPE and SIZE only.
+
+    Never returns content: an image part reports its mime type and byte length,
+    a text part reports its length and a short prefix. Defensive throughout —
+    the vertexai Part wrapper exposes its payload via private attributes whose
+    shape varies by SDK version, so every probe is guarded and an unrecognised
+    part degrades to "unknown" rather than raising.
+    """
+    try:
+        raw = getattr(part, "_raw_part", part)
+        inline = getattr(raw, "inline_data", None)
+        if inline is not None and getattr(inline, "data", None):
+            data = inline.data
+            return f"inline_data(mime={getattr(inline, 'mime_type', '?')}, bytes={len(data)})"
+        text = getattr(raw, "text", None)
+        if text:
+            return f"text(len={len(text)}, prefix={text[:40]!r})"
+        file_data = getattr(raw, "file_data", None)
+        if file_data is not None and getattr(file_data, "file_uri", None):
+            return f"file_data(uri={file_data.file_uri}, mime={getattr(file_data, 'mime_type', '?')})"
+        return f"unknown({type(part).__name__})"
+    except Exception as e:
+        return f"undescribable({e})"
+
+
+def _log_request_composition(query_parts, is_cached, context, attempt):
+    """UNIT_COUNT_DEBUG: prove what is actually IN the request being sent.
+
+    The saved PNGs prove the pages RENDERED. This proves they are ATTACHED to
+    the Gemini call — the two are different claims, and the gap between them is
+    exactly where a "confident answer unrelated to the image" would hide.
+
+    Also records WHICH prompt-delivery path is in use, because that is not
+    obvious at the call site: load_vertex_ai_client silently switches from
+    system_instruction to a cached user turn once the prompt crosses 1024
+    tokens (shared.py:16). See MF_REBUILD_REPORT.md §16.
+
+    Never raises.
+    """
+    try:
+        images = sum(1 for p in query_parts if "inline_data" in _describe_part(p))
+        total_bytes = 0
+        for p in query_parts:
+            d = _describe_part(p)
+            m = re.search(r"bytes=(\d+)", d)
+            if m:
+                total_bytes += int(m.group(1))
+        path = ("CACHED user turn (prompt delivered as cached content, NO system_instruction)"
+                if is_cached else "system_instruction (prompt delivered as system instruction)")
+        logging.info(
+            f"[UNIT_COUNTS] [{context}] DEBUG request composition (attempt {attempt}): "
+            f"parts={len(query_parts)} image_parts={images} "
+            f"inline_bytes_total={total_bytes} ({total_bytes / 1e6:.2f} MB) "
+            f"prompt_delivery={path}"
+        )
+        for i, p in enumerate(query_parts):
+            logging.info(f"[UNIT_COUNTS] [{context}]   DEBUG part[{i}] = {_describe_part(p)}")
+        if images == 0:
+            logging.warning(
+                f"[UNIT_COUNTS] [{context}] DEBUG *** NO IMAGE PARTS IN REQUEST *** — the model "
+                f"is being asked to read pages it cannot see; any counts it returns are invented"
+            )
+    except Exception as e:
+        logging.warning(f"[UNIT_COUNTS] [{context}] DEBUG request-composition log failed (ignored): {e}")
+
+
 def _extract_unit_counts(credentials, client_ip_address, pdf_path, candidate_pages, high_dpi, context,
                          organization_slug=None, project_id=None, plan_id=None):
     """Render the candidate pages at HIGH DPI (capped) and run UNIT_COUNT_EXTRACTOR.
@@ -675,8 +742,32 @@ def _extract_unit_counts(credentials, client_ip_address, pdf_path, candidate_pag
             )
 
         try:
+            # prompts=None PINS the system-instruction delivery path. This is
+            # deliberate and load-bearing — do not "restore" prompts=[...] here.
+            #
+            # load_vertex_ai_client (shared.py:16) silently switches delivery once
+            # the prompt exceeds 1024 tokens: below it the prompt is passed as
+            # `system_instruction`; above it the prompt is stuffed into
+            # CachedContent.create(contents=...) and the model is rebuilt with
+            # from_cached_content and NO system instruction at all. The request
+            # then becomes two consecutive `user` turns — a cached turn holding
+            # the whole prompt (including a complete JSON output template),
+            # followed by the turn holding the page images.
+            #
+            # The extractor prompt grew 4,033 -> 9,878 chars (583 -> 1,495 words)
+            # across the 2026-08-05/06 fixes and crossed that threshold. Run 1
+            # (2026-08-04, ~583 words) read real page content; run 2 (~1,495
+            # words, certainly over the threshold) returned confident generic
+            # counts unrelated to a demonstrably legible image. The detector
+            # prompt (419 words) never crossed it and detection kept working.
+            #
+            # Passing prompts=None keeps is_cached False, so the call below uses
+            # vertex_ai_client(UNIT_COUNT_EXTRACTOR) — the exact delivery run 1
+            # used. Nothing is lost: load_vertex_ai_client only ever CREATES a
+            # cache (never looks one up), so the cached path added a per-call
+            # cache-creation round trip and reused nothing. See report §16.
             vertex_ai_client, generation_config, is_cached = load_vertex_ai_client(
-                credentials, client_ip_address, prompts=[UNIT_COUNT_EXTRACTOR]
+                credentials, client_ip_address, prompts=None
             )
         except Exception as e:
             logging.warning(f"[UNIT_COUNTS] [{context}] Vertex client init failed: {e}; extraction=None")
@@ -692,6 +783,8 @@ def _extract_unit_counts(credentials, client_ip_address, pdf_path, candidate_pag
             # Bound the closure's attempt number for the debug log (late binding
             # would otherwise report the final value on every line).
             this_attempt = attempts
+            if UNIT_COUNT_DEBUG:
+                _log_request_composition(query_parts, is_cached, context, this_attempt)
             try:
                 if is_cached:
                     extraction, _ = phoenix_call(
@@ -824,6 +917,78 @@ def _looks_fabricated(extraction, pdf_path, source_pages, context):
         f"and none of the extracted type labels "
         f"({', '.join(t.unit_type for t in extraction.per_type_counts)}) appears in the "
         f"text layer of page(s) {pages}"
+    )
+    return True, reason
+
+
+def _check_names_grounded(extraction, pdf_path, candidate_pages, context):
+    """Are the extracted unit-type names actually PRESENT in the document?
+
+    Added 2026-08-06 after a run returned STUDIO/1BED/2BED/3BED = 10/40/40/10
+    from a page whose readable schedule says VISTA I-IV = 8/18/8/11. Neither
+    existing guard caught it: `_looks_fabricated` requires every count to be
+    IDENTICAL (10/40/40/10 is not), and `_check_internal_consistency` only
+    compares the rows against a stated total. Nothing asked the obvious
+    question — do these names appear anywhere in the document at all?
+
+    This check is independent of both. If NONE of the extracted names occurs in
+    the text layer of ANY candidate page, the answer did not come from the
+    document and is flagged.
+
+    Scope, matching the existing guard: VECTOR pages only. When the candidate
+    pages have no usable text layer (scanned) the question cannot be answered
+    and the answer is accepted — flagging there would break every legitimate
+    scanned extraction.
+
+    Matching uses WORD BOUNDARIES, not the substring test `_looks_fabricated`
+    uses (report §15.5): a substring test lets a one-character type name like
+    "A" match inside ordinary words such as "plan" and silently pass. Names are
+    normalised to alphanumeric tokens before comparison, so punctuation and
+    spacing differences ("1BR-A" vs "1BR A") do not cause a false alarm.
+
+    FLAGS, never rejects — consistent with the other guards. The counts are
+    still persisted, so a wrong answer stays diagnosable rather than vanishing.
+
+    Returns (is_suspect, reason).
+    """
+    if not extraction.per_type_counts:
+        return False, None
+
+    text = _page_text_layer(pdf_path, candidate_pages or [])
+    if text is None:
+        logging.info(
+            f"[UNIT_COUNTS] [{context}] name-grounding check: candidate pages "
+            f"{candidate_pages} have no text layer (scanned) — cannot verify, ACCEPTED"
+        )
+        return False, None
+
+    haystack = " " + re.sub(r"[^a-z0-9]+", " ", text.lower()).strip() + " "
+    grounded, ungrounded = [], []
+    for entry in extraction.per_type_counts:
+        label = re.sub(r"[^a-z0-9]+", " ", (entry.unit_type or "").lower()).strip()
+        if label and f" {label} " in haystack:
+            grounded.append(entry.unit_type)
+        else:
+            ungrounded.append(entry.unit_type)
+
+    if grounded:
+        if ungrounded:
+            logging.info(
+                f"[UNIT_COUNTS] [{context}] name-grounding check: {len(grounded)}/"
+                f"{len(extraction.per_type_counts)} names found in the text layer "
+                f"(missing: {ungrounded}) — ACCEPTED (partial grounding is normal; a "
+                f"name can be an image-only label)"
+            )
+        return False, None
+
+    reason = "names_not_in_text_layer"
+    logging.warning(
+        f"[UNIT_COUNTS] [{context}] NAME GROUNDING FAILED: none of the extracted unit-type "
+        f"names ({', '.join(t.unit_type for t in extraction.per_type_counts)}) appears in the "
+        f"text layer of candidate page(s) {candidate_pages}. The counts "
+        f"({ {t.unit_type: t.count for t in extraction.per_type_counts} }) did NOT come from "
+        f"this document's text — treat as invented until verified against the page image. "
+        f"Result FLAGGED (flagged_suspect=true) but NOT rejected."
     )
     return True, reason
 
@@ -1068,12 +1233,29 @@ def resolve_unit_counts(
             f"{disagreement}; {sum_mismatch_reason}" if disagreement else sum_mismatch_reason
         )
 
+    # 4b. Name grounding: do the extracted names exist in the document at all?
+    # Independent of both the identical-count pattern and the sum check — it is
+    # what catches an answer like 10/40/40/10 whose counts are neither uniform
+    # nor internally inconsistent, but whose NAMES are not in the document.
+    names_ungrounded, ungrounded_reason = _check_names_grounded(
+        extraction, pdf_path, candidate_pages, context
+    )
+    if ungrounded_reason:
+        disagreement = (
+            f"{disagreement}; {ungrounded_reason}" if disagreement else ungrounded_reason
+        )
+
+    # Either guard is sufficient to mark the result suspect. suspect_reason
+    # carries both when both fired, so provenance never hides one behind the other.
+    flagged_suspect = sum_mismatch or names_ungrounded
+    suspect_reason = "; ".join(r for r in (sum_mismatch_reason, ungrounded_reason) if r) or None
+
     payload = {
         **resolved,
         "provenance": _provenance(
             extraction.source_form, extraction.source_pages, candidate_pages,
-            detection_path, high_dpi, disagreement, attempts, sum_mismatch,
-            suspect_reason=sum_mismatch_reason,
+            detection_path, high_dpi, disagreement, attempts, flagged_suspect,
+            suspect_reason=suspect_reason,
         ),
     }
 
@@ -1084,7 +1266,7 @@ def resolve_unit_counts(
     logging.info(
         f"[UNIT_COUNTS] [{context}] resolved: {breakdown} "
         f"total={resolved['total_units']} attempts={attempts}"
-        f"{' FLAGGED_SUSPECT=' + sum_mismatch_reason if sum_mismatch else ''}"
+        f"{' FLAGGED_SUSPECT=' + suspect_reason if flagged_suspect else ''}"
     )
 
     # 6. Persist.
@@ -1093,7 +1275,7 @@ def resolve_unit_counts(
         f"[UNIT_COUNTS] [{context}] resolver DONE source={resolved['source']} "
         f"types={len(resolved['unit_counts'])} total={resolved['total_units']} "
         f"disagreement={'yes' if disagreement else 'no'} "
-        f"flagged_suspect={'yes' if sum_mismatch else 'no'} attempts={attempts} "
+        f"flagged_suspect={'yes' if flagged_suspect else 'no'} attempts={attempts} "
         f"in {perf_counter() - t0:.3f}s"
     )
     return payload
