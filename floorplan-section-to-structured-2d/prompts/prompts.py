@@ -855,45 +855,45 @@ class ColorCodeValidatorHelper:
     @field_validator("color_code", check_fields=False)
     @classmethod
     def validate_bgr(cls, v):
-        if "color_code" not in cls.active_validators:
-          return v
-        if len(v) != 3:
-            raise ValueError("color_code must be BGR tuple")
-        if not all(0 <= c <= 255 for c in v):
-            raise ValueError("Invalid BGR value")
+      if "color_code" not in cls.active_validators:
         return v
+      if len(v) != 3:
+          raise ValueError("color_code must be BGR tuple")
+      if not all(0 <= c <= 255 for c in v):
+          raise ValueError("Invalid BGR value")
+      return v
 
 class StackedLayersValidatorHelper:
 
     @model_validator(mode="after")
     def validate_stacked_layers(self):
-        if "stacked_layers" not in self.active_validators:
+      if "stacked_layers" not in self.active_validators:
           return self
-        if not len(self.materials_vertically_stacked) == len(self.color_codes_stacked):
-            raise ValueError("Vertically stacked material count does not equate with stacked color codes count for the ceiling")
-        if self.materials_vertically_stacked:
-            if self.material not in self.materials_vertically_stacked:
+      if not len(self.materials_vertically_stacked) == len(self.color_codes_stacked):
+          raise ValueError("Vertically stacked material count does not equate with stacked color codes count for the ceiling")
+      if self.materials_vertically_stacked:
+          if self.material not in self.materials_vertically_stacked:
               raise ValueError(
                 "Primary material must also appear in materials_vertically_stacked."
               )
-            if not isinstance(self.layers, list):
-                self.layers = [1] * len(self.materials_vertically_stacked)
+          if not isinstance(self.layers, list):
+              self.layers = [1] * len(self.materials_vertically_stacked)
 
-            elif len(self.layers) != len(self.materials_vertically_stacked):
-                raise ValueError(
-                    "`layers` must contain one entry per stacked ceiling layer."
-                )
+          elif len(self.layers) != len(self.materials_vertically_stacked):
+              raise ValueError(
+                  "`layers` must contain one entry per stacked ceiling layer."
+              )
 
-        else:
-            if isinstance(self.layers, list):
-                if not self.layers:
-                    self.layers = 1
-                elif len(self.layers) == 1:
-                    self.layers = self.layers[0]
-                else:
-                    raise ValueError(
-                        "`layers` must be a single integer for non-stacked ceilings."
-                    )
+      else:
+          if isinstance(self.layers, list):
+              if not self.layers:
+                  self.layers = 1
+              elif len(self.layers) == 1:
+                  self.layers = self.layers[0]
+              else:
+                  raise ValueError(
+                      "`layers` must be a single integer for non-stacked ceilings."
+                  )
 
         return self
 
@@ -903,7 +903,7 @@ class StackCountValidatorHelper:
     def check_stack_count(self):
       if "stack_count" not in self.active_validators:
           return self
-        if not len(self.materials_vertically_stacked) == len(self.color_codes_stacked):
+      if not len(self.materials_vertically_stacked) == len(self.color_codes_stacked):
             raise ValueError("Vertically stacked material count does not equate with stacked color codes count and stacked heights count for the walls")
         return self
 
@@ -940,7 +940,7 @@ class DrywallAssemblyWall(
   ThicknessValidatorHelper,
   HeightValidatorHelper,
   ColorCodeValidatorHelper,
-  StackCountValidatorHelper
+  StackCountValidatorHelper,
   BaseModel
 ):
     active_validators = ["thickness", "height", "color_code", "stack_count"]
