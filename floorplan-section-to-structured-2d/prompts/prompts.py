@@ -788,19 +788,16 @@ def ensure_not_nan(v: float) -> float:
         raise ValueError("NaN or Inf not allowed")
     return v
 
-class DrywallAssemblyCeiling(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+class ThicknessValidatorHelper:
 
-    material: str = Field(description="'<drywall material for the ceiling>'")
-    color_code: Tuple[int, int, int] = Field(description="<color code for the predicted ceiling drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>")
-    materials_vertically_stacked: List[str] = Field(description="['<vertically stacked drywall material preference 1 for the ceiling (optional)>', '<vertically stacked drywall material preference 2 for the ceiling (optional)>']")
-    color_codes_stacked: List[Tuple[int, int, int]] = Field(description="[<color code for the vertically stacked drywall type 1 in a BGR tuple (`Blue`, `Green`, `Red`) for the ceiling>, <color code for the vertically stacked drywall type 2 in a BGR tuple (`Blue`, `Green`, `Red`) for the ceiling>]")
-    thickness: float = Field(description="<thickness of the predicted ceiling drywall type in feet>")
-    layers: Union[int, List[int]] = Field(description="<number of required drywall layers>")
-    fire_rating: Optional[Union[str, float]] = Field(description="<fire-rating of the predicted drywall type in hours>")
-    waste_factor: Union[str, int, float] = Field(description="'<waste factor of the predicted drywall in percentage>'")
+    @field_validator("thickness", check_fields=False)
+    @classmethod
+    def validate_float(cls, v):
+      return ensure_not_nan(v)
 
-    @field_validator("layers")
+class LayersValidatorHelper:
+
+    @field_validator("layers", check_fields=False)
     @classmethod
     def validate_positive(cls, layers):
       if isinstance(layers, int):
@@ -811,12 +808,9 @@ class DrywallAssemblyCeiling(BaseModel):
           raise ValueError("Every stacked layer count must be >= 1")
       return layers
 
-    @field_validator("thickness")
-    @classmethod
-    def validate_float(cls, v):
-        return ensure_not_nan(v)
+class ColorCodeValidatorHelper:
 
-    @field_validator("color_code")
+    @field_validator("color_code", check_fields=False)
     @classmethod
     def validate_bgr(cls, v):
         if len(v) != 3:
@@ -824,6 +818,8 @@ class DrywallAssemblyCeiling(BaseModel):
         if not all(0 <= c <= 255 for c in v):
             raise ValueError("Invalid BGR value")
         return v
+
+class StackedLayersValidatorHelper:
 
     @model_validator(mode="after")
     def validate_stacked_layers(self):
@@ -854,6 +850,18 @@ class DrywallAssemblyCeiling(BaseModel):
                     )
 
         return self
+
+class DrywallAssemblyCeiling(ThicknessValidatorHelper, LayersValidatorHelper, ColorCodeValidatorHelper, StackedLayersValidatorHelper, BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    material: str = Field(description="'<drywall material for the ceiling>'")
+    color_code: Tuple[int, int, int] = Field(description="<color code for the predicted ceiling drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>")
+    materials_vertically_stacked: List[str] = Field(description="['<vertically stacked drywall material preference 1 for the ceiling (optional)>', '<vertically stacked drywall material preference 2 for the ceiling (optional)>']")
+    color_codes_stacked: List[Tuple[int, int, int]] = Field(description="[<color code for the vertically stacked drywall type 1 in a BGR tuple (`Blue`, `Green`, `Red`) for the ceiling>, <color code for the vertically stacked drywall type 2 in a BGR tuple (`Blue`, `Green`, `Red`) for the ceiling>]")
+    thickness: float = Field(description="<thickness of the predicted ceiling drywall type in feet>")
+    layers: Union[int, List[int]] = Field(description="<number of required drywall layers>")
+    fire_rating: Optional[Union[str, float]] = Field(description="<fire-rating of the predicted drywall type in hours>")
+    waste_factor: Union[str, int, float] = Field(description="'<waste factor of the predicted drywall in percentage>'")
 
 class DrywallAssemblyWall(BaseModel):
     model_config = ConfigDict(extra="allow")
