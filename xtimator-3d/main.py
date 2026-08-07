@@ -3584,36 +3584,38 @@ async def generate_floorplan_upload_signed_URL(request: Request) -> str:
 
 
 @app.post("/email_support_center")
-async def email_support_center(
-    request: Request,
-    user_id: str = Form(None),
-    subject: str = Form(None),
-    content: str = Form(None),
-    attachment: UploadFile | None = File(None),
-):
+async def email_support_center(request: Request):
     enable_logging_on_stdout()
     parameters = dict(request.query_params)
-    #try:
-    #    body = await request.json()
-    #except Exception:
-    #    body = dict()
-    user_id = parameters.get("user_id") or user_id
-    subject = parameters.get("subject") or subject
-    content = parameters.get("content") or content
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    user_id = parameters.get("user_id") or body.get("user_id")
+    subject = parameters.get("subject") or body.get("subject")
+    content = parameters.get("content") or body.get("content")
+    attachment_uuid = parameters.get("attachment") or body.get("attachment")
     is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
     if is_user_not_authenticated:
         logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
         return respond_with_UI_payload(is_user_not_authenticated)
 
-    attachment_path = None
-    if attachment is not None:
-        suffix = Path(attachment.filename).suffix
-        with tempfile.NamedTemporaryFile(
-            delete=False,
-            suffix=suffix,
-        ) as tmp:
-            shutil.copyfileobj(attachment.file, tmp)
-            attachment_path = tmp.name
+    client = CloudStorageClient()
+    organization_slug = await load_organization_slug(CREDENTIALS, pg_pool, user_id)
+    prefix = f"{organization_slug}/support_tickets/{attachment_uuid}/"
+    blobs = client.list_blobs(
+        CREDENTIALS["CloudStorage"]["bucket_name"],
+        prefix=prefix,
+    )
+    destination_attachment_directory = f"/tmp/{attachment_uuid}"
+    attachment_paths = list()
+    attachment_names = list()
+    for blob in blobs:
+        destination_path = Path(destination_attachment_directory} / Path(blob.name).name}
+        destination_path.parent.mkdir(parents=True, exist_ok=True)
+        blob.download_to_filename(destination_path)
+        attachment_paths.append(destination_path)
+        attachment_names.append(Path(blob.name).name)
 
     trigger_support(
         CREDENTIALS,
