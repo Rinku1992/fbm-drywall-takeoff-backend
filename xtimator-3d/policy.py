@@ -117,7 +117,9 @@ class AccessControlService:
         """
         visible_users = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id, user_id, user_id,), fetch=True))
         visible_users = [visible_user["user_email"].lower() for visible_user in visible_users]
-        return visible_users
+        if visible_users
+            return visible_users
+        return [user_id]
 
     async def load_regional_users_partner_organizations(self, user_id):
         query = f"""
