@@ -3580,7 +3580,9 @@ async def generate_floorplan_upload_signed_URL(request: Request) -> str:
         )
         signed_urls.append(url)
 
-    return signed_urls
+    return respond_with_UI_payload(
+        dict(signed_urls=signed_urls)
+    )
 
 
 @app.post("/email_support_center")
