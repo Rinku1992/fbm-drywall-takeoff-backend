@@ -788,7 +788,7 @@ def ensure_not_nan(v: float) -> float:
         raise ValueError("NaN or Inf not allowed")
     return v
 
-class ThicknessValidatorHelper:
+class ThicknessValidatorHelper(BaseModel):
 
     @field_validator("thickness", check_fields=False)
     @classmethod
@@ -797,7 +797,7 @@ class ThicknessValidatorHelper:
         return v
       return ensure_not_nan(v)
 
-class HeightValidatorHelper:
+class HeightValidatorHelper(BaseModel):
 
     @field_validator("height", check_fields=False)
     @classmethod
@@ -806,7 +806,7 @@ class HeightValidatorHelper:
         return v
       return ensure_not_nan(v)
 
-class AreaValidatorHelper:
+class AreaValidatorHelper(BaseModel):
 
     @field_validator("area", check_fields=False)
     @classmethod
@@ -815,7 +815,7 @@ class AreaValidatorHelper:
         return v
       return ensure_not_nan(v)
 
-class LengthValidatorHelper:
+class LengthValidatorHelper(BaseModel):
 
     @field_validator("length", check_fields=False)
     @classmethod
@@ -824,7 +824,7 @@ class LengthValidatorHelper:
         return v
       return ensure_not_nan(v)
 
-class WidthValidatorHelper:
+class WidthValidatorHelper(BaseModel):
 
     @field_validator("width", check_fields=False)
     @classmethod
@@ -835,7 +835,7 @@ class WidthValidatorHelper:
           return v
       return ensure_not_nan(v)
 
-class LayersValidatorHelper:
+class LayersValidatorHelper(BaseModel):
 
     @field_validator("layers", check_fields=False)
     @classmethod
@@ -850,7 +850,7 @@ class LayersValidatorHelper:
           raise ValueError("Every stacked layer count must be >= 1")
       return layers
 
-class ColorCodeValidatorHelper:
+class ColorCodeValidatorHelper(BaseModel):
 
     @field_validator("color_code", check_fields=False)
     @classmethod
@@ -863,7 +863,7 @@ class ColorCodeValidatorHelper:
           raise ValueError("Invalid BGR value")
       return v
 
-class StackedLayersValidatorHelper:
+class StackedLayersValidatorHelper(BaseModel):
 
     @model_validator(mode="after")
     def validate_stacked_layers(self):
@@ -897,7 +897,7 @@ class StackedLayersValidatorHelper:
 
       return self
 
-class StackCountValidatorHelper:
+class StackCountValidatorHelper(BaseModel):
 
     @model_validator(mode="after")
     def check_stack_count(self):
@@ -907,7 +907,7 @@ class StackCountValidatorHelper:
           raise ValueError("Vertically stacked material count does not equate with stacked color codes count and stacked heights count for the walls")
       return self
 
-class WallCountValidatorHelper:
+class WallCountValidatorHelper(BaseModel):
 
     @model_validator(mode="after")
     def check_wall_count(self):
@@ -921,8 +921,7 @@ class DrywallAssemblyCeiling(
   ThicknessValidatorHelper,
   LayersValidatorHelper,
   ColorCodeValidatorHelper,
-  StackedLayersValidatorHelper,
-  BaseModel
+  StackedLayersValidatorHelper
 ):
     active_validators: ClassVar[set[str]] = {"thickness", "layers", "color_code", "stacked_layers"}
     model_config = ConfigDict(extra="forbid")
@@ -940,8 +939,7 @@ class DrywallAssemblyWall(
   ThicknessValidatorHelper,
   HeightValidatorHelper,
   ColorCodeValidatorHelper,
-  StackCountValidatorHelper,
-  BaseModel
+  StackCountValidatorHelper
 ):
     active_validators: ClassVar[set[str]] = {"thickness", "height", "color_code", "stack_count"}
     model_config = ConfigDict(extra="allow")
@@ -963,7 +961,7 @@ class Pitch(BaseModel):
     rise: float = Field(description="<rise of the slope in float>")
     run: float = Field(description="<run of the slope in float>")
 
-class CeilingModelAndPredict(AreaValidatorHelper, HeightValidatorHelper, BaseModel):
+class CeilingModelAndPredict(AreaValidatorHelper, HeightValidatorHelper):
     active_validators: ClassVar[set[str]] = {"area", "height"}
     model_config = ConfigDict(extra="forbid")
 
@@ -980,7 +978,7 @@ class CeilingModelAndPredict(AreaValidatorHelper, HeightValidatorHelper, BaseMod
     code_references: List[str] = Field(description="['<applied Dywall code reference 1>', '<applied Dywall code reference 2>', '<applied Dywall code reference 3>']")
     recommendation: Optional[str] = Field(description="'<recommendation on special requirements including cost reduction (if any)>'")
 
-class WallParameterModelAndPredict(LengthValidatorHelper, WidthValidatorHelper, BaseModel):
+class WallParameterModelAndPredict(LengthValidatorHelper, WidthValidatorHelper):
     active_validators: ClassVar[set[str]] = {"length", "width"}
     model_config = ConfigDict(extra="forbid")
 
@@ -994,7 +992,7 @@ class WallParameterModelAndPredict(LengthValidatorHelper, WidthValidatorHelper, 
     code_references: List[str] = Field(description="['<applied Dywall code reference 1>', '<applied Dywall code reference 2>', '<applied Dywall code reference 3>']")
     recommendation: Optional[str] = Field(description="'<recommendation on special requirements for perimeter wall 2 including cost reduction (if any). Generate separate recommendations for single drywall material and the vetically stacked drywall materials (If predicted)>'")
 
-class PolygonDetectorAndDrywallPredictorResponse(WallCountValidatorHelper, BaseModel):
+class PolygonDetectorAndDrywallPredictorResponse(WallCountValidatorHelper):
     active_validators: ClassVar[set[str]] = {"wall_count"}
     model_config = ConfigDict(extra="forbid")
 
