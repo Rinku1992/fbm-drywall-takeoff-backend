@@ -2548,7 +2548,11 @@ def prune_model(model: type[BaseModel], remove_fields: set[str]) -> type[BaseMod
         if name not in remove_fields
     }
 
+    base_classes = list()
+    for validator in model.active_validators:
+      base_classes.append(validator_helpers[validator])
     return create_model(
         f"{model.__name__}Pruned",
+        __base__=tuple(base_classes),
         **fields,
     )
