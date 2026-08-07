@@ -169,7 +169,7 @@ class AccessControlService:
         """
         region_names = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id,), fetch=True))
         region_names = [region_name["region_name"].lower() for region_name in region_names]
-        if region_names
+        if region_names:
             return region_names
 
         query = f"""
