@@ -38,7 +38,7 @@ def send_email(
     }
     if attachment_paths:
         attachments = list()
-        for attachment_path, attachment_name in xip(attachment_paths, attachment_names):
+        for attachment_path, attachment_name in zip(attachment_paths, attachment_names):
             with open(attachment_path, "rb") as f:
                 attachment_bytes = base64.b64encode(f.read()).decode("utf-8")
             mime_type, _ = mimetypes.guess_type(attachment_path)
