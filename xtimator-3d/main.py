@@ -3620,18 +3620,15 @@ async def email_support_center(request: Request):
             attachment_paths.append(destination_path)
             attachment_names.append(Path(blob.name).name)
 
-    print(attachment_paths)
-    print(attachment_names)
-    print(prefix)
-    #trigger_support(
-    #    CREDENTIALS,
-    #    user_id,
-    #    CREDENTIALS["Email"]["support_center_id"],
-    #    subject,
-    #    content,
-    #    attachment_paths=attachment_paths,
-    #    attachment_names=attachment_names,
-    #)
+    trigger_support(
+        CREDENTIALS,
+        user_id,
+        CREDENTIALS["Email"]["support_center_id"],
+        subject,
+        content,
+        attachment_paths=attachment_paths,
+        attachment_names=attachment_names,
+    )
     logging.info("SYSTEM: Support email forwarded")
 
 
