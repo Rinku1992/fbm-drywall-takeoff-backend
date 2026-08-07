@@ -2469,6 +2469,19 @@ OPENING_TYPE_CHOICES = {
     "Pass-through": [214, 98, 26]
 }
 
+validator_helpers = {
+  "thickness": ThicknessValidatorHelper,
+  "layers": LayersValidatorHelper,
+  "color_code": ColorCodeValidatorHelper,
+  "stacked_layers": StackedLayersValidatorHelper,
+  "height": HeightValidatorHelper,
+  "stack_count": StackCountValidatorHelper,
+  "area": AreaValidatorHelper,
+  "length": LengthValidatorHelper,
+  "width": WidthValidatorHelper,
+  "wall_count": WallCountValidatorHelper
+}
+
 def load_schema_pydantic(model: type[BaseModel]):
     def build_annotation(annotation):
         origin = get_origin(annotation)
