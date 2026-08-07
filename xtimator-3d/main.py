@@ -3611,7 +3611,7 @@ async def email_support_center(request: Request):
     )
     attachment_paths = list()
     attachment_names = list()
-    if attachment_uuid
+    if attachment_uuid:
         destination_attachment_directory = f"/tmp/{attachment_uuid}"
         for blob in blobs:
             destination_path = Path(destination_attachment_directory) / Path(blob.name).name
