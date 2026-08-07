@@ -176,10 +176,10 @@ class AccessControlService:
             SELECT
                 DISTINCT(r.region_name) AS region_name
             FROM {self._credentials["CloudSQL"]["table_name_users"]} u
-            JOIN {self._credentials["CloudSQL"]["table_name_organization_regions"]} or
-                ON u.organization_id = or.organization_id
+            JOIN {self._credentials["CloudSQL"]["table_name_organization_regions"]} org
+                ON u.organization_id = org.organization_id
             JOIN {self._credentials["CloudSQL"]["table_name_regions"]} r
-                ON r.region_id = or.region_id
+                ON r.region_id = org.region_id
             WHERE LOWER(u.user_email) = LOWER(%s);
         """
         region_names = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id,), fetch=True))
