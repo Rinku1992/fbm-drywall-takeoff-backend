@@ -3596,7 +3596,7 @@ async def email_support_center(request: Request):
     user_id = parameters.get("user_id") or body.get("user_id")
     subject = parameters.get("subject") or body.get("subject")
     content = parameters.get("content") or body.get("content")
-    attachment_uuid = parameters.get("attachment") or body.get("attachment")
+    attachment_uuid = parameters.get("attachment", '') or body.get("attachment", '')
     is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
     if is_user_not_authenticated:
         logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
@@ -3609,15 +3609,16 @@ async def email_support_center(request: Request):
         CREDENTIALS["CloudStorage"]["bucket_name"],
         prefix=prefix,
     )
-    destination_attachment_directory = f"/tmp/{attachment_uuid}"
     attachment_paths = list()
     attachment_names = list()
-    for blob in blobs:
-        destination_path = Path(destination_attachment_directory) / Path(blob.name).name
-        destination_path.parent.mkdir(parents=True, exist_ok=True)
-        blob.download_to_filename(destination_path)
-        attachment_paths.append(destination_path)
-        attachment_names.append(Path(blob.name).name)
+    if attachment_uuid
+        destination_attachment_directory = f"/tmp/{attachment_uuid}"
+        for blob in blobs:
+            destination_path = Path(destination_attachment_directory) / Path(blob.name).name
+            destination_path.parent.mkdir(parents=True, exist_ok=True)
+            blob.download_to_filename(destination_path)
+            attachment_paths.append(destination_path)
+            attachment_names.append(Path(blob.name).name)
 
     trigger_support(
         CREDENTIALS,
@@ -3625,8 +3626,8 @@ async def email_support_center(request: Request):
         CREDENTIALS["Email"]["support_center_id"],
         subject,
         content,
-        attachment_path=attachment_path,
-        attachment_name=attachment.filename if attachment is not None else None,
+        attachment_paths=attachment_paths,
+        attachment_names=attachment_names,
     )
     logging.info("SYSTEM: Support email forwarded")
 
