@@ -3622,6 +3622,7 @@ async def email_support_center(request: Request):
 
     print(attachment_paths)
     print(attachment_names)
+    print(prefix)
     #trigger_support(
     #    CREDENTIALS,
     #    user_id,
