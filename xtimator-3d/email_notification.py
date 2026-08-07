@@ -26,8 +26,8 @@ def send_email(
     recipient_email,
     subject,
     body_content,
-    attachment_path=None,
-    attachment_name=None
+    attachment_paths=list(),
+    attachment_names=list()
 ):
     message_payload={
         "message": {
@@ -36,25 +36,28 @@ def send_email(
             "toRecipients": [{"emailAddress": {"address": recipient_email}}],
         }
     }
-    if attachment_path:
-        with open(attachment_path, "rb") as f:
-            attachment_bytes = base64.b64encode(f.read()).decode("utf-8")
-        mime_type, _ = mimetypes.guess_type(attachment_path)
-        if mime_type is None:
-            mime_type = "application/octet-stream"
+    if attachment_paths:
+        attachments = list()
+        for attachment_path, attachment_name in xip(attachment_paths, attachment_names):
+            with open(attachment_path, "rb") as f:
+                attachment_bytes = base64.b64encode(f.read()).decode("utf-8")
+            mime_type, _ = mimetypes.guess_type(attachment_path)
+            if mime_type is None:
+                mime_type = "application/octet-stream"
 
-        attachment = {
-            "@odata.type": "#microsoft.graph.fileAttachment",
-            "name": attachment_name if attachment_name else Path(attachment_path).name,
-            "contentType": mime_type,
-            "contentBytes": attachment_bytes,
-        }
+            attachment = {
+                "@odata.type": "#microsoft.graph.fileAttachment",
+                "name": attachment_name if attachment_name else Path(attachment_path).name,
+                "contentType": mime_type,
+                "contentBytes": attachment_bytes,
+            }
+            attachments.append(attachment)
         message_payload={
             "message": {
                 "subject": subject,
                 "body": {"contentType": "HTML", "content": body_content},
                 "toRecipients": [{"emailAddress": {"address": recipient_email}}],
-                "attachments": [attachment],
+                "attachments": attachments,
             }
         }
     GRAPH_SENDMAIL_URL = f"https://graph.microsoft.com/v1.0/users/{sender_email}/sendMail"
@@ -140,8 +143,8 @@ def trigger_support(
     recipient,
     subject,
     message,
-    attachment_path=None,
-    attachment_name=None,
+    attachment_paths=list(),
+    attachment_names=list(),
 ):
     try:
         body_content = f"""
@@ -162,8 +165,8 @@ def trigger_support(
             recipient,
             subject,
             body_content,
-            attachment_path=attachment_path,
-            attachment_name=attachment_name
+            attachment_paths=attachment_paths,
+            attachment_names=attachment_names
         )
         logging.info("SYSTEM: Email triggered successfully.")
     except Exception as e:
