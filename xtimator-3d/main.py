@@ -3587,7 +3587,7 @@ async def email_support_center(
         subject,
         content,
         attachment_path=attachment_path,
-        attachment_name=attachment.filename,
+        attachment_name=attachment.filename if attachment is not None else None,
     )
     logging.info("SYSTEM: Support email forwarded")
 
