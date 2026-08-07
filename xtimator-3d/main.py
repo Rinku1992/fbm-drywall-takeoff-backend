@@ -3611,7 +3611,7 @@ async def email_support_center(request: Request):
     attachment_paths = list()
     attachment_names = list()
     for blob in blobs:
-        destination_path = Path(destination_attachment_directory} / Path(blob.name).name}
+        destination_path = Path(destination_attachment_directory) / Path(blob.name).name
         destination_path.parent.mkdir(parents=True, exist_ok=True)
         blob.download_to_filename(destination_path)
         attachment_paths.append(destination_path)
