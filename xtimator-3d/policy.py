@@ -169,6 +169,21 @@ class AccessControlService:
         """
         region_names = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id,), fetch=True))
         region_names = [region_name["region_name"].lower() for region_name in region_names]
+        if region_names
+            return region_names
+
+        query = f"""
+            SELECT
+                DISTINCT(r.region_name) AS region_name
+            FROM {self._credentials["CloudSQL"]["table_name_users"]} u
+            JOIN {self._credentials["CloudSQL"]["table_name_organization_regions"]} or
+                ON u.organization_id = or.organization_id
+            JOIN {self._credentials["CloudSQL"]["table_name_regions"]} r
+                ON r.region_id = or.region_id
+            WHERE LOWER(u.user_email) = LOWER(%s);
+        """
+        region_names = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id,), fetch=True))
+        region_names = [region_name["region_name"].lower() for region_name in region_names]
         return region_names
 
     async def load_organization_users(self, user_id):
