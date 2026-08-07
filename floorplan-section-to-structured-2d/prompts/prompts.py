@@ -921,7 +921,8 @@ class DrywallAssemblyCeiling(
   ThicknessValidatorHelper,
   LayersValidatorHelper,
   ColorCodeValidatorHelper,
-  StackedLayersValidatorHelper
+  StackedLayersValidatorHelper,
+  BaseModel,
 ):
     active_validators: ClassVar[set[str]] = {"thickness", "layers", "color_code", "stacked_layers"}
     model_config = ConfigDict(extra="forbid")
@@ -939,7 +940,8 @@ class DrywallAssemblyWall(
   ThicknessValidatorHelper,
   HeightValidatorHelper,
   ColorCodeValidatorHelper,
-  StackCountValidatorHelper
+  StackCountValidatorHelper,
+  BaseModel,
 ):
     active_validators: ClassVar[set[str]] = {"thickness", "height", "color_code", "stack_count"}
     model_config = ConfigDict(extra="allow")
@@ -961,7 +963,7 @@ class Pitch(BaseModel):
     rise: float = Field(description="<rise of the slope in float>")
     run: float = Field(description="<run of the slope in float>")
 
-class CeilingModelAndPredict(AreaValidatorHelper, HeightValidatorHelper):
+class CeilingModelAndPredict(AreaValidatorHelper, HeightValidatorHelper, BaseModel):
     active_validators: ClassVar[set[str]] = {"area", "height"}
     model_config = ConfigDict(extra="forbid")
 
@@ -978,7 +980,7 @@ class CeilingModelAndPredict(AreaValidatorHelper, HeightValidatorHelper):
     code_references: List[str] = Field(description="['<applied Dywall code reference 1>', '<applied Dywall code reference 2>', '<applied Dywall code reference 3>']")
     recommendation: Optional[str] = Field(description="'<recommendation on special requirements including cost reduction (if any)>'")
 
-class WallParameterModelAndPredict(LengthValidatorHelper, WidthValidatorHelper):
+class WallParameterModelAndPredict(LengthValidatorHelper, WidthValidatorHelper, BaseModel):
     active_validators: ClassVar[set[str]] = {"length", "width"}
     model_config = ConfigDict(extra="forbid")
 
@@ -992,7 +994,7 @@ class WallParameterModelAndPredict(LengthValidatorHelper, WidthValidatorHelper):
     code_references: List[str] = Field(description="['<applied Dywall code reference 1>', '<applied Dywall code reference 2>', '<applied Dywall code reference 3>']")
     recommendation: Optional[str] = Field(description="'<recommendation on special requirements for perimeter wall 2 including cost reduction (if any). Generate separate recommendations for single drywall material and the vetically stacked drywall materials (If predicted)>'")
 
-class PolygonDetectorAndDrywallPredictorResponse(WallCountValidatorHelper):
+class PolygonDetectorAndDrywallPredictorResponse(WallCountValidatorHelper, BaseModel):
     active_validators: ClassVar[set[str]] = {"wall_count"}
     model_config = ConfigDict(extra="forbid")
 
