@@ -3548,6 +3548,41 @@ async def unlock_user_account(request: Request):
     logging.info(f"SYSTEM: User Account: {user_id} is Unlocked")
 
 
+@app.post("/generate_email_attachment_upload_signed_URLs")
+async def generate_floorplan_upload_signed_URL(request: Request) -> str:
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    user_id = parameters.get("user_id") or body.get("user_id")
+    uuid = parameters.get("uuid") or body.get("uuid")
+    attachment_names = parameters.get("attachment_names") or body.get("attachment_names")
+    logging.info("SYSTEM: Received Signed Email Attachment upload URLs generation Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
+
+    client = CloudStorageClient()
+    bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
+    organization_slug = await load_organization_slug(CREDENTIALS, pg_pool, user_id)
+    signed_urls = list()
+    for attachment_name in attachment_names:
+        blob_path = f"{organization_slug}/support_tickets/{uuid}/{attachment_name}"
+        blob = bucket.blob(blob_path)
+        url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(minutes=CREDENTIALS["CloudStorage"]["expiration_in_minutes"]),
+            method="PUT",
+            content_type="application/octet-stream",
+        )
+        signed_urls.append(url)
+
+    return signed_urls
+
+
 @app.post("/email_support_center")
 async def email_support_center(
     request: Request,
