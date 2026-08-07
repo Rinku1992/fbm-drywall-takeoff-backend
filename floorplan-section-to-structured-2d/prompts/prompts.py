@@ -2551,8 +2551,13 @@ def prune_model(model: type[BaseModel], remove_fields: set[str]) -> type[BaseMod
     base_classes = list()
     for validator in model.active_validators:
       base_classes.append(validator_helpers[validator])
+    MultiBase = type(
+      f"{model.__name__}Base",
+      tuple(base_classes),
+      {},
+    )
     return create_model(
         f"{model.__name__}Pruned",
-        __base__=tuple(base_classes),
+        __base__ = MultiBase,
         **fields,
     )
