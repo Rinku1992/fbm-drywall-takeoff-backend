@@ -2540,9 +2540,11 @@ def load_schema_pydantic(model: type[BaseModel]):
 
 def prune_model(
   model: type[BaseModel],
-  remove_fields: set[str]=set(),
-  remove_validators: set[str]=set()
+  remove_fields: set[str] | None=None,
+  remove_validators: set[str] | None=None
 ) -> type[BaseModel]:
+    remove_fields = remove_fields or set()
+    remove_validators = remove_validators or set()
     fields = {
         name: (
             field.annotation,
@@ -2556,12 +2558,14 @@ def prune_model(
         set(model.active_validators) - remove_validators
     )
     base_classes = list()
-    for validator in active_validators:
+    for validator in model.active_validators:
       base_classes.append(validator_helpers[validator])
     MultiBase = type(
       f"{model.__name__}Base",
       tuple(base_classes),
-      {},
+      {
+        "active_validators": active_validators,
+      },
     )
     return create_model(
         f"{model.__name__}Pruned",
