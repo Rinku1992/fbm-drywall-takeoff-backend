@@ -2538,7 +2538,11 @@ def load_schema_pydantic(model: type[BaseModel]):
 
     return json.dumps(build_model(model), indent=2)
 
-def prune_model(model: type[BaseModel], remove_fields: set[str]) -> type[BaseModel]:
+def prune_model(
+  model: type[BaseModel],
+  remove_fields: set[str]=set(),
+  remove_validators: set[str]=set()
+) -> type[BaseModel]:
     fields = {
         name: (
             field.annotation,
@@ -2548,8 +2552,11 @@ def prune_model(model: type[BaseModel], remove_fields: set[str]) -> type[BaseMod
         if name not in remove_fields
     }
 
+    active_validators = (
+        set(model.active_validators) - remove_validators
+    )
     base_classes = list()
-    for validator in model.active_validators:
+    for validator in active_validators:
       base_classes.append(validator_helpers[validator])
     MultiBase = type(
       f"{model.__name__}Base",
