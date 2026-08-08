@@ -2542,10 +2542,11 @@ def prune_model(
   model: type[BaseModel],
   remove_fields: set[str] | None=None,
   remove_validators: set[str] | None=None,
-  fields_custom=dict(),
+  fields_custom: dict[str, type] | None=None,
 ) -> type[BaseModel]:
     remove_fields = remove_fields or set()
     remove_validators = remove_validators or set()
+    fields_custom = fields_custom or dict()
     fields = {
         name: (
             field.annotation,
@@ -2554,9 +2555,9 @@ def prune_model(
         for name, field in model.model_fields.items()
         if name not in remove_fields
     }
-  for name, field in fields_custom.items():
-    fields[name] = (
-        field,
+    for name, field_type in fields_custom.items():
+      fields[name] = (
+        field_type,
         ...
     )
 
