@@ -2541,7 +2541,8 @@ def load_schema_pydantic(model: type[BaseModel]):
 def prune_model(
   model: type[BaseModel],
   remove_fields: set[str] | None=None,
-  remove_validators: set[str] | None=None
+  remove_validators: set[str] | None=None,
+  fields_custom=dict(),
 ) -> type[BaseModel]:
     remove_fields = remove_fields or set()
     remove_validators = remove_validators or set()
@@ -2553,9 +2554,14 @@ def prune_model(
         for name, field in model.model_fields.items()
         if name not in remove_fields
     }
+  for name, field in fields_custom.items():
+    fields[name] = (
+        field,
+        ...
+    )
 
     active_validators = (
-        set(model.active_validators) - remove_validators
+      set(model.active_validators) - remove_validators
     )
     base_classes = list()
     for validator in model.active_validators:
