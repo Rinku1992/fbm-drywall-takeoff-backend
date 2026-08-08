@@ -791,8 +791,14 @@ async def load_projects(request: Request):
     else:
         peers = await access_control.load_regional_users(user_id)
         region_names = await access_control.load_user_region_names(user_id)
-        where_clause = "LOWER(p.created_by) = ANY(%s) AND LOWER(p.\"FBM_branch\") = ANY(%s)"
-        params = (peers, region_names,)
+        where_clause = """
+            LOWER(p.created_by) = ANY(%s) 
+            AND (
+                LOWER(p.created_by) = LOWER(%s)
+                OR LOWER(p.\"FBM_branch\") = ANY(%s)
+            )
+        """
+        params = (peers, user_id, region_names,)
 
     query = f"""
         SELECT
@@ -880,7 +886,7 @@ async def publish_project(request: Request):
 
     query = f"""
         UPDATE
-        FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} p
+        {CREDENTIALS["CloudSQL"]["table_name_projects"]}
 
         SET is_published = TRUE
         WHERE LOWER(project_id) = LOWER(%s);
@@ -907,7 +913,7 @@ async def retract_project(request: Request):
 
     query = f"""
         UPDATE
-        FROM {CREDENTIALS["CloudSQL"]["table_name_projects"]} p
+        {CREDENTIALS["CloudSQL"]["table_name_projects"]}
 
         SET is_published = FALSE
         WHERE LOWER(project_id) = LOWER(%s);
@@ -949,8 +955,14 @@ async def load_project_plans(request: Request):
     else:
         peers = await access_control.load_regional_users(user_id)
         region_names = await access_control.load_user_region_names(user_id)
-        where_clause = "LOWER(pl.user_id) = ANY(%s) AND LOWER(pr.\"FBM_branch\") = ANY(%s)"
-        params = (peers, region_names, project_id, peers, region_names,)
+        where_clause = """
+            LOWER(pl.user_id) = ANY(%s) 
+            AND (
+                LOWER(pl.user_id) = LOWER(%s) 
+                OR LOWER(pr.\"FBM_branch\") = ANY(%s)
+            )
+        """
+        params = (peers, user_id, region_names, project_id, peers, user_id, region_names,)
 
     query = f"""
         WITH page_stats AS (
@@ -1105,7 +1117,7 @@ async def publish_plan(request: Request):
 
     query = f"""
         UPDATE
-        FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} p
+        {CREDENTIALS["CloudSQL"]["table_name_plans"]}
 
         SET is_published = TRUE
         WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);
@@ -1133,7 +1145,7 @@ async def retract_plan(request: Request):
 
     query = f"""
         UPDATE
-        FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} p
+        {CREDENTIALS["CloudSQL"]["table_name_plans"]}
 
         SET is_published = FALSE
         WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s);
@@ -1250,8 +1262,14 @@ async def load_plan_pages(request: Request):
     else:
         peers = await access_control.load_regional_users(user_id)
         region_names = await access_control.load_user_region_names(user_id)
-        where_clause = "LOWER(pl.user_id) = ANY(%s) AND LOWER(pr.\"FBM_branch\") = ANY(%s)"
-        params = (project_id, plan_id, peers, region_names,)
+        where_clause = """
+            LOWER(pl.user_id) = ANY(%s) 
+            AND (
+                LOWER(pl.user_id) = LOWER(%s) 
+                OR LOWER(pr.\"FBM_branch\") = ANY(%s)
+            )
+        """
+        params = (project_id, plan_id, peers, user_id, region_names,)
 
     query = f"""
         SELECT pl.*
@@ -1753,7 +1771,13 @@ async def load_2d_all(request: Request):
     else:
         peers = await access_control.load_regional_users(user_id)
         region_names = await access_control.load_user_region_names(user_id)
-        where_clause = "LOWER(m.user_id) = ANY(%s) AND LOWER(pr.\"FBM_branch\") = ANY(%s)"
+        where_clause = """
+            LOWER(m.user_id) = ANY(%s) 
+            AND (
+                LOWER(m.user_id) = LOWER(%s) 
+                OR LOWER(pr.\"FBM_branch\") = ANY(%s)
+            )
+        """
 
     if load_lazy == "false":
         status = "IN PROGRESS"
@@ -1783,7 +1807,7 @@ async def load_2d_all(request: Request):
             """
             params_partner = (project_id, plan_id, peers_partner, region_names,)
         else:
-            params = (project_id, plan_id, peers, region_names,)
+            params = (project_id, plan_id, peers, user_id, region_names,)
         query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
         if is_admin.local:
             query_output_partner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query_partner, params=params_partner, fetch=True))
@@ -1845,7 +1869,7 @@ async def load_2d_all(request: Request):
             """
             params_partner = (project_id, plan_id, int(page_number), peers_partner, region_names,)
         else:
-            params = (project_id, plan_id, int(page_number), peers, region_names,)
+            params = (project_id, plan_id, int(page_number), peers, user_id, region_names,)
     else:
         query = f"""
             SELECT
@@ -1887,7 +1911,7 @@ async def load_2d_all(request: Request):
             """
             params_partner = (project_id, plan_id, peers_partner, region_names,)
         else:
-            params = (project_id, plan_id, peers, region_names,)
+            params = (project_id, plan_id, peers, user_id, region_names,)
     rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
     if is_admin.local:
         rows_partner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query_partner, params=params_partner, fetch=True))
@@ -1966,7 +1990,13 @@ async def load_layout_2d_all(request: Request):
     else:
         peers = await access_control.load_regional_users(user_id)
         region_names = await access_control.load_user_region_names(user_id)
-        where_clause = "LOWER(m.user_id) = ANY(%s) AND LOWER(pr.\"FBM_branch\") = ANY(%s)"
+        where_clause = """
+            LOWER(m.user_id) = ANY(%s) 
+            AND (
+                LOWER(m.user_id) = LOWER(%s) 
+                OR LOWER(pr.\"FBM_branch\") = ANY(%s)
+            )
+        """
 
     if load_lazy == "false":
         status = "IN PROGRESS"
@@ -1996,7 +2026,7 @@ async def load_layout_2d_all(request: Request):
             """
             params_partner = (project_id, plan_id, peers_partner, region_names,)
         else:
-            params = (project_id, plan_id, peers, region_names,)
+            params = (project_id, plan_id, peers, user_id, region_names,)
         query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
         if is_admin.local:
             query_output_partner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query_partner, params=params_partner, fetch=True))
@@ -2058,7 +2088,7 @@ async def load_layout_2d_all(request: Request):
             """
             params_partner = (project_id, plan_id, int(page_number), peers_partner, region_names,)
         else:
-            params = (project_id, plan_id, int(page_number), peers, region_names,)
+            params = (project_id, plan_id, int(page_number), peers, user_id, region_names,)
     else:
         query = f"""
             SELECT
@@ -2100,7 +2130,7 @@ async def load_layout_2d_all(request: Request):
             """
             params_partner = (project_id, plan_id, peers_partner, region_names,)
         else:
-            params = (project_id, plan_id, peers, region_names,)
+            params = (project_id, plan_id, peers, user_id, region_names,)
     rows = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=params, fetch=True))
     if is_admin.local:
         rows_partner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query_partner, params=params_partner, fetch=True))
