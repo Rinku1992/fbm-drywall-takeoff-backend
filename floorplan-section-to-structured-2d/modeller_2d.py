@@ -39,6 +39,8 @@ from prompts import (
     ShapeRectifierResponse,
     CeilingModelAndPredict,
     DrywallAssemblyCeiling,
+    prune_model,
+    load_schema_pydantic,
 )
 from helper import (
     load_vertex_ai_client,
@@ -3012,6 +3014,12 @@ class FloorPlan2D(FloorPlan):
                 enabled=True,
             )
         )
+        prune_model(
+  model: type[BaseModel],
+  remove_fields: set[str] | None = None,
+  remove_validators: set[str] | None = None,
+  fields_custom: dict[str, type] | None = None,
+)
 
     def save_plot_2d(
         self,
