@@ -1485,11 +1485,10 @@ class FloorPlan2D(FloorPlan):
             bounding_box_top_left = (X1 - 10, Y1 - 10)
             bounding_box_bottom_right = (X2 + 10, Y2 + 10)
             canvas = cv2.rectangle(canvas, bounding_box_top_left, bounding_box_bottom_right, (255, 0, 0), 3)
-        if predict:
-            for polygon_pts in polygons_pts:
-                canvas_to_overlay = canvas.copy()
-                cv2.fillPoly(canvas_to_overlay, pts=[polygon_pts], color=(0, 255, 0))
-                canvas = cv2.addWeighted(canvas_to_overlay, 0.5, canvas, 0.5, 0)
+        for polygon_pts in polygons_pts:
+            canvas_to_overlay = canvas.copy()
+            cv2.fillPoly(canvas_to_overlay, pts=[polygon_pts], color=(0, 255, 0))
+            canvas = cv2.addWeighted(canvas_to_overlay, 0.5, canvas, 0.5, 0)
         transcription_entries = list()
         for transcription, centroid in transcription_block_with_centroids.items():
             transcription_entries.append(dict(text=transcription, centroid=dict(X=centroid[0], Y=centroid[1])))
@@ -1539,22 +1538,8 @@ class FloorPlan2D(FloorPlan):
             model_polygon["ceiling"]["height"] = verify_tolerance_height(model_polygon["ceiling"]["height"], model_polygon["ceiling"]["confidence_height"])
             for index, (dimension_wall_predicted, wall_unnormalized, wall_normalized) in enumerate(zip(model_polygon["wall_parameters"], walls_unnormalized, walls)):
                 dimension_wall_rectified = dimension_wall_predicted
-                if predict:
-                    dimension_wall_rectified = verify_tolerance_length(dimension_wall_predicted, wall_unnormalized, dimension_wall_predicted["confidence_length"], wall_normalized)
-                    dimension_wall_rectified["drywall_assembly"]["height"] = verify_tolerance_height(dimension_wall_predicted["drywall_assembly"]["height"], dimension_wall_predicted["drywall_assembly"]["confidence_height"])
-                else:
-                    dimension_wall_rectified["drywall_assembly"] = dict(
-                        material='-',
-                        height=dimension_wall_rectified["height"],
-                        color_code=[128, 128, 128],
-                        materials_vertically_stacked=list(),
-                        color_codes_stacked=list(),
-                        heights_stacked=list(),
-                        thickness=-1,
-                        layers=-1,
-                        fire_rating=0,
-                        waste_factor="NA"
-                    )
+                dimension_wall_rectified = verify_tolerance_length(dimension_wall_predicted, wall_unnormalized, dimension_wall_predicted["confidence_length"], wall_normalized)
+                dimension_wall_rectified["drywall_assembly"]["height"] = verify_tolerance_height(dimension_wall_predicted["drywall_assembly"]["height"], dimension_wall_predicted["drywall_assembly"]["confidence_height"])
 
                 model_polygon["wall_parameters"][index] = dimension_wall_rectified
             logging.info(f"SYSTEM: Section: {self._section_name}, POLYGON DETECTED: {json.dumps(model_polygon)}")
@@ -1573,7 +1558,7 @@ class FloorPlan2D(FloorPlan):
                     "slope_enabled": False,
                     "tilt_axis": '',
                     "drywall_assembly": {
-                        "material": ("D12C - 1/2\" DW INTERIOR CEILING" if predict else '-'),
+                        "material": "D12C - 1/2\" DW INTERIOR CEILING",
                         "color_code": [10, 78, 69],
                         "materials_vertically_stacked": [],
                         "color_codes_stacked": [],
@@ -1601,7 +1586,7 @@ class FloorPlan2D(FloorPlan):
                         "wall_type": '',
                         "openings": [dict(opening_type="NULL", count=0, length=0, height=0)],
                         "drywall_assembly": {
-                            "material": ("D12L - 1/2\" DW LITE-WEIGHT" if predict else '-'),
+                            "material": "D12L - 1/2\" DW LITE-WEIGHT",
                             "height": height_default,
                             "color_code": [71, 239, 143],
                             "materials_vertically_stacked": [],
@@ -1879,9 +1864,9 @@ class FloorPlan2D(FloorPlan):
                         thickness=thickness,
                         layers=wall_parameter["drywall_assembly"]["layers"],
                         fire_rating=wall_parameter["drywall_assembly"]["fire_rating"],
-                        recommendation=(wall_parameter["recommendation"] if predict else "NA"),
+                        recommendation=wall_parameter["recommendation"],
                         waste_factor=wall_parameter["drywall_assembly"]["waste_factor"],
-                        enabled=(True if predict else "NA")
+                        enabled=True
                     )
                 )
                 polygon_ids_drywall_interior.append(f"{wall_payload["id"]}.b")
@@ -1933,9 +1918,9 @@ class FloorPlan2D(FloorPlan):
                         thickness=thickness,
                         layers=wall_parameter["drywall_assembly"]["layers"],
                         fire_rating=wall_parameter["drywall_assembly"]["fire_rating"],
-                        recommendation=(wall_parameter["recommendation"] if predict else "NA"),
+                        recommendation=wall_parameter["recommendation"],
                         waste_factor=wall_parameter["drywall_assembly"]["waste_factor"],
-                        enabled=(True if predict else "NA"),
+                        enabled=True,
                     )
                 )
                 polygon_ids_drywall_interior.append(f"{len(self._walls_2d)}.a")
@@ -1954,9 +1939,9 @@ class FloorPlan2D(FloorPlan):
                             thickness=thickness,
                             layers=wall_parameter["drywall_assembly"]["layers"],
                             fire_rating=wall_parameter["drywall_assembly"]["fire_rating"],
-                            recommendation=(wall_parameter["recommendation"] if predict else "NA"),
+                            recommendation=wall_parameter["recommendation"],
                             waste_factor=wall_parameter["drywall_assembly"]["waste_factor"],
-                            enabled=(True if predict else "NA"),
+                            enabled=True,
                         )
                     )
                     polygon_ids_drywall_interior.append(f"{len(self._walls_2d)}.b")
@@ -1983,16 +1968,16 @@ class FloorPlan2D(FloorPlan):
             room_name=model_polygon["ceiling"]["room_name"],
             polygon_ids_drywall_interior=polygon_ids_drywall_interior_filtered,
             polygon_drywall=dict(
-                type=(model_polygon["ceiling"]["drywall_assembly"]["material"] if predict else '-'),
-                color=(tuple(model_polygon["ceiling"]["drywall_assembly"]["color_code"]) if predict else [175, 175, 175]),
-                type_stacked=(model_polygon["ceiling"]["drywall_assembly"]["materials_vertically_stacked"] if predict else '-'),
+                type=model_polygon["ceiling"]["drywall_assembly"]["material"],
+                color=tuple(model_polygon["ceiling"]["drywall_assembly"]["color_code"]),
+                type_stacked=model_polygon["ceiling"]["drywall_assembly"]["materials_vertically_stacked"],
                 color_stacked=[],
-                thickness=(model_polygon["ceiling"]["drywall_assembly"]["thickness"] if predict else -1),
-                layers=(model_polygon["ceiling"]["drywall_assembly"]["layers"] if predict else -1),
-                fire_rating=(model_polygon["ceiling"]["drywall_assembly"]["fire_rating"] if predict else -1),
-                recommendation=(model_polygon["ceiling"]["recommendation"] if predict else "NA"),
-                waste_factor=(model_polygon["ceiling"]["drywall_assembly"]["waste_factor"] if predict else "NA"),
-                enabled=(True if predict else "NA"),
+                thickness=model_polygon["ceiling"]["drywall_assembly"]["thickness"],
+                layers=model_polygon["ceiling"]["drywall_assembly"]["layers"],
+                fire_rating=model_polygon["ceiling"]["drywall_assembly"]["fire_rating"],
+                recommendation=model_polygon["ceiling"]["recommendation"],
+                waste_factor=model_polygon["ceiling"]["drywall_assembly"]["waste_factor"],
+                enabled=True,
             )
         )
         self._polygons.append(polygon)
