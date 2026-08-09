@@ -37,6 +37,8 @@ from prompts import (
     CeilingHeightDetectorResponse,
     WallRectifierResponse,
     ShapeRectifierResponse,
+    CeilingModelAndPredict,
+    DrywallAssemblyCeiling,
 )
 from helper import (
     load_vertex_ai_client,
@@ -2984,6 +2986,32 @@ class FloorPlan2D(FloorPlan):
             polygonized.append((polygon_area, polygon_vertices))
 
         return polygonized, perimeter_lines_contours, walls_2d
+
+    def load_schema_ceiling_given_preselection(self, payload_preselected):
+        polygon = dict(
+            id=index,
+            area=area,
+            vertices=vertices,
+            type="--",
+            height=-1,
+            pitch=dict(rise=-1, run=-1),
+            slope_enabled=False,
+            tilt_axis='',
+            room_name='',
+            polygon_ids_drywall_interior=polygon_ids_drywall_interior_filtered,
+            polygon_drywall=dict(
+                type="--",
+                color=[25, 25, 25],
+                type_stacked=list(),
+                color_stacked=list(),
+                thickness=-1,
+                layers=-1,
+                fire_rating=-1,
+                recommendation='',
+                waste_factor=-1,
+                enabled=True,
+            )
+        )
 
     def save_plot_2d(
         self,
