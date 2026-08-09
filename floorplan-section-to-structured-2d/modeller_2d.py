@@ -5,11 +5,8 @@ np.random.seed(0)
 import math
 import json
 import logging
-import xml.etree.ElementTree as ET
-from PIL import Image
 from pathlib import Path
 from collections import defaultdict
-import subprocess
 from concurrent.futures import ThreadPoolExecutor
 
 from fractions import Fraction
