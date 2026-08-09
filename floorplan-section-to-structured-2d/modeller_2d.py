@@ -31,7 +31,6 @@ from prompts import (
     WALL_CHOICES,
     OPENING_TYPE_CHOICES,
     PolygonDetectorAndDrywallPredictorResponse,
-    PolygonDetectorResponse,
     DrywallPredictorResponse,
     ScaleAndCeilingHeightDetectorResponse,
     ScaleDetectorResponse,
