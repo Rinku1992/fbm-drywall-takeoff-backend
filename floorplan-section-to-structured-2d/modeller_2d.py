@@ -2989,7 +2989,12 @@ class FloorPlan2D(FloorPlan):
 
         return polygonized, perimeter_lines_contours, walls_2d
 
-    def _load_schema_ceiling_drywall_assembly_given_preselection(self, payload_preselected):
+    def _load_schema_ceiling_drywall_assembly_given_preselection(self, payload_ceiling_preselected):
+        payload_ceiling_drywall_preselected = payload_ceiling_preselected["polygon_drywall"]
+        remove_fields_polygon_drywall = list()
+        for payload_ceiling_drywall_attribute, payload_ceiling_drywall_value in payload_ceiling_drywall_preselected.items():
+            if payload_ceiling_drywall_attribute == "type" and payload_ceiling_drywall_value == "--":
+                remove_fields_polygon_drywall.append("material")
         polygon = dict(
             id=index,
             area=area,
@@ -3015,11 +3020,11 @@ class FloorPlan2D(FloorPlan):
             )
         )
         prune_model(
-  model: type[BaseModel],
-  remove_fields: set[str] | None = None,
-  remove_validators: set[str] | None = None,
-  fields_custom: dict[str, type] | None = None,
-)
+          model: type[BaseModel],
+          remove_fields: set[str] | None = None,
+          remove_validators: set[str] | None = None,
+          fields_custom: dict[str, type] | None = None,
+        )
     class DrywallAssemblyCeiling(
   ThicknessValidatorHelper,
   LayersValidatorHelper,
