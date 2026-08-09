@@ -2989,7 +2989,7 @@ class FloorPlan2D(FloorPlan):
 
         return polygonized, perimeter_lines_contours, walls_2d
 
-    def load_schema_ceiling_given_preselection(self, payload_preselected):
+    def _load_schema_ceiling_drywall_assembly_given_preselection(self, payload_preselected):
         polygon = dict(
             id=index,
             area=area,
@@ -3020,6 +3020,24 @@ class FloorPlan2D(FloorPlan):
   remove_validators: set[str] | None = None,
   fields_custom: dict[str, type] | None = None,
 )
+    class DrywallAssemblyCeiling(
+  ThicknessValidatorHelper,
+  LayersValidatorHelper,
+  ColorCodeValidatorHelper,
+  StackedLayersValidatorHelper,
+  BaseModel,
+):
+    active_validators: ClassVar[set[str]] = {"thickness", "layers", "color_code", "stacked_layers"}
+    model_config = ConfigDict(extra="forbid")
+
+    material: str = Field(description="'<drywall material for the ceiling>'")
+    color_code: Tuple[int, int, int] = Field(description="<color code for the predicted ceiling drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>")
+    materials_vertically_stacked: List[str] = Field(description="['<vertically stacked drywall material preference 1 for the ceiling (optional)>', '<vertically stacked drywall material preference 2 for the ceiling (optional)>']")
+    color_codes_stacked: List[Tuple[int, int, int]] = Field(description="[<color code for the vertically stacked drywall type 1 in a BGR tuple (`Blue`, `Green`, `Red`) for the ceiling>, <color code for the vertically stacked drywall type 2 in a BGR tuple (`Blue`, `Green`, `Red`) for the ceiling>]")
+    thickness: float = Field(description="<thickness of the predicted ceiling drywall type in feet>")
+    layers: Union[int, List[int]] = Field(description="<number of required drywall layers>")
+    fire_rating: Optional[Union[str, float]] = Field(description="<fire-rating of the predicted drywall type in hours>")
+    waste_factor: Union[str, int, float] = Field(description="'<waste factor of the predicted drywall in percentage>'")
 
     def save_plot_2d(
         self,
