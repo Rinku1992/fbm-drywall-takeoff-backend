@@ -1420,7 +1420,6 @@ class FloorPlan2D(FloorPlan):
         walls_unnormalized,
         offset,
         height_default=9.125,
-        predict=True,
     ):
         def verify_tolerance_length(dimension_wall, wall_unnormalized, confidence_score, wall_normalized):
             if dimension_wall["length"] and confidence_score >= 0.9:
@@ -1516,48 +1515,26 @@ class FloorPlan2D(FloorPlan):
         ]+parts_elevations)
 
         try:
-            if predict:
-                if self._is_cached["POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR"]:
-                    _, model_polygon = phoenix_call(
-                        lambda feedback_prompt, temperature: self._vertex_ai_client_polygon_detection_and_drywall_prediction.generate_content(
-                            contents=POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[query],
-                            generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
-                        ),
-                        max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
-                        pydantic_model=PolygonDetectorAndDrywallPredictorResponse,
-                        verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
-                    )
-                else:
-                    _, model_polygon = phoenix_call(
-                        lambda feedback_prompt, temperature: self._vertex_ai_client_polygon_detection_and_drywall_prediction(POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR.format(drywall_templates=self._drywall_templates, project_location=self._project_location)).generate_content(
-                            contents=POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[query],
-                            generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
-                        ),
-                        max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
-                        pydantic_model=PolygonDetectorAndDrywallPredictorResponse,
-                        verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
-                    )
+            if self._is_cached["POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR"]:
+                _, model_polygon = phoenix_call(
+                    lambda feedback_prompt, temperature: self._vertex_ai_client_polygon_detection_and_drywall_prediction.generate_content(
+                        contents=POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[query],
+                        generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
+                    ),
+                    max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
+                    pydantic_model=PolygonDetectorAndDrywallPredictorResponse,
+                    verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
+                )
             else:
-                if self._is_cached["POLYGON_DETECTOR"]:
-                    _, model_polygon = phoenix_call(
-                        lambda feedback_prompt, temperature: self._vertex_ai_client_polygon_detection.generate_content(
-                            contents=POLYGON_DETECTOR_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else POLYGON_DETECTOR_FEW_SHOT+[query],
-                            generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
-                        ),
-                        max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
-                        pydantic_model=PolygonDetectorResponse,
-                        verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
-                    )
-                else:
-                    _, model_polygon = phoenix_call(
-                        lambda feedback_prompt, temperature: self._vertex_ai_client_polygon_detection(POLYGON_DETECTOR).generate_content(
-                            contents=POLYGON_DETECTOR_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else POLYGON_DETECTOR_FEW_SHOT+[query],
-                            generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
-                        ),
-                        max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
-                        pydantic_model=PolygonDetectorResponse,
-                        verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
-                    )
+                _, model_polygon = phoenix_call(
+                    lambda feedback_prompt, temperature: self._vertex_ai_client_polygon_detection_and_drywall_prediction(POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR.format(drywall_templates=self._drywall_templates, project_location=self._project_location)).generate_content(
+                        contents=POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[query],
+                        generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
+                    ),
+                    max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
+                    pydantic_model=PolygonDetectorAndDrywallPredictorResponse,
+                    verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
+                )
             model_polygon["ceiling"]["area"] = round(area_target, 3)
             model_polygon["ceiling"]["height"] = verify_tolerance_height(model_polygon["ceiling"]["height"], model_polygon["ceiling"]["confidence_height"])
             for index, (dimension_wall_predicted, wall_unnormalized, wall_normalized) in enumerate(zip(model_polygon["wall_parameters"], walls_unnormalized, walls)):
@@ -1821,7 +1798,6 @@ class FloorPlan2D(FloorPlan):
         transcription_block_with_centroids,
         index,
         offset,
-        predict=True
     ):
         def load_wall_payload(wall_line):
             X1, Y1, X2, Y2 = wall_line[0]
@@ -1861,7 +1837,6 @@ class FloorPlan2D(FloorPlan):
             perimeter_walls_unnormalized,
             offset,
             height_default=height_default,
-            predict=predict,
         )
 
         polygon_ids_drywall_interior = list()
