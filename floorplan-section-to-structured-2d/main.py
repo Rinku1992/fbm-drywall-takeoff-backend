@@ -107,6 +107,13 @@ async def floorplan_to_structured_2d_sectioned(
             trust_scale=trust_scale,
         )
         walls_2d_layout, polygons_layout = floor_plan_modeller_2d.model_to_sketch(walls_2d, polygons)
+        if walls_2d and polygons:
+            floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons)
+            floor_plan_modeller_2d.load_ceiling_choices(polygons)
+            floor_plan_modeller_2d.load_wall_choices(walls_2d)
+            floor_plan_modeller_2d.load_drywall_choices(walls_2d_layout, polygons_layout)
+            floor_plan_modeller_2d.load_ceiling_choices(polygons_layout)
+            floor_plan_modeller_2d.load_wall_choices(walls_2d_layout)
     elif model and not predict:
         walls_2d_layout, polygons_layout, _, external_contour = floor_plan_modeller_2d.model(
             bounding_box_offset_marginalized,
@@ -120,15 +127,6 @@ async def floorplan_to_structured_2d_sectioned(
             allow_none_scale=allow_none_scale,
             trust_scale=trust_scale,
         )
-    if model and predict:
-        if walls_2d and polygons:
-            floor_plan_modeller_2d.load_drywall_choices(walls_2d, polygons)
-            floor_plan_modeller_2d.load_ceiling_choices(polygons)
-            floor_plan_modeller_2d.load_wall_choices(walls_2d)
-            floor_plan_modeller_2d.load_drywall_choices(walls_2d_layout, polygons_layout)
-            floor_plan_modeller_2d.load_ceiling_choices(polygons_layout)
-            floor_plan_modeller_2d.load_wall_choices(walls_2d_layout)
-    elif model and not predict:
         if walls_2d_layout and polygons_layout:
             floor_plan_modeller_2d.load_drywall_choices(walls_2d_layout, polygons_layout)
             floor_plan_modeller_2d.load_ceiling_choices(polygons_layout)
