@@ -2540,9 +2540,9 @@ def load_schema_pydantic(model: type[BaseModel]):
 
 def prune_model(
   model: type[BaseModel],
-  remove_fields: set[str] | None=None,
-  remove_validators: set[str] | None=None,
-  fields_custom: dict[str, type] | None=None,
+  remove_fields: set[str] | None = None,
+  remove_validators: set[str] | None = None,
+  fields_custom: dict[str, type] | None = None,
 ) -> type[BaseModel]:
     remove_fields = remove_fields or set()
     remove_validators = remove_validators or set()
