@@ -1710,7 +1710,7 @@ class FloorPlan2D(FloorPlan):
         try:
             if self._is_cached["POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CUSTOM"]:
                 _, predict_polygon = phoenix_call(
-                    lambda feedback_prompt, temperature: self._vertex_ai_client_polygon_detection_and_drywall_prediction.generate_content(
+                    lambda feedback_prompt, temperature: self._vertex_ai_client_polygon_detection_and_drywall_prediction_custom.generate_content(
                         contents=POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[query],
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
@@ -1720,7 +1720,7 @@ class FloorPlan2D(FloorPlan):
                 )
             else:
                 _, predict_polygon = phoenix_call(
-                    lambda feedback_prompt, temperature: self._vertex_ai_client_polygon_detection_and_drywall_prediction(POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR.format(drywall_templates=self._drywall_templates, project_location=self._project_location)).generate_content(
+                    lambda feedback_prompt, temperature: self._vertex_ai_client_polygon_detection_and_drywall_prediction_custom(POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CUSTOM.format(drywall_templates=self._drywall_templates, project_location=self._project_location)).generate_content(
                         contents=POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[query],
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
@@ -1728,14 +1728,19 @@ class FloorPlan2D(FloorPlan):
                     pydantic_model=polygon_detector_and_drywall_predictor_custom_response,
                     verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
                 )
-            predict_polygon["ceiling"]["area"] = round(area_target, 3)
-            predict_polygon["ceiling"]["height"] = verify_tolerance_height(predict_polygon["ceiling"]["height"], predict_polygon["ceiling"]["confidence_height"])
-            for index, (dimension_wall_predicted, wall_unnormalized, wall_normalized) in enumerate(zip(predict_polygon["wall_parameters"], walls_unnormalized, walls)):
-                dimension_wall_rectified = dimension_wall_predicted
-                dimension_wall_rectified = verify_tolerance_length(dimension_wall_predicted, wall_unnormalized, dimension_wall_predicted["confidence_length"], wall_normalized)
-                dimension_wall_rectified["drywall_assembly"]["height"] = verify_tolerance_height(dimension_wall_predicted["drywall_assembly"]["height"], dimension_wall_predicted["drywall_assembly"]["confidence_height"])
+            if predict_polygon.get("ceiling") and predict_polygon["ceiling"].get("area"): 
+                predict_polygon["ceiling"]["area"] = round(area_target, 3)
+            if predict_polygon.get("ceiling") and predict_polygon["ceiling"].get("height"): 
+                predict_polygon["ceiling"]["height"] = verify_tolerance_height(predict_polygon["ceiling"]["height"], predict_polygon["ceiling"]["confidence_height"])
+            if predict_polygon.get("wall_parameters"): 
+                for index, (dimension_wall_predicted, wall_unnormalized, wall_normalized) in enumerate(zip(predict_polygon["wall_parameters"], walls_unnormalized, walls)):
+                    dimension_wall_rectified = dimension_wall_predicted
+                    if dimension_wall_predicted.get("length"):
+                        dimension_wall_rectified = verify_tolerance_length(dimension_wall_predicted, wall_unnormalized, dimension_wall_predicted["confidence_length"], wall_normalized)
+                    if dimension_wall_predicted.get("drywall_assembly") and dimension_wall_predicted.get("drywall_assembly").get("height"):
+                        dimension_wall_rectified["drywall_assembly"]["height"] = verify_tolerance_height(dimension_wall_predicted["drywall_assembly"]["height"], dimension_wall_predicted["drywall_assembly"]["confidence_height"])
 
-                predict_polygon["wall_parameters"][index] = dimension_wall_rectified
+                    predict_polygon["wall_parameters"][index] = dimension_wall_rectified
             logging.info(f"SYSTEM: Section: {self._section_name}, POLYGON DETECTED: {json.dumps(predict_polygon)}")
         except Exception as e:
             logging.warning(f"SYSTEM: Section: {self._section_name}, Drywall prediction for polygon: {json.dumps(polygon)} failed with error: {e}")
@@ -3220,7 +3225,7 @@ class FloorPlan2D(FloorPlan):
             PolygonDetectorAndDrywallPredictorResponse,
             fields_custom=dict(
                 ceiling=ceiling_pydantic,
-                wall_parameters=List[Union[tuple(wall_parameters_pydantic)]]
+                wall_parameters=List[*wall_parameters_pydantic]
             )
         )
         return polygon_detector_and_drywall_predictor_response, load_schema_pydantic(PolygonDetectorAndDrywallPredictorResponse)
@@ -3592,6 +3597,11 @@ class FloorPlan2D(FloorPlan):
         futures = list()
         with ThreadPoolExecutor(max_workers=8) as executor:
             for polygon in self._polygons:
+                 self._load_schema_polygon_detector_and_drywall_predictor_given_preselection(
+                    payload,
+                    payload_wall_parameters_preselected,
+                    payload_wall_drywalls_preselected
+                )
                 futures.append(executor.submit(
                     self._add_drywalls_polygon,
                     polygon,
