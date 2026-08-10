@@ -3102,7 +3102,18 @@ class FloorPlan2D(FloorPlan):
             remove_validators=remove_validators_wall_drywall
         )
 
-    def _load_schema_wall_drywall_assemblies_given_preselection(self, payload_wall_drywalls_preselected):
+    def _load_schema_wall_parameter_given_preselection(self, payload_wall_parameter_preselected, payload_wall_drywall_preselected):
+        drywall_assembly_wall_pydantic = self._load_schema_wall_drywall_assembly_given_preselection(payload_wall_drywall_preselected)
+        remove_fields_wall_parameter = set()
+        remove_validators_wall_parameter = set()
+        for payload_wall_parameter_attribute, payload_wall_parameter_value in payload_wall_parameter_preselected.items():
+            if payload_wall_drywall_attribute == "type" and payload_wall_drywall_value != "--":
+                remove_fields_wall_drywall.add("material")
+            elif payload_wall_drywall_attribute == "height" and payload_wall_drywall_value != -1:
+                remove_fields_wall_drywall.add("height")
+                remove_fields_wall_drywall.add("confidence_height")
+                remove_validators_wall_drywall.add("height")
+            elif payload_wall_drywall_attribute == "color" and payload_wall_drywall_value != [0, 0, 0]:
         drywall_assembly_walls_pydantic = list()
         for payload_wall_drywall_preselected in payload_wall_drywalls_preselected:
             drywall_assembly_wall_pydantic = self._load_schema_wall_drywall_assembly_given_preselection(payload_wall_drywall_preselected)
