@@ -3108,7 +3108,7 @@ class FloorPlan2D(FloorPlan):
             drywall_assembly_wall_pydantic = self._load_schema_wall_drywall_assembly_given_preselection(payload_wall_drywall_preselected)
             drywall_assembly_walls_pydantic.append(drywall_assembly_wall_pydantic)
 
-        return Union[*drywall_assembly_walls_pydantic]
+        return Union[tuple(drywall_assembly_walls_pydantic)]
 
     def save_plot_2d(
         self,
