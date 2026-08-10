@@ -3106,20 +3106,29 @@ class FloorPlan2D(FloorPlan):
         drywall_assembly_wall_pydantic = self._load_schema_wall_drywall_assembly_given_preselection(payload_wall_drywall_preselected)
         remove_fields_wall_parameter = set()
         remove_validators_wall_parameter = set()
+        if payload_wall_drywall_preselected["room_name"] != '':
+            remove_fields_wall_parameter.add("roomn_ame")
+        if payload_wall_drywall_preselected["recommendation"] != '':
+            remove_fields_wall_parameter.add("recommendation")
         for payload_wall_parameter_attribute, payload_wall_parameter_value in payload_wall_parameter_preselected.items():
-            if payload_wall_drywall_attribute == "type" and payload_wall_drywall_value != "--":
-                remove_fields_wall_drywall.add("material")
-            elif payload_wall_drywall_attribute == "height" and payload_wall_drywall_value != -1:
-                remove_fields_wall_drywall.add("height")
-                remove_fields_wall_drywall.add("confidence_height")
-                remove_validators_wall_drywall.add("height")
-            elif payload_wall_drywall_attribute == "color" and payload_wall_drywall_value != [0, 0, 0]:
-        drywall_assembly_walls_pydantic = list()
-        for payload_wall_drywall_preselected in payload_wall_drywalls_preselected:
-            drywall_assembly_wall_pydantic = self._load_schema_wall_drywall_assembly_given_preselection(payload_wall_drywall_preselected)
-            drywall_assembly_walls_pydantic.append(drywall_assembly_wall_pydantic)
+            if payload_wall_parameter_attribute == "length" and payload_wall_parameter_value != -1:
+                remove_fields_wall_parameter.add("length")
+                remove_fields_wall_parameter.add("confidence_length")
+                remove_validators_wall_parameter.add("length")
+            elif payload_wall_parameter_attribute == "thickness" and payload_wall_parameter_value != -1:
+                remove_fields_wall_parameter.add("width")
+                remove_validators_wall_parameter.add("width")
+            elif payload_wall_parameter_attribute == "type" and payload_wall_parameter_value != '':
+                remove_fields_wall_parameter.add("wall_type")
+            elif payload_wall_parameter_attribute == "openings" and payload_wall_parameter_value:
+                remove_fields_wall_parameter.add("openings")
 
-        return Union[tuple(drywall_assembly_walls_pydantic)]
+        return prune_model(
+            WallParameterModelAndPredict,
+            remove_fields=remove_fields_wall_parameter,
+            remove_validators=remove_validators_wall_parameter,
+            fields_custom=dict(drywall_assembly=drywall_assembly_wall_pydantic)
+        )
 
     def save_plot_2d(
         self,
