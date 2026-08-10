@@ -3590,6 +3590,17 @@ class FloorPlan2D(FloorPlan):
         model_2d_path="/tmp/walls_2d.json",
         floor_plan_path="/tmp/floor_plan.png",
     ):
+        def load_wall_payload(drywall_index):
+            for wall_2d in self._walls_2d:
+                if wall_2d["id"] == int(drywall_index.split('.')[0]):
+                    return wall_2d
+
+        def load_wall_polygon_drywall_payload(drywall_index):
+            for wall_2d in self._walls_2d:
+                for polygon_drywall in wall_2d["polygons_drywall"]:
+                    if polygon_drywall["id"] == drywall_index:
+                        return polygon_drywall
+
         if model_2d_path:
             with open(model_2d_path, 'r') as f:
                 self._walls_2d, self._polygons = json.load(f)
@@ -3598,9 +3609,9 @@ class FloorPlan2D(FloorPlan):
         with ThreadPoolExecutor(max_workers=8) as executor:
             for polygon in self._polygons:
                  self._load_schema_polygon_detector_and_drywall_predictor_given_preselection(
-                    payload,
-                    payload_wall_parameters_preselected,
-                    payload_wall_drywalls_preselected
+                    polygon,
+                    [load_wall_payload(drywall_id) for drywall_id in polygon["polygon_ids_drywall_interior"]],
+                    [load_wall_polygon_drywall_payload(drywall_id) for drywall_id in polygon["polygon_ids_drywall_interior"]],
                 )
                 futures.append(executor.submit(
                     self._add_drywalls_polygon,
