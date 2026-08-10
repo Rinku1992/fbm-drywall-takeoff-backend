@@ -3142,13 +3142,14 @@ class FloorPlan2D(FloorPlan):
             wall_parameter_pydantic = self._load_schema_wall_parameter_given_preselection(payload_wall_parameter_preselected, payload_wall_drywall_preselected)
             wall_parameters_pydantic.append(wall_parameter_pydantic)
 
-        return prune_model(
+        polygon_detector_and_rrywall_predictor_response = prune_model(
             PolygonDetectorAndDrywallPredictorResponse,
             fields_custom=dict(
                 ceiling=ceiling_pydantic,
                 wall_parameters=List[Union[tuple(wall_parameters_pydantic)]]
             )
         )
+        return polygon_detector_and_drywall_predictor_response, load_schema_pydantic(PolygonDetectorAndDrywallPredictorResponse)
 
     def save_plot_2d(
         self,
