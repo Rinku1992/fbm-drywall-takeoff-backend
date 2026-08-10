@@ -38,8 +38,10 @@ from prompts import (
     CeilingHeightDetectorResponse,
     WallRectifierResponse,
     ShapeRectifierResponse,
-    CeilingModelAndPredict,
     DrywallAssemblyCeiling,
+    CeilingModelAndPredict,
+    DrywallAssemblyWall,
+    WallParameterModelAndPredict,
     prune_model,
     load_schema_pydantic,
 )
