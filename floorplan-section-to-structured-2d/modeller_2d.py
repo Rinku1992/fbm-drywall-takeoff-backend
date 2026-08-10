@@ -3030,6 +3030,40 @@ class FloorPlan2D(FloorPlan):
             remove_validators=remove_validators_polygon_drywall
         )
 
+    def _load_schema_ceiling_given_preselection(self, payload_ceiling_preselected):
+        drywall_assembly_ceiling_pydantic = self._load_schema_ceiling_drywall_assembly_given_preselection(
+            payload_ceiling_preselected["polygon_drywall"]
+        )
+        remove_fields_polygon = set()
+        remove_validators_polygon = set()
+        if payload_ceiling_preselected["polygon_drywall"]["recommendation"] != '':
+            remove_fields_polygon.add("recommendation")
+        for payload_ceiling_attribute, payload_ceiling_value in payload_ceiling_preselected.items():
+            if payload_ceiling_attribute == "room_name" and payload_ceiling_value != '':
+                remove_fields_polygon.add("room_name")
+            elif payload_ceiling_attribute == "area" and payload_ceiling_value != -1:
+                remove_fields_polygon.add("area")
+                remove_fields_polygon.add("confidence_area")
+                remove_validators_polygon.add("area")
+            elif payload_ceiling_attribute == "type" and payload_ceiling_value != "--":
+                remove_fields_polygon.add("ceiling_type")
+                remove_fields_polygon.add("slope_enabled")
+            elif payload_ceiling_attribute == "height" and payload_ceiling_value != -1:
+                remove_fields_polygon.add("height")
+                remove_fields_polygon.add("confidence_height")
+                remove_validators_polygon.add("height")
+            elif payload_ceiling_attribute == "pitch" and payload_ceiling_value != dict(rise=-1, run=-1):
+                remove_fields_polygon.add("pitch")
+            elif payload_ceiling_attribute == "tilt_axis" and payload_ceiling_value != '':
+                remove_fields_polygon.add("tilt_axis")
+
+        return prune_model(
+            CeilingModelAndPredict,
+            remove_fields=remove_fields_polygon,
+            remove_validators=remove_validators_polygon,
+            fields_custom=dict(drywall_assembly=drywall_assembly_ceiling_pydantic)
+        )
+
     def save_plot_2d(
         self,
         model_2d_path,
