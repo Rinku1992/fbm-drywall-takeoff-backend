@@ -3608,7 +3608,7 @@ class FloorPlan2D(FloorPlan):
         futures = list()
         with ThreadPoolExecutor(max_workers=8) as executor:
             for polygon in self._polygons:
-                 self._load_schema_polygon_detector_and_drywall_predictor_given_preselection(
+                self._load_schema_polygon_detector_and_drywall_predictor_given_preselection(
                     polygon,
                     [load_wall_payload(drywall_id) for drywall_id in polygon["polygon_ids_drywall_interior"]],
                     [load_wall_polygon_drywall_payload(drywall_id) for drywall_id in polygon["polygon_ids_drywall_interior"]],
