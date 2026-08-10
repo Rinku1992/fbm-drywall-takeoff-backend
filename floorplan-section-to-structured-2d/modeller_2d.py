@@ -2990,36 +2990,36 @@ class FloorPlan2D(FloorPlan):
         return polygonized, perimeter_lines_contours, walls_2d
 
     def _load_schema_ceiling_drywall_assembly_given_preselection(self, payload_ceiling_drywall_preselected):
-        remove_fields_polygon_drywall = list()
-        remove_validators_polygon_drywall = list()
+        remove_fields_polygon_drywall = set()
+        remove_validators_polygon_drywall = set()
         for payload_ceiling_drywall_attribute, payload_ceiling_drywall_value in payload_ceiling_drywall_preselected.items():
             if payload_ceiling_drywall_attribute == "type" and payload_ceiling_drywall_value != "--":
-                remove_fields_polygon_drywall.append("material")
-            if payload_ceiling_drywall_attribute == "color" and payload_ceiling_drywall_value != [25, 25, 25]:
-                remove_fields_polygon_drywall.append("color_code")
-                remove_validators_polygon_drywall.append("color_code")
-            if payload_ceiling_drywall_attribute == "type_stacked" and payload_ceiling_drywall_value:
-                remove_fields_polygon_drywall.append("materials_vertically_stacked")
-                remove_validators_polygon_drywall.append("stacked_layers")
-            if payload_ceiling_drywall_attribute == "color_stacked" and payload_ceiling_drywall_value:
-                remove_fields_polygon_drywall.append("color_codes_stacked")
-            if payload_ceiling_drywall_attribute == "thickness" and payload_ceiling_drywall_value != -1:
-                remove_fields_polygon_drywall.append("thickness")
-                remove_validators_polygon_drywall.append("thickness")
-            if payload_ceiling_drywall_attribute == "layers" and payload_ceiling_drywall_value != -1:
-                remove_fields_polygon_drywall.append("layers")
-                remove_validators_polygon_drywall.append("layers")
-            if payload_ceiling_drywall_attribute == "fire_rating" and payload_ceiling_drywall_value == -1:
-                remove_fields_polygon_drywall.append("fire_rating")
-            if payload_ceiling_drywall_attribute == "waste_factor" and payload_ceiling_drywall_value == -1:
-                remove_fields_polygon_drywall.append("waste_factor")
+                remove_fields_polygon_drywall.add("material")
+            elif payload_ceiling_drywall_attribute == "color" and payload_ceiling_drywall_value != [25, 25, 25]:
+                remove_fields_polygon_drywall.add("color_code")
+                remove_validators_polygon_drywall.add("color_code")
+            elif payload_ceiling_drywall_attribute == "type_stacked" and payload_ceiling_drywall_value:
+                remove_fields_polygon_drywall.add("materials_vertically_stacked")
+                remove_validators_polygon_drywall.add("stacked_layers")
+            elif payload_ceiling_drywall_attribute == "color_stacked" and payload_ceiling_drywall_value:
+                remove_fields_polygon_drywall.add("color_codes_stacked")
+                remove_validators_polygon_drywall.add("stacked_layers")
+            elif payload_ceiling_drywall_attribute == "thickness" and payload_ceiling_drywall_value != -1:
+                remove_fields_polygon_drywall.add("thickness")
+                remove_validators_polygon_drywall.add("thickness")
+            elif payload_ceiling_drywall_attribute == "layers" and payload_ceiling_drywall_value != -1:
+                remove_fields_polygon_drywall.add("layers")
+                remove_validators_polygon_drywall.add("layers")
+            elif payload_ceiling_drywall_attribute == "fire_rating" and payload_ceiling_drywall_value == -1:
+                remove_fields_polygon_drywall.add("fire_rating")
+            elif payload_ceiling_drywall_attribute == "waste_factor" and payload_ceiling_drywall_value == -1:
+                remove_fields_polygon_drywall.add("waste_factor")
 
-        drywall_assembly_ceiling_custom_pydantic = prune_model(
+        return prune_model(
             DrywallAssemblyCeiling,
             remove_fields=remove_fields_polygon_drywall,
             remove_validators=remove_validators_polygon_drywall
         )
-        return drywall_assembly_ceiling_custom_pydantic
 
     def save_plot_2d(
         self,
