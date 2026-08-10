@@ -3228,7 +3228,7 @@ class FloorPlan2D(FloorPlan):
                 wall_parameters=Tuple[*wall_parameters_pydantic]
             )
         )
-        return polygon_detector_and_drywall_predictor_response, load_schema_pydantic(PolygonDetectorAndDrywallPredictorResponse)
+        return polygon_detector_and_drywall_predictor_response, load_schema_pydantic(polygon_detector_and_drywall_predictor_response)
 
     def save_plot_2d(
         self,
