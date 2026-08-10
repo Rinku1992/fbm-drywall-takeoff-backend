@@ -3130,6 +3130,15 @@ class FloorPlan2D(FloorPlan):
             fields_custom=dict(drywall_assembly=drywall_assembly_wall_pydantic)
         )
 
+    def _load_schema_polygon_detector_and_drywall_predictor_given_preselection(
+        self,
+        payload_ceiling_preselected,
+        payload_wall_parameters_preselected,
+        payload_wall_drywalls_preselected
+    ):
+        for payload_wall_parameter_preselected, payload_wall_drywall_preselected in zip(payload_wall_parameters_preselected, payload_wall_drywalls_preselected):
+            self._load_schema_wall_parameter_given_preselection(payload_wall_parameter_preselected, payload_wall_drywall_preselected)
+
     def save_plot_2d(
         self,
         model_2d_path,
