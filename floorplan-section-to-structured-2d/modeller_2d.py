@@ -3142,7 +3142,7 @@ class FloorPlan2D(FloorPlan):
             wall_parameter_pydantic = self._load_schema_wall_parameter_given_preselection(payload_wall_parameter_preselected, payload_wall_drywall_preselected)
             wall_parameters_pydantic.append(wall_parameter_pydantic)
 
-        polygon_detector_and_rrywall_predictor_response = prune_model(
+        polygon_detector_and_drywall_predictor_response = prune_model(
             PolygonDetectorAndDrywallPredictorResponse,
             fields_custom=dict(
                 ceiling=ceiling_pydantic,
