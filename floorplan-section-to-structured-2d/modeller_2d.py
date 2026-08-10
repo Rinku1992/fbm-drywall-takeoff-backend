@@ -2992,9 +2992,26 @@ class FloorPlan2D(FloorPlan):
     def _load_schema_ceiling_drywall_assembly_given_preselection(self, payload_ceiling_preselected):
         payload_ceiling_drywall_preselected = payload_ceiling_preselected["polygon_drywall"]
         remove_fields_polygon_drywall = list()
+        remove_validators_polygon_drywall = list()
         for payload_ceiling_drywall_attribute, payload_ceiling_drywall_value in payload_ceiling_drywall_preselected.items():
             if payload_ceiling_drywall_attribute == "type" and payload_ceiling_drywall_value == "--":
                 remove_fields_polygon_drywall.append("material")
+            if payload_ceiling_drywall_attribute == "color" and payload_ceiling_drywall_value == [25, 25, 25]:
+                remove_fields_polygon_drywall.append("color_code")
+            if payload_ceiling_drywall_attribute == "type_stacked" and not payload_ceiling_drywall_value:
+                if payload_ceiling_drywall_preselected["type"] == "--":
+                    remove_fields_polygon_drywall.append("materials_vertically_stacked")
+            if payload_ceiling_drywall_attribute == "color_stacked" and not payload_ceiling_drywall_value:
+                if payload_ceiling_drywall_preselected["color"] == [25, 25, 25]:
+                    remove_fields_polygon_drywall.append("color_codes_stacked")
+            if payload_ceiling_drywall_attribute == "thickness" and payload_ceiling_drywall_value == -1:
+                remove_fields_polygon_drywall.append("thickness")
+            if payload_ceiling_drywall_attribute == "layers" and payload_ceiling_drywall_value == -1:
+                remove_fields_polygon_drywall.append("layers")
+            if payload_ceiling_drywall_attribute == "fire_rating" and payload_ceiling_drywall_value == -1:
+                remove_fields_polygon_drywall.append("fire_rating")
+            if payload_ceiling_drywall_attribute == "waste_factor" and payload_ceiling_drywall_value == -1:
+                remove_fields_polygon_drywall.append("waste_factor")
         polygon = dict(
             id=index,
             area=area,
