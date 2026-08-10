@@ -3225,7 +3225,7 @@ class FloorPlan2D(FloorPlan):
             PolygonDetectorAndDrywallPredictorResponse,
             fields_custom=dict(
                 ceiling=ceiling_pydantic,
-                wall_parameters=List[*wall_parameters_pydantic]
+                wall_parameters=Tuple[*wall_parameters_pydantic]
             )
         )
         return polygon_detector_and_drywall_predictor_response, load_schema_pydantic(PolygonDetectorAndDrywallPredictorResponse)
