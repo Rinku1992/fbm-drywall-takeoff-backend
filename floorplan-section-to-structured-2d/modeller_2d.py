@@ -1,3 +1,4 @@
+from typing import Union
 from copy import deepcopy
 import cv2
 import numpy as np
@@ -3100,6 +3101,14 @@ class FloorPlan2D(FloorPlan):
             remove_fields=remove_fields_wall_drywall,
             remove_validators=remove_validators_wall_drywall
         )
+
+    def _load_schema_wall_drywall_assemblies_given_preselection(self, payload_wall_drywalls_preselected):
+        drywall_assembly_walls_pydantic = list()
+        for payload_wall_drywall_preselected in payload_wall_drywalls_preselected:
+            drywall_assembly_wall_pydantic = self._load_schema_wall_drywall_assembly_given_preselection(payload_wall_drywall_preselected)
+            drywall_assembly_walls_pydantic.append(drywall_assembly_wall_pydantic)
+
+        return Union[*drywall_assembly_walls_pydantic]
 
     def save_plot_2d(
         self,
