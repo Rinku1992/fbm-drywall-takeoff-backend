@@ -3107,7 +3107,7 @@ class FloorPlan2D(FloorPlan):
         remove_fields_wall_parameter = set()
         remove_validators_wall_parameter = set()
         if payload_wall_drywall_preselected["room_name"] != '':
-            remove_fields_wall_parameter.add("roomn_name")
+            remove_fields_wall_parameter.add("room_name")
         if payload_wall_drywall_preselected["recommendation"] != '':
             remove_fields_wall_parameter.add("recommendation")
         for payload_wall_parameter_attribute, payload_wall_parameter_value in payload_wall_parameter_preselected.items():
