@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, List
 from copy import deepcopy
 import cv2
 import numpy as np
@@ -3136,8 +3136,21 @@ class FloorPlan2D(FloorPlan):
         payload_wall_parameters_preselected,
         payload_wall_drywalls_preselected
     ):
+        ceiling_pydantic = self._load_schema_ceiling_given_preselection(payload_ceiling_preselected)
+        wall_parameters_pydantic = list()
         for payload_wall_parameter_preselected, payload_wall_drywall_preselected in zip(payload_wall_parameters_preselected, payload_wall_drywalls_preselected):
-            self._load_schema_wall_parameter_given_preselection(payload_wall_parameter_preselected, payload_wall_drywall_preselected)
+            wall_parameter_pydantic = self._load_schema_wall_parameter_given_preselection(payload_wall_parameter_preselected, payload_wall_drywall_preselected)
+            wall_parameters_pydantic.append(wall_parameter_pydantic)
+
+        return prune_model(
+            PolygonDetectorAndDrywallPredictorResponse,
+            remove_fields=remove_fields_wall_parameter,
+            remove_validators=remove_validators_wall_parameter,
+            fields_custom=dict(
+                ceiling=ceiling_pydantic,
+                wall_parameters=List[*wall_parameters_pydantic]
+            )
+        )
 
     def save_plot_2d(
         self,
