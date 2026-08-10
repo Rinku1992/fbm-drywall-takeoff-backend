@@ -1611,10 +1611,46 @@ class FloorPlan2D(FloorPlan):
         self,
         vertices,
         walls,
+        area_target,
         polygons_pts,
         floor_plan_path,
-        offset
+        elevation_paths,
+        output_schema_custom,
+        polygon_detector_and_drywall_predictor_custom_response,
+        transcription_block_with_centroids,
+        walls_unnormalized,
+        offset,
+        height_default=9.125,
     ):
+        def verify_tolerance_length(dimension_wall, wall_unnormalized, confidence_score, wall_normalized):
+            if dimension_wall["length"] and confidence_score >= 0.9:
+                dimension_wall["length"] = round(dimension_wall["length"], 3)
+                X1, Y1, X2, Y2 = wall_normalized[0]
+                orientation = self.classify_line(X1, Y1, X2, Y2)
+                if orientation == "horizontal":
+                    self._imperial_scales_sampled['X'].append(dimension_wall["length"] / (X2 - X1))
+                if orientation == "vertical":
+                    self._imperial_scales_sampled['Y'].append(dimension_wall["length"] / (Y2 - Y1))
+            else:
+                X1, Y1, X2, Y2 = wall_unnormalized[0]
+                length_target = round(math.hypot(
+                    (X1 - X2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["horizontal"],
+                    (Y1 - Y2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["vertical"]
+                ), 3)
+                dimension_wall["length"] = length_target
+            if not dimension_wall["width"]:
+                dimension_wall["width"] = self._width_in_feet
+            else:
+                dimension_wall["width"] = round(dimension_wall["width"], 3)
+
+            return dimension_wall
+
+        def verify_tolerance_height(height_predicted, confidence_score):
+            if height_predicted and height_predicted != -1 and confidence_score >= 0.9:
+                return round(height_predicted, 3)
+
+            return round(height_default, 3)
+
         canvas = cv2.imread(floor_plan_path)
         height_in_pixels, width_in_pixels, _ = canvas.shape
         (offset_top_left_X, offset_top_left_Y), (offset_bottom_right_X, offset_bottom_right_Y) = offset
@@ -1647,6 +1683,9 @@ class FloorPlan2D(FloorPlan):
             canvas_to_overlay = canvas.copy()
             cv2.fillPoly(canvas_to_overlay, pts=[polygon_pts], color=(0, 255, 0))
             canvas = cv2.addWeighted(canvas_to_overlay, 0.5, canvas, 0.5, 0)
+        transcription_entries = list()
+        for transcription, centroid in transcription_block_with_centroids.items():
+            transcription_entries.append(dict(text=transcription, centroid=dict(X=centroid[0], Y=centroid[1])))
         _, canvas_buffer_array = cv2.imencode(".png", canvas)
         bytes_canvas = canvas_buffer_array.tobytes()
         perimeter_lines = list()
@@ -1655,38 +1694,63 @@ class FloorPlan2D(FloorPlan):
             perimeter_line = dict(wall=dict(X1=int(X1), Y1=int(Y1), X2=int(X2), Y2=int(Y2)))
             if perimeter_line not in perimeter_lines:
                 perimeter_lines.append(perimeter_line)
-        polygon = dict(vertices=vertices.tolist(), perimeter_wall_lines=list(perimeter_lines))
+        polygon = dict(vertices=vertices.tolist(), perimeter_wall_lines=list(perimeter_lines), transcription_entries=transcription_entries)
+        parts_elevations = list()
+        for elevation_index, elevation_path in enumerate(elevation_paths):
+            elevation_canvas = cv2.imread(elevation_path)
+            _, elevation_canvas_buffer_array = cv2.imencode(".png", elevation_canvas)
+            bytes_elevation_canvas = elevation_canvas_buffer_array.tobytes()
+            parts_elevations.append(Part.from_text(f"ELEVATION PLAN: {elevation_index + 1}")),
+            parts_elevations.append(Part.from_data(data=bytes_elevation_canvas, mime_type="image/png"))
         query = Content(role="user", parts=[
             Part.from_text(json.dumps(polygon)),
-            Part.from_data(data=bytes_canvas, mime_type="image/png")
-        ])
+            Part.from_data(data=bytes_canvas, mime_type="image/png"),
+        ]+parts_elevations+[Part.from_text(json.dumps(dict(output_schema=output_schema_custom)))])
 
         try:
-            if self._is_cached["DRYWALL_PREDICTOR"]:
+            if self._is_cached["POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CUSTOM"]:
                 _, predict_polygon = phoenix_call(
-                    lambda feedback_prompt, temperature: self._vertex_ai_client_drywall_prediction.generate_content(
-                        contents=[feedback_prompt, query] if feedback_prompt else [query],
+                    lambda feedback_prompt, temperature: self._vertex_ai_client_polygon_detection_and_drywall_prediction.generate_content(
+                        contents=POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[query],
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
-                    pydantic_model=DrywallPredictorResponse,
+                    pydantic_model=polygon_detector_and_drywall_predictor_custom_response,
                     verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
                 )
             else:
                 _, predict_polygon = phoenix_call(
-                    lambda feedback_prompt, temperature: self._vertex_ai_client_drywall_prediction(DRYWALL_PREDICTOR.format(drywall_templates=self._drywall_templates, projet_location=self._project_location)).generate_content(
-                        contents=[feedback_prompt, query] if feedback_prompt else [query],
+                    lambda feedback_prompt, temperature: self._vertex_ai_client_polygon_detection_and_drywall_prediction(POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR.format(drywall_templates=self._drywall_templates, project_location=self._project_location)).generate_content(
+                        contents=POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[query],
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
-                    pydantic_model=DrywallPredictorResponse,
+                    pydantic_model=polygon_detector_and_drywall_predictor_custom_response,
                     verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
                 )
+            predict_polygon["ceiling"]["area"] = round(area_target, 3)
+            predict_polygon["ceiling"]["height"] = verify_tolerance_height(predict_polygon["ceiling"]["height"], predict_polygon["ceiling"]["confidence_height"])
+            for index, (dimension_wall_predicted, wall_unnormalized, wall_normalized) in enumerate(zip(predict_polygon["wall_parameters"], walls_unnormalized, walls)):
+                dimension_wall_rectified = dimension_wall_predicted
+                dimension_wall_rectified = verify_tolerance_length(dimension_wall_predicted, wall_unnormalized, dimension_wall_predicted["confidence_length"], wall_normalized)
+                dimension_wall_rectified["drywall_assembly"]["height"] = verify_tolerance_height(dimension_wall_predicted["drywall_assembly"]["height"], dimension_wall_predicted["drywall_assembly"]["confidence_height"])
+
+                predict_polygon["wall_parameters"][index] = dimension_wall_rectified
+            logging.info(f"SYSTEM: Section: {self._section_name}, POLYGON DETECTED: {json.dumps(predict_polygon)}")
         except Exception as e:
             logging.warning(f"SYSTEM: Section: {self._section_name}, Drywall prediction for polygon: {json.dumps(polygon)} failed with error: {e}")
             predict_polygon = {
                 "ceiling": {
                     "room_name": '',
+                    "area": area_target,
+                    "ceiling_type": "Flat",
+                    "height": height_default,
+                    "pitch": {
+                        "rise": 0.0,
+                        "run": 0.0
+                    },
+                    "slope_enabled": False,
+                    "tilt_axis": '',
                     "drywall_assembly": {
                         "material": "D12C - 1/2\" DW INTERIOR CEILING",
                         "color_code": [10, 78, 69],
@@ -1698,16 +1762,26 @@ class FloorPlan2D(FloorPlan):
                         "waste_factor": "8-12%",
                     },
                     "code_references": list(),
-                    "recommendation": ''
+                    "recommendation": "FP - Verify the drywall assignment"
                 }
             }
             wall_parameters = list()
             for wall in walls:
+                X1, Y1, X2, Y2 = wall[0]
+                length = round(math.hypot(
+                    (X1 - X2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["horizontal"],
+                    (Y1 - Y2) * self._hyperparameters["modelling"]["pixel_aspect_ratio"]["vertical"]
+                ), 2)
                 wall_parameters.append(
                     {
                         "room_name": '',
+                        "length": length,
+                        "width": self._hyperparameters["modelling"]["width_in_feet"],
+                        "wall_type": '',
+                        "openings": [dict(opening_type="NULL", count=0, length=0, height=0)],
                         "drywall_assembly": {
                             "material": "D12L - 1/2\" DW LITE-WEIGHT",
+                            "height": height_default,
                             "color_code": [71, 239, 143],
                             "materials_vertically_stacked": [],
                             "color_codes_stacked": [],
@@ -1718,7 +1792,7 @@ class FloorPlan2D(FloorPlan):
                             "waste_factor": "8-12%"
                         },
                         "code_references": list(),
-                        "recommendation": ''
+                        "recommendation": "FP - Verify the drywall assignment"
                     }
                 )
             predict_polygon["wall_parameters"] = wall_parameters
