@@ -1779,6 +1779,16 @@ POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CUSTOM = """
        Elevation pages are NOT labeled with explicit mapping to floorplan walls.
        You MUST infer correspondence using geometry, openings, and relative positioning.
 
+    5. An output schema that defines the expected output structure in the custom prediction mode.
+      OUTPUT REQUIREMENTS:
+       - Return JSON conforming to the provided schema.
+       - The schema is authoritative for field names and nesting.
+       - Do not introduce additional fields.
+       - Do not omit required fields.
+       - Do not return explanatory prose outside the JSON object.
+       - Do not infer a value merely to satisfy the schema.
+       - Use null where the schema permits null and the value cannot be reliably determined.
+
     Analyze the snapshot provided from the floor plan image.
 
     Your task is to,
@@ -2273,9 +2283,6 @@ POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CUSTOM = """
 
   OUTPUT_SCHEMA
     The output schema is supplied dynamically by the application.
-
-    The schema defines:
-    {output_schema}
 """
 
 FEEDBACK_GENERATOR = """
