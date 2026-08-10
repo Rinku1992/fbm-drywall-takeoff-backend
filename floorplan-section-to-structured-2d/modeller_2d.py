@@ -3144,8 +3144,6 @@ class FloorPlan2D(FloorPlan):
 
         return prune_model(
             PolygonDetectorAndDrywallPredictorResponse,
-            remove_fields=remove_fields_wall_parameter,
-            remove_validators=remove_validators_wall_parameter,
             fields_custom=dict(
                 ceiling=ceiling_pydantic,
                 wall_parameters=List[*wall_parameters_pydantic]
