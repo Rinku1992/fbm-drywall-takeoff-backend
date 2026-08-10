@@ -2578,6 +2578,9 @@ def prune_model(
       f"{model.__name__}Base",
       tuple(base_classes),
       {
+        "__annotations__": {
+            "active_validators": ClassVar[set[str]],
+        },
         "active_validators": active_validators,
       },
     )
