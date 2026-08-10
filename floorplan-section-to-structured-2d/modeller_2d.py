@@ -3066,6 +3066,56 @@ class FloorPlan2D(FloorPlan):
             fields_custom=dict(drywall_assembly=drywall_assembly_ceiling_pydantic)
         )
 
+    def _load_schema_wall_drywall_assembly_given_preselection(self, payload_wall_drywall_preselected):
+        dict(
+                        id=f"{len(self._walls_2d)}.a",
+                        room_name='',
+                        polygon=polygon["coordinates"] if isinstance(polygon, dict) else polygon[0]["coordinates"],
+                        type="--",
+                        height=-1,
+                        color=[0, 0, 0],
+                        type_stacked=list(),
+                        color_stacked=list(),
+                        height_stacked=list(),
+                        thickness=-1,
+                        layers=-1,
+                        fire_rating=-1,
+                        recommendation='',
+                        waste_factor='',
+                        enabled=True,
+                    )
+        remove_fields_wall_drywall = set()
+        remove_validators_wall_drywall = set()
+        for payload_wall_drywall_attribute, payload_wall_drywall_value in payload_wall_drywall_preselected.items():
+            if payload_wall_drywall_attribute == "type" and payload_wall_drywall_value != "--":
+                remove_fields_wall_drywall.add("material")
+            elif payload_wall_drywall_attribute == "height" and payload_wall_drywall_value != -1:
+                remove_fields_wall_drywall.add("height")
+                remove_fields_wall_drywall.add("confidence_height")
+                remove_validators_wall_drywall.add("height")
+            elif payload_wall_drywall_attribute == "color" and payload_wall_drywall_value != [0, 0, 0]:
+                remove_fields_wall_drywall.add("color_code")
+                remove_validators_wall_drywall.add("color_code")
+            elif payload_wall_drywall_attribute == "type_stacked" and payload_wall_drywall_value:
+                remove_fields_wall_drywall.add("materials_vertically_stacked")
+                remove_validators_wall_drywall.add("stack_count")
+            elif payload_wall_drywall_attribute == "color_stacked" and payload_wall_drywall_value:
+                remove_fields_polygon_drywall.add("color_codes_stacked")
+                remove_validators_polygon_drywall.add("stack_count")
+            elif payload_ceiling_drywall_attribute == "layers" and payload_ceiling_drywall_value != -1:
+                remove_fields_polygon_drywall.add("layers")
+                remove_validators_polygon_drywall.add("layers")
+            elif payload_ceiling_drywall_attribute == "fire_rating" and payload_ceiling_drywall_value == -1:
+                remove_fields_polygon_drywall.add("fire_rating")
+            elif payload_ceiling_drywall_attribute == "waste_factor" and payload_ceiling_drywall_value == -1:
+                remove_fields_polygon_drywall.add("waste_factor")
+
+        return prune_model(
+            DrywallAssemblyWall,
+            remove_fields=remove_fields_wall_drywall,
+            remove_validators=remove_validators_wall_drywall
+        )
+
     def save_plot_2d(
         self,
         model_2d_path,
