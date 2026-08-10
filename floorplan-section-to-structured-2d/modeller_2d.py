@@ -2989,77 +2989,37 @@ class FloorPlan2D(FloorPlan):
 
         return polygonized, perimeter_lines_contours, walls_2d
 
-    def _load_schema_ceiling_drywall_assembly_given_preselection(self, payload_ceiling_preselected):
-        payload_ceiling_drywall_preselected = payload_ceiling_preselected["polygon_drywall"]
+    def _load_schema_ceiling_drywall_assembly_given_preselection(self, payload_ceiling_drywall_preselected):
         remove_fields_polygon_drywall = list()
         remove_validators_polygon_drywall = list()
         for payload_ceiling_drywall_attribute, payload_ceiling_drywall_value in payload_ceiling_drywall_preselected.items():
-            if payload_ceiling_drywall_attribute == "type" and payload_ceiling_drywall_value == "--":
+            if payload_ceiling_drywall_attribute == "type" and payload_ceiling_drywall_value != "--":
                 remove_fields_polygon_drywall.append("material")
-            if payload_ceiling_drywall_attribute == "color" and payload_ceiling_drywall_value == [25, 25, 25]:
+            if payload_ceiling_drywall_attribute == "color" and payload_ceiling_drywall_value != [25, 25, 25]:
                 remove_fields_polygon_drywall.append("color_code")
-            if payload_ceiling_drywall_attribute == "type_stacked" and not payload_ceiling_drywall_value:
-                if payload_ceiling_drywall_preselected["type"] == "--":
-                    remove_fields_polygon_drywall.append("materials_vertically_stacked")
-            if payload_ceiling_drywall_attribute == "color_stacked" and not payload_ceiling_drywall_value:
-                if payload_ceiling_drywall_preselected["color"] == [25, 25, 25]:
-                    remove_fields_polygon_drywall.append("color_codes_stacked")
-            if payload_ceiling_drywall_attribute == "thickness" and payload_ceiling_drywall_value == -1:
+                remove_validators_polygon_drywall.append("color_code")
+            if payload_ceiling_drywall_attribute == "type_stacked" and payload_ceiling_drywall_value:
+                remove_fields_polygon_drywall.append("materials_vertically_stacked")
+                remove_validators_polygon_drywall.append("stacked_layers")
+            if payload_ceiling_drywall_attribute == "color_stacked" and payload_ceiling_drywall_value:
+                remove_fields_polygon_drywall.append("color_codes_stacked")
+            if payload_ceiling_drywall_attribute == "thickness" and payload_ceiling_drywall_value != -1:
                 remove_fields_polygon_drywall.append("thickness")
-            if payload_ceiling_drywall_attribute == "layers" and payload_ceiling_drywall_value == -1:
+                remove_validators_polygon_drywall.append("thickness")
+            if payload_ceiling_drywall_attribute == "layers" and payload_ceiling_drywall_value != -1:
                 remove_fields_polygon_drywall.append("layers")
+                remove_validators_polygon_drywall.append("layers")
             if payload_ceiling_drywall_attribute == "fire_rating" and payload_ceiling_drywall_value == -1:
                 remove_fields_polygon_drywall.append("fire_rating")
             if payload_ceiling_drywall_attribute == "waste_factor" and payload_ceiling_drywall_value == -1:
                 remove_fields_polygon_drywall.append("waste_factor")
-        polygon = dict(
-            id=index,
-            area=area,
-            vertices=vertices,
-            type="--",
-            height=-1,
-            pitch=dict(rise=-1, run=-1),
-            slope_enabled=False,
-            tilt_axis='',
-            room_name='',
-            polygon_ids_drywall_interior=polygon_ids_drywall_interior_filtered,
-            polygon_drywall=dict(
-                type="--",
-                color=[25, 25, 25],
-                type_stacked=list(),
-                color_stacked=list(),
-                thickness=-1,
-                layers=-1,
-                fire_rating=-1,
-                recommendation='',
-                waste_factor=-1,
-                enabled=True,
-            )
-        )
-        prune_model(
-          model: type[BaseModel],
-          remove_fields: set[str] | None = None,
-          remove_validators: set[str] | None = None,
-          fields_custom: dict[str, type] | None = None,
-        )
-    class DrywallAssemblyCeiling(
-  ThicknessValidatorHelper,
-  LayersValidatorHelper,
-  ColorCodeValidatorHelper,
-  StackedLayersValidatorHelper,
-  BaseModel,
-):
-    active_validators: ClassVar[set[str]] = {"thickness", "layers", "color_code", "stacked_layers"}
-    model_config = ConfigDict(extra="forbid")
 
-    material: str = Field(description="'<drywall material for the ceiling>'")
-    color_code: Tuple[int, int, int] = Field(description="<color code for the predicted ceiling drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>")
-    materials_vertically_stacked: List[str] = Field(description="['<vertically stacked drywall material preference 1 for the ceiling (optional)>', '<vertically stacked drywall material preference 2 for the ceiling (optional)>']")
-    color_codes_stacked: List[Tuple[int, int, int]] = Field(description="[<color code for the vertically stacked drywall type 1 in a BGR tuple (`Blue`, `Green`, `Red`) for the ceiling>, <color code for the vertically stacked drywall type 2 in a BGR tuple (`Blue`, `Green`, `Red`) for the ceiling>]")
-    thickness: float = Field(description="<thickness of the predicted ceiling drywall type in feet>")
-    layers: Union[int, List[int]] = Field(description="<number of required drywall layers>")
-    fire_rating: Optional[Union[str, float]] = Field(description="<fire-rating of the predicted drywall type in hours>")
-    waste_factor: Union[str, int, float] = Field(description="'<waste factor of the predicted drywall in percentage>'")
+        drywall_assembly_ceiling_custom_pydantic = prune_model(
+            DrywallAssemblyCeiling,
+            remove_fields=remove_fields_polygon_drywall,
+            remove_validators=remove_validators_polygon_drywall
+        )
+        return drywall_assembly_ceiling_custom_pydantic
 
     def save_plot_2d(
         self,
