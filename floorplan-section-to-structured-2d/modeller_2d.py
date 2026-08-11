@@ -2258,7 +2258,7 @@ class FloorPlan2D(FloorPlan):
         )
 
         polygon_ids_drywall_interior = list()
-        for wall_line, wall_parameter, polygon in zip(perimeter_walls, model_polygon["wall_parameters"], polygons):
+        for wall_line, wall_parameter, polygon in zip(perimeter_walls, predict_polygon["wall_parameters"], polygons):
             wall_payload = load_wall_payload(wall_line)
             if wall_payload:
                 try:
@@ -2287,7 +2287,7 @@ class FloorPlan2D(FloorPlan):
                     dict(
                         id=f"{wall_payload["id"]}.b",
                         room_name=wall_parameter["room_name"],
-                        polygon=polygon["coordinates"] if isinstance(polygon, dict) else polygon[0]["coordinates"],
+                        #polygon=polygon["coordinates"] if isinstance(polygon, dict) else polygon[0]["coordinates"],
                         type=wall_parameter["drywall_assembly"]["material"],
                         height=wall_parameter["drywall_assembly"]["height"],
                         color=list(wall_parameter["drywall_assembly"]["color_code"]),
@@ -2391,25 +2391,25 @@ class FloorPlan2D(FloorPlan):
 
         polygon = dict(
             id=index,
-            area=model_polygon["ceiling"]["area"],
-            vertices=vertices,
-            type=model_polygon["ceiling"]["ceiling_type"],
-            height=model_polygon["ceiling"]["height"] if model_polygon["ceiling"]["height"] else height_default,
-            pitch=model_polygon["ceiling"]["pitch"],
-            slope_enabled=model_polygon["ceiling"]["slope_enabled"],
-            tilt_axis=model_polygon["ceiling"]["tilt_axis"],
-            room_name=model_polygon["ceiling"]["room_name"],
-            polygon_ids_drywall_interior=polygon_ids_drywall_interior_filtered,
+            area=polygon_preselected["area"],
+            vertices= polygon_preselected["vertices"],
+            type=predict_polygon["ceiling"]["ceiling_type"],
+            height=predict_polygon["ceiling"]["height"] if predict_polygon["ceiling"]["height"] else height_default,
+            pitch=predict_polygon["ceiling"]["pitch"],
+            slope_enabled=predict_polygon["ceiling"]["slope_enabled"],
+            tilt_axis=predict_polygon["ceiling"]["tilt_axis"],
+            room_name=predict_polygon["ceiling"]["room_name"],
+            polygon_ids_drywall_interior= polygon_preselected["polygon_ids_drywall_interior"],
             polygon_drywall=dict(
-                type=model_polygon["ceiling"]["drywall_assembly"]["material"],
-                color=tuple(model_polygon["ceiling"]["drywall_assembly"]["color_code"]),
-                type_stacked=model_polygon["ceiling"]["drywall_assembly"]["materials_vertically_stacked"],
+                type=predict_polygon["ceiling"]["drywall_assembly"]["material"],
+                color=tuple(predict_polygon["ceiling"]["drywall_assembly"]["color_code"]),
+                type_stacked=predict_polygon["ceiling"]["drywall_assembly"]["materials_vertically_stacked"],
                 color_stacked=[],
-                thickness=model_polygon["ceiling"]["drywall_assembly"]["thickness"],
-                layers=model_polygon["ceiling"]["drywall_assembly"]["layers"],
-                fire_rating=model_polygon["ceiling"]["drywall_assembly"]["fire_rating"],
-                recommendation=model_polygon["ceiling"]["recommendation"],
-                waste_factor=model_polygon["ceiling"]["drywall_assembly"]["waste_factor"],
+                thickness=predict_polygon["ceiling"]["drywall_assembly"]["thickness"],
+                layers=predict_polygon["ceiling"]["drywall_assembly"]["layers"],
+                fire_rating=predict_polygon["ceiling"]["drywall_assembly"]["fire_rating"],
+                recommendation=predict_polygon["ceiling"]["recommendation"],
+                waste_factor=predict_polygon["ceiling"]["drywall_assembly"]["waste_factor"],
                 enabled=True,
             )
         )
