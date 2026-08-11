@@ -2264,14 +2264,15 @@ class FloorPlan2D(FloorPlan):
             wall_payload["length"] = wall_parameter_predicted.get("length") if wall_parameter_preselected["length"] == -1 else wall_parameter_preselected["length"],
             wall_payload["type"] = wall_parameter_predicted.get("wall_type") if wall_parameter_preselected["wall_type"] == '' else wall_parameter_preselected["wall_type"],
             wall_payload["openings"] = wall_parameter_predicted.get("openings") if wall_parameter_preselected["openings"] == [] else wall_parameter_preselected["openings"],
-            wall_payload["polygons_drywall"].append(
-                dict(
-                    id=f"{wall_payload["id"]}.b",
-                    room_name=wall_parameter["room_name"],
+            polygon_drywall = list(filter(lambda polygon_drywall: polygon_drywall["id"] == wall_drywall_preselected["id"], wall_payload["polygons_drywall"]))[0]
+            #wall_payload["polygons_drywall"].append(
+            #    dict(
+            #        id=f"{wall_payload["id"]}.b",
+            polygon_drywall["room_name"] = wall_parameter_predicted.get("room_name") if wall_parameter_preselected["room_name"] == '' else wall_parameter_preselected["room_name"],
                     #polygon=polygon["coordinates"] if isinstance(polygon, dict) else polygon[0]["coordinates"],
-                    type=wall_parameter["drywall_assembly"]["material"],
-                    height=wall_parameter["drywall_assembly"]["height"],
-                    color=list(wall_parameter["drywall_assembly"]["color_code"]),
+            polygon_drywall["type"] = wall_parameter_predicted["drywall_assembly"]["material"] if wall_drywall_preselected["type"] == '' else wall_drywall_preselected["type"],
+            polygon_drywall["height"] = wall_parameter_predicted["drywall_assembly"]["height"] if wall_drywall_preselected["height"] == -1 else wall_drywall_preselected["height"],
+            polygon_drywall["color"] = list(wall_parameter_predicted["drywall_assembly"]["color_code"]) if wall_drywall_preselected["color"] == [0, 0, 0] else wall_drywall_preselected["color"],
                     type_stacked=wall_parameter["drywall_assembly"]["materials_vertically_stacked"],
                     color_stacked=list(wall_parameter["drywall_assembly"]["color_codes_stacked"]),
                     height_stacked=wall_parameter["drywall_assembly"].get("heights_stacked", list()),
@@ -2280,10 +2281,10 @@ class FloorPlan2D(FloorPlan):
                     fire_rating=wall_parameter["drywall_assembly"]["fire_rating"],
                     recommendation=wall_parameter["recommendation"],
                     waste_factor=wall_parameter["drywall_assembly"]["waste_factor"],
-                    enabled=True
-                )
-            )
-            polygon_ids_drywall_interior.append(f"{wall_payload["id"]}.b")
+            polygon_drywall["enabled"] = True
+            #    )
+            #)
+            #polygon_ids_drywall_interior.append(f"{wall_payload["id"]}.b")
 
         polygon_ids_drywall_interior_filtered = list()
         interior_wall_ids = set()
