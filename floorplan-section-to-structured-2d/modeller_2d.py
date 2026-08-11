@@ -2211,7 +2211,6 @@ class FloorPlan2D(FloorPlan):
         floor_plan_path,
         elevation_paths,
         transcription_block_with_centroids,
-        index,
         offset,
     ):
         def load_wall_payload(wall_line):
@@ -2288,17 +2287,17 @@ class FloorPlan2D(FloorPlan):
             polygon_ids_drywall_interior_filtered.append(polygon_id_drywall_interior)
             interior_wall_ids.add(wall_id)
 
-        polygon = dict(
-            id=index,
-            area=polygon_preselected["area"],
-            vertices= polygon_preselected["vertices"],
-            type=predict_polygon["ceiling"]["ceiling_type"],
-            height=predict_polygon["ceiling"]["height"] if predict_polygon["ceiling"]["height"] else height_default,
+        #polygon = dict(
+        #    id=index,
+        #    area=polygon_preselected["area"],
+        #    vertices= polygon_preselected["vertices"],
+        polygon_preselected["type"] = predict_polygon["ceiling"]["ceiling_type"] if polygon_preselected["type"] == '' else polygon_preselected["type"]
+        polygon_preselected["height"] = predict_polygon["ceiling"]["height"] or height_default if polygon_preselected["height"] = -1 else polygon_preselected["height"]
             pitch=predict_polygon["ceiling"]["pitch"],
             slope_enabled=predict_polygon["ceiling"]["slope_enabled"],
             tilt_axis=predict_polygon["ceiling"]["tilt_axis"],
             room_name=predict_polygon["ceiling"]["room_name"],
-            polygon_ids_drywall_interior= polygon_preselected["polygon_ids_drywall_interior"],
+            polygon_ids_drywall_interior=polygon_preselected["polygon_ids_drywall_interior"],
             polygon_drywall=dict(
                 type=predict_polygon["ceiling"]["drywall_assembly"]["material"],
                 color=tuple(predict_polygon["ceiling"]["drywall_assembly"]["color_code"]),
@@ -2310,9 +2309,6 @@ class FloorPlan2D(FloorPlan):
                 recommendation=predict_polygon["ceiling"]["recommendation"],
                 waste_factor=predict_polygon["ceiling"]["drywall_assembly"]["waste_factor"],
                 enabled=True,
-            )
-        )
-        self._polygons.append(polygon)
 
     def _add_wall_perimeter(
         self,
