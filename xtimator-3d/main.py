@@ -1368,7 +1368,7 @@ async def floorplan_to_preview(request: Request):
     pdf_path = Path("/tmp/floor_plan.PDF")
     await download_floorplan(plan_id, project_id, user_id, CREDENTIALS, pg_pool, destination_path=pdf_path)
     plan_duplicate = await is_duplicate(pg_pool, CREDENTIALS, access_control, pdf_path, project_id, user_id)
-    if plan_duplicate:
+    if plan_duplicate and plan_duplicate.lower() != plan_id.lower():
         await delete_plan(CREDENTIALS, pg_pool, plan_id, project_id)
         return respond_with_UI_payload(dict(error="Floor Plan already exists"))
 
