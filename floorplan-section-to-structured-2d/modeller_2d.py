@@ -2260,31 +2260,24 @@ class FloorPlan2D(FloorPlan):
         polygon_ids_drywall_interior = list()
         for wall_line, wall_parameter_predicted, wall_parameter_preselected, wall_drywall_preselected in zip(perimeter_walls, predict_polygon["wall_parameters"], payload_wall_parameters_preselected, payload_wall_drywalls_preselected):
             wall_payload = load_wall_payload(wall_line)
-            wall_payload["thickness"] = wall_parameter_predicted.get("width") if wall_parameter_preselected["thickness"] == -1 else wall_parameter_preselected["thickness"],
-            wall_payload["length"] = wall_parameter_predicted.get("length") if wall_parameter_preselected["length"] == -1 else wall_parameter_preselected["length"],
-            wall_payload["type"] = wall_parameter_predicted.get("wall_type") if wall_parameter_preselected["wall_type"] == '' else wall_parameter_preselected["wall_type"],
-            wall_payload["openings"] = wall_parameter_predicted.get("openings") if wall_parameter_preselected["openings"] == [] else wall_parameter_preselected["openings"],
+            wall_payload["thickness"] = wall_parameter_predicted.get("width") if wall_parameter_preselected["thickness"] == -1 else wall_parameter_preselected["thickness"]
+            wall_payload["length"] = wall_parameter_predicted.get("length") if wall_parameter_preselected["length"] == -1 else wall_parameter_preselected["length"]
+            wall_payload["type"] = wall_parameter_predicted.get("wall_type") if wall_parameter_preselected["wall_type"] == '' else wall_parameter_preselected["wall_type"]
+            wall_payload["openings"] = wall_parameter_predicted.get("openings") if wall_parameter_preselected["openings"] == [] else wall_parameter_preselected["openings"]
             polygon_drywall = list(filter(lambda polygon_drywall: polygon_drywall["id"] == wall_drywall_preselected["id"], wall_payload["polygons_drywall"]))[0]
-            #wall_payload["polygons_drywall"].append(
-            #    dict(
-            #        id=f"{wall_payload["id"]}.b",
-            polygon_drywall["room_name"] = wall_parameter_predicted.get("room_name") if wall_parameter_preselected["room_name"] == '' else wall_parameter_preselected["room_name"],
-                    #polygon=polygon["coordinates"] if isinstance(polygon, dict) else polygon[0]["coordinates"],
-            polygon_drywall["type"] = wall_parameter_predicted["drywall_assembly"]["material"] if wall_drywall_preselected["type"] == '' else wall_drywall_preselected["type"],
-            polygon_drywall["height"] = wall_parameter_predicted["drywall_assembly"]["height"] if wall_drywall_preselected["height"] == -1 else wall_drywall_preselected["height"],
+            polygon_drywall["room_name"] = wall_parameter_predicted.get("room_name") if wall_parameter_preselected["room_name"] == '' else wall_parameter_preselected["room_name"]
+            polygon_drywall["type"] = wall_parameter_predicted["drywall_assembly"]["material"] if wall_drywall_preselected["type"] == '' else wall_drywall_preselected["type"]
+            polygon_drywall["height"] = wall_parameter_predicted["drywall_assembly"]["height"] if wall_drywall_preselected["height"] == -1 else wall_drywall_preselected["height"]
             polygon_drywall["color"] = list(wall_parameter_predicted["drywall_assembly"]["color_code"]) if wall_drywall_preselected["color"] == [0, 0, 0] else wall_drywall_preselected["color"],
-                    type_stacked=wall_parameter["drywall_assembly"]["materials_vertically_stacked"],
-                    color_stacked=list(wall_parameter["drywall_assembly"]["color_codes_stacked"]),
-                    height_stacked=wall_parameter["drywall_assembly"].get("heights_stacked", list()),
-                    thickness=thickness,
-                    layers=wall_parameter["drywall_assembly"]["layers"],
-                    fire_rating=wall_parameter["drywall_assembly"]["fire_rating"],
-                    recommendation=wall_parameter["recommendation"],
-                    waste_factor=wall_parameter["drywall_assembly"]["waste_factor"],
+            polygon_drywall["type_stacked"] = wall_parameter_predicted["drywall_assembly"]["materials_vertically_stacked"] if wall_drywall_preselected["type_stacked"] == [] else wall_drywall_preselected["type_stacked"]
+            polygon_drywall["color_stacked"] = list(wall_parameter_predicted["drywall_assembly"]["color_codes_stacked"]) if wall_drywall_preselected["color_stacked"] == [] else wall_drywall_preselected["color_stacked"]
+            polygon_drywall["height_stacked"] = wall_parameter_predicted["drywall_assembly"]["heights_stacked"] if wall_drywall_preselected["height_stacked"] == [] else wall_drywall_preselected["height_stacked"]
+            polygon_drywall["thickness"] = wall_parameter_predicted["drywall_assembly"]["thickness"] if wall_drywall_preselected["thickness"] == -1 else wall_drywall_preselected["thickness"]
+            polygon_drywall["layers"] = wall_parameter_predicted["drywall_assembly"]["layers"] if wall_drywall_preselected["layers"] == -1 else wall_drywall_preselected["layers"]
+            polygon_drywall["fire_rating"] = wall_parameter_predicted["drywall_assembly"]["fire_rating"] if wall_drywall_preselected["fire_rating"] == -1 else wall_drywall_preselected["fire_rating"]
+            polygon_drywall["recommendation"] = wall_parameter_predicted["drywall_assembly"]["recommendation"] if wall_drywall_preselected["recommendation"] == '' else wall_drywall_preselected["recommendation"]
+            polygon_drywall["waste_factor"] = wall_parameter_predicted["drywall_assembly"]["waste_factor"] if wall_drywall_preselected["waste_factor"] == '' else wall_drywall_preselected["waste_factor"]
             polygon_drywall["enabled"] = True
-            #    )
-            #)
-            #polygon_ids_drywall_interior.append(f"{wall_payload["id"]}.b")
 
         polygon_ids_drywall_interior_filtered = list()
         interior_wall_ids = set()
