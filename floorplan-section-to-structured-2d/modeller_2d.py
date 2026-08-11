@@ -2258,127 +2258,32 @@ class FloorPlan2D(FloorPlan):
         )
 
         polygon_ids_drywall_interior = list()
-        for wall_line, wall_parameter in zip(perimeter_walls, predict_polygon["wall_parameters"]):
+        for wall_line, wall_parameter_predicted, wall_parameter_preselected, wall_drywall_preselected in zip(perimeter_walls, predict_polygon["wall_parameters"], payload_wall_parameters_preselected, payload_wall_drywalls_preselected):
             wall_payload = load_wall_payload(wall_line)
-            if wall_payload:
-                try:
-                    thickness = round(float(wall_parameter["drywall_assembly"]["thickness"]), 2)
-                except ValueError:
-                    thickness = wall_parameter["drywall_assembly"]["thickness"]
-                except (KeyError, TypeError):
-                    wall_parameter["drywall_assembly"] = dict(
-                        material="DISABLED",
-                        height=height_default,
-                        color_code=[0, 0, 255],
-                        materials_vertically_stacked=[],
-                        color_codes_stacked=[],
-                        heights_stacked=[],
-                        thickness=-1,
-                        layers=0,
-                        fire_rating=0,
-                        waste_factor="NA"
-                    )
-                    wall_parameter["recommendation"] = "NA"
-                    wall_parameter["room_name"] = ''
-                    thickness=-1
-                if len(wall_payload["polygons_drywall"]) == 2:
-                    continue
-                wall_payload["polygons_drywall"].append(
-                    dict(
-                        id=f"{wall_payload["id"]}.b",
-                        room_name=wall_parameter["room_name"],
-                        #polygon=polygon["coordinates"] if isinstance(polygon, dict) else polygon[0]["coordinates"],
-                        type=wall_parameter["drywall_assembly"]["material"],
-                        height=wall_parameter["drywall_assembly"]["height"],
-                        color=list(wall_parameter["drywall_assembly"]["color_code"]),
-                        type_stacked=wall_parameter["drywall_assembly"]["materials_vertically_stacked"],
-                        color_stacked=list(wall_parameter["drywall_assembly"]["color_codes_stacked"]),
-                        height_stacked=wall_parameter["drywall_assembly"].get("heights_stacked", list()),
-                        thickness=thickness,
-                        layers=wall_parameter["drywall_assembly"]["layers"],
-                        fire_rating=wall_parameter["drywall_assembly"]["fire_rating"],
-                        recommendation=wall_parameter["recommendation"],
-                        waste_factor=wall_parameter["drywall_assembly"]["waste_factor"],
-                        enabled=True
-                    )
+            wall_payload["thickness"] = wall_parameter_predicted.get("width") if wall_parameter_preselected["thickness"] == -1 else wall_parameter_preselected["thickness"],
+            wall_payload["length"] = wall_parameter_predicted.get("length") if wall_parameter_preselected["length"] == -1 else wall_parameter_preselected["length"],
+            wall_payload["type"] = wall_parameter_predicted.get("wall_type") if wall_parameter_preselected["wall_type"] == '' else wall_parameter_preselected["wall_type"],
+            wall_payload["openings"] = wall_parameter_predicted.get("openings") if wall_parameter_preselected["openings"] == [] else wall_parameter_preselected["openings"],
+            wall_payload["polygons_drywall"].append(
+                dict(
+                    id=f"{wall_payload["id"]}.b",
+                    room_name=wall_parameter["room_name"],
+                    #polygon=polygon["coordinates"] if isinstance(polygon, dict) else polygon[0]["coordinates"],
+                    type=wall_parameter["drywall_assembly"]["material"],
+                    height=wall_parameter["drywall_assembly"]["height"],
+                    color=list(wall_parameter["drywall_assembly"]["color_code"]),
+                    type_stacked=wall_parameter["drywall_assembly"]["materials_vertically_stacked"],
+                    color_stacked=list(wall_parameter["drywall_assembly"]["color_codes_stacked"]),
+                    height_stacked=wall_parameter["drywall_assembly"].get("heights_stacked", list()),
+                    thickness=thickness,
+                    layers=wall_parameter["drywall_assembly"]["layers"],
+                    fire_rating=wall_parameter["drywall_assembly"]["fire_rating"],
+                    recommendation=wall_parameter["recommendation"],
+                    waste_factor=wall_parameter["drywall_assembly"]["waste_factor"],
+                    enabled=True
                 )
-                polygon_ids_drywall_interior.append(f"{wall_payload["id"]}.b")
-            else:
-                X1, Y1, X2, Y2 = wall_line[0]
-                wall = dict(
-                    id=len(self._walls_2d),
-                    wall_line=[
-                        dict(x=int(X1), y=int(Y1)),
-                        dict(x=int(X2), y=int(Y2))
-                    ],
-                    thickness=wall_parameter["width"],
-                    length=wall_parameter.get("length", -1),
-                    type=wall_parameter["wall_type"],
-                    openings=wall_parameter["openings"],
-                    polygons_drywall=list()
-                )
-                try:
-                    thickness = round(float(wall_parameter["drywall_assembly"]["thickness"]), 2)
-                except ValueError:
-                    thickness = wall_parameter["drywall_assembly"]["thickness"]
-                except (KeyError, TypeError):
-                    wall_parameter["drywall_assembly"] = dict(
-                        material="DISABLED",
-                        height=height_default,
-                        color_code=[0, 0, 255],
-                        materials_vertically_stacked=[],
-                        color_codes_stacked=[],
-                        heights_stacked=[],
-                        thickness=-1,
-                        layers=0,
-                        fire_rating=0,
-                        waste_factor="NA"
-                    )
-                    wall_parameter["recommendation"] = "NA"
-                    wall_parameter["room_name"] = ''
-                    thickness=-1
-                wall["polygons_drywall"].append(
-                    dict(
-                        id=f"{len(self._walls_2d)}.a",
-                        room_name=wall_parameter["room_name"],
-                        polygon=polygon["coordinates"] if isinstance(polygon, dict) else polygon[0]["coordinates"],
-                        type=wall_parameter["drywall_assembly"]["material"],
-                        height=wall_parameter["drywall_assembly"]["height"],
-                        color=list(wall_parameter["drywall_assembly"]["color_code"]),
-                        type_stacked=wall_parameter["drywall_assembly"]["materials_vertically_stacked"],
-                        color_stacked=list(wall_parameter["drywall_assembly"]["color_codes_stacked"]),
-                        height_stacked=wall_parameter["drywall_assembly"].get("heights_stacked", list()),
-                        thickness=thickness,
-                        layers=wall_parameter["drywall_assembly"]["layers"],
-                        fire_rating=wall_parameter["drywall_assembly"]["fire_rating"],
-                        recommendation=wall_parameter["recommendation"],
-                        waste_factor=wall_parameter["drywall_assembly"]["waste_factor"],
-                        enabled=True,
-                    )
-                )
-                polygon_ids_drywall_interior.append(f"{len(self._walls_2d)}.a")
-                if isinstance(polygon, list):
-                    wall["polygons_drywall"].append(
-                        dict(
-                            id=f"{len(self._walls_2d)}.b",
-                            room_name=wall_parameter["room_name"],
-                            polygon=polygon[1]["coordinates"],
-                            type=wall_parameter["drywall_assembly"]["material"],
-                            height=wall_parameter["drywall_assembly"]["height"],
-                            color=list(wall_parameter["drywall_assembly"]["color_code"]),
-                            type_stacked=wall_parameter["drywall_assembly"]["materials_vertically_stacked"],
-                            color_stacked=list(wall_parameter["drywall_assembly"]["color_codes_stacked"]),
-                            height_stacked=wall_parameter["drywall_assembly"].get("heights_stacked", list()),
-                            thickness=thickness,
-                            layers=wall_parameter["drywall_assembly"]["layers"],
-                            fire_rating=wall_parameter["drywall_assembly"]["fire_rating"],
-                            recommendation=wall_parameter["recommendation"],
-                            waste_factor=wall_parameter["drywall_assembly"]["waste_factor"],
-                            enabled=True,
-                        )
-                    )
-                    polygon_ids_drywall_interior.append(f"{len(self._walls_2d)}.b")
-                self._walls_2d.append(wall)
+            )
+            polygon_ids_drywall_interior.append(f"{wall_payload["id"]}.b")
 
         polygon_ids_drywall_interior_filtered = list()
         interior_wall_ids = set()
