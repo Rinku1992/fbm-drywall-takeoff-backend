@@ -2258,7 +2258,7 @@ class FloorPlan2D(FloorPlan):
         )
 
         polygon_ids_drywall_interior = list()
-        for wall_line, wall_parameter, polygon in zip(perimeter_walls, predict_polygon["wall_parameters"], polygons):
+        for wall_line, wall_parameter in zip(perimeter_walls, predict_polygon["wall_parameters"]):
             wall_payload = load_wall_payload(wall_line)
             if wall_payload:
                 try:
