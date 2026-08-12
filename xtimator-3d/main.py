@@ -1229,6 +1229,33 @@ async def generate_floorplan_download_signed_URL(request: Request) -> str:
     return url
 
 
+@app.post("/is_floorplan_exits")
+async def is_floorplan_exists(request: Request) -> str:
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    project_id = parameters.get("project_id") or body.get("project_id")
+    plan_id = parameters.get("plan_id") or body.get("plan_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
+    logging.info("SYSTEM: Received Floorplan upload check Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
+
+    client = CloudStorageClient()
+    bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
+    organization_slug = await load_organization_slug(CREDENTIALS, pg_pool, user_id)
+    blob_path = f"{organization_slug}/{project_id.lower()}/{plan_id.lower()}/floor_plan.PDF"
+    blob = bucket.blob(blob_path)
+    if blob.exists():
+        return respond_with_UI_payload(dict(exists=True))
+    return respond_with_UI_payload(dict(exists=False))
+
+
 @app.post("/load_plan_pages")
 async def load_plan_pages(request: Request):
     enable_logging_on_stdout()
