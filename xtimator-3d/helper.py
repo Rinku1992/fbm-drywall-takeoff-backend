@@ -952,7 +952,7 @@ def plan_to_preview(
         else:
             delay = (2 ** attempt) + random.uniform(0, 1)
 
-        time.sleep(delay)
+        sleep(delay)
 
     plan_types = response.json()
     return plan_types
