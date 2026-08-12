@@ -912,23 +912,48 @@ def plan_to_preview(
     plan_id,
     user_id,
     organization_slug,
+    max_retries=5,
 ):
-    id_token = load_floorplan_to_preview_ID_token(credentials)
-    headers = {
-        "Authorization": f"Bearer {id_token}",
-        "Content-Type": "application/json"
-    }
-    response = requests.post(
-        f"{credentials["CloudRun"]["APIs"]["floorplan_to_preview"]}/classify_pages",
-        headers=headers,
-        json=dict(
-            project_id=project_id,
-            plan_id=plan_id,
-            user_id=user_id,
-            organization_slug=organization_slug,
-        ),
-    )
-    response.raise_for_status()
+    url = f'{credentials["CloudRun"]["APIs"]["floorplan_to_preview"]}/classify_pages'
+
+    for attempt in range(max_retries + 1):
+        id_token = load_floorplan_to_preview_ID_token(credentials)
+
+        headers = {
+            "Authorization": f"Bearer {id_token}",
+            "Content-Type": "application/json",
+        }
+
+        response = requests.post(
+            url,
+            headers=headers,
+            json={
+                "project_id": project_id,
+                "plan_id": plan_id,
+                "user_id": user_id,
+                "organization_slug": organization_slug,
+            },
+        )
+
+        if response.status_code != 429:
+            response.raise_for_status()
+            break
+
+        if attempt == max_retries:
+            response.raise_for_status()
+
+        retry_after = response.headers.get("Retry-After")
+
+        if retry_after:
+            try:
+                delay = float(retry_after)
+            except ValueError:
+                delay = 2 ** attempt
+        else:
+            delay = (2 ** attempt) + random.uniform(0, 1)
+
+        time.sleep(delay)
+
     plan_types = response.json()
     return plan_types
 
