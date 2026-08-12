@@ -2297,10 +2297,10 @@ class FloorPlan2D(FloorPlan):
         polygon_preselected["polygon_drywall"]["color"] = tuple(predict_polygon["ceiling"]["drywall_assembly"]["color_code"]) if polygon_preselected["polygon_drywall"]["color"] == [25, 25, 25] else polygon_preselected["polygon_drywall"]["color"]
         polygon_preselected["polygon_drywall"]["type_stacked"] = predict_polygon["ceiling"]["drywall_assembly"]["materials_vertically_stacked"] if polygon_preselected["polygon_drywall"]["type_stacked"] == [] else polygon_preselected["polygon_drywall"]["type_stacked"]
         polygon_preselected["polygon_drywall"]["color_stacked"] = predict_polygon["ceiling"]["drywall_assembly"]["color_stacked"] if polygon_preselected["polygon_drywall"]["color_stacked"] == [] else polygon_preselected["polygon_drywall"]["color_stacked"]
-                thickness=predict_polygon["ceiling"]["drywall_assembly"]["thickness"],
-                layers=predict_polygon["ceiling"]["drywall_assembly"]["layers"],
-                fire_rating=predict_polygon["ceiling"]["drywall_assembly"]["fire_rating"],
-                recommendation=predict_polygon["ceiling"]["recommendation"],
+        polygon_preselected["polygon_drywall"]["thickness"] = predict_polygon["ceiling"]["drywall_assembly"]["thickness"] if polygon_preselected["polygon_drywall"]["thickness"] == -1 else polygon_preselected["polygon_drywall"]["thickness"]
+        polygon_preselected["polygon_drywall"]["layers"] = predict_polygon["ceiling"]["drywall_assembly"]["layers"] if polygon_preselected["polygon_drywall"]["layers"] == -1 else polygon_preselected["polygon_drywall"]["layers"]
+        polygon_preselected["polygon_drywall"]["fire_rating"] = predict_polygon["ceiling"]["drywall_assembly"]["fire_rating"] if polygon_preselected["polygon_drywall"]["fire_rating"] == -1 else polygon_preselected["polygon_drywall"]["fire_rating"]
+        polygon_preselected["polygon_drywall"]["recommendation"] = predict_polygon["ceiling"]["drywall_assembly"]["recommendation"] if polygon_preselected["polygon_drywall"]["recommendation"] == '' else polygon_preselected["polygon_drywall"]["recommendation"]
                 waste_factor=predict_polygon["ceiling"]["drywall_assembly"]["waste_factor"],
         polygon_preselected["polygon_drywall"]["enabled"] = True,
 
