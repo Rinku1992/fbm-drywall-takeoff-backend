@@ -935,7 +935,7 @@ def plan_to_preview(
             },
         )
 
-        if response.status_code != 429:
+        if response.status_code != 429 and response.status_code != 503:
             response.raise_for_status()
             break
 
