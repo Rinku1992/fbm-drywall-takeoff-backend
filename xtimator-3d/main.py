@@ -1229,7 +1229,7 @@ async def generate_floorplan_download_signed_URL(request: Request) -> str:
     return url
 
 
-@app.post("/is_floorplan_exits")
+@app.post("/is_floorplan_exists")
 async def is_floorplan_exists(request: Request) -> str:
     enable_logging_on_stdout()
     parameters = dict(request.query_params)
