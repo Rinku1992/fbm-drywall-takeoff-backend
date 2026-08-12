@@ -2265,7 +2265,7 @@ class FloorPlan2D(FloorPlan):
             wall_payload["openings"] = wall_parameter_predicted.get("openings") if wall_parameter_preselected["openings"] == [] else wall_parameter_preselected["openings"]
             polygon_drywall = list(filter(lambda polygon_drywall: polygon_drywall["id"] == wall_drywall_preselected["id"], wall_payload["polygons_drywall"]))[0]
             polygon_drywall["room_name"] = wall_parameter_predicted.get("room_name") if wall_parameter_preselected["room_name"] == '' else wall_parameter_preselected["room_name"]
-            polygon_drywall["type"] = wall_parameter_predicted["drywall_assembly"]["material"] if wall_drywall_preselected["type"] == '' else wall_drywall_preselected["type"]
+            polygon_drywall["type"] = wall_parameter_predicted["drywall_assembly"]["material"] if wall_drywall_preselected["type"] == "--" else wall_drywall_preselected["type"]
             polygon_drywall["height"] = wall_parameter_predicted["drywall_assembly"]["height"] if wall_drywall_preselected["height"] == -1 else wall_drywall_preselected["height"]
             polygon_drywall["color"] = list(wall_parameter_predicted["drywall_assembly"]["color_code"]) if wall_drywall_preselected["color"] == [0, 0, 0] else wall_drywall_preselected["color"],
             polygon_drywall["type_stacked"] = wall_parameter_predicted["drywall_assembly"]["materials_vertically_stacked"] if wall_drywall_preselected["type_stacked"] == [] else wall_drywall_preselected["type_stacked"]
@@ -2287,28 +2287,22 @@ class FloorPlan2D(FloorPlan):
             polygon_ids_drywall_interior_filtered.append(polygon_id_drywall_interior)
             interior_wall_ids.add(wall_id)
 
-        #polygon = dict(
-        #    id=index,
-        #    area=polygon_preselected["area"],
-        #    vertices= polygon_preselected["vertices"],
-        polygon_preselected["type"] = predict_polygon["ceiling"]["ceiling_type"] if polygon_preselected["type"] == '' else polygon_preselected["type"]
+        polygon_preselected["type"] = predict_polygon["ceiling"]["ceiling_type"] if polygon_preselected["type"] == "--" else polygon_preselected["type"]
         polygon_preselected["height"] = predict_polygon["ceiling"]["height"] or height_default if polygon_preselected["height"] = -1 else polygon_preselected["height"]
-            pitch=predict_polygon["ceiling"]["pitch"],
-            slope_enabled=predict_polygon["ceiling"]["slope_enabled"],
-            tilt_axis=predict_polygon["ceiling"]["tilt_axis"],
-            room_name=predict_polygon["ceiling"]["room_name"],
-            polygon_ids_drywall_interior=polygon_preselected["polygon_ids_drywall_interior"],
-            polygon_drywall=dict(
-                type=predict_polygon["ceiling"]["drywall_assembly"]["material"],
-                color=tuple(predict_polygon["ceiling"]["drywall_assembly"]["color_code"]),
-                type_stacked=predict_polygon["ceiling"]["drywall_assembly"]["materials_vertically_stacked"],
-                color_stacked=[],
+        polygon_preselected["pitch"] = predict_polygon["ceiling"]["pitch"] if polygon_preselected["pitch"] == {"rise": -1, "run": -1} else polygon_preselected["pitch"]
+        polygon_preselected["slope_enabled"] = predict_polygon["ceiling"]["slope_enabled"] if not polygon_preselected["slope_enabled"] else polygon_preselected["slope_enabled"]
+        polygon_preselected["tilt_axis"] = predict_polygon["ceiling"]["tilt_axis"] if polygon_preselected["tilt_axis"] == '' else polygon_preselected["tilt_axis"]
+        polygon_preselected["room_name"] = predict_polygon["ceiling"]["room_name"] if polygon_preselected["room_name"] == '' else polygon_preselected["room_name"]
+        polygon_preselected["polygon_drywall"]["type"] = predict_polygon["ceiling"]["drywall_assembly"]["material"] if polygon_preselected["polygon_drywall"]["type"] == "--" else polygon_preselected["polygon_drywall"]["type"]
+        polygon_preselected["polygon_drywall"]["color"] = tuple(predict_polygon["ceiling"]["drywall_assembly"]["color_code"]) if polygon_preselected["polygon_drywall"]["color"] == [25, 25, 25] else polygon_preselected["polygon_drywall"]["color"]
+        polygon_preselected["polygon_drywall"]["type_stacked"] = predict_polygon["ceiling"]["drywall_assembly"]["materials_vertically_stacked"] if polygon_preselected["polygon_drywall"]["type_stacked"] == [] else polygon_preselected["polygon_drywall"]["type_stacked"]
+        polygon_preselected["polygon_drywall"]["color_stacked"] = predict_polygon["ceiling"]["drywall_assembly"]["color_stacked"] if polygon_preselected["polygon_drywall"]["color_stacked"] == [] else polygon_preselected["polygon_drywall"]["color_stacked"]
                 thickness=predict_polygon["ceiling"]["drywall_assembly"]["thickness"],
                 layers=predict_polygon["ceiling"]["drywall_assembly"]["layers"],
                 fire_rating=predict_polygon["ceiling"]["drywall_assembly"]["fire_rating"],
                 recommendation=predict_polygon["ceiling"]["recommendation"],
                 waste_factor=predict_polygon["ceiling"]["drywall_assembly"]["waste_factor"],
-                enabled=True,
+        polygon_preselected["polygon_drywall"]["enabled"] = True,
 
     def _add_wall_perimeter(
         self,
