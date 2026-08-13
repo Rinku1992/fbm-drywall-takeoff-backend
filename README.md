@@ -376,7 +376,7 @@ CREATE TABLE external_otp_tokens (
  20. <b><i>group_keys</i></b>
 ```sql
 CREATE TABLE group_keys (
-    group_key_id TEXT PRIMARY KEY,
+    group_key_id SERIAL PRIMARY KEY,
     group_key_name TEXT NOT NULL,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
