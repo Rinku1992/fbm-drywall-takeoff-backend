@@ -383,6 +383,30 @@ CREATE TABLE group_keys (
 );
 ```
 
+ 21. <b><i>groups</i></b>
+```sql
+CREATE TABLE groups (
+    group_id SERIAL PRIMARY KEY,
+    group_key_id INT REFERENCES group_keys(group_key_id) ON DELETE CASCADE,
+    user_id INT
+        REFERENCES users(user_id),
+
+    role_id INT
+        REFERENCES roles(role_id),
+
+    region_id INT
+        REFERENCES regions(region_id),
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CHECK (
+        (user_id IS NOT NULL)::int +
+        (role_id IS NOT NULL)::int +
+        (region_id IS NOT NULL)::int = 1
+    )
+);
+```
+
 <b>Grant CloudSQL Permissions to SA: </b>
 ```sql
 GRANT SELECT, INSERT, UPDATE, DELETE
