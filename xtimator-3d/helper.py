@@ -985,10 +985,9 @@ async def floorplan_to_pages(credentials, pg_pool, project_id, plan_id, user_id,
     if n_pages % batch_size:
         page_batches += [list(range(n_pages - (n_pages % batch_size), n_pages))]
     floor_plan_paths_preprocessed = list()
-    #for page_batch in page_batches:
     futures = list()
+    preview_pages = list()
     with ThreadPoolExecutor(max_workers=10) as executor:
-            #for page_number in page_batch:
         for page_number in range(n_pages):
             future = executor.submit(
                 preprocess,
@@ -998,12 +997,46 @@ async def floorplan_to_pages(credentials, pg_pool, project_id, plan_id, user_id,
                 minimum_dpi,
             )
             futures.append(future)
-    for page_number, future in enumerate(futures):
+    for (page_number, future), page in zip(enumerate(futures), plan_types["pages"]):
         floor_plan_path_preprocessed = future.result()
         floor_plan_paths_preprocessed.append(floor_plan_path_preprocessed)
-    #for page_number, floor_plan_path_preprocessed in enumerate(floor_plan_paths_preprocessed):
         await upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, user_id, credentials, pg_pool, index=str(page_number).zfill(4))
-    return floor_plan_paths_preprocessed, plan_types
+        metadata_page = dict(page_number=page["page_number"])
+        metadata_page["plan_type"] = page["plan_type"]
+        metadata_page["is_floorplan"] = page["plan_type"].upper().find("FLOOR") != -1
+        metadata_page["status"] = "NOT STARTED"
+        svg_path=Path(f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_{str(page["page_number"]).zfill(4)}.svg")
+        svg_path.parent.mkdir(parents=True, exist_ok=True)
+        floorplan_svg = page_to_svg(floor_plan_path=floor_plan_path_preprocessed, svg_path=svg_path)
+        floorplan_svg_source = await upload_floorplan(floorplan_svg, plan_id, project_id, user_id, credentials, pg_pool, index=str(page["page_number"]).zfill(4))
+        _, _, _, blob_path = floorplan_svg_source.split('/', 3)
+        blob = bucket.blob(blob_path)
+        url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(minutes=credentials["CloudStorage"]["expiration_in_minutes"]),
+            method="GET",
+        )
+        metadata_page["signed_url_GCS"] = url
+        floor_plan_processed_image = cv2.imread(floor_plan_path_preprocessed)
+        floor_plan_processed_image = cv2.resize(floor_plan_processed_image, (1024, 1024), interpolation=cv2.INTER_LANCZOS4)
+        floor_plan_processed_path_thumbnail = floor_plan_path_preprocessed.parent.joinpath(floor_plan_path_preprocessed.name.replace("floor_plan", "floor_plan_thumbnail"))
+        cv2.imwrite(floor_plan_processed_path_thumbnail, floor_plan_processed_image)
+        svg_path_thumbnail=Path(f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_thumbnail_{str(page["page_number"]).zfill(4)}.svg")
+        floorplan_svg_thumbnail = page_to_svg(floor_plan_path=floor_plan_processed_path_thumbnail, svg_path=svg_path_thumbnail)
+        floorplan_svg_source_thumbnail = await upload_floorplan(floorplan_svg_thumbnail, plan_id, project_id, user_id, credentials, pg_pool, index=str(page["page_number"]).zfill(4))
+        _, _, _, blob_path = floorplan_svg_source_thumbnail.split('/', 3)
+        blob = bucket.blob(blob_path)
+        url = blob.generate_signed_url(
+            version="v4",
+            expiration=timedelta(minutes=credentials["CloudStorage"]["expiration_in_minutes"]),
+            method="GET",
+        )
+        metadata_page["signed_url_thumbnail_GCS"] = url
+        query = f"UPDATE {credentials["CloudSQL"]["table_name_pages"]} SET source = %s, thumbnail = %s WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
+        await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(floorplan_svg_source, floorplan_svg_source_thumbnail, project_id, plan_id, page["page_number"],)))
+        preview_pages.append(metadata_page)
+        logging.info(f"SYSTEM: Preview Generated for {page["page_number"]+1}/{n_pages} pages")
+    return preview_pages
 
 def page_to_svg(
     floor_plan_path="/tmp/floor_plan.png",
