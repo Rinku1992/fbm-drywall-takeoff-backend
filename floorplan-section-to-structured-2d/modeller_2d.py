@@ -570,9 +570,9 @@ class FloorPlan2D(FloorPlan):
 
     def _preprocessing(self, image_BGR, floor_plan_path, offset, scale, max_split=5):
         _, thresh = cv2.threshold(image_BGR, 50, 255, cv2.THRESH_BINARY_INV)
-        #thresh = self._apply_morphological_closing(thresh)
+        closed = self._apply_morphological_closing(thresh)
 
-        floor_plan_topology_binary = self._load_topology(thresh)
+        floor_plan_topology_binary = self._load_topology(closed)
         lines = self.detect_lines(thresh, offset=offset, scale=scale, floor_plan_path=floor_plan_path)
         if lines is not None:
             lines = self._jagged_to_smooth_lines_deterministic(lines)
