@@ -985,21 +985,23 @@ async def floorplan_to_pages(credentials, pg_pool, project_id, plan_id, user_id,
     if n_pages % batch_size:
         page_batches += [list(range(n_pages - (n_pages % batch_size), n_pages))]
     floor_plan_paths_preprocessed = list()
-    for page_batch in page_batches:
-        futures = list()
-        with ThreadPoolExecutor(max_workers=10) as executor:
-            for page_number in page_batch:
-                future = executor.submit(
-                    preprocess,
-                    pdf_path,
-                    page_number,
-                    maximum_dpi,
-                    minimum_dpi,
-                )
-                futures.append(future)
-        for future in futures:
-            floor_plan_paths_preprocessed.append(future.result())
-    for page_number, floor_plan_path_preprocessed in enumerate(floor_plan_paths_preprocessed):
+    #for page_batch in page_batches:
+    #    futures = list()
+    with ThreadPoolExecutor(max_workers=10) as executor:
+            #for page_number in page_batch:
+        for page_number in range(n_pages):
+            future = executor.submit(
+                preprocess,
+                pdf_path,
+                page_number,
+                maximum_dpi,
+                minimum_dpi,
+            )
+            futures.append(future)
+    for page_number, future in enumerate(futures):
+        floor_plan_path_preprocessed = future.result()
+        floor_plan_paths_preprocessed.append(floor_plan_path_preprocessed)
+    #for page_number, floor_plan_path_preprocessed in enumerate(floor_plan_paths_preprocessed):
         await upload_floorplan(floor_plan_path_preprocessed, plan_id, project_id, user_id, credentials, pg_pool, index=str(page_number).zfill(4))
     return floor_plan_paths_preprocessed, plan_types
 
