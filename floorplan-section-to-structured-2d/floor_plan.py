@@ -44,7 +44,7 @@ class FloorPlan:
             image = cv2.resize(image, resize)
 
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        gray = cv2.fastNlMeansDenoising(
+        denoised = cv2.fastNlMeansDenoising(
             gray,
             None,
             h=10,
@@ -53,7 +53,7 @@ class FloorPlan:
         )
 
         _, binary = cv2.threshold(
-            gray,
+            denoised,
             0,
             255,
             cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
@@ -85,7 +85,7 @@ class FloorPlan:
         )
 
         transformed = cv2.bitwise_not(transformed)
-        return transformed
+        return gray
 
     def compute_imperial_scale_from_DPI(self, architectural_scale_normalized, DPI=None):
         if not DPI:
