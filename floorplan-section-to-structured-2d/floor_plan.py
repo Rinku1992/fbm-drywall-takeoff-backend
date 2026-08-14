@@ -44,13 +44,50 @@ class FloorPlan:
             image = cv2.resize(image, resize)
 
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        gray = cv2.fastNlMeansDenoising(
+            gray,
+            None,
+            h=10,
+            templateWindowSize=7,
+            searchWindowSize=21
+        )
 
-        clean = cv2.fastNlMeansDenoising(binary, h=30)
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1, 1))
-        sharpened = cv2.dilate(clean, kernel, iterations=1)
-        sharpened = cv2.erode(sharpened, kernel, iterations=1)
-        return sharpened
+        _, binary = cv2.threshold(
+            gray,
+            0,
+            255,
+            cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
+        )
+
+        h_kernel = cv2.getStructuringElement(
+            cv2.MORPH_RECT,
+            (9, 1)
+        )
+
+        horizontal = cv2.morphologyEx(
+            binary,
+            cv2.MORPH_CLOSE,
+            h_kernel
+        )
+
+        v_kernel = cv2.getStructuringElement(
+            cv2.MORPH_RECT,
+            (1, 9)
+        )
+
+        vertical = cv2.morphologyEx(
+            binary,
+            cv2.MORPH_CLOSE,
+            v_kernel
+        )
+
+        closed = cv2.bitwise_or(
+            horizontal,
+            vertical
+        )
+
+        result = cv2.bitwise_not(closed)
+        return result
 
     def compute_imperial_scale_from_DPI(self, architectural_scale_normalized, DPI=None):
         if not DPI:
