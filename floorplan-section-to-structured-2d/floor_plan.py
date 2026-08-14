@@ -59,23 +59,12 @@ class FloorPlan:
             cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
         )
 
-        kernel_open = cv2.getStructuringElement(
-            cv2.MORPH_RECT,
-            (3, 3)
-        )
-        opened = cv2.morphologyEx(
-            binary,
-            cv2.MORPH_OPEN,
-            kernel_open,
-            iterations=1
-        )
-
         h_kernel_close = cv2.getStructuringElement(
             cv2.MORPH_RECT,
             (9, 1)
         )
         horizontal = cv2.morphologyEx(
-            opened,
+            binary,
             cv2.MORPH_CLOSE,
             h_kernel_close
         )
@@ -85,7 +74,7 @@ class FloorPlan:
             (1, 9)
         )
         vertical = cv2.morphologyEx(
-            opened,
+            binary,
             cv2.MORPH_CLOSE,
             v_kernel_close
         )
