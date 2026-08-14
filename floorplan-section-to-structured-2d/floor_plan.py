@@ -75,7 +75,7 @@ class FloorPlan:
             (9, 1)
         )
         horizontal = cv2.morphologyEx(
-            binary,
+            opened,
             cv2.MORPH_CLOSE,
             h_kernel_close
         )
@@ -85,7 +85,7 @@ class FloorPlan:
             (1, 9)
         )
         vertical = cv2.morphologyEx(
-            binary,
+            opened,
             cv2.MORPH_CLOSE,
             v_kernel_close
         )
