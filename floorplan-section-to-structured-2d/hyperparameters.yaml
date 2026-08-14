@@ -38,9 +38,9 @@ modelling:
     rho: 1
     #theta: 0.017453292519943295
     theta: 0.008726646259971648
-    threshold: 40
-    minLineLength: 8
-    maxLineGap: 10
+    threshold: 15
+    minLineLength: 15
+    maxLineGap: 20
   kernel:
     height: 1000
     width: 1000
