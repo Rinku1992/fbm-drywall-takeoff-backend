@@ -562,15 +562,15 @@ class FloorPlan2D(FloorPlan):
     def _preprocessing(self, image_BGR, floor_plan_path, offset, scale, max_split=5):
         _, thresh = cv2.threshold(image_BGR, 50, 255, cv2.THRESH_BINARY_INV)
 
-        edges_thinned = self._thin_edges(thresh)
-        edges = cv2.Canny(edges_thinned, 50, 100, apertureSize=3)
+        #edges_thinned = self._thin_edges(thresh)
+        #edges = cv2.Canny(edges_thinned, 50, 100, apertureSize=3)
 
-        kernel = np.ones((3,3), np.uint8)
-        edges = cv2.dilate(edges, kernel, iterations=1)
-        edges = cv2.erode(edges, kernel, iterations=1)
+        #kernel = np.ones((3,3), np.uint8)
+        #edges = cv2.dilate(edges, kernel, iterations=1)
+        #edges = cv2.erode(edges, kernel, iterations=1)
 
-        floor_plan_topology_binary = self._load_topology(edges)
-        lines = self.detect_lines(edges, offset=offset, scale=scale, floor_plan_path=floor_plan_path)
+        floor_plan_topology_binary = self._load_topology(thresh)
+        lines = self.detect_lines(thresh, offset=offset, scale=scale, floor_plan_path=floor_plan_path)
         if lines is not None:
             lines = self._jagged_to_smooth_lines_deterministic(lines)
             lines = self._close_jagged_openings(lines)
