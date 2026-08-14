@@ -59,35 +59,44 @@ class FloorPlan:
             cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
         )
 
-        h_kernel = cv2.getStructuringElement(
+        kernel_open = cv2.getStructuringElement(
+            cv2.MORPH_RECT,
+            (3, 3)
+        )
+        opened = cv2.morphologyEx(
+            binary,
+            cv2.MORPH_OPEN,
+            kernel_open,
+            iterations=1
+        )
+
+        h_kernel_close = cv2.getStructuringElement(
             cv2.MORPH_RECT,
             (9, 1)
         )
-
         horizontal = cv2.morphologyEx(
             binary,
             cv2.MORPH_CLOSE,
-            h_kernel
+            h_kernel_close
         )
 
-        v_kernel = cv2.getStructuringElement(
+        v_kernel_close = cv2.getStructuringElement(
             cv2.MORPH_RECT,
             (1, 9)
         )
-
         vertical = cv2.morphologyEx(
             binary,
             cv2.MORPH_CLOSE,
-            v_kernel
+            v_kernel_close
         )
 
-        closed = cv2.bitwise_or(
+        transformed = cv2.bitwise_or(
             horizontal,
             vertical
         )
 
-        result = cv2.bitwise_not(closed)
-        return result
+        transformed = cv2.bitwise_not(transformed)
+        return transformed
 
     def compute_imperial_scale_from_DPI(self, architectural_scale_normalized, DPI=None):
         if not DPI:
