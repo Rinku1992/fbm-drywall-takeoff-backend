@@ -588,10 +588,9 @@ async def floorplan_to_preview_pages(
     maximum_dpi,
     minimum_dpi
 ):
-    preview_pages = list()
     client = CloudStorageClient()
     bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
-    floor_plan_processed_paths, pages = await floorplan_to_pages(
+    preview_pages = await floorplan_to_pages(
         credentials,
         pg_pool,
         project_id,
@@ -602,42 +601,6 @@ async def floorplan_to_preview_pages(
         maximum_dpi,
         minimum_dpi
     )
-    for floor_plan_processed_path, page in zip(floor_plan_processed_paths, pages["pages"]):
-        metadata_page = dict(page_number=page["page_number"])
-        metadata_page["plan_type"] = page["plan_type"]
-        metadata_page["is_floorplan"] = page["plan_type"].upper().find("FLOOR") != -1
-        metadata_page["status"] = "NOT STARTED"
-        svg_path=Path(f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_{str(page["page_number"]).zfill(4)}.svg")
-        svg_path.parent.mkdir(parents=True, exist_ok=True)
-        floorplan_svg = page_to_svg(floor_plan_path=floor_plan_processed_path, svg_path=svg_path)
-        floorplan_svg_source = await upload_floorplan(floorplan_svg, plan_id, project_id, user_id, credentials, pg_pool, index=str(page["page_number"]).zfill(4))
-        _, _, _, blob_path = floorplan_svg_source.split('/', 3)
-        blob = bucket.blob(blob_path)
-        url = blob.generate_signed_url(
-            version="v4",
-            expiration=timedelta(minutes=credentials["CloudStorage"]["expiration_in_minutes"]),
-            method="GET",
-        )
-        metadata_page["signed_url_GCS"] = url
-        floor_plan_processed_image = cv2.imread(floor_plan_processed_path)
-        floor_plan_processed_image = cv2.resize(floor_plan_processed_image, (1024, 1024), interpolation=cv2.INTER_LANCZOS4)
-        floor_plan_processed_path_thumbnail = floor_plan_processed_path.parent.joinpath(floor_plan_processed_path.name.replace("floor_plan", "floor_plan_thumbnail"))
-        cv2.imwrite(floor_plan_processed_path_thumbnail, floor_plan_processed_image)
-        svg_path_thumbnail=Path(f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_thumbnail_{str(page["page_number"]).zfill(4)}.svg")
-        floorplan_svg_thumbnail = page_to_svg(floor_plan_path=floor_plan_processed_path_thumbnail, svg_path=svg_path_thumbnail)
-        floorplan_svg_source_thumbnail = await upload_floorplan(floorplan_svg_thumbnail, plan_id, project_id, user_id, credentials, pg_pool, index=str(page["page_number"]).zfill(4))
-        _, _, _, blob_path = floorplan_svg_source_thumbnail.split('/', 3)
-        blob = bucket.blob(blob_path)
-        url = blob.generate_signed_url(
-            version="v4",
-            expiration=timedelta(minutes=credentials["CloudStorage"]["expiration_in_minutes"]),
-            method="GET",
-        )
-        metadata_page["signed_url_thumbnail_GCS"] = url
-        query = f"UPDATE {credentials["CloudSQL"]["table_name_pages"]} SET source = %s, thumbnail = %s WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s;"
-        await run_in_threadpool(partial(pg_run, credentials, pg_pool, query, params=(floorplan_svg_source, floorplan_svg_source_thumbnail, project_id, plan_id, page["page_number"],)))
-        preview_pages.append(metadata_page)
-        logging.info(f"SYSTEM: Preview Generated for {page["page_number"]+1}/{n_pages} pages")
     return preview_pages
 
 
