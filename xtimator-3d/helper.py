@@ -986,7 +986,7 @@ async def floorplan_to_pages(credentials, pg_pool, project_id, plan_id, user_id,
         page_batches += [list(range(n_pages - (n_pages % batch_size), n_pages))]
     floor_plan_paths_preprocessed = list()
     #for page_batch in page_batches:
-    #    futures = list()
+    futures = list()
     with ThreadPoolExecutor(max_workers=10) as executor:
             #for page_number in page_batch:
         for page_number in range(n_pages):
