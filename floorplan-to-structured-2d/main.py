@@ -554,7 +554,7 @@ async def floorplan_to_structured_2d(request: Request):
             if isinstance(architectural_scale, list)
             else [architectural_scale] * len(bounding_box_offsets)
         )
-        executor = ThreadPoolExecutor(max_workers=2)
+        executor = ThreadPoolExecutor(max_workers=5)
         query_payloads = list()
         for bounding_box_offset, architectural_scale, standard_ceiling_height in zip(bounding_box_offsets, architectural_scales, standard_ceiling_heights):
             query_json = dict(
