@@ -64,7 +64,7 @@ def load_vertex_ai_client(credentials, ip_address, prompts=None, default_region=
         credentials["VertexAI"]["llm"]["available_regions"],
         default_region=default_region
     )
-    vertexai.init(project=project_id, location=region)
+    vertexai.init(project=project_id, location="global")
     vertex_ai_client = lambda system_instruction: GenerativeModel(
         credentials["VertexAI"]["llm"]["model_name"],
         system_instruction=system_instruction
