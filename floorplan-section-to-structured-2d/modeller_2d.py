@@ -3420,7 +3420,7 @@ class FloorPlan2D(FloorPlan):
         perimeter_lines, outer_drywall_surfaces = self.perimeter_lines(wall_lines)
         polygon_vertices_normalized_all = list()
         futures = list()
-        with ThreadPoolExecutor(max_workers=8) as executor:
+        with ThreadPoolExecutor(max_workers=15) as executor:
             for index, ((polygon_area, polygon_vertices), polygon_perimeter_walls) in enumerate(zip(polygons, polygons_perimeter_walls)):
                 index += 1
                 polygon_vertices_normalized = [(round(scale_x * vertex[0]), round(scale_y * vertex[1])) for vertex in polygon_vertices]
@@ -3483,7 +3483,7 @@ class FloorPlan2D(FloorPlan):
         )
         external_contour_normalized = self.merge_polygons(external_contour_normalized, [polygon[1] for polygon in missing_polygons])
         futures = list()
-        with ThreadPoolExecutor(max_workers=8) as executor:
+        with ThreadPoolExecutor(max_workers=15) as executor:
             for index, ((polygon_area, polygon_vertices), polygon_perimeter_walls) in enumerate(zip(missing_polygons, missing_polygons_perimeter_walls)):
                 index += len(polygons)
                 drywall_polygons = self._extrude_polygon_drywalls(polygon_perimeter_walls, polygon_vertices, (scale_x, scale_y))
@@ -3553,7 +3553,7 @@ class FloorPlan2D(FloorPlan):
         perimeter_lines, outer_drywall_surfaces = self.perimeter_lines(wall_lines)
         polygon_vertices_normalized_all = list()
         futures = list()
-        with ThreadPoolExecutor(max_workers=8) as executor:
+        with ThreadPoolExecutor(max_workers=15) as executor:
             for index, ((_, polygon_vertices), polygon_perimeter_walls) in enumerate(zip(polygons, polygons_perimeter_walls)):
                 index += 1
                 polygon_vertices_normalized = [(round(scale_x * vertex[0]), round(scale_y * vertex[1])) for vertex in polygon_vertices]
@@ -3607,7 +3607,7 @@ class FloorPlan2D(FloorPlan):
         )
         external_contour_normalized = self.merge_polygons(external_contour_normalized, [polygon[1] for polygon in missing_polygons])
         futures = list()
-        with ThreadPoolExecutor(max_workers=8) as executor:
+        with ThreadPoolExecutor(max_workers=15) as executor:
             for index, ((_, polygon_vertices), polygon_perimeter_walls) in enumerate(zip(missing_polygons, missing_polygons_perimeter_walls)):
                 index += len(polygons)
                 drywall_polygons = self._extrude_polygon_drywalls(polygon_perimeter_walls, polygon_vertices, (scale_x, scale_y))
@@ -3649,7 +3649,7 @@ class FloorPlan2D(FloorPlan):
                 self._walls_2d, self._polygons = json.load(f)
 
         futures = list()
-        with ThreadPoolExecutor(max_workers=8) as executor:
+        with ThreadPoolExecutor(max_workers=15) as executor:
             for polygon in self._polygons:
                 self._load_schema_polygon_detector_and_drywall_predictor_given_preselection(
                     polygon,
