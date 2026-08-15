@@ -627,15 +627,17 @@ def query_subscriber_messages(credentials, subscriber_client, queries):
             continue
     return False, acknowledged_queries
 
-def load_vertex_ai_client(credentials, ip_address, prompts=None, default_region="us-central1", max_retry=5, base_delay=1.0):
+def load_vertex_ai_client(credentials, ip_address, prompts=None, default_region="us-central1", max_retry=5, base_delay=1.0, use_region_global=True):
     with open(credentials["VertexAI"]["service_account_key"], 'r') as f:
         project_id = json.load(f)["project_id"]
-    region = load_nearest_region(
-        ip_address,
-        credentials["geolite_database"],
-        credentials["VertexAI"]["llm"]["available_regions"],
-        default_region=default_region
-    )
+    region = "global"
+    if not use_region_global:
+        region = load_nearest_region(
+            ip_address,
+            credentials["geolite_database"],
+            credentials["VertexAI"]["llm"]["available_regions"],
+            default_region=default_region
+        )
     vertexai.init(project=project_id, location=region)
     vertex_ai_client = lambda system_instruction: GenerativeModel(
         credentials["VertexAI"]["llm"]["model_name"],
