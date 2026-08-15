@@ -987,6 +987,8 @@ async def floorplan_to_pages(credentials, pg_pool, project_id, plan_id, user_id,
     floor_plan_paths_preprocessed = list()
     futures = list()
     preview_pages = list()
+    client = CloudStorageClient()
+    bucket = client.bucket(credentials["CloudStorage"]["bucket_name"])
     with ThreadPoolExecutor(max_workers=10) as executor:
         for page_number in range(n_pages):
             future = executor.submit(
