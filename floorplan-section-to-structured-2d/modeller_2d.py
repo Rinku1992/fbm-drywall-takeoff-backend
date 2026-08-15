@@ -593,7 +593,7 @@ class FloorPlan2D(FloorPlan):
             shapes = self.disconnected_shapes(lines)
 
             is_valid_futures = list()
-            with ThreadPoolExecutor(max_workers=8) as executor:
+            with ThreadPoolExecutor(max_workers=15) as executor:
                 for shape in shapes:
                     is_valid_futures.append(executor.submit(
                         self._is_shape_valid,
@@ -3048,7 +3048,7 @@ class FloorPlan2D(FloorPlan):
             return True
 
         walls_null_room, walls_null_id, is_valid_futures = list(), list(), list()
-        with ThreadPoolExecutor(max_workers=8) as executor:
+        with ThreadPoolExecutor(max_workers=15) as executor:
             for wall in walls_2d:
                 if wall["polygons_drywall"][0]["type"] == wall["polygons_drywall"][1]["type"] == "DISABLED":
                     wall_line = [[wall["wall_line"][0]['x'], wall["wall_line"][0]['y'], wall["wall_line"][1]['x'], wall["wall_line"][1]['y']]]
