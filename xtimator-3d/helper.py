@@ -1020,7 +1020,7 @@ async def floorplan_to_pages(credentials, pg_pool, project_id, plan_id, user_id,
         )
         metadata_page["signed_url_GCS"] = url
         floor_plan_processed_image = cv2.imread(floor_plan_path_preprocessed)
-        floor_plan_processed_image = cv2.resize(floor_plan_processed_image, (1024, 1024), interpolation=cv2.INTER_LANCZOS4)
+        floor_plan_processed_image = cv2.resize(floor_plan_processed_image, (720, 720), interpolation=cv2.INTER_LANCZOS4)
         floor_plan_processed_path_thumbnail = floor_plan_path_preprocessed.parent.joinpath(floor_plan_path_preprocessed.name.replace("floor_plan", "floor_plan_thumbnail"))
         cv2.imwrite(floor_plan_processed_path_thumbnail, floor_plan_processed_image)
         svg_path_thumbnail=Path(f"/tmp/{project_id}/{plan_id}/{user_id}/scaled_floor_plan_thumbnail_{str(page["page_number"]).zfill(4)}.svg")
