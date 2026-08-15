@@ -1015,7 +1015,7 @@ async def floorplan_to_pages(credentials, pg_pool, project_id, plan_id, user_id,
         blob = bucket.blob(blob_path)
         url = blob.generate_signed_url(
             version="v4",
-            expiration=timedelta(minutes=credentials["CloudStorage"]["expiration_in_minutes"]),
+            expiration=datetime.timedelta(minutes=credentials["CloudStorage"]["expiration_in_minutes"]),
             method="GET",
         )
         metadata_page["signed_url_GCS"] = url
@@ -1030,7 +1030,7 @@ async def floorplan_to_pages(credentials, pg_pool, project_id, plan_id, user_id,
         blob = bucket.blob(blob_path)
         url = blob.generate_signed_url(
             version="v4",
-            expiration=timedelta(minutes=credentials["CloudStorage"]["expiration_in_minutes"]),
+            expiration=datetime.timedelta(minutes=credentials["CloudStorage"]["expiration_in_minutes"]),
             method="GET",
         )
         metadata_page["signed_url_thumbnail_GCS"] = url
