@@ -588,8 +588,6 @@ async def floorplan_to_preview_pages(
     maximum_dpi,
     minimum_dpi
 ):
-    client = CloudStorageClient()
-    bucket = client.bucket(CREDENTIALS["CloudStorage"]["bucket_name"])
     preview_pages = await floorplan_to_pages(
         credentials,
         pg_pool,
