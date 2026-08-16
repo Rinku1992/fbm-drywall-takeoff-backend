@@ -137,7 +137,9 @@ async def floorplan_to_structured_2d_sectioned(
         layout_2d = json.loads(query_output["layout_2d"]) if isinstance(query_output["layout_2d"], str) else query_output["layout_2d"]
         walls_2d_layout, polygons_layout = layout_2d["walls_2d"], layout_2d["polygons"]
         layout_2d_path=f"/tmp/{project_id}/{plan_id}/{user_id}/layout_2d_{str(page_number).zfill(4)}_{str(page_section_number).replace('/', '_')}.json"
-        walls_2d, polygons, _, external_contour = floor_plan_modeller_2d.predict(
+        with open(layout_2d_path, 'w') as f:
+            json.dump([walls_2d_layout, polygons_layout], f, indent=2)
+        walls_2d, polygons, _ = floor_plan_modeller_2d.predict(
             bounding_box_offset_marginalized,
             elevation_paths=elevation_processed_paths,
             layout_2d_path=layout_2d_path,
