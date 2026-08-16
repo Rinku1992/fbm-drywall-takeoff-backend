@@ -3635,6 +3635,8 @@ class FloorPlan2D(FloorPlan):
         model_2d_path="/tmp/walls_2d.json",
         floor_plan_path="/tmp/floor_plan.png",
         transcription_block_with_centroids=dict(),
+        architectural_scale=None,
+        standard_ceiling_height=None,
     ):
         def load_wall_payload(drywall_index):
             for wall_2d in self._walls_2d:
@@ -3660,7 +3662,7 @@ class FloorPlan2D(FloorPlan):
             transcription_block_with_centroids,
             architectural_scale=architectural_scale,
             standard_ceiling_height=standard_ceiling_height,
-            trust_scale=trust_scale,
+            trust_scale=True,
         )["ceiling_height"]
         futures = list()
         with ThreadPoolExecutor(max_workers=10) as executor:
