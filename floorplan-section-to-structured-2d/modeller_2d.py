@@ -3630,8 +3630,10 @@ class FloorPlan2D(FloorPlan):
     def predict(
         self,
         offset,
+        elevation_paths=list(),
         model_2d_path="/tmp/walls_2d.json",
         floor_plan_path="/tmp/floor_plan.png",
+        transcription_block_with_centroids=dict(),
     ):
         def load_wall_payload(drywall_index):
             for wall_2d in self._walls_2d:
@@ -3648,18 +3650,38 @@ class FloorPlan2D(FloorPlan):
             with open(model_2d_path, 'r') as f:
                 self._walls_2d, self._polygons = json.load(f)
 
+        canvas = cv2.imread(floor_plan_path)
+        height, width, _ = canvas.shape
+        scale_x = width / 1920
+        scale_y = height / 1080
+        height_default = self._load_ceiling_height_and_scale(
+            offset,
+            canvas,
+            transcription_block_with_centroids,
+            architectural_scale=architectural_scale,
+            standard_ceiling_height=standard_ceiling_height,
+            trust_scale=trust_scale,
+        )["ceiling_height"]
         futures = list()
         with ThreadPoolExecutor(max_workers=10) as executor:
             for polygon in self._polygons:
-                self._load_schema_polygon_detector_and_drywall_predictor_given_preselection(
+                polygon_detector_and_drywall_predictor_response, output_schema_custom = self._load_schema_polygon_detector_and_drywall_predictor_given_preselection(
                     polygon,
                     [load_wall_payload(drywall_id) for drywall_id in polygon["polygon_ids_drywall_interior"]],
                     [load_wall_polygon_drywall_payload(drywall_id) for drywall_id in polygon["polygon_ids_drywall_interior"]],
                 )
                 futures.append(executor.submit(
-                    self._add_drywalls_polygon,
+                    self._add_drywalls_polygon_given_preselection,
                     polygon,
+                    [load_wall_payload(drywall_id) for drywall_id in polygon["polygon_ids_drywall_interior"]],
+                    [load_wall_polygon_drywall_payload(drywall_id) for drywall_id in polygon["polygon_ids_drywall_interior"]],
+                    output_schema_custom,
+                    polygon_detector_and_drywall_predictor_response,
+                    (scale_x, scale_y,),
+                    height_default,
                     floor_plan_path,
+                    elevation_paths,
+                    transcription_block_with_centroids,
                     offset
                 ))
             [future.result() for future in futures]
