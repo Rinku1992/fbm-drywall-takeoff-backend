@@ -33,7 +33,6 @@ from prompts import (
     WALL_CHOICES,
     OPENING_TYPE_CHOICES,
     PolygonDetectorAndDrywallPredictorResponse,
-    DrywallPredictorResponse,
     ScaleAndCeilingHeightDetectorResponse,
     ScaleDetectorResponse,
     CeilingHeightDetectorResponse,
