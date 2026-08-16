@@ -1474,14 +1474,16 @@ async def floorplan_to_2d(request: Request):
         ip_address,
         prompts=[VISUAL_GROUNDING_DETECTOR]
     )
-    elevation_map = await map_floorplan_to_multipage_elevation(
-        CREDENTIALS,
-        pg_pool,
-        project_id,
-        plan_id,
-        ip_address,
-        pdf_path
-    )
+    elevatio_map = None
+    if model and not predict:
+        elevation_map = await map_floorplan_to_multipage_elevation(
+            CREDENTIALS,
+            pg_pool,
+            project_id,
+            plan_id,
+            ip_address,
+            pdf_path
+        )
     pages_metadata = await load_visual_grounding(
         CREDENTIALS,
         pg_pool,
