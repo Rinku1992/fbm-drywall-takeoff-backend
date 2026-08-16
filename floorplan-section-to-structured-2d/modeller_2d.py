@@ -3646,9 +3646,8 @@ class FloorPlan2D(FloorPlan):
                     if polygon_drywall["id"] == drywall_index:
                         return polygon_drywall
 
-        if model_2d_path:
-            with open(model_2d_path, 'r') as f:
-                self._walls_2d, self._polygons = json.load(f)
+        with open(model_2d_path, 'r') as f:
+            self._walls_2d, self._polygons = json.load(f)
 
         canvas = cv2.imread(floor_plan_path)
         height, width, _ = canvas.shape
@@ -3686,7 +3685,6 @@ class FloorPlan2D(FloorPlan):
                 ))
             [future.result() for future in futures]
 
-        if model_2d_path:
-            with open(model_2d_path, 'w') as f:
-                json.dump([self._walls_2d, self._polygons], f, indent=2)
+        with open(model_2d_path, 'w') as f:
+            json.dump([self._walls_2d, self._polygons], f, indent=2)
         return self._walls_2d, self._polygons, model_2d_path
