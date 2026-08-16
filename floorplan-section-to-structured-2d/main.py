@@ -146,6 +146,8 @@ async def floorplan_to_structured_2d_sectioned(
             model_2d_path=f"/tmp/{project_id}/{plan_id}/{user_id}/walls_2d_{str(page_number).zfill(4)}_{str(page_section_number).replace('/', '_')}.json",
             floor_plan_path=floor_plan_processed_path,
             transcription_block_with_centroids=transcription_block_with_centroids,
+            architectural_scale=architectural_scale,
+            standard_ceiling_height=standard_ceiling_height,
         )
         #model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path)
         #model_2d_path_sectioned = model_2d_path.parent.joinpath(f"{model_2d_path.stem}_sectioned_{page_section_number}").with_suffix(".png")
