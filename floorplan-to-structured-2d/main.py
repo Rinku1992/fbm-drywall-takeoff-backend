@@ -455,23 +455,25 @@ async def floorplan_to_structured_2d(request: Request):
         return respond_with_UI_payload(dict(status="ABORTED", message=f"Session Aborted"))
     await update_status(CREDENTIALS, pg_pool, "DETECTING WALLS AND TRANSCRIPTIONS", project_id, plan_id, user_id, page_number)
     with ThreadPoolExecutor(max_workers=5) as executor:
-        futures["floorplan_to_walls"] = floorplan_to_walls(
-            CREDENTIALS,
-            pg_pool,
-            project_id,
-            plan_id,
-            user_id_owner,
-            page_number,
-            mask_factor,
-            output_path=f"/tmp/{project_id}/{plan_id}/{user_id}/floor_plan_wall_segmented_{str(page_number).zfill(4)}.png"
-        )
+        if model:
+            futures["floorplan_to_walls"] = floorplan_to_walls(
+                CREDENTIALS,
+                pg_pool,
+                project_id,
+                plan_id,
+                user_id_owner,
+                page_number,
+                mask_factor,
+                output_path=f"/tmp/{project_id}/{plan_id}/{user_id}/floor_plan_wall_segmented_{str(page_number).zfill(4)}.png"
+            )
         futures["transcriber"] = executor.submit(
             transcribe,
             CREDENTIALS,
             hyperparameters,
             floor_plan_processed_path,
         )
-    wall_segmented_path, = await asyncio.gather(futures["floorplan_to_walls"])
+    if model:
+        wall_segmented_path, = await asyncio.gather(futures["floorplan_to_walls"])
     session_is_active = await is_session_active(CREDENTIALS, pg_pool, session_uuid, project_id, plan_id, user_id, page_number)
     if not session_is_active:
         return respond_with_UI_payload(dict(status="ABORTED", message=f"Session Aborted"))
@@ -485,7 +487,7 @@ async def floorplan_to_structured_2d(request: Request):
     await update_status(CREDENTIALS, pg_pool, "TRANSCRIPTIONS DETECTED", project_id, plan_id, user_id, page_number)
     logging.info(f"SYSTEM: Transcription Completed from PAGE: {page_number}")
 
-    if FloorPlan.is_none(wall_segmented_path):
+    if model and FloorPlan.is_none(wall_segmented_path):
         for bounding_box_offset in bounding_box_offsets:
             metadata = dict(
                 size_in_bytes=floorplan_page_statistics["size"],
@@ -548,7 +550,7 @@ async def floorplan_to_structured_2d(request: Request):
         )
         await terminate_session(CREDENTIALS, pg_pool, session_uuid)
         return respond_with_UI_payload(dict(status="SUCCESS", message="NO Floor Plan layout observed"))
-    if not FloorPlan.is_none(wall_segmented_path):
+    if (not model and predict) or (not FloorPlan.is_none(wall_segmented_path)):
         architectural_scales = (
             architectural_scale
             if isinstance(architectural_scale, list)
