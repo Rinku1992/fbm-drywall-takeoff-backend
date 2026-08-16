@@ -793,6 +793,8 @@ async def map_floorplan_to_multipage_elevation(credentials, pg_pool, project_id,
 
 def load_elevation_map(elevation_map, page_number):
     page_numbers = list()
+    if not elevation_map:
+        return page_numbers
     for group in elevation_map["floorplan_groups"]:
         if group["floorplan_page"] == page_number:
             page_numbers = [elevation_page["page_number"] for elevation_page in group["elevation_pages"]]
