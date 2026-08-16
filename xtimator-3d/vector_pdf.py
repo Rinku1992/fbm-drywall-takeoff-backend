@@ -23,7 +23,7 @@ from fractions import Fraction
 from collections import Counter
 from contextlib import contextmanager
 
-import fitz  # PyMuPDF
+import pymupdf  # PyMuPDF
 
 
 logger = logging.getLogger("vector_scale")
