@@ -132,10 +132,12 @@ async def floorplan_to_structured_2d_sectioned(
             floor_plan_modeller_2d.load_ceiling_choices(polygons_layout)
             floor_plan_modeller_2d.load_wall_choices(walls_2d_layout)
     elif not model and predict:
-        query = f"SELECT layout_2d FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s)"
-        user_id_owner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id,), fetch=True))
-        layout_2d_path=f"/tmp/{project_id}/{plan_id}/{user_id}/layout_2d_{str(page_number).zfill(4)}_{str(page_section_number).replace('/', '_')}.json",
-        floor_plan_modeller_2d.predict(
+        query = f"SELECT layout_2d FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
+        query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, page_number, page_section_number,), fetch=True))
+        layout_2d = json.loads(query_output["layout_2d"]) if isinstance(query_output["layout_2d"], str) else query_output["layout_2d"]
+        walls_2d_layout, polygons_layout = layout_2d["walls_2d"], layout_2d["polygons"]
+        layout_2d_path=f"/tmp/{project_id}/{plan_id}/{user_id}/layout_2d_{str(page_number).zfill(4)}_{str(page_section_number).replace('/', '_')}.json"
+        walls_2d, polygons, _, external_contour = floor_plan_modeller_2d.predict(
             bounding_box_offset_marginalized,
             elevation_paths=elevation_processed_paths,
             layout_2d_path=layout_2d_path,
@@ -198,6 +200,23 @@ async def floorplan_to_structured_2d_sectioned(
                 credentials,
                 model_2d=dict(walls_2d=list(), polygons=list(), metadata=metadata),
                 layout_2d=dict(walls_2d=walls_2d_layout, polygons=polygons_layout, metadata=metadata),
+                insert_model=model,
+                insert_layout=predict,
+            )
+        elif not model and predict:
+            await insert_model_2d(
+                floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale),
+                page_number,
+                page_sections,
+                page_section_number,
+                plan_id,
+                user_id,
+                project_id,
+                floorplan_baseline_page_source,
+                pg_pool,
+                credentials,
+                model_2d=dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
+                layout_2d=dict(walls_2d=list(), polygons=list(), metadata=metadata),
                 insert_model=model,
                 insert_layout=predict,
             )
