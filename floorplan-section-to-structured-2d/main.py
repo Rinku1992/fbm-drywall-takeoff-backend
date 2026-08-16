@@ -131,6 +131,18 @@ async def floorplan_to_structured_2d_sectioned(
             floor_plan_modeller_2d.load_drywall_choices(walls_2d_layout, polygons_layout)
             floor_plan_modeller_2d.load_ceiling_choices(polygons_layout)
             floor_plan_modeller_2d.load_wall_choices(walls_2d_layout)
+    elif not model and predict:
+        query = f"SELECT layout_2d FROM {CREDENTIALS["CloudSQL"]["table_name_plans"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s)"
+        user_id_owner = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id,), fetch=True))
+        layout_2d_path=f"/tmp/{project_id}/{plan_id}/{user_id}/layout_2d_{str(page_number).zfill(4)}_{str(page_section_number).replace('/', '_')}.json",
+        floor_plan_modeller_2d.predict(
+            bounding_box_offset_marginalized,
+            elevation_paths=elevation_processed_paths,
+            layout_2d_path=layout_2d_path,
+            model_2d_path=f"/tmp/{project_id}/{plan_id}/{user_id}/walls_2d_{str(page_number).zfill(4)}_{str(page_section_number).replace('/', '_')}.json",
+            floor_plan_path=floor_plan_processed_path,
+            transcription_block_with_centroids=transcription_block_with_centroids,
+        )
         #model_2d_path = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path)
         #model_2d_path_sectioned = model_2d_path.parent.joinpath(f"{model_2d_path.stem}_sectioned_{page_section_number}").with_suffix(".png")
         #model_2d_path.rename(model_2d_path_sectioned)
