@@ -134,7 +134,7 @@ async def floorplan_to_structured_2d_sectioned(
     elif not model and predict:
         query = f"SELECT layout_2d FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
         query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, page_number, page_section_number,), fetch=True))
-        layout_2d = json.loads(query_output["layout_2d"]) if isinstance(query_output["layout_2d"], str) else query_output["layout_2d"]
+        layout_2d = json.loads(query_output[0]["layout_2d"]) if isinstance(query_output[0]["layout_2d"], str) else query_output[0]["layout_2d"]
         walls_2d_layout, polygons_layout = layout_2d["walls_2d"], layout_2d["polygons"]
         layout_2d_path=f"/tmp/{project_id}/{plan_id}/{user_id}/layout_2d_{str(page_number).zfill(4)}_{str(page_section_number).replace('/', '_')}.json"
         with open(layout_2d_path, 'w') as f:
