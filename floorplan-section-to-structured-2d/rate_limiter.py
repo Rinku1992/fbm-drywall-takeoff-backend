@@ -1,8 +1,8 @@
 import threading
 import time
 
-
 __all__ = ["RateLimiter"]
+
 
 class RateLimiter:
     def __init__(self, requests_per_second):
