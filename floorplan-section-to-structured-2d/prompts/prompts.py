@@ -952,6 +952,7 @@ class DrywallAssemblyWall(
     color_code: Tuple[int, int, int] = Field(description="<color code for the predicted target perimeter wall drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>")
     materials_vertically_stacked: List[str] = Field(description="['<vertically stacked drywall material preference 1 for target perimeter wall (optional)>', '<vertically stacked drywall material preference 2 for target perimeter wall (optional)>']")
     color_codes_stacked: List[Tuple[int, int, int]] = Field(description="[<color code for the vertically stacked drywall type 1 in a BGR tuple (`Blue`, `Green`, `Red`) for target perimeter wall>, <color code for the vertically stacked drywall type 2 in a BGR tuple (`Blue`, `Green`, `Red`) for target perimeter wall>]")
+    heights_stacked: List[float] =  Field(description="[<height of the vertically stacked drywall type 1 for the target perimeter wall in feet>, <height of the vertically stacked drywall type 2 for the target perimeter wall in feet>]")
     thickness: float = Field(description="<thickness of the predicted wall drywall type in feet>")
     layers: int = Field(description="<number of required drywall layers>")
     fire_rating: Optional[Union[str, float]] = Field(description="<average fire-rating of the predicted drywall types in hours>")
