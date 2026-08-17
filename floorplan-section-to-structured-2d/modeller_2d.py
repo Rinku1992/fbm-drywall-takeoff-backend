@@ -3222,6 +3222,8 @@ class FloorPlan2D(FloorPlan):
             elif payload_wall_drywall_attribute == "color_stacked" and payload_wall_drywall_value:
                 remove_fields_wall_drywall.add("color_codes_stacked")
                 remove_validators_wall_drywall.add("stack_count")
+            elif payload_wall_drywall_attribute == "height_stacked" and payload_wall_drywall_value:
+                remove_fields_wall_drywall.add("heights_stacked")
             elif payload_wall_drywall_attribute == "thickness" and payload_wall_drywall_value != -1:
                 remove_fields_wall_drywall.add("thickness")
                 remove_validators_wall_drywall.add("thickness")
