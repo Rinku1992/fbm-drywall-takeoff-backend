@@ -709,13 +709,14 @@ async def load_templates(pg_pool, credentials):
     product_templates_target = product_templates_target_primary + product_templates_target
     return jsonable_encoder(product_templates_target)
 
-def phoenix_call(generate_content_lambda, max_retry=5, base_delay=1.0, pydantic_model=None, verify_field_counts=None):
+def phoenix_call(generate_content_lambda, rate_limiter, max_retry=5, base_delay=1.0, pydantic_model=None, verify_field_counts=None):
     n_iterations = 0
     temperature = 0
     exceptions = list()
     feedback_prompt = ''
     while n_iterations < max_retry:
         try:
+            rate_limiter.wait()
             response = generate_content_lambda(feedback_prompt, temperature)
             if pydantic_model:
                 json_response = json.loads(response.text.strip("`json").replace("{{", '{').replace("}}", '}'))
