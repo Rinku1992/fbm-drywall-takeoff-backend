@@ -3197,6 +3197,9 @@ class FloorPlan2D(FloorPlan):
             elif payload_ceiling_attribute == "tilt_axis" and payload_ceiling_value != '':
                 remove_fields_polygon.add("tilt_axis")
 
+        print(remove_fields_polygon)
+        print(remove_validators_polygon)
+        print(drywall_assembly_ceiling_pydantic.__mro__)
         return prune_model(
             CeilingModelAndPredict,
             remove_fields=remove_fields_polygon,
