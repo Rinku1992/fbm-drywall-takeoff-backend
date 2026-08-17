@@ -49,6 +49,7 @@ from helper import (
     load_vertex_ai_client,
     phoenix_call,
 )
+from rate_limiter import RateLimiter
 
 __all__ = ["FloorPlan2D"]
 
