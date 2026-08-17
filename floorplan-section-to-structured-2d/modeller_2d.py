@@ -71,6 +71,7 @@ class FloorPlan2D(FloorPlan):
         self._imperial_scales_sampled = dict(X=list(), Y=list(), A=list())
         self._walls_2d = list()
         self._polygons = list()
+        self._llm_rate_limiter = RateLimiter(2)
 
     def reload(self, section_name):
         self._walls_2d = list()
@@ -645,6 +646,7 @@ class FloorPlan2D(FloorPlan):
                         contents=SHAPE_RECTIFIER_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else SHAPE_RECTIFIER_FEW_SHOT+[query],
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
+                    self._llm_rate_limiter,
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
                     pydantic_model=ShapeRectifierResponse,
                 )
@@ -654,6 +656,7 @@ class FloorPlan2D(FloorPlan):
                         contents=SHAPE_RECTIFIER_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else SHAPE_RECTIFIER_FEW_SHOT+[query],
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
+                    self._llm_rate_limiter,
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
                     pydantic_model=ShapeRectifierResponse,
                 )
@@ -1240,6 +1243,7 @@ class FloorPlan2D(FloorPlan):
                             contents=[feedback_prompt, query] if feedback_prompt else [query],
                             generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                         ),
+                        self._llm_rate_limiter,
                         max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
                         pydantic_model=ScaleDetectorResponse,
                     )
@@ -1249,6 +1253,7 @@ class FloorPlan2D(FloorPlan):
                             contents=[feedback_prompt, query] if feedback_prompt else [query],
                             generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                         ),
+                        self._llm_rate_limiter,
                         max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
                         pydantic_model=ScaleDetectorResponse,
                     )
@@ -1270,6 +1275,7 @@ class FloorPlan2D(FloorPlan):
                             contents=[feedback_prompt, query] if feedback_prompt else [query],
                             generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                         ),
+                        self._llm_rate_limiter,
                         max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
                         pydantic_model=CeilingHeightDetectorResponse,
                     )
@@ -1279,6 +1285,7 @@ class FloorPlan2D(FloorPlan):
                             contents=[feedback_prompt, query] if feedback_prompt else [query],
                             generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                         ),
+                        self._llm_rate_limiter,
                         max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
                         pydantic_model=CeilingHeightDetectorResponse,
                     )
@@ -1295,6 +1302,7 @@ class FloorPlan2D(FloorPlan):
                             contents=[feedback_prompt, query] if feedback_prompt else [query],
                             generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                         ),
+                        self._llm_rate_limiter,
                         max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
                         pydantic_model=ScaleAndCeilingHeightDetectorResponse,
                     )
@@ -1304,6 +1312,7 @@ class FloorPlan2D(FloorPlan):
                             contents=[feedback_prompt, query] if feedback_prompt else [query],
                             generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                         ),
+                        self._llm_rate_limiter,
                         max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
                         pydantic_model=ScaleAndCeilingHeightDetectorResponse,
                     )
@@ -1394,6 +1403,7 @@ class FloorPlan2D(FloorPlan):
                         contents=WALL_RECTIFIER_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else WALL_RECTIFIER_FEW_SHOT+[query],
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
+                    self._llm_rate_limiter,
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
                     pydantic_model=WallRectifierResponse,
                 )
@@ -1403,6 +1413,7 @@ class FloorPlan2D(FloorPlan):
                         contents=WALL_RECTIFIER_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else WALL_RECTIFIER_FEW_SHOT+[query],
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
+                    self._llm_rate_limiter,
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
                     pydantic_model=WallRectifierResponse,
                 )
@@ -1525,6 +1536,7 @@ class FloorPlan2D(FloorPlan):
                         contents=POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[query],
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
+                    self._llm_rate_limiter,
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
                     pydantic_model=PolygonDetectorAndDrywallPredictorResponse,
                     verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
@@ -1535,6 +1547,7 @@ class FloorPlan2D(FloorPlan):
                         contents=POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[query],
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
+                    self._llm_rate_limiter,
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
                     pydantic_model=PolygonDetectorAndDrywallPredictorResponse,
                     verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
@@ -1717,6 +1730,7 @@ class FloorPlan2D(FloorPlan):
                         contents=POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[query],
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
+                    self._llm_rate_limiter,
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
                     pydantic_model=polygon_detector_and_drywall_predictor_custom_response,
                     verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
@@ -1727,6 +1741,7 @@ class FloorPlan2D(FloorPlan):
                         contents=POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[feedback_prompt, query] if feedback_prompt else POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CALIFORNIA_FEW_SHOT+[query],
                         generation_config={**self._vertex_ai_generation_config, "temperature": temperature},
                     ),
+                    self._llm_rate_limiter,
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
                     pydantic_model=polygon_detector_and_drywall_predictor_custom_response,
                     verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
