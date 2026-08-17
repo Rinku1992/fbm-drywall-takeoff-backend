@@ -2282,7 +2282,7 @@ class FloorPlan2D(FloorPlan):
             wall_payload["type"] = wall_parameter_predicted.get("wall_type") if wall_parameter_preselected["type"] == '' else wall_parameter_preselected["type"]
             wall_payload["openings"] = wall_parameter_predicted.get("openings") if wall_parameter_preselected["openings"] == [] else wall_parameter_preselected["openings"]
             polygon_drywall = list(filter(lambda polygon_drywall: polygon_drywall["id"] == wall_drywall_preselected["id"], wall_payload["polygons_drywall"]))[0]
-            polygon_drywall["room_name"] = wall_parameter_predicted.get("room_name") if wall_parameter_preselected["room_name"] == '' else wall_parameter_preselected["room_name"]
+            polygon_drywall["room_name"] = wall_parameter_predicted.get("room_name") if wall_drywall_preselected["room_name"] == '' else wall_drywall_preselected["room_name"]
             polygon_drywall["type"] = wall_parameter_predicted["drywall_assembly"]["material"] if wall_drywall_preselected["type"] == "--" else wall_drywall_preselected["type"]
             polygon_drywall["height"] = wall_parameter_predicted["drywall_assembly"]["height"] if wall_drywall_preselected["height"] == -1 else wall_drywall_preselected["height"]
             polygon_drywall["color"] = list(wall_parameter_predicted["drywall_assembly"]["color_code"]) if wall_drywall_preselected["color"] == [0, 0, 0] else wall_drywall_preselected["color"],
