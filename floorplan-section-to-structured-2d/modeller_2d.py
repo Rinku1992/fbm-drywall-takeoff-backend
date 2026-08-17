@@ -2281,7 +2281,7 @@ class FloorPlan2D(FloorPlan):
             wall_payload = load_wall_payload(wall_line)
             wall_payload["thickness"] = wall_parameter_predicted.get("width") if wall_parameter_preselected["thickness"] == -1 else wall_parameter_preselected["thickness"]
             wall_payload["length"] = wall_parameter_predicted.get("length") if wall_parameter_preselected["length"] == -1 else wall_parameter_preselected["length"]
-            wall_payload["type"] = wall_parameter_predicted.get("wall_type") if wall_parameter_preselected["wall_type"] == '' else wall_parameter_preselected["wall_type"]
+            wall_payload["type"] = wall_parameter_predicted.get("wall_type") if wall_parameter_preselected["type"] == '' else wall_parameter_preselected["type"]
             wall_payload["openings"] = wall_parameter_predicted.get("openings") if wall_parameter_preselected["openings"] == [] else wall_parameter_preselected["openings"]
             polygon_drywall = list(filter(lambda polygon_drywall: polygon_drywall["id"] == wall_drywall_preselected["id"], wall_payload["polygons_drywall"]))[0]
             polygon_drywall["room_name"] = wall_parameter_predicted.get("room_name") if wall_parameter_preselected["room_name"] == '' else wall_parameter_preselected["room_name"]
