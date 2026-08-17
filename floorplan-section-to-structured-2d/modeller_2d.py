@@ -71,7 +71,7 @@ class FloorPlan2D(FloorPlan):
         self._imperial_scales_sampled = dict(X=list(), Y=list(), A=list())
         self._walls_2d = list()
         self._polygons = list()
-        self._llm_rate_limiter = RateLimiter(2)
+        self._llm_rate_limiter = RateLimiter(3)
 
     def reload(self, section_name):
         self._walls_2d = list()
