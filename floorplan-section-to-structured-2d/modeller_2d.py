@@ -3200,6 +3200,8 @@ class FloorPlan2D(FloorPlan):
         print(remove_fields_polygon)
         print(remove_validators_polygon)
         print(drywall_assembly_ceiling_pydantic.__mro__)
+        import pydantic
+        print(pydantic.__version__)
         return prune_model(
             CeilingModelAndPredict,
             remove_fields=remove_fields_polygon,
