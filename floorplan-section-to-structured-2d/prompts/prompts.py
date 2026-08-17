@@ -2574,6 +2574,8 @@ def prune_model(
     base_classes = list()
     for validator in active_validators:
       base_classes.append(validator_helpers[validator])
+    if not base_classes:
+      base_classes.append(BaseModel)
     MultiBase = type(
       f"{model.__name__}Base",
       tuple(base_classes),
