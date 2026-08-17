@@ -3144,22 +3144,21 @@ class FloorPlan2D(FloorPlan):
         remove_fields_polygon_drywall = set()
         remove_validators_polygon_drywall = set()
         for payload_ceiling_drywall_attribute, payload_ceiling_drywall_value in payload_ceiling_drywall_preselected.items():
-            if payload_ceiling_drywall_attribute == "type" and payload_ceiling_drywall_value != "--":
-                remove_fields_polygon_drywall.add("material")
-            elif payload_ceiling_drywall_attribute == "color" and payload_ceiling_drywall_value != [25, 25, 25]:
+            if payload_ceiling_drywall_attribute == "color" and payload_ceiling_drywall_value != [25, 25, 25]:
                 remove_fields_polygon_drywall.add("color_code")
                 remove_validators_polygon_drywall.add("color_code")
             elif payload_ceiling_drywall_attribute == "type_stacked" and payload_ceiling_drywall_value:
                 remove_fields_polygon_drywall.add("materials_vertically_stacked")
+                remove_fields_polygon_drywall.add("material")
                 remove_validators_polygon_drywall.add("stacked_layers")
             elif payload_ceiling_drywall_attribute == "color_stacked" and payload_ceiling_drywall_value:
                 remove_fields_polygon_drywall.add("color_codes_stacked")
+                remove_fields_polygon_drywall.add("layers")
                 remove_validators_polygon_drywall.add("stacked_layers")
             elif payload_ceiling_drywall_attribute == "thickness" and payload_ceiling_drywall_value != -1:
                 remove_fields_polygon_drywall.add("thickness")
                 remove_validators_polygon_drywall.add("thickness")
             elif payload_ceiling_drywall_attribute == "layers" and payload_ceiling_drywall_value != -1:
-                remove_fields_polygon_drywall.add("layers")
                 remove_validators_polygon_drywall.add("layers")
             elif payload_ceiling_drywall_attribute == "fire_rating" and payload_ceiling_drywall_value != -1:
                 remove_fields_polygon_drywall.add("fire_rating")
