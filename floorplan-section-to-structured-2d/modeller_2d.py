@@ -3692,6 +3692,7 @@ class FloorPlan2D(FloorPlan):
                     [load_wall_payload(drywall_id) for drywall_id in polygon["polygon_ids_drywall_interior"]],
                     [load_wall_polygon_drywall_payload(drywall_id) for drywall_id in polygon["polygon_ids_drywall_interior"]],
                 )
+                print(output_schema_custom)
                 futures.append(executor.submit(
                     self._add_walls_polygon_given_preselection,
                     polygon,
