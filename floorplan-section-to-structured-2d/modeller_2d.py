@@ -3688,7 +3688,7 @@ class FloorPlan2D(FloorPlan):
                     [load_wall_polygon_drywall_payload(drywall_id) for drywall_id in polygon["polygon_ids_drywall_interior"]],
                 )
                 futures.append(executor.submit(
-                    self._add_drywalls_polygon_given_preselection,
+                    self._add_walls_polygon_given_preselection,
                     polygon,
                     [load_wall_payload(drywall_id) for drywall_id in polygon["polygon_ids_drywall_interior"]],
                     [load_wall_polygon_drywall_payload(drywall_id) for drywall_id in polygon["polygon_ids_drywall_interior"]],
