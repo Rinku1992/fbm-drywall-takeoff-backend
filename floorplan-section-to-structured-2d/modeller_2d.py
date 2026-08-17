@@ -1723,6 +1723,8 @@ class FloorPlan2D(FloorPlan):
             Part.from_data(data=bytes_canvas, mime_type="image/png"),
         ]+parts_elevations+[Part.from_text(json.dumps(dict(output_schema=output_schema_custom)))])
 
+        print("checking pydantic")
+        print(load_schema_pydantic(polygon_detector_and_drywall_predictor_custom_response))
         try:
             if self._is_cached["POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CUSTOM"]:
                 _, predict_polygon = phoenix_call(
