@@ -1723,8 +1723,6 @@ class FloorPlan2D(FloorPlan):
             Part.from_data(data=bytes_canvas, mime_type="image/png"),
         ]+parts_elevations+[Part.from_text(json.dumps(dict(output_schema=output_schema_custom)))])
 
-        print("checking pydantic")
-        print(load_schema_pydantic(polygon_detector_and_drywall_predictor_custom_response))
         try:
             if self._is_cached["POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CUSTOM"]:
                 _, predict_polygon = phoenix_call(
@@ -3198,11 +3196,6 @@ class FloorPlan2D(FloorPlan):
             elif payload_ceiling_attribute == "tilt_axis" and payload_ceiling_value != '':
                 remove_fields_polygon.add("tilt_axis")
 
-        print(remove_fields_polygon)
-        print(remove_validators_polygon)
-        print(drywall_assembly_ceiling_pydantic.__mro__)
-        import pydantic
-        print(pydantic.__version__)
         return prune_model(
             CeilingModelAndPredict,
             remove_fields=remove_fields_polygon,
@@ -3693,7 +3686,6 @@ class FloorPlan2D(FloorPlan):
                     [load_wall_payload(drywall_id) for drywall_id in polygon["polygon_ids_drywall_interior"]],
                     [load_wall_polygon_drywall_payload(drywall_id) for drywall_id in polygon["polygon_ids_drywall_interior"]],
                 )
-                print(output_schema_custom)
                 futures.append(executor.submit(
                     self._add_walls_polygon_given_preselection,
                     polygon,
