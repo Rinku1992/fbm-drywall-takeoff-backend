@@ -2204,6 +2204,43 @@ POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CUSTOM = """
             total_wall_height = sum(heights_stacked[i] for i in range(len(heights_stacked)))
           - If vertically stacked drywall preferences list is non-empty **STRICTLY** include the single drywall material preference into the list along with the additional stack to ensure that the MANDATED single drywall preference prediction and the OPTIONAL vertically stacked drywall preferences prediction can be referred independently by the user as per the preference (single/stacked).
 
+          STRICT_VERTICAL_STACKING_OUTPUT_CONTRACT:
+            The following four fields are PARALLEL ARRAYS describing the same vertical drywall zones:
+              1. materials_vertically_stacked
+              2. color_codes_stacked
+              3. heights_stacked
+              4. layers
+
+            For every index i:
+              materials_vertically_stacked[i]
+              color_codes_stacked[i]
+              heights_stacked[i]
+              layers[i]
+
+            MUST describe the SAME vertical drywall zone.
+              IF vertically stacked drywall is NOT required:
+                materials_vertically_stacked = []
+                color_codes_stacked = []
+                heights_stacked = []
+                layers = integer
+
+              IF vertically stacked drywall IS required:
+                ALL FOUR fields MUST be explicitly populated.
+
+                materials_vertically_stacked MUST NOT be empty.
+                color_codes_stacked MUST NOT be empty.
+                heights_stacked MUST NOT be empty.
+                layers MUST be a list.
+
+                The following equality MUST hold:
+                  len(materials_vertically_stacked)
+                  =
+                  len(color_codes_stacked)
+                  =
+                  len(heights_stacked)
+                  =
+                  len(layers)
+
         WALL_DRYWALL_LAYERING_INSTRUCTIONS
           - The field `layers` represents the horizontal drywall layering count (number of drywall sheets installed over the same surface), not the vertical segmentation of the wall.
           - Vertical stacking and horizontal layering are independent concepts.
