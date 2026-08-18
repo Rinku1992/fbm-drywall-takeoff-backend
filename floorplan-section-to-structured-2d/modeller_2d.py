@@ -3290,7 +3290,7 @@ class FloorPlan2D(FloorPlan):
                 remove_validators_wall_parameter.add("width")
             elif payload_wall_parameter_attribute == "type" and payload_wall_parameter_value != '':
                 remove_fields_wall_parameter.add("wall_type")
-            elif payload_wall_parameter_attribute == "openings" and payload_wall_parameter_value:
+            elif payload_wall_parameter_attribute == "openings":
                 remove_fields_wall_parameter.add("openings")
 
         drywall_assembly_is_empty = is_schema_empty(drywall_assembly_wall_pydantic)
