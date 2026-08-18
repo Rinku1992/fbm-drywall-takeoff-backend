@@ -702,7 +702,7 @@ POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR = """
           "openings": [
             {{"opening_type": "<Type of the perimeter wall 1 opening 1>", "count": <count of the opening type 1>, "length": <length of the opening type 1 in feet>, "height": <height of the opening type 1 in feet>}},
             {{"opening_type": "<Type of the perimeter wall 1 opening 2>", "count": <count of the opening type 2>, "length": <length of the opening type 2 in feet>, "height": <height of the opening type 2 in feet>}}
-          ]
+          ],
           "drywall_assembly": {{
             "material": "<drywall material for the perimeter wall 1>",
             "height": <height of the perimeter wall 1 surface the drywall is applied upon in feet>,
@@ -727,7 +727,7 @@ POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR = """
           "wall_type": "<type of the perimeter wall 2>",
           "openings": [
             {{"opening_type": "<Type of the perimeter wall 2 opening 1>", "count": <count of the opening type 1>, "length": <length of the opening type 1 in feet>, "height": <height of the opening type 1 in feet>}}
-          ]
+          ],
           "drywall_assembly": {{
             "material": "<drywall material for the perimeter wall 2>",
             "height": <height of the perimeter wall 2 surface the drywall is applied upon in feet>,
