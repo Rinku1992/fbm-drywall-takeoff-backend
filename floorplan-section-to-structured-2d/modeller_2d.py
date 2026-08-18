@@ -2292,7 +2292,7 @@ class FloorPlan2D(FloorPlan):
             polygon_drywall["color"] = list(wall_parameter_predicted["drywall_assembly"]["color_code"]) if wall_drywall_preselected["color"] == [0, 0, 0] else wall_drywall_preselected["color"],
             polygon_drywall["type_stacked"] = wall_parameter_predicted.get("drywall_assembly", dict()).get("materials_vertically_stacked", list()) if wall_drywall_preselected["type_stacked"] == [] else wall_drywall_preselected["type_stacked"]
             polygon_drywall["color_stacked"] = list(wall_parameter_predicted.get("drywall_assembly", dict()).get("color_codes_stacked", list())) if wall_drywall_preselected["color_stacked"] == [] else wall_drywall_preselected["color_stacked"]
-            polygon_drywall["height_stacked"] = wall_parameter_predicted["drywall_assembly"].get("heights_stacked", list()) if wall_drywall_preselected["height_stacked"] == [] else wall_drywall_preselected["height_stacked"]
+            polygon_drywall["height_stacked"] = wall_parameter_predicted.get("drywall_assembly", dict()).get("heights_stacked", list()) if wall_drywall_preselected["height_stacked"] == [] else wall_drywall_preselected["height_stacked"]
             polygon_drywall["thickness"] = wall_parameter_predicted["drywall_assembly"]["thickness"] if wall_drywall_preselected["thickness"] == -1 else wall_drywall_preselected["thickness"]
             polygon_drywall["layers"] = wall_parameter_predicted["drywall_assembly"]["layers"] if wall_drywall_preselected["layers"] == -1 else wall_drywall_preselected["layers"]
             polygon_drywall["fire_rating"] = wall_parameter_predicted["drywall_assembly"]["fire_rating"] if wall_drywall_preselected["fire_rating"] == -1 else wall_drywall_preselected["fire_rating"]
