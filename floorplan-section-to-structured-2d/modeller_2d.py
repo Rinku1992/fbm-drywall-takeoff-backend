@@ -3215,6 +3215,7 @@ class FloorPlan2D(FloorPlan):
                 remove_fields_polygon.add("tilt_axis")
 
         drywall_assembly_is_empty = is_schema_empty(drywall_assembly_ceiling_pydantic)
+        print(drywall_assembly_is_empty)
         if drywall_assembly_is_empty:
             return prune_model(
                 CeilingModelAndPredict,
@@ -3313,6 +3314,7 @@ class FloorPlan2D(FloorPlan):
         payload_wall_drywalls_preselected
     ):
         ceiling_pydantic = self._load_schema_ceiling_given_preselection(payload_ceiling_preselected)
+        print(load_schema_pydantic(ceiling_pydantic))
         wall_parameters_pydantic = list()
         wall_parameters_is_empty = True
         for payload_wall_parameter_preselected, payload_wall_drywall_preselected in zip(payload_wall_parameters_preselected, payload_wall_drywalls_preselected):
@@ -3322,13 +3324,17 @@ class FloorPlan2D(FloorPlan):
                 wall_parameters_is_empty = False
 
         ceiling_is_empty = is_schema_empty(ceiling_pydantic)
+        print(ceiling_is_empty)
+        print(wall_parameters_is_empty)
         if ceiling_is_empty and wall_parameters_is_empty:
             polygon_detector_and_drywall_predictor_response = prune_model(
                 PolygonDetectorAndDrywallPredictorResponse,
+                remove_fields={'ceiling', 'wall_parameters'},
             )
         elif ceiling_is_empty and not wall_parameters_is_empty:
             polygon_detector_and_drywall_predictor_response = prune_model(
                 PolygonDetectorAndDrywallPredictorResponse,
+                remove_fields={'ceiling'},
                 fields_custom=dict(
                     wall_parameters=Tuple[*wall_parameters_pydantic]
                 )
@@ -3336,6 +3342,7 @@ class FloorPlan2D(FloorPlan):
         elif not ceiling_is_empty and wall_parameters_is_empty:
             polygon_detector_and_drywall_predictor_response = prune_model(
                 PolygonDetectorAndDrywallPredictorResponse,
+                remove_fields={'wall_parameters'},
                 fields_custom=dict(
                     ceiling=ceiling_pydantic
                 )
