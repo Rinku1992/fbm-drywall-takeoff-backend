@@ -2292,7 +2292,7 @@ class FloorPlan2D(FloorPlan):
             polygon_drywall["thickness"] = wall_parameter_predicted["drywall_assembly"]["thickness"] if wall_drywall_preselected["thickness"] == -1 else wall_drywall_preselected["thickness"]
             polygon_drywall["layers"] = wall_parameter_predicted["drywall_assembly"]["layers"] if wall_drywall_preselected["layers"] == -1 else wall_drywall_preselected["layers"]
             polygon_drywall["fire_rating"] = wall_parameter_predicted["drywall_assembly"]["fire_rating"] if wall_drywall_preselected["fire_rating"] == -1 else wall_drywall_preselected["fire_rating"]
-            polygon_drywall["recommendation"] = wall_parameter_predicted["drywall_assembly"]["recommendation"] if wall_drywall_preselected["recommendation"] == '' else wall_drywall_preselected["recommendation"]
+            polygon_drywall["recommendation"] = wall_parameter_predicted["recommendation"] if wall_drywall_preselected["recommendation"] == '' else wall_drywall_preselected["recommendation"]
             polygon_drywall["waste_factor"] = wall_parameter_predicted["drywall_assembly"]["waste_factor"] if wall_drywall_preselected["waste_factor"] == '' else wall_drywall_preselected["waste_factor"]
             polygon_drywall["enabled"] = True
 
@@ -2318,7 +2318,7 @@ class FloorPlan2D(FloorPlan):
         polygon_preselected["polygon_drywall"]["thickness"] = predict_polygon["ceiling"]["drywall_assembly"]["thickness"] if polygon_preselected["polygon_drywall"]["thickness"] == -1 else polygon_preselected["polygon_drywall"]["thickness"]
         polygon_preselected["polygon_drywall"]["layers"] = predict_polygon["ceiling"]["drywall_assembly"]["layers"] if polygon_preselected["polygon_drywall"]["layers"] == -1 else polygon_preselected["polygon_drywall"]["layers"]
         polygon_preselected["polygon_drywall"]["fire_rating"] = predict_polygon["ceiling"]["drywall_assembly"]["fire_rating"] if polygon_preselected["polygon_drywall"]["fire_rating"] == -1 else polygon_preselected["polygon_drywall"]["fire_rating"]
-        polygon_preselected["polygon_drywall"]["recommendation"] = predict_polygon["ceiling"]["drywall_assembly"]["recommendation"] if polygon_preselected["polygon_drywall"]["recommendation"] == '' else polygon_preselected["polygon_drywall"]["recommendation"]
+        polygon_preselected["polygon_drywall"]["recommendation"] = predict_polygon["ceiling"]["recommendation"] if polygon_preselected["polygon_drywall"]["recommendation"] == '' else polygon_preselected["polygon_drywall"]["recommendation"]
         polygon_preselected["polygon_drywall"]["waste_factor"] = predict_polygon["ceiling"]["waste_factor"] if polygon_preselected["polygon_drywall"]["waste_factor"] == -1 else polygon_preselected["polygon_drywall"]["waste_factor"] 
         polygon_preselected["polygon_drywall"]["enabled"] = True
 
