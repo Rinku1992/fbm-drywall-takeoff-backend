@@ -114,6 +114,8 @@ async def floorplan_to_structured_2d_sectioned(
             floor_plan_modeller_2d.load_drywall_choices(walls_2d_layout, polygons_layout)
             floor_plan_modeller_2d.load_ceiling_choices(polygons_layout)
             floor_plan_modeller_2d.load_wall_choices(walls_2d_layout)
+        insert_model = True
+        insert_layout = True
     elif model and not predict:
         walls_2d_layout, polygons_layout, _, external_contour = floor_plan_modeller_2d.model(
             bounding_box_offset_marginalized,
@@ -131,6 +133,8 @@ async def floorplan_to_structured_2d_sectioned(
             floor_plan_modeller_2d.load_drywall_choices(walls_2d_layout, polygons_layout)
             floor_plan_modeller_2d.load_ceiling_choices(polygons_layout)
             floor_plan_modeller_2d.load_wall_choices(walls_2d_layout)
+        insert_model = False
+        insert_layout = True
     elif not model and predict:
         query = f"SELECT layout_2d FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s AND page_section_number = %s;"
         query_output = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, page_number, page_section_number,), fetch=True))
@@ -155,6 +159,8 @@ async def floorplan_to_structured_2d_sectioned(
         #await upload_floorplan(model_2d_path_sectioned, plan_id, project_id, user_id, CREDENTIALS, pg_pool, index=str(page_number).zfill(4))
         #model_2d_path_overlay_enabled = floor_plan_modeller_2d.save_plot_2d(walls_2d_path, floor_plan_path=floor_plan_processed_path, overlay_enabled=True)
         #await upload_floorplan(model_2d_path_overlay_enabled, plan_id, project_id, user_id, CREDENTIALS, pg_pool, index=str(page_number).zfill(4))
+        insert_model = True
+        insert_layout = False
 
     metadata = dict(
         size_in_bytes=floorplan_page_statistics["size"],
@@ -187,8 +193,8 @@ async def floorplan_to_structured_2d_sectioned(
                 credentials,
                 model_2d=dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
                 layout_2d=dict(walls_2d=walls_2d_layout, polygons=polygons_layout, metadata=metadata),
-                insert_model=model,
-                insert_layout=predict,
+                insert_model=insert_model,
+                insert_layout=insert_layout,
             )
         elif model and not predict:
             await insert_model_2d(
