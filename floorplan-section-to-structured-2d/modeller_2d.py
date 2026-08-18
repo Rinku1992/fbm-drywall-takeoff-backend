@@ -3142,17 +3142,23 @@ class FloorPlan2D(FloorPlan):
         remove_fields_polygon_drywall = set()
         remove_validators_polygon_drywall = set()
         for payload_ceiling_drywall_attribute, payload_ceiling_drywall_value in payload_ceiling_drywall_preselected.items():
-            if payload_ceiling_drywall_attribute == "color" and payload_ceiling_drywall_value != [25, 25, 25]:
-                remove_fields_polygon_drywall.add("color_code")
-                remove_validators_polygon_drywall.add("color_code")
-            elif payload_ceiling_drywall_attribute == "type_stacked" and payload_ceiling_drywall_value:
-                remove_fields_polygon_drywall.add("materials_vertically_stacked")
+            if payload_ceiling_drywall_attribute == "type" and payload_ceiling_drywall_value != "--":
                 remove_fields_polygon_drywall.add("material")
-                remove_validators_polygon_drywall.add("stacked_layers")
-            elif payload_ceiling_drywall_attribute == "color_stacked" and payload_ceiling_drywall_value:
+                remove_fields_polygon_drywall.add("materials_vertically_stacked")
                 remove_fields_polygon_drywall.add("color_codes_stacked")
                 remove_fields_polygon_drywall.add("layers")
                 remove_validators_polygon_drywall.add("stacked_layers")
+            if payload_ceiling_drywall_attribute == "color" and payload_ceiling_drywall_value != [25, 25, 25]:
+                remove_fields_polygon_drywall.add("color_code")
+                remove_validators_polygon_drywall.add("color_code")
+            #elif payload_ceiling_drywall_attribute == "type_stacked" and payload_ceiling_drywall_value:
+            #    remove_fields_polygon_drywall.add("materials_vertically_stacked")
+            #    remove_fields_polygon_drywall.add("material")
+            #    remove_validators_polygon_drywall.add("stacked_layers")
+            #elif payload_ceiling_drywall_attribute == "color_stacked" and payload_ceiling_drywall_value:
+            #    remove_fields_polygon_drywall.add("color_codes_stacked")
+            #    remove_fields_polygon_drywall.add("layers")
+            #    remove_validators_polygon_drywall.add("stacked_layers")
             elif payload_ceiling_drywall_attribute == "thickness" and payload_ceiling_drywall_value != -1:
                 remove_fields_polygon_drywall.add("thickness")
                 remove_validators_polygon_drywall.add("thickness")
@@ -3209,6 +3215,10 @@ class FloorPlan2D(FloorPlan):
         for payload_wall_drywall_attribute, payload_wall_drywall_value in payload_wall_drywall_preselected.items():
             if payload_wall_drywall_attribute == "type" and payload_wall_drywall_value != "--":
                 remove_fields_wall_drywall.add("material")
+                remove_fields_wall_drywall.add("materials_vertically_stacked")
+                remove_fields_wall_drywall.add("color_codes_stacked")
+                remove_fields_wall_drywall.add("heights_stacked")
+                remove_validators_wall_drywall.add("stack_count")
             elif payload_wall_drywall_attribute == "height" and payload_wall_drywall_value != -1:
                 remove_fields_wall_drywall.add("height")
                 remove_fields_wall_drywall.add("confidence_height")
@@ -3216,14 +3226,14 @@ class FloorPlan2D(FloorPlan):
             elif payload_wall_drywall_attribute == "color" and payload_wall_drywall_value != [0, 0, 0]:
                 remove_fields_wall_drywall.add("color_code")
                 remove_validators_wall_drywall.add("color_code")
-            elif payload_wall_drywall_attribute == "type_stacked" and payload_wall_drywall_value:
-                remove_fields_wall_drywall.add("materials_vertically_stacked")
-                remove_validators_wall_drywall.add("stack_count")
-            elif payload_wall_drywall_attribute == "color_stacked" and payload_wall_drywall_value:
-                remove_fields_wall_drywall.add("color_codes_stacked")
-                remove_validators_wall_drywall.add("stack_count")
-            elif payload_wall_drywall_attribute == "height_stacked" and payload_wall_drywall_value:
-                remove_fields_wall_drywall.add("heights_stacked")
+            #elif payload_wall_drywall_attribute == "type_stacked" and payload_wall_drywall_value:
+            #    remove_fields_wall_drywall.add("materials_vertically_stacked")
+            #    remove_validators_wall_drywall.add("stack_count")
+            #elif payload_wall_drywall_attribute == "color_stacked" and payload_wall_drywall_value:
+            #    remove_fields_wall_drywall.add("color_codes_stacked")
+            #    remove_validators_wall_drywall.add("stack_count")
+            #elif payload_wall_drywall_attribute == "height_stacked" and payload_wall_drywall_value:
+            #    remove_fields_wall_drywall.add("heights_stacked")
             elif payload_wall_drywall_attribute == "thickness" and payload_wall_drywall_value != -1:
                 remove_fields_wall_drywall.add("thickness")
                 remove_validators_wall_drywall.add("thickness")
@@ -3688,6 +3698,7 @@ class FloorPlan2D(FloorPlan):
                     [load_wall_payload(drywall_id) for drywall_id in polygon["polygon_ids_drywall_interior"]],
                     [load_wall_polygon_drywall_payload(drywall_id) for drywall_id in polygon["polygon_ids_drywall_interior"]],
                 )
+                print(output_schema_custom)
                 futures.append(executor.submit(
                     self._add_walls_polygon_given_preselection,
                     polygon,
