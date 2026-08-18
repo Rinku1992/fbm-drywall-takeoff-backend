@@ -2250,30 +2250,33 @@ class FloorPlan2D(FloorPlan):
             perimeter_walls.append([[X1, Y1, X2, Y2]])
             perimeter_wall_unnormalized = [[round(X1 / scale_x), round(Y1 / scale_y), round(X2 / scale_x), round(Y2 / scale_y)]]
             perimeter_walls_unnormalized.append(perimeter_wall_unnormalized)
-        polygons_pts_normalized = list()
-        for polygon_wall_drywall in payload_wall_drywalls_preselected:
-            polygon = polygon_wall_drywall["polygon"]
-            pts_normalized = np.array([
-                [polygon[0]['x'], polygon[0]['y']],
-                [polygon[1]['x'], polygon[1]['y']],
-                [polygon[2]['x'], polygon[2]['y']],
-                [polygon[3]['x'], polygon[3]['y']]
-            ], np.int32)
-            polygons_pts_normalized.append(pts_normalized)
-        predict_polygon = self._predict_polygon(
-            polygon_preselected["vertices"],
-            perimeter_walls,
-            polygon_preselected["area"],
-            polygons_pts_normalized,
-            floor_plan_path,
-            elevation_paths,
-            output_schema_custom,
-            polygon_detector_and_drywall_predictor_custom_response,
-            transcription_block_with_centroids,
-            perimeter_walls_unnormalized,
-            offset,
-            height_default=height_default,
-        )
+        output_schema, is_empty = output_schema_custom
+        predict_polygon = dict()
+        if not is_empty:
+            polygons_pts_normalized = list()
+            for polygon_wall_drywall in payload_wall_drywalls_preselected:
+                polygon = polygon_wall_drywall["polygon"]
+                pts_normalized = np.array([
+                    [polygon[0]['x'], polygon[0]['y']],
+                    [polygon[1]['x'], polygon[1]['y']],
+                    [polygon[2]['x'], polygon[2]['y']],
+                    [polygon[3]['x'], polygon[3]['y']]
+                ], np.int32)
+                polygons_pts_normalized.append(pts_normalized)
+            predict_polygon = self._predict_polygon(
+                polygon_preselected["vertices"],
+                perimeter_walls,
+                polygon_preselected["area"],
+                polygons_pts_normalized,
+                floor_plan_path,
+                elevation_paths,
+                output_schema,
+                polygon_detector_and_drywall_predictor_custom_response,
+                transcription_block_with_centroids,
+                perimeter_walls_unnormalized,
+                offset,
+                height_default=height_default,
+            )
 
         polygon_ids_drywall_interior = list()
         for wall_line, wall_parameter_predicted, wall_parameter_preselected, wall_drywall_preselected in zip(perimeter_walls, predict_polygon["wall_parameters"], payload_wall_parameters_preselected, payload_wall_drywalls_preselected):
@@ -3701,13 +3704,15 @@ class FloorPlan2D(FloorPlan):
                     [load_wall_payload(drywall_id) for drywall_id in polygon["polygon_ids_drywall_interior"]],
                     [load_wall_polygon_drywall_payload(drywall_id) for drywall_id in polygon["polygon_ids_drywall_interior"]],
                 )
+                is_empty = is_schema_empty(polygon_detector_and_drywall_predictor_response)
                 print(output_schema_custom)
+                print(is_empty)
                 futures.append(executor.submit(
                     self._add_walls_polygon_given_preselection,
                     polygon,
                     [load_wall_payload(drywall_id) for drywall_id in polygon["polygon_ids_drywall_interior"]],
                     [load_wall_polygon_drywall_payload(drywall_id) for drywall_id in polygon["polygon_ids_drywall_interior"]],
-                    output_schema_custom,
+                    (output_schema_custom, is_empty,),
                     polygon_detector_and_drywall_predictor_response,
                     (scale_x, scale_y,),
                     height_default,
