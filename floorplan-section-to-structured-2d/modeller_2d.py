@@ -3172,6 +3172,8 @@ class FloorPlan2D(FloorPlan):
                 remove_fields_polygon_drywall.add("fire_rating")
             elif payload_ceiling_drywall_attribute == "waste_factor" and payload_ceiling_drywall_value != -1:
                 remove_fields_polygon_drywall.add("waste_factor")
+        print(remove_fields_polygon_drywall)
+        print(remove_validators_polygon_drywall)
 
         return prune_model(
             DrywallAssemblyCeiling,
