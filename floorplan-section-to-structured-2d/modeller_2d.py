@@ -44,6 +44,7 @@ from prompts import (
     WallParameterModelAndPredict,
     prune_model,
     load_schema_pydantic,
+    is_schema_empty,
 )
 from helper import (
     load_vertex_ai_client,
