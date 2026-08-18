@@ -3185,6 +3185,7 @@ class FloorPlan2D(FloorPlan):
         )
         remove_fields_polygon = set()
         remove_validators_polygon = set()
+        remove_fields_polygon.add("drywall_assembly")
         if payload_ceiling_preselected["polygon_drywall"]["recommendation"] != '':
             remove_fields_polygon.add("recommendation")
             remove_fields_polygon.add("code_references")
@@ -3266,6 +3267,7 @@ class FloorPlan2D(FloorPlan):
         drywall_assembly_wall_pydantic = self._load_schema_wall_drywall_assembly_given_preselection(payload_wall_drywall_preselected)
         remove_fields_wall_parameter = set()
         remove_validators_wall_parameter = set()
+        remove_fields_wall_parameter.add("drywall_assembly")
         if payload_wall_drywall_preselected["room_name"] != '':
             remove_fields_wall_parameter.add("room_name")
         if payload_wall_drywall_preselected["recommendation"] != '':
