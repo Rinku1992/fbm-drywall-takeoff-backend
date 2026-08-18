@@ -746,8 +746,8 @@ POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR = """
             "confidence_height": <confidence score in predicting the height of the perimeter wall 1 surface the drywall is applied upon between 0 and 1 in float rounded upto 2 decimal places (e.g., 0.87)>,
             "color_code": <color code for the predicted perimeter wall 1 drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>,
             "materials_vertically_stacked": ["<vertically stacked drywall material preference 1 for perimeter wall 1 (optional)>", "<vertically stacked drywall material preference 2 for perimeter wall 1 (optional)>"],
-            "color_codes_stacked": [<color code for the vertically stacked drywall type 1 in a BGR tuple (`Blue`, `Green`, `Red`) for perimeter wall 1>, <color code for the vertically stacked drywall type 2 in a BGR tuple (`Blue`, `Green`, `Red`) for perimeter wall 1>]
-            "heights_stacked": [<height of the vertically stacked drywall type 1 for perimeter wall 1 in feet>, <height of the vertically stacked drywall type 2 of perimeter wall 1 in feet>]
+            "color_codes_stacked": [<color code for the vertically stacked drywall type 1 in a BGR tuple (`Blue`, `Green`, `Red`) for perimeter wall 1>, <color code for the vertically stacked drywall type 2 in a BGR tuple (`Blue`, `Green`, `Red`) for perimeter wall 1>],
+            "heights_stacked": [<height of the vertically stacked drywall type 1 for perimeter wall 1 in feet>, <height of the vertically stacked drywall type 2 of perimeter wall 1 in feet>],
             "thickness": <thickness of the predicted wall drywall type in feet>,
             "layers": <number of required drywall layers>,
             "fire_rating": <average fire-rating of the predicted drywall types in hours>,
@@ -771,8 +771,8 @@ POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR = """
             "confidence_height": <confidence score in predicting the height of the perimeter wall 2 surface the drywall is applied upon between 0 and 1 in float rounded upto 2 decimal places (e.g., 0.87)>,
             "color_code": <color code for the predicted perimeter wall 2 drywall type in a BGR tuple (`Blue`, `Green`, `Red`)>,
             "materials_vertically_stacked": ["<vertically stacked drywall material preference 1 for perimeter wall 2 (optional)>", "<vertically stacked drywall material preference 2 for perimeter wall 2 (optional)>"],
-            "color_codes_stacked": [<color code for the vertically stacked drywall type 1 in a BGR tuple (`Blue`, `Green`, `Red`) for perimeter wall 2>, <color code for the vertically stacked drywall type 2 in a BGR tuple (`Blue`, `Green`, `Red`) for perimeter wall 2>]
-            "heights_stacked": [<height of the vertically stacked drywall type 1 for perimeter wall 2 in feet>, <height of the vertically stacked drywall type 2 of perimeter wall 2 in feet>]
+            "color_codes_stacked": [<color code for the vertically stacked drywall type 1 in a BGR tuple (`Blue`, `Green`, `Red`) for perimeter wall 2>, <color code for the vertically stacked drywall type 2 in a BGR tuple (`Blue`, `Green`, `Red`) for perimeter wall 2>],
+            "heights_stacked": [<height of the vertically stacked drywall type 1 for perimeter wall 2 in feet>, <height of the vertically stacked drywall type 2 of perimeter wall 2 in feet>],
             "thickness": <thickness of the predicted wall drywall type in feet>,
             "layers": <number of required drywall layers>,
             "fire_rating": <average fire-rating of the predicted drywall types in hours>,
