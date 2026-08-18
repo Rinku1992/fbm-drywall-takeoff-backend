@@ -2666,3 +2666,79 @@ def prune_model(
         __base__ = MultiBase,
         **fields,
     )
+
+def is_empty_or_placeholder(value):
+    if isinstance(value, type) and issubclass(value, BaseModel):
+        fields = value.model_fields
+
+        if not fields:
+            return True
+
+        for field_name, field in fields.items():
+
+            if field.default is not None:
+                if not is_empty_or_placeholder(field.default):
+                    return False
+
+            if field.default_factory is not None:
+                try:
+                    default_value = field.default_factory()
+                    if not is_empty_or_placeholder(default_value):
+                        return False
+                except Exception:
+                    return False
+
+        return True
+
+    if isinstance(value, BaseModel):
+        return is_empty_or_placeholder(value.model_dump())
+
+    if value is None:
+        return True
+
+    if isinstance(value, dict):
+        if not value:
+            return True
+
+        return all(
+            is_empty_or_placeholder(v)
+            for v in value.values()
+        )
+
+    if isinstance(value, (list, tuple, set)):
+        if not value:
+            return True
+
+        return all(
+            is_empty_or_placeholder(v)
+            for v in value
+        )
+
+    if isinstance(value, str):
+
+        value = value.strip()
+
+        if value == "":
+            return True
+
+        placeholders = {
+            "<string>",
+            "<str>",
+            "<integer>",
+            "<int>",
+            "<float>",
+            "<number>",
+            "<boolean>",
+            "<bool>",
+            "<object>",
+            "<array>",
+            "null",
+            "none",
+        }
+
+        if value.lower() in placeholders:
+            return True
+
+        return False
+
+    return False
