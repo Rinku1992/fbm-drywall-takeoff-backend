@@ -2667,7 +2667,7 @@ def prune_model(
         **fields,
     )
 
-def is_empty_or_placeholder(value):
+def is_schema_empty(value):
     if isinstance(value, type) and issubclass(value, BaseModel):
         fields = value.model_fields
 
