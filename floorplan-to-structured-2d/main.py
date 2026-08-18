@@ -474,11 +474,11 @@ async def floorplan_to_structured_2d(request: Request):
         )
     if model:
         wall_segmented_path, = await asyncio.gather(futures["floorplan_to_walls"])
-    session_is_active = await is_session_active(CREDENTIALS, pg_pool, session_uuid, project_id, plan_id, user_id, page_number)
-    if not session_is_active:
-        return respond_with_UI_payload(dict(status="ABORTED", message=f"Session Aborted"))
-    await update_status(CREDENTIALS, pg_pool, "WALLS DETECTED", project_id, plan_id, user_id, page_number)
-    logging.info(f"SYSTEM: Wall Detection Completed from PAGE: {page_number}")
+        session_is_active = await is_session_active(CREDENTIALS, pg_pool, session_uuid, project_id, plan_id, user_id, page_number)
+        if not session_is_active:
+            return respond_with_UI_payload(dict(status="ABORTED", message=f"Session Aborted"))
+        await update_status(CREDENTIALS, pg_pool, "WALLS DETECTED", project_id, plan_id, user_id, page_number)
+        logging.info(f"SYSTEM: Wall Detection Completed from PAGE: {page_number}")
 
     transcription_block_with_centroids, _ = futures["transcriber"].result()
     session_is_active = await is_session_active(CREDENTIALS, pg_pool, session_uuid, project_id, plan_id, user_id, page_number)
