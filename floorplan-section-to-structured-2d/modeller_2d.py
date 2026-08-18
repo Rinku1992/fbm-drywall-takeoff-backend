@@ -3186,7 +3186,9 @@ class FloorPlan2D(FloorPlan):
             payload_ceiling_preselected["polygon_drywall"]
         )
         print(payload_ceiling_preselected)
+        print("##")
         print(load_schema_pydantic(drywall_assembly_ceiling_pydantic))
+        print("##")
         remove_fields_polygon = set()
         remove_validators_polygon = set()
         remove_fields_polygon.add("drywall_assembly")
