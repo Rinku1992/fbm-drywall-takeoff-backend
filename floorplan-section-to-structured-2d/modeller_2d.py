@@ -2279,7 +2279,7 @@ class FloorPlan2D(FloorPlan):
             )
 
         polygon_ids_drywall_interior = list()
-        for wall_line, wall_parameter_predicted, wall_parameter_preselected, wall_drywall_preselected in zip(perimeter_walls, predict_polygon["wall_parameters"], payload_wall_parameters_preselected, payload_wall_drywalls_preselected):
+        for wall_line, wall_parameter_predicted, wall_parameter_preselected, wall_drywall_preselected in zip(perimeter_walls, predict_polygon.get("wall_parameters", [dict() for _ in payload_wall_parameters_preselected]), payload_wall_parameters_preselected, payload_wall_drywalls_preselected):
             wall_payload = load_wall_payload(wall_line)
             wall_payload["thickness"] = wall_parameter_predicted.get("width") if wall_parameter_preselected["thickness"] == -1 else wall_parameter_preselected["thickness"]
             wall_payload["length"] = wall_parameter_predicted.get("length") if wall_parameter_preselected["length"] == -1 else wall_parameter_preselected["length"]
