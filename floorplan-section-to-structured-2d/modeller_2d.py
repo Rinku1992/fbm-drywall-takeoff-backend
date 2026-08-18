@@ -3330,6 +3330,7 @@ class FloorPlan2D(FloorPlan):
             polygon_detector_and_drywall_predictor_response = prune_model(
                 PolygonDetectorAndDrywallPredictorResponse,
                 remove_fields={'ceiling', 'wall_parameters'},
+                remove_validators={'wall_count'},
             )
         elif ceiling_is_empty and not wall_parameters_is_empty:
             polygon_detector_and_drywall_predictor_response = prune_model(
@@ -3343,6 +3344,7 @@ class FloorPlan2D(FloorPlan):
             polygon_detector_and_drywall_predictor_response = prune_model(
                 PolygonDetectorAndDrywallPredictorResponse,
                 remove_fields={'wall_parameters'},
+                remove_validators={'wall_count'},
                 fields_custom=dict(
                     ceiling=ceiling_pydantic
                 )
