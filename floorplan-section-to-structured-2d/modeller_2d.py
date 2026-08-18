@@ -3148,7 +3148,7 @@ class FloorPlan2D(FloorPlan):
                 remove_fields_polygon_drywall.add("color_codes_stacked")
                 remove_fields_polygon_drywall.add("layers")
                 remove_validators_polygon_drywall.add("stacked_layers")
-            if payload_ceiling_drywall_attribute == "color" and payload_ceiling_drywall_value != [25, 25, 25]:
+            elif payload_ceiling_drywall_attribute == "color" and payload_ceiling_drywall_value != [25, 25, 25]:
                 remove_fields_polygon_drywall.add("color_code")
                 remove_validators_polygon_drywall.add("color_code")
             #elif payload_ceiling_drywall_attribute == "type_stacked" and payload_ceiling_drywall_value:
