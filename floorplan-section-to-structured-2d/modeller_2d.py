@@ -2308,7 +2308,7 @@ class FloorPlan2D(FloorPlan):
         polygon_preselected["type"] = predict_polygon["ceiling"]["ceiling_type"] if polygon_preselected["type"] == "--" else polygon_preselected["type"]
         polygon_preselected["height"] = predict_polygon["ceiling"]["height"] or height_default if polygon_preselected["height"] == -1 else polygon_preselected["height"]
         polygon_preselected["pitch"] = predict_polygon["ceiling"]["pitch"] if polygon_preselected["pitch"] == {"rise": -1, "run": -1} else polygon_preselected["pitch"]
-        polygon_preselected["slope_enabled"] = predict_polygon["ceiling"]["slope_enabled"] if not polygon_preselected["slope_enabled"] else polygon_preselected["slope_enabled"]
+        polygon_preselected["slope_enabled"] = predict_polygon["ceiling"]["slope_enabled"] if polygon_preselected["type"] == "--" else polygon_preselected["slope_enabled"]
         polygon_preselected["tilt_axis"] = predict_polygon["ceiling"]["tilt_axis"] if polygon_preselected["tilt_axis"] == '' else polygon_preselected["tilt_axis"]
         polygon_preselected["room_name"] = predict_polygon["ceiling"]["room_name"] if polygon_preselected["room_name"] == '' else polygon_preselected["room_name"]
         polygon_preselected["polygon_drywall"]["type"] = predict_polygon["ceiling"]["drywall_assembly"]["material"] if polygon_preselected["polygon_drywall"]["type"] == "--" else polygon_preselected["polygon_drywall"]["type"]
