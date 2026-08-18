@@ -3207,6 +3207,13 @@ class FloorPlan2D(FloorPlan):
             elif payload_ceiling_attribute == "tilt_axis" and payload_ceiling_value != '':
                 remove_fields_polygon.add("tilt_axis")
 
+        drywall_assembly_is_empty = is_schema_empty(drywall_assembly_ceiling_pydantic)
+        if drywall_assembly_is_empty:
+            return prune_model(
+                CeilingModelAndPredict,
+                remove_fields=remove_fields_polygon,
+                remove_validators=remove_validators_polygon,
+            )
         return prune_model(
             CeilingModelAndPredict,
             remove_fields=remove_fields_polygon,
@@ -3277,6 +3284,13 @@ class FloorPlan2D(FloorPlan):
             elif payload_wall_parameter_attribute == "openings" and payload_wall_parameter_value:
                 remove_fields_wall_parameter.add("openings")
 
+        drywall_assembly_is_empty = is_schema_empty(drywall_assembly_wall_pydantic)
+        if drywall_assembly_is_empty:
+            return prune_model(
+                WallParameterModelAndPredict,
+                remove_fields=remove_fields_wall_parameter,
+                remove_validators=remove_validators_wall_parameter,
+            )
         return prune_model(
             WallParameterModelAndPredict,
             remove_fields=remove_fields_wall_parameter,
@@ -3292,17 +3306,40 @@ class FloorPlan2D(FloorPlan):
     ):
         ceiling_pydantic = self._load_schema_ceiling_given_preselection(payload_ceiling_preselected)
         wall_parameters_pydantic = list()
+        wall_parameters_is_empty = True
         for payload_wall_parameter_preselected, payload_wall_drywall_preselected in zip(payload_wall_parameters_preselected, payload_wall_drywalls_preselected):
             wall_parameter_pydantic = self._load_schema_wall_parameter_given_preselection(payload_wall_parameter_preselected, payload_wall_drywall_preselected)
             wall_parameters_pydantic.append(wall_parameter_pydantic)
+            if not is_schema_empty(wall_parameter_pydantic):
+                wall_parameters_is_empty = False
 
-        polygon_detector_and_drywall_predictor_response = prune_model(
-            PolygonDetectorAndDrywallPredictorResponse,
-            fields_custom=dict(
-                ceiling=ceiling_pydantic,
-                wall_parameters=Tuple[*wall_parameters_pydantic]
+        ceiling_is_empty = is_schema_empty(ceiling_pydantic)
+        if ceiling_is_empty and wall_parameters_is_empty:
+            polygon_detector_and_drywall_predictor_response = prune_model(
+                PolygonDetectorAndDrywallPredictorResponse,
             )
-        )
+        elif ceiling_is_empty and not wall_parameters_is_empty:
+            polygon_detector_and_drywall_predictor_response = prune_model(
+                PolygonDetectorAndDrywallPredictorResponse,
+                fields_custom=dict(
+                    wall_parameters=Tuple[*wall_parameters_pydantic]
+                )
+            )
+        elif not ceiling_is_empty and wall_parameters_is_empty:
+            polygon_detector_and_drywall_predictor_response = prune_model(
+                PolygonDetectorAndDrywallPredictorResponse,
+                fields_custom=dict(
+                    ceiling=ceiling_pydantic
+                )
+            )
+        else:
+            polygon_detector_and_drywall_predictor_response = prune_model(
+                PolygonDetectorAndDrywallPredictorResponse,
+                fields_custom=dict(
+                    ceiling=ceiling_pydantic,
+                    wall_parameters=Tuple[*wall_parameters_pydantic]
+                )
+            )
         return polygon_detector_and_drywall_predictor_response, load_schema_pydantic(polygon_detector_and_drywall_predictor_response)
 
     def save_plot_2d(
