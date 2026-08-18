@@ -3183,6 +3183,7 @@ class FloorPlan2D(FloorPlan):
         remove_validators_polygon = set()
         if payload_ceiling_preselected["polygon_drywall"]["recommendation"] != '':
             remove_fields_polygon.add("recommendation")
+            remove_fields_polygon.add("code_references")
         for payload_ceiling_attribute, payload_ceiling_value in payload_ceiling_preselected.items():
             if payload_ceiling_attribute == "room_name" and payload_ceiling_value != '':
                 remove_fields_polygon.add("room_name")
@@ -3258,6 +3259,7 @@ class FloorPlan2D(FloorPlan):
             remove_fields_wall_parameter.add("room_name")
         if payload_wall_drywall_preselected["recommendation"] != '':
             remove_fields_wall_parameter.add("recommendation")
+            remove_fields_wall_parameter.add("code_references")
         for payload_wall_parameter_attribute, payload_wall_parameter_value in payload_wall_parameter_preselected.items():
             if payload_wall_parameter_attribute == "length" and payload_wall_parameter_value != -1:
                 remove_fields_wall_parameter.add("length")
