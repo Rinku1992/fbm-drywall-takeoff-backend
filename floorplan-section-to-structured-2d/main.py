@@ -233,7 +233,7 @@ async def floorplan_to_structured_2d_sectioned(
         logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} and SECTION: {page_section_number} Generated Successfully")
     else:
         logging.warning(f"SYSTEM: Architectural Scale not detected for PAGE: {page_number} and SECTION: {page_section_number}. Waiting for Architectural Scale input from the user")
-    return floor_plan_modeller_2d.is_scale_detected, dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata), floor_plan_modeller_2d.normalize_scale(floor_plan_modeller_2d.scale)
+    return floor_plan_modeller_2d.is_scale_detected
 
 
 async def floorplan_to_page(credentials, pg_pool, project_id, plan_id, user_id, pdf_path, page_number, maximum_dpi, minimum_dpi):
@@ -398,7 +398,7 @@ async def floorplan_section_to_structured_2d(request: Request):
     await update_status(CREDENTIALS, pg_pool, f"DETECTING GEOMETRY IN SECTION: `{bounding_box_offset["title"]}`", project_id, plan_id, user_id, page_number)
     floor_plan_modeller_2d = FloorPlan2D(CREDENTIALS, hyperparameters, DRYWALL_TEMPLATES, project_address)
     floor_plan_modeller_2d.from_vertex_ai_clients(*vertex_ai_clients)
-    is_scale_detected, _, _ = await floorplan_to_structured_2d_sectioned(
+    is_scale_detected = await floorplan_to_structured_2d_sectioned(
         CREDENTIALS,
         pg_pool,
         session_uuid,
