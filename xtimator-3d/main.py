@@ -1475,7 +1475,7 @@ async def floorplan_to_2d(request: Request):
         prompts=[VISUAL_GROUNDING_DETECTOR]
     )
     elevatio_map = None
-    if not (model and not predict):
+    if predict:
         elevation_map = await map_floorplan_to_multipage_elevation(
             CREDENTIALS,
             pg_pool,
@@ -1519,7 +1519,9 @@ async def floorplan_to_2d(request: Request):
                 if index != 0 and index % 25 == 0:
                     await asyncio.sleep(120)
                 id_token = load_floorplan_to_structured_2d_ID_token(CREDENTIALS)
-                elevation_pages = load_elevation_map(elevation_map, page_number)
+                elevation_pages = list()
+                if predict:
+                    elevation_pages = load_elevation_map(elevation_map, page_number)
                 if not page_metadata.get("architectural_scale"):
                     query = f"SELECT scale FROM {CREDENTIALS["CloudSQL"]["table_name_models"]} WHERE LOWER(project_id) = LOWER(%s) AND LOWER(plan_id) = LOWER(%s) AND page_number = %s"
                     architectural_scales = await run_in_threadpool(partial(pg_run, CREDENTIALS, pg_pool, query, params=(project_id, plan_id, page_number,), fetch=True))
