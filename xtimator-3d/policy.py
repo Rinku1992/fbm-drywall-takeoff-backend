@@ -92,16 +92,30 @@ class AccessControlService:
                 WHERE LOWER(u.user_email) = LOWER(%s)
             ),
 
+            user_region_groups AS (
+                SELECT DISTINCT
+                    g.group_id
+                FROM {self._credentials["CloudSQL"]["table_name_groups"]} g
+                JOIN {self._credentials["CloudSQL"]["table_name_group_keys"]} gk
+                    ON gk.group_key_id = g.group_key_id
+                JOIN {self._credentials["CloudSQL"]["table_name_group_entities"]} ge
+                    ON ge.group_id = g.group_id
+                WHERE LOWER(gk.group_key_name) = 'region'
+            ),
+
             visible_regions AS (
-                SELECT DISTINCT ur.region_id
-                FROM {self._credentials["CloudSQL"]["table_name_user_regions"]} ur
+                SELECT DISTINCT
+                    ge.region_id
+                FROM {self._credentials["CloudSQL"]["table_name_group_entities"]} ge
+                JOIN user_region_groups urg
+                    ON urg.group_id = ge.group_id
                 JOIN {self._credentials["CloudSQL"]["table_name_organization_regions"]} ogr
-                    ON ogr.region_id = ur.region_id JOIN users u on u.user_id = ur.user_id
-                WHERE LOWER(u.user_email) = LOWER(%s)
-                    AND ogr.organization_id IN (
-                        SELECT organization_id
-                        FROM visible_organizations
-                    )
+                    ON ogr.region_id = ge.region_id
+                WHERE ge.region_id IS NOT NULL
+                  AND ogr.organization_id IN (
+                      SELECT organization_id
+                      FROM visible_organizations
+                  )
             )
 
             SELECT DISTINCT
@@ -109,13 +123,15 @@ class AccessControlService:
             FROM {self._credentials["CloudSQL"]["table_name_users"]} u
             JOIN {self._credentials["CloudSQL"]["table_name_user_regions"]} ur
                 ON ur.user_id = u.user_id
-            WHERE ur.region_id IN (
-                SELECT region_id
-                FROM visible_regions
-            ) AND u.organization_id IN (select organization_id from visible_organizations)
+            JOIN visible_regions vr
+                ON vr.region_id = ur.region_id
+            WHERE u.organization_id IN (
+                SELECT organization_id
+                FROM visible_organizations
+            )
             ORDER BY u.user_email;
         """
-        visible_users = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id, user_id, user_id,), fetch=True))
+        visible_users = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id, user_id,), fetch=True))
         visible_users = [visible_user["user_email"].lower() for visible_user in visible_users]
         if visible_users:
             return visible_users
