@@ -210,8 +210,8 @@ async def floorplan_to_structured_2d_sectioned(
                 credentials,
                 model_2d=dict(walls_2d=list(), polygons=list(), metadata=metadata),
                 layout_2d=dict(walls_2d=walls_2d_layout, polygons=polygons_layout, metadata=metadata),
-                insert_model=model,
-                insert_layout=predict,
+                insert_model=insert_model,
+                insert_layout=insert_layout,
             )
         elif not model and predict:
             await insert_model_2d(
@@ -227,8 +227,8 @@ async def floorplan_to_structured_2d_sectioned(
                 credentials,
                 model_2d=dict(walls_2d=walls_2d, polygons=polygons, metadata=metadata),
                 layout_2d=dict(walls_2d=list(), polygons=list(), metadata=metadata),
-                insert_model=model,
-                insert_layout=predict,
+                insert_model=insert_model,
+                insert_layout=insert_layout,
             )
     if floor_plan_modeller_2d.is_scale_detected:
         logging.info(f"SYSTEM: A 2D Model of the Floorplan from PAGE: {page_number} and SECTION: {page_section_number} Generated Successfully")
