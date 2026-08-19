@@ -2315,7 +2315,7 @@ class FloorPlan2D(FloorPlan):
         polygon_preselected["polygon_drywall"]["layers"] = predict_polygon["ceiling"]["drywall_assembly"]["layers"] if polygon_preselected["polygon_drywall"]["layers"] == -1 else polygon_preselected["polygon_drywall"]["layers"]
         polygon_preselected["polygon_drywall"]["fire_rating"] = predict_polygon["ceiling"]["drywall_assembly"]["fire_rating"] if polygon_preselected["polygon_drywall"]["fire_rating"] == -1 else polygon_preselected["polygon_drywall"]["fire_rating"]
         polygon_preselected["polygon_drywall"]["recommendation"] = predict_polygon["ceiling"]["recommendation"] if polygon_preselected["polygon_drywall"]["recommendation"] == '' else polygon_preselected["polygon_drywall"]["recommendation"]
-        polygon_preselected["polygon_drywall"]["waste_factor"] = predict_polygon["ceiling"]["waste_factor"] if polygon_preselected["polygon_drywall"]["waste_factor"] == -1 else polygon_preselected["polygon_drywall"]["waste_factor"] 
+        polygon_preselected["polygon_drywall"]["waste_factor"] = predict_polygon["ceiling"]["drywall_assembly"]["waste_factor"] if polygon_preselected["polygon_drywall"]["waste_factor"] == -1 else polygon_preselected["polygon_drywall"]["waste_factor"] 
         polygon_preselected["polygon_drywall"]["enabled"] = True
 
     def _add_wall_perimeter(
