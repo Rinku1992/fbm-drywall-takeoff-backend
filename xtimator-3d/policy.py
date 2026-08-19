@@ -240,6 +240,52 @@ class AccessControlService:
             return visible_users
         return [user_id]
 
+    async def load_grouped_users_partner_organizations(self, user_id):
+        query = f"""
+            WITH partner_organizations AS (
+                SELECT up.organization_id
+                FROM user_partner_organizations up JOIN users u ON up.user_id = u.user_id
+                WHERE LOWER(u.user_email) = LOWER(%s)
+            ),
+
+            user_groups AS (
+                SELECT DISTINCT
+                    g.group_id
+                FROM groups g
+                JOIN group_keys gk
+                    ON gk.group_key_id = g.group_key_id
+                JOIN group_entities ge
+                    ON ge.group_id = g.group_id
+                WHERE ge.user_id = (SELECT user_id from users WHERE LOWER(user_email) = LOWER(%s))
+                  AND LOWER(gk.group_key_name) = 'user_email'
+            ),
+
+            grouped_users AS (
+                SELECT DISTINCT
+                    ge.user_id
+                FROM group_entities ge
+                JOIN user_groups ug
+                    ON ug.group_id = ge.group_id
+                WHERE ge.user_id IS NOT NULL
+            )
+
+            SELECT DISTINCT
+                u.user_email AS user_email
+            FROM users u
+            JOIN grouped_users gu
+                ON gu.user_id = u.user_id
+            WHERE u.organization_id IN (
+                SELECT organization_id
+                FROM partner_organizations
+            )
+            ORDER BY u.user_email;
+        """
+        partner_users = await run_in_threadpool(partial(pg_run, self._credentials, self._pg_pool, query, params=(user_id, user_id,), fetch=True))
+        partner_users = [partner_user["user_email"].lower() for partner_user in partner_users]
+        if partner_users:
+            return partner_users
+        return [user_id]
+
     async def load_user_region_names(self, user_id):
         query = f"""
             SELECT
