@@ -3655,6 +3655,33 @@ async def email_support_center(request: Request):
     logging.info("SYSTEM: Support email forwarded")
 
 
+@app.post("/load_user_scope")
+async def load_user_scope(request: Request):
+    enable_logging_on_stdout()
+    parameters = dict(request.query_params)
+    try:
+        body = await request.json()
+    except Exception:
+        body = dict()
+    project_id = parameters.get("project_id") or body.get("project_id")
+    user_id = parameters.get("user_id") or body.get("user_id")
+    plan_id = parameters.get("plan_id") or body.get("plan_id")
+    page_number = parameters.get("page_number") or body.get("page_number")
+    logging.info("SYSTEM: Received a User Scope load Request")
+    is_user_not_authenticated = await is_authenticated(CREDENTIALS, pg_pool, request, user_id=user_id)
+    if is_user_not_authenticated:
+        logging.warning(f"SYSTEM: User: {user_id} is not authorized to access Drywall application")
+        return respond_with_UI_payload(is_user_not_authenticated)
+    user_scope = await access_control.load_scope(user_id, project_id, plan_id, page_number)
+    if not user_scope.update:
+         return respond_with_UI_payload(dict(
+             read=user_scope.read,
+             write=user_scope.write,
+             update=user_scope.update,
+             delete=user_scope.delete,
+         ))
+
+
 from typing import Optional
 from helper import phoenix_call
 from vertexai.generative_models import Part, Content
