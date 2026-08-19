@@ -167,7 +167,7 @@ class AccessControlService:
                 WHERE ge.region_id IS NOT NULL
                   AND ogr.organization_id IN (
                       SELECT organization_id
-                      FROM visible_organizations
+                      FROM partner_organizations
                   )
             )
 
