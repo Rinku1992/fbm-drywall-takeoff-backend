@@ -387,15 +387,34 @@ CREATE TABLE group_keys (
 ```sql
 CREATE TABLE groups (
     group_id SERIAL PRIMARY KEY,
-    group_key_id INT REFERENCES group_keys(group_key_id) ON DELETE CASCADE,
+    group_name VARCHAR(255) NOT NULL UNIQUE,
+    group_key_id INT NOT NULL
+        REFERENCES group_keys(group_key_id)
+        ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+22. <b><i>group_entities</i></b>
+```sql
+CREATE TABLE group_entities (
+    group_entity_id SERIAL PRIMARY KEY,
+
+    group_id INT NOT NULL
+        REFERENCES groups(group_id)
+        ON DELETE CASCADE,
+
     user_id INT
-        REFERENCES users(user_id),
+        REFERENCES users(user_id)
+        ON DELETE CASCADE,
 
     role_id INT
-        REFERENCES roles(role_id),
+        REFERENCES roles(role_id)
+        ON DELETE CASCADE,
 
     region_id INT
-        REFERENCES regions(region_id),
+        REFERENCES regions(region_id)
+        ON DELETE CASCADE,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
