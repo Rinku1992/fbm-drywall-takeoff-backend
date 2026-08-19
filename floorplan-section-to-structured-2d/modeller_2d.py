@@ -1723,6 +1723,7 @@ class FloorPlan2D(FloorPlan):
             Part.from_text(json.dumps(polygon)),
             Part.from_data(data=bytes_canvas, mime_type="image/png"),
         ]+parts_elevations+[Part.from_text(json.dumps(dict(output_schema=output_schema_custom)))])
+        wall_parameters_enabled = 'wall_parameters' in polygon_detector_and_drywall_predictor_custom_response.model_fields.keys()
 
         try:
             if self._is_cached["POLYGON_DETECTOR_AND_DRYWALL_PREDICTOR_CUSTOM"]:
@@ -1734,7 +1735,7 @@ class FloorPlan2D(FloorPlan):
                     self._llm_rate_limiter,
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
                     pydantic_model=polygon_detector_and_drywall_predictor_custom_response,
-                    verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
+                    verify_field_counts=dict(wall_parameters=len(perimeter_lines)) if wall_parameters_enabled else None,
                 )
             else:
                 _, predict_polygon = phoenix_call(
@@ -1745,7 +1746,7 @@ class FloorPlan2D(FloorPlan):
                     self._llm_rate_limiter,
                     max_retry=self._credentials["VertexAI"]["llm"]["max_retry"],
                     pydantic_model=polygon_detector_and_drywall_predictor_custom_response,
-                    verify_field_counts=dict(wall_parameters=len(perimeter_lines)),
+                    verify_field_counts=dict(wall_parameters=len(perimeter_lines)) if wall_parameters_enabled else None,
                 )
             if predict_polygon.get("ceiling") and predict_polygon["ceiling"].get("area"): 
                 predict_polygon["ceiling"]["area"] = round(area_target, 3)
