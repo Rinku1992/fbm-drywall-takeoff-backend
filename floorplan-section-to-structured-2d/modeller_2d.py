@@ -1381,15 +1381,6 @@ class FloorPlan2D(FloorPlan):
         cv2.line(canvas_to_overlay, (X1, Y1), (X2, Y2), (0, 0, 255), 2)
         canvas = cv2.addWeighted(canvas_to_overlay, 0.7, canvas, 0.3, 0)
 
-        #from google.cloud.storage import Client as CloudStorageClient
-        #client = CloudStorageClient()
-        #plan_path = f"/tmp/wall_valid_{np.random.randint(999)}.png"
-        #cv2.imwrite(plan_path, canvas)
-        #bucket = client.bucket(self._credentials["CloudStorage"]["bucket_name"])
-        #blob_path = f"tmp/wall/{Path(plan_path).name}"
-        #blob = bucket.blob(blob_path)
-        #blob.upload_from_filename(plan_path)
-
         _, canvas_buffer_array = cv2.imencode(".png", canvas)
         bytes_canvas = canvas_buffer_array.tobytes()
         wall_line_structured = dict(wall=dict(X1=int(X1), Y1=int(Y1), X2=int(X2), Y2=int(Y2)))
@@ -3156,14 +3147,6 @@ class FloorPlan2D(FloorPlan):
             elif payload_ceiling_drywall_attribute == "color" and payload_ceiling_drywall_value != [25, 25, 25]:
                 remove_fields_polygon_drywall.add("color_code")
                 remove_validators_polygon_drywall.add("color_code")
-            #elif payload_ceiling_drywall_attribute == "type_stacked" and payload_ceiling_drywall_value:
-            #    remove_fields_polygon_drywall.add("materials_vertically_stacked")
-            #    remove_fields_polygon_drywall.add("material")
-            #    remove_validators_polygon_drywall.add("stacked_layers")
-            #elif payload_ceiling_drywall_attribute == "color_stacked" and payload_ceiling_drywall_value:
-            #    remove_fields_polygon_drywall.add("color_codes_stacked")
-            #    remove_fields_polygon_drywall.add("layers")
-            #    remove_validators_polygon_drywall.add("stacked_layers")
             elif payload_ceiling_drywall_attribute == "thickness" and payload_ceiling_drywall_value != -1:
                 remove_fields_polygon_drywall.add("thickness")
                 remove_validators_polygon_drywall.add("thickness")
@@ -3173,8 +3156,6 @@ class FloorPlan2D(FloorPlan):
                 remove_fields_polygon_drywall.add("fire_rating")
             elif payload_ceiling_drywall_attribute == "waste_factor" and payload_ceiling_drywall_value != -1:
                 remove_fields_polygon_drywall.add("waste_factor")
-        print(remove_fields_polygon_drywall)
-        print(remove_validators_polygon_drywall)
 
         return prune_model(
             DrywallAssemblyCeiling,
@@ -3186,10 +3167,6 @@ class FloorPlan2D(FloorPlan):
         drywall_assembly_ceiling_pydantic = self._load_schema_ceiling_drywall_assembly_given_preselection(
             payload_ceiling_preselected["polygon_drywall"]
         )
-        print(payload_ceiling_preselected)
-        print("##")
-        print(load_schema_pydantic(drywall_assembly_ceiling_pydantic))
-        print("##")
         remove_fields_polygon = set()
         remove_validators_polygon = set()
         remove_fields_polygon.add("drywall_assembly")
@@ -3216,7 +3193,6 @@ class FloorPlan2D(FloorPlan):
                 remove_fields_polygon.add("tilt_axis")
 
         drywall_assembly_is_empty = is_schema_empty(drywall_assembly_ceiling_pydantic)
-        print(drywall_assembly_is_empty)
         if drywall_assembly_is_empty:
             return prune_model(
                 CeilingModelAndPredict,
@@ -3247,14 +3223,6 @@ class FloorPlan2D(FloorPlan):
             elif payload_wall_drywall_attribute == "color" and payload_wall_drywall_value != [0, 0, 0]:
                 remove_fields_wall_drywall.add("color_code")
                 remove_validators_wall_drywall.add("color_code")
-            #elif payload_wall_drywall_attribute == "type_stacked" and payload_wall_drywall_value:
-            #    remove_fields_wall_drywall.add("materials_vertically_stacked")
-            #    remove_validators_wall_drywall.add("stack_count")
-            #elif payload_wall_drywall_attribute == "color_stacked" and payload_wall_drywall_value:
-            #    remove_fields_wall_drywall.add("color_codes_stacked")
-            #    remove_validators_wall_drywall.add("stack_count")
-            #elif payload_wall_drywall_attribute == "height_stacked" and payload_wall_drywall_value:
-            #    remove_fields_wall_drywall.add("heights_stacked")
             elif payload_wall_drywall_attribute == "thickness" and payload_wall_drywall_value != -1:
                 remove_fields_wall_drywall.add("thickness")
                 remove_validators_wall_drywall.add("thickness")
@@ -3315,7 +3283,6 @@ class FloorPlan2D(FloorPlan):
         payload_wall_drywalls_preselected
     ):
         ceiling_pydantic = self._load_schema_ceiling_given_preselection(payload_ceiling_preselected)
-        print(load_schema_pydantic(ceiling_pydantic))
         wall_parameters_pydantic = list()
         wall_parameters_is_empty = True
         for payload_wall_parameter_preselected, payload_wall_drywall_preselected in zip(payload_wall_parameters_preselected, payload_wall_drywalls_preselected):
@@ -3325,8 +3292,6 @@ class FloorPlan2D(FloorPlan):
                 wall_parameters_is_empty = False
 
         ceiling_is_empty = is_schema_empty(ceiling_pydantic)
-        print(ceiling_is_empty)
-        print(wall_parameters_is_empty)
         if ceiling_is_empty and wall_parameters_is_empty:
             polygon_detector_and_drywall_predictor_response = prune_model(
                 PolygonDetectorAndDrywallPredictorResponse,
@@ -3760,8 +3725,6 @@ class FloorPlan2D(FloorPlan):
                     [load_wall_polygon_drywall_payload(drywall_id) for drywall_id in polygon["polygon_ids_drywall_interior"]],
                 )
                 is_empty = is_schema_empty(polygon_detector_and_drywall_predictor_response)
-                print(output_schema_custom)
-                print(is_empty)
                 futures.append(executor.submit(
                     self._add_walls_polygon_given_preselection,
                     polygon,
