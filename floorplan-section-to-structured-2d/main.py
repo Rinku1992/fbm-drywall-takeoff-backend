@@ -120,7 +120,6 @@ async def floorplan_to_structured_2d_sectioned(
         walls_2d_layout, polygons_layout, _, external_contour = floor_plan_modeller_2d.model(
             bounding_box_offset_marginalized,
             image_path=wall_segmented_sectioned_path,
-            elevation_paths=elevation_processed_paths,
             model_2d_path=f"/tmp/{project_id}/{plan_id}/{user_id}/walls_2d_{str(page_number).zfill(4)}_{str(page_section_number).replace('/', '_')}.json",
             floor_plan_path=floor_plan_processed_path,
             transcription_block_with_centroids=transcription_block_with_centroids,
@@ -354,7 +353,9 @@ async def floorplan_section_to_structured_2d(request: Request):
             hyperparameters["modelling"]["scale_adoption"]["dpi"]["minimum"]
         )
         hyperparameters["modelling"]["scale_adoption"]["dpi"]["in_use"] = dpi_in_use
-        elevation_processed_paths = load_elevation_pages(pdf_path, elevation_pages)
+        elevation_processed_paths = list()
+        if predict:
+            elevation_processed_paths = load_elevation_pages(pdf_path, elevation_pages)
     except Exception as e:
         future = publish_handler(
             dict(
