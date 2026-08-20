@@ -208,7 +208,7 @@ class AccessControlService:
                 FROM {self._credentials["CloudSQL"]["table_name_groups"]} g
                 JOIN {self._credentials["CloudSQL"]["table_name_group_keys"]} gk
                     ON gk.group_key_id = g.group_key_id
-                JOIN group_entities ge
+                JOIN {self._credentials["CloudSQL"]["table_name_group_entities"]} ge
                     ON ge.group_id = g.group_id
                 WHERE ge.user_id = (SELECT user_id from users WHERE LOWER(user_email) = LOWER(%s))
                   AND LOWER(gk.group_key_name) = 'user_email'
@@ -225,7 +225,7 @@ class AccessControlService:
 
             SELECT DISTINCT
                 u.user_email AS user_email
-            FROM users u
+            FROM {self._credentials["CloudSQL"]["table_name_users"]} u
             JOIN grouped_users gu
                 ON gu.user_id = u.user_id
             WHERE u.organization_id IN (
@@ -244,17 +244,17 @@ class AccessControlService:
         query = f"""
             WITH partner_organizations AS (
                 SELECT up.organization_id
-                FROM user_partner_organizations up JOIN users u ON up.user_id = u.user_id
+                FROM {self._credentials["CloudSQL"]["table_name_user_partner_organizations"]} up JOIN {self._credentials["CloudSQL"]["table_name_users"]} u ON up.user_id = u.user_id
                 WHERE LOWER(u.user_email) = LOWER(%s)
             ),
 
             user_groups AS (
                 SELECT DISTINCT
                     g.group_id
-                FROM groups g
-                JOIN group_keys gk
+                FROM {self._credentials["CloudSQL"]["table_name_groups"]} g
+                JOIN {self._credentials["CloudSQL"]["table_name_group_keys"]} gk
                     ON gk.group_key_id = g.group_key_id
-                JOIN group_entities ge
+                JOIN {self._credentials["CloudSQL"]["table_name_group_entities"]} ge
                     ON ge.group_id = g.group_id
                 WHERE ge.user_id = (SELECT user_id from users WHERE LOWER(user_email) = LOWER(%s))
                   AND LOWER(gk.group_key_name) = 'user_email'
@@ -263,7 +263,7 @@ class AccessControlService:
             grouped_users AS (
                 SELECT DISTINCT
                     ge.user_id
-                FROM group_entities ge
+                FROM {self._credentials["CloudSQL"]["table_name_group_entities"]} ge
                 JOIN user_groups ug
                     ON ug.group_id = ge.group_id
                 WHERE ge.user_id IS NOT NULL
@@ -271,7 +271,7 @@ class AccessControlService:
 
             SELECT DISTINCT
                 u.user_email AS user_email
-            FROM users u
+            FROM {self._credentials["CloudSQL"]["table_name_users"]} u
             JOIN grouped_users gu
                 ON gu.user_id = u.user_id
             WHERE u.organization_id IN (
