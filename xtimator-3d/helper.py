@@ -644,7 +644,7 @@ def load_vertex_ai_client(credentials, ip_address, prompts=None, default_region=
         system_instruction=system_instruction
     )
     is_cached = False
-    if prompts and GenerativeModel(credentials["VertexAI"]["llm"]["model_name"]).count_tokens(prompts).total_tokens >= 1024:
+    if prompts and GenerativeModel(credentials["VertexAI"]["llm"]["model_name"]).count_tokens(prompts).total_tokens >= 4096:
         is_cached = True
         n_iterations = 0
         while n_iterations < max_retry:
